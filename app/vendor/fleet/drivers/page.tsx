@@ -18,11 +18,12 @@ function cx(...classes: Array<string | false | null | undefined>) {
 
 /** Derive allowed driver types from the link's service flags */
 function getDriverTypes(link: { serves_chauffeur?: boolean; serves_shuttle?: boolean } | null): string[] {
-    if (!link) return ["CHAUFFEUR", "SHUTTLE"];
+    if (!link) return ["CHAUFFEUR", "SHUTTLE", "BOTH"];
     const types: string[] = [];
     if (link.serves_chauffeur) types.push("CHAUFFEUR");
     if (link.serves_shuttle) types.push("SHUTTLE");
-    return types.length > 0 ? types : ["CHAUFFEUR", "SHUTTLE"];
+    if (link.serves_chauffeur && link.serves_shuttle) types.push("BOTH");
+    return types.length > 0 ? types : ["CHAUFFEUR", "SHUTTLE", "BOTH"];
 }
 
 export default function VendorDriversPage() {
@@ -156,7 +157,7 @@ export default function VendorDriversPage() {
                                     <select value={form.driver_type} onChange={(e) => setForm((f) => ({ ...f, driver_type: e.target.value }))} className={inputCls}>
                                         {availableDriverTypes.map((t) => (
                                             <option key={t} value={t}>
-                                                {t === "CHAUFFEUR" ? "Chauffeur" : t === "SHUTTLE" ? "Shuttle / Bus Driver" : t}
+                                                {t === "CHAUFFEUR" ? "Chauffeur" : t === "SHUTTLE" ? "Shuttle / Bus Driver" : t === "BOTH" ? "Both (shuttle + chauffeur)" : t}
                                             </option>
                                         ))}
                                     </select>

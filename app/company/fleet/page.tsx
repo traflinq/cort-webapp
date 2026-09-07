@@ -8,7 +8,7 @@ import { useAppSelector } from "../../lib/store/hooks";
 import { selectCompany } from "../../lib/store/slices/companySlice";
 import { useAuth } from "../../lib/contexts/auth-context";
 import type { TrialModules } from "../../lib/types/auth-types";
-import { apiClient } from "../../lib/services/api-client";
+import { apiClient, canServeChauffeur, canServeShuttle } from "../../lib/services/api-client";
 import { CompanyFeature, PoolVehicle, PoolDriver } from "../../lib/services/types/multi-mode";
 import { VehicleCategory } from "../../lib/services/types/vehicles";
 import { toast } from "sonner";
@@ -133,7 +133,7 @@ export default function CompanyFleetPage() {
         phone: "",
         cnic_number: "",
         license_number: "",
-        driver_type: "CHAUFFEUR" as "CHAUFFEUR" | "SHUTTLE",
+        driver_type: "CHAUFFEUR" as "CHAUFFEUR" | "SHUTTLE" | "BOTH",
     });
     const [driverSaving, setDriverSaving] = useState(false);
 
@@ -143,8 +143,8 @@ export default function CompanyFleetPage() {
     const [generating, setGenerating] = useState(false);
 
     const atVehicleLimit = isTrialUser && vehicles.length >= (trialHasPool(trialModules) && trialHasShuttle(trialModules) ? 2 : 1);
-    const chauffeurDriverCount = drivers.filter((d) => d.driver_type === "CHAUFFEUR").length;
-    const shuttleDriverCount = drivers.filter((d) => d.driver_type === "SHUTTLE").length;
+    const chauffeurDriverCount = drivers.filter((d) => canServeChauffeur(d.driver_type)).length;
+    const shuttleDriverCount = drivers.filter((d) => canServeShuttle(d.driver_type)).length;
     const atChauffeurDriverLimit = isTrialUser && trialHasPool(trialModules) && chauffeurDriverCount >= 1;
     const atShuttleDriverLimit = isTrialUser && trialHasShuttle(trialModules) && shuttleDriverCount >= 1;
 
@@ -153,7 +153,7 @@ export default function CompanyFleetPage() {
     const showFleet = isChauffeurFleetEnabled || isShuttleFleetEnabled || isTrialUser;
     const showShuttleSeatCapacity = isShuttleFleetEnabled || (isTrialUser && trialHasShuttle(trialModules));
 
-    const defaultDriverType = (): "CHAUFFEUR" | "SHUTTLE" => {
+    const defaultDriverType = (): "CHAUFFEUR" | "SHUTTLE" | "BOTH" => {
         if (isShuttleFleetEnabled && !isChauffeurFleetEnabled) return "SHUTTLE";
         if (trialHasShuttle(trialModules) && !trialHasPool(trialModules)) return "SHUTTLE";
         return "CHAUFFEUR";
@@ -672,7 +672,11 @@ export default function CompanyFleetPage() {
                             <div className="text-center text-sm text-[var(--text-muted)]">
                                 {t("driverInvitedAs", {
                                     name: driverCreatedCredentials.full_name,
-                                    type: driverCreatedCredentials.driver_type === "SHUTTLE" ? t("driverTypeShuttle") : t("driverTypeChauffeur"),
+                                    type: driverCreatedCredentials.driver_type === "SHUTTLE"
+                                        ? t("driverTypeShuttle")
+                                        : driverCreatedCredentials.driver_type === "BOTH"
+                                            ? t("driverTypeBoth")
+                                            : t("driverTypeChauffeur"),
                                 })}
                             </div>
                             <AccountCredentialsReveal
@@ -694,11 +698,12 @@ export default function CompanyFleetPage() {
                                     <select
                                         required
                                         value={driverForm.driver_type}
-                                        onChange={(e) => setDriverForm((f) => ({ ...f, driver_type: e.target.value as "CHAUFFEUR" | "SHUTTLE" }))}
+                                        onChange={(e) => setDriverForm((f) => ({ ...f, driver_type: e.target.value as "CHAUFFEUR" | "SHUTTLE" | "BOTH" }))}
                                         className={inputCls}
                                     >
                                         <option value="CHAUFFEUR" disabled={atChauffeurDriverLimit}>{t("driverTypeChauffeur")}</option>
                                         <option value="SHUTTLE" disabled={atShuttleDriverLimit}>{t("driverTypeShuttle")}</option>
+                                        <option value="BOTH" disabled={atChauffeurDriverLimit || atShuttleDriverLimit}>{t("driverTypeBoth")}</option>
                                     </select>
                                 </Field>
                             ) : null}

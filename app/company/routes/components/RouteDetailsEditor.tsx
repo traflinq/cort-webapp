@@ -6,7 +6,7 @@ import { Car, Edit, Save, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/app/admin/ui/Button";
 import { Card } from "../../components/DashboardComponents";
-import { apiClient } from "../../../lib/services/api-client";
+import { apiClient, canServeShuttle } from "../../../lib/services/api-client";
 import { PoolDriver, PoolVehicle } from "../../../lib/services/types/multi-mode";
 
 type RouteDetailsEditorProps = {
@@ -65,7 +65,7 @@ export function RouteDetailsEditor({
     ])
       .then(([vehicleRes, driverRes]) => {
         setVehicles(vehicleRes.data);
-        setDrivers(driverRes.data.filter((d) => d.driver_type === "SHUTTLE"));
+        setDrivers(driverRes.data.filter((d) => canServeShuttle(d.driver_type)));
       })
       .catch(() => toast.error(t("failedLoadFleetOptions")));
   }, [editing, companyId, t]);

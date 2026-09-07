@@ -334,6 +334,9 @@ export function BookingDetailModal({
                         {availableDrivers.map((driver) => (
                           <option key={driver.id} value={driver.id}>
                             {driver.full_name} ({displayDriverEmail(driver.email)})
+                            {driver.drivers_profile?.driver_type
+                              ? ` · ${driver.drivers_profile.driver_type}`
+                              : ""}
                           </option>
                         ))}
                       </select>

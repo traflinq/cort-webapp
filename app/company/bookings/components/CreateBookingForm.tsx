@@ -12,7 +12,7 @@ import { useGooglePlacesAutocomplete } from "../../../hooks/useGooglePlacesAutoc
 import { AutocompleteInput } from "../../../components/AutocompleteInput";
 import { pakistaniCars } from "../../../lib/data/pakistaniCars";
 import { pakistaniCities } from "../../../lib/data/pakistaniCities";
-import { apiClient } from "../../../lib/services/api-client";
+import { apiClient, canServeChauffeur } from "../../../lib/services/api-client";
 import { selectContract } from "../../../lib/store/slices/contractSlice";
 import OutstationEstimatePanel from "./OutstationEstimatePanel";
 import { PoolVehicle, PoolDriver, CompanyVendorLink, VendorVehicle } from "../../../lib/services/types/multi-mode";
@@ -638,7 +638,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                     >
                                         <option value="">{t("selectDriverOption")}</option>
                                         {poolDrivers
-                                            .filter((d) => d.driver_type === "CHAUFFEUR" && d.users.status === "ACTIVE")
+                                            .filter((d) => canServeChauffeur(d.driver_type) && d.users.status === "ACTIVE")
                                             .map((d) => (
                                             <option key={d.user_id} value={d.user_id}>{d.users.full_name}</option>
                                         ))}

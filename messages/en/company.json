@@ -653,6 +653,7 @@
       "driverTypeLabel": "Driver type *",
       "driverTypeChauffeur": "Chauffeur (bookings)",
       "driverTypeShuttle": "Shuttle (routes)",
+      "driverTypeBoth": "Both (shuttle + chauffeur)",
       "driverCreatedTitle": "Driver Created",
       "driverInvitedAs": "{name} has been invited as a {type} driver."
     },

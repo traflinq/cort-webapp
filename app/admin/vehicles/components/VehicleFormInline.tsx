@@ -380,6 +380,7 @@ export const VehicleFormInline = memo(function VehicleFormInline({
                             <option value="">Select Driver Type</option>
                             <option value="CHAUFFEUR">CHAUFFEUR</option>
                             <option value="SHUTTLE">SHUTTLE</option>
+                            <option value="BOTH">BOTH (shuttle + chauffeur)</option>
                         </select>
                     </div>
 

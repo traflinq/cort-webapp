@@ -653,6 +653,7 @@
       "driverTypeLabel": "نوع السائق *",
       "driverTypeChauffeur": "سائق خاص (حجوزات)",
       "driverTypeShuttle": "نقل (مسارات)",
+      "driverTypeBoth": "كلاهما (نقل + سائق خاص)",
       "driverCreatedTitle": "تم إنشاء السائق",
       "driverInvitedAs": "تمت دعوة {name} كسائق {type}."
     },

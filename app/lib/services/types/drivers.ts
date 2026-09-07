@@ -1,6 +1,15 @@
 export enum DriverType {
     SHUTTLE = 'SHUTTLE',
     CHAUFFEUR = 'CHAUFFEUR',
+    BOTH = 'BOTH',
+}
+
+export function canServeShuttle(type: DriverType | string | null | undefined): boolean {
+    return type === DriverType.SHUTTLE || type === DriverType.BOTH;
+}
+
+export function canServeChauffeur(type: DriverType | string | null | undefined): boolean {
+    return type === DriverType.CHAUFFEUR || type === DriverType.BOTH;
 }
 
 export enum DriverStatus {

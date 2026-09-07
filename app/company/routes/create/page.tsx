@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
 import { selectCompany, fetchCompanyFeatures, selectCompanyFeatures, selectCompanyFeaturesStatus } from "../../../lib/store/slices/companySlice";
 import { useAuth } from "../../../lib/contexts/auth-context";
-import { apiClient } from "../../../lib/services/api-client";
+import { apiClient, canServeShuttle } from "../../../lib/services/api-client";
 import { PoolDriver, PoolVehicle } from "../../../lib/services/types/multi-mode";
 import StopAddressSearch from "@/app/admin/ui/StopAddressSearch";
 import type { MapMarker, MapPolyline } from "@/app/admin/ui/Map";
@@ -86,7 +86,7 @@ export default function CompanyCreateRoutePage() {
         if (!companyId) return;
         apiClient.getPoolVehicles(companyId).then((r) => setVehicles(r.data)).catch(() => {});
         apiClient.getPoolDrivers(companyId).then((r) => {
-            setDrivers(r.data.filter((d) => d.driver_type === "SHUTTLE"));
+            setDrivers(r.data.filter((d) => canServeShuttle(d.driver_type)));
         }).catch(() => {});
     }, [companyId]);
 

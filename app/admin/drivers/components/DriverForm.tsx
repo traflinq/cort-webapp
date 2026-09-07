@@ -116,7 +116,7 @@ export const DriverForm = memo(function DriverForm({
 
                 <div>
                     <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Driver Type</label>
-                    <div className="flex gap-4">
+                    <div className="flex flex-wrap gap-4">
                         <label className="flex items-center gap-2">
                             <input
                                 type="radio"
@@ -140,6 +140,18 @@ export const DriverForm = memo(function DriverForm({
                                 disabled={isSaving}
                             />
                             <span className="text-sm">Chauffeur</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                            <input
+                                type="radio"
+                                name="driver_type"
+                                value={DriverType.BOTH}
+                                checked={formData.driver_type === DriverType.BOTH}
+                                onChange={() => handleChange("driver_type", DriverType.BOTH)}
+                                className="accent-[#f47f00]"
+                                disabled={isSaving}
+                            />
+                            <span className="text-sm">Both (shuttle + chauffeur)</span>
                         </label>
                     </div>
                 </div>

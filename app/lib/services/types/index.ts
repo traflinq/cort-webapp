@@ -34,6 +34,8 @@ export {
     DriverType,
     DriverStatus,
     DriverStatusAction,
+    canServeShuttle,
+    canServeChauffeur,
 } from './drivers';
 export type {
     CreateDriverRequest,

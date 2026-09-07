@@ -411,6 +411,8 @@ function DriversPageContent() {
                                     <td className="px-6 py-4">
                                         {driver.drivers_profile?.driver_type === DriverType.SHUTTLE ? (
                                             <Badge color="blue">Shuttle</Badge>
+                                        ) : driver.drivers_profile?.driver_type === DriverType.BOTH ? (
+                                            <Badge color="orange">Both</Badge>
                                         ) : (
                                             <Badge color="purple">Chauffeur</Badge>
                                         )}
