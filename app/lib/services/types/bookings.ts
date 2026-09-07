@@ -147,6 +147,22 @@ export interface ChauffeurBooking {
     invoices?: Invoice | null;
     chauffeur_trip_logs?: ChauffeurTripLog | null;
     chauffeur_trip_daily_logs?: ChauffeurTripDailyLog[] | null;
+    /** Marketplace: nearby chauffeur drivers this CORT_MANAGED booking was broadcast to, and their response. */
+    chauffeur_booking_driver_responses?: ChauffeurBookingDriverResponse[];
+}
+
+export interface ChauffeurBookingDriverResponse {
+    id: number;
+    driver_id: string;
+    status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+    distance_km: number | null;
+    responded_at: string | null;
+    created_at: string;
+    users: {
+        id: string;
+        full_name: string;
+        phone: string | null;
+    };
 }
 
 export interface QueryChauffeurBookingParams {

@@ -33,6 +33,10 @@ export type BookingDetailModalProps = {
   onEndTripOpen: () => void;
   onDailyLogsOpen: () => void;
   onRecalculateOpen: () => void;
+  /** Marketplace: approve the driver currently ACCEPTED (pending approval) for this booking. */
+  onConfirmDriverRequest: (bookingId: number) => void;
+  /** Marketplace: reject that driver's request — reopens the booking to broadcast. */
+  onRejectDriverRequest: (bookingId: number) => void;
 };
 
 export function BookingDetailModal({
@@ -47,6 +51,8 @@ export function BookingDetailModal({
   availableDrivers,
   paymentHistory,
   paymentSummary,
+  onConfirmDriverRequest,
+  onRejectDriverRequest,
   loadPaymentData,
   isApproving,
   isStartingTrip,
@@ -172,6 +178,83 @@ export function BookingDetailModal({
                     </div>
                   </div>
                 )}
+
+                {/* Marketplace Broadcast — which nearby drivers this was offered to */}
+                {booking.fulfillment_type === 'CORT_MANAGED' &&
+                  booking.chauffeur_booking_driver_responses &&
+                  booking.chauffeur_booking_driver_responses.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3 border-b border-border pb-1">
+                        Marketplace Broadcast
+                      </h4>
+                      <div className="border border-border rounded-lg bg-white shadow-sm overflow-x-auto">
+                        <table className="w-full min-w-[560px] text-left text-xs">
+                          <thead className="bg-surface font-bold text-muted uppercase tracking-tight">
+                            <tr>
+                              <th className="px-3 py-2 border-b border-border whitespace-nowrap">Driver</th>
+                              <th className="px-3 py-2 border-b border-border whitespace-nowrap">Distance</th>
+                              <th className="px-3 py-2 border-b border-border whitespace-nowrap">Status</th>
+                              <th className="px-3 py-2 border-b border-border whitespace-nowrap">Responded</th>
+                              <th className="px-3 py-2 border-b border-border whitespace-nowrap">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {booking.chauffeur_booking_driver_responses.map((r) => (
+                              <tr key={r.id} className="hover:bg-surface/50 transition-colors">
+                                <td className="px-3 py-2">
+                                  <div className="font-medium text-ink">{r.users.full_name}</div>
+                                  {r.users.phone && (
+                                    <div className="text-[10px] text-muted">{r.users.phone}</div>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-muted">
+                                  {r.distance_km != null ? `${Number(r.distance_km).toFixed(1)} km` : "—"}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span
+                                    className={cx(
+                                      "text-[10px] font-bold px-2 py-0.5 rounded-full inline-block",
+                                      r.status === 'ACCEPTED' ? "bg-green/10 text-green-600" :
+                                        r.status === 'REJECTED' ? "bg-red/10 text-red-600" :
+                                          r.status === 'EXPIRED' ? "bg-surface text-muted" :
+                                            "bg-yellow/10 text-yellow"
+                                    )}
+                                  >
+                                    {r.status}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-muted">
+                                  {r.responded_at ? formatDateTime(r.responded_at) : "—"}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {/* Only the ACCEPTED row (at most one, enforced at the DB level)
+                                      is awaiting an admin decision — while the booking is still PENDING. */}
+                                  {r.status === 'ACCEPTED' && booking.status === 'PENDING' && canEditBookings && (
+                                    <div className="flex items-center gap-2 whitespace-nowrap">
+                                      <button
+                                        type="button"
+                                        onClick={() => onConfirmDriverRequest(booking.id)}
+                                        className="h-7 px-2.5 rounded-md bg-green-600 text-white text-[11px] font-semibold hover:opacity-90"
+                                      >
+                                        Confirm
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => onRejectDriverRequest(booking.id)}
+                                        className="h-7 px-2.5 rounded-md border border-danger/30 text-danger text-[11px] font-semibold hover:bg-danger/5"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
 
                 {/* Daily Breakdown (Transparency) */}
                 {booking.chauffeur_trip_daily_logs && booking.chauffeur_trip_daily_logs.length > 0 && (

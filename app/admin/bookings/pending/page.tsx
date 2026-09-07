@@ -137,6 +137,8 @@ function BookingsPageContent() {
             onEndTripOpen={() => setShowEndTripModal(true)}
             onDailyLogsOpen={() => setShowDailyLogsModal(true)}
             onRecalculateOpen={() => setShowRecalculateModal(true)}
+            onConfirmDriverRequest={actions.handleConfirmDriverRequest}
+            onRejectDriverRequest={actions.handleRejectDriverRequest}
           />
         )}
       </div>

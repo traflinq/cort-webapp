@@ -1071,6 +1071,20 @@ class ApiClient {
         });
     }
 
+    /** Marketplace: approve a driver's pending accepted request — assigns the booking to them. */
+    async confirmDriverRequest(id: number): Promise<void> {
+        return this.request<void>(`/admin/bookings/${id}/confirm-driver-request`, {
+            method: 'PATCH',
+        });
+    }
+
+    /** Marketplace: reject a driver's pending accepted request — reopens the booking to broadcast. */
+    async rejectDriverRequest(id: number): Promise<void> {
+        return this.request<void>(`/admin/bookings/${id}/reject-driver-request`, {
+            method: 'PATCH',
+        });
+    }
+
     async startTrip(id: number): Promise<ChauffeurBookingResponse> {
         return this.request<ChauffeurBookingResponse>(`/admin/bookings/${id}/start`, {
             method: 'PATCH',

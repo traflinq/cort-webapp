@@ -168,6 +168,33 @@ export function useBookingActions({
     }
   }
 
+  async function handleConfirmDriverRequest(bookingId: number) {
+    const ok = await confirm({ message: "Confirm this driver's request and assign them to the booking?" });
+    if (!ok) return;
+    try {
+      await apiClient.confirmDriverRequest(bookingId);
+      toast.success("Driver request confirmed — booking assigned.");
+      refreshList();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to confirm driver request");
+    }
+  }
+
+  async function handleRejectDriverRequest(bookingId: number) {
+    const ok = await confirm({
+      message: "Reject this driver's request? The booking will reopen to nearby drivers.",
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await apiClient.rejectDriverRequest(bookingId);
+      toast.success("Driver request rejected — reopened to nearby drivers.");
+      refreshList();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to reject driver request");
+    }
+  }
+
   async function handleGenerateInvoice(id: number) {
     const ok = await confirm({ message: "Generate invoice for this trip?" });
     if (!ok) return;
@@ -296,5 +323,7 @@ export function useBookingActions({
     handleGenerateInvoice,
     handleRecalculate,
     handleStatusChange,
+    handleConfirmDriverRequest,
+    handleRejectDriverRequest,
   };
 }

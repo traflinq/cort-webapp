@@ -115,9 +115,31 @@ export function BookingList({
                             <div className="text-[11px] text-muted mt-0.5">{driver.phone}</div>
                           )}
                         </div>
-                      ) : (
-                        <span className="text-muted text-xs italic">—</span>
-                      )}
+                      ) : (() => {
+                        if (b.status !== "PENDING") {
+                          return <span className="text-muted text-xs italic">—</span>;
+                        }
+                        const responses = b.chauffeur_booking_driver_responses ?? [];
+                        // At most one ACCEPTED row exists at a time (DB-enforced) — a driver
+                        // requested it and is waiting on an admin decision. Surface that above
+                        // the plain "still broadcasting" state since it needs action.
+                        const requestedBy = responses.find((r) => r.status === "ACCEPTED");
+                        if (requestedBy) {
+                          return (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-green-700 bg-green-600/10 px-2 py-0.5 rounded-full">
+                              {requestedBy.users.full_name} requested — needs approval
+                            </span>
+                          );
+                        }
+                        const nearbyPending = responses.filter((r) => r.status === "PENDING").length;
+                        return nearbyPending > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-orange bg-orange/10 px-2 py-0.5 rounded-full">
+                            Broadcasting · {nearbyPending} nearby
+                          </span>
+                        ) : (
+                          <span className="text-muted text-xs italic">—</span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-4">
                       {vehicle ? (
