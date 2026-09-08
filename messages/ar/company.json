@@ -275,6 +275,7 @@
       "noVendorVehicles": "لا تتوفر مركبات مورد",
       "selectVehicleType": "اختر نوع المركبة",
       "otherSpecialRequest": "أخرى (طلب خاص)",
+      "specialRequestSelected": "طلب خاص — ليس من قائمة العقد",
       "loadingShort": "جاري التحميل…",
       "noMatchingVehicleTypes": "لا توجد أنواع مركبات مطابقة",
       "selectVehicleTypeContractVendor": "اختر نوع المركبة (العقد + أسطول المورد)",

@@ -36,6 +36,8 @@ export interface PickupLocation {
 export interface CreateChauffeurBookingRequest {
     booking_type: BookingType;
     vehicle_model: string;
+    /** True when the company chose Other (Special Request) instead of a contract model. */
+    is_special_request?: boolean;
     package_selected: PackageType;
     trip_type: TripType;
     pickup_location: PickupLocation;
@@ -110,6 +112,7 @@ export interface ChauffeurBooking {
     driver_id: string | null;
     vehicle_id: number | null;
     vehicle_model?: string; // Stored model preference
+    is_special_request?: boolean;
     booking_type: BookingType;
     package_selected: PackageType;
     trip_type: TripType;

@@ -94,6 +94,11 @@ export function BookingList({
                     </td>
                     <td className="px-4 py-4">
                       <div className="text-ink font-medium">{b.vehicle_model || "Any Model"}</div>
+                      {b.is_special_request && (
+                        <div className="mt-1 inline-flex items-center rounded-md bg-orange/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange">
+                          Special request
+                        </div>
+                      )}
                       <div className="text-[11px] text-muted">{b.package_selected.replace(/_/g, " ")}</div>
                     </td>
                     <td className="px-4 py-4">

@@ -404,6 +404,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
             const apiData: any = {
                 booking_type: packageType.includes('monthly') ? 'MONTHLY' : 'SPOT' as any,
                 vehicle_model: vehicleModel === "Other" ? customVehicleModel : vehicleModel,
+                is_special_request: vehicleModel === "Other",
                 package_selected: transformPackageType(packageType) as any,
                 trip_type: transformTripType(tripType) as any,
                 pickup_location: {
@@ -801,6 +802,12 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                             </div>
                         )}
                     </Field>
+
+                    {!isEventShuttle && fulfillmentType !== "SELF_MANAGED" && vehicleModel === "Other" && (
+                        <div className="-mt-2 text-[10px] font-black uppercase tracking-wide text-[#fe8503]">
+                            {t("specialRequestSelected")}
+                        </div>
+                    )}
 
                     {!isEventShuttle && fulfillmentType !== "SELF_MANAGED" && vehicleModel === "Other" && (
                         <Field label={t("specifyVehicle")} required>

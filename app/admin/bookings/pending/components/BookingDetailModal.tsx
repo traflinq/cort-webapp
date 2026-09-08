@@ -111,7 +111,18 @@ export function BookingDetailModal({
                     </div>
                     <div>
                       <div className="text-[10px] text-muted uppercase">Requested Model</div>
-                      <div className="text-sm font-medium text-ink">{booking.vehicle_model || "Any"}</div>
+                      {booking.is_special_request ? (
+                        <div className="mt-0.5">
+                          <div className="inline-flex items-center rounded-md bg-orange/15 px-2 py-0.5 text-sm font-semibold text-orange">
+                            {booking.vehicle_model || "Special request"}
+                          </div>
+                          <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-orange">
+                            Special request — not from contract list
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm font-medium text-ink">{booking.vehicle_model || "Any"}</div>
+                      )}
                     </div>
                     <div>
                       <div className="text-[10px] text-muted uppercase">City</div>

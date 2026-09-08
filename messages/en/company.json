@@ -275,6 +275,7 @@
       "noVendorVehicles": "No vendor vehicles available",
       "selectVehicleType": "Select vehicle type",
       "otherSpecialRequest": "Other (Special Request)",
+      "specialRequestSelected": "Special request — not from contract list",
       "loadingShort": "Loading…",
       "noMatchingVehicleTypes": "No matching vehicle types",
       "selectVehicleTypeContractVendor": "Select vehicle type (contract + vendor fleet)",
