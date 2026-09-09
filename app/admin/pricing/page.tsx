@@ -169,6 +169,7 @@ function PricingPageContent() {
 
   const [showMarketRates, setShowMarketRates] = useState(false);
   const [externalFuelLoading, setExternalFuelLoading] = useState(false);
+  const [externalFuelApplying, setExternalFuelApplying] = useState(false);
   const [externalFuelError, setExternalFuelError] = useState<string | null>(null);
   const [externalFuelSuggestion, setExternalFuelSuggestion] = useState<{
     petrolPrice: string;
@@ -237,10 +238,35 @@ function PricingPageContent() {
     }
   };
 
-  const handleApplyExternalFuelPrices = () => {
-    if (!externalFuelSuggestion) return;
-    dispatch(setSystemFuelPriceLocal(externalFuelSuggestion.petrolPrice));
-    dispatch(setSystemDieselPriceLocal(externalFuelSuggestion.dieselPrice));
+  const handleApplyExternalFuelPrices = async () => {
+    if (!externalFuelSuggestion || !canUpdate) return;
+
+    const petrolPrice = String(externalFuelSuggestion.petrolPrice);
+    const dieselPrice = String(externalFuelSuggestion.dieselPrice);
+
+    dispatch(setSystemFuelPriceLocal(petrolPrice));
+    dispatch(setSystemDieselPriceLocal(dieselPrice));
+    setExternalFuelApplying(true);
+    setExternalFuelError(null);
+
+    try {
+      // Persist both globally in one click (bypass per-field Update buttons).
+      await Promise.all([
+        apiClient.updateSystemSetting("current_fuel_price", petrolPrice),
+        apiClient.updateSystemSetting("current_diesel_price", dieselPrice),
+      ]);
+      await Promise.all([
+        dispatch(fetchSystemFuelPrice()),
+        dispatch(fetchSystemDieselPrice()),
+        dispatch(fetchFuelPriceHistory()),
+        dispatch(fetchDieselPriceHistory()),
+      ]);
+      alert("Petrol and diesel prices updated successfully!");
+    } catch (e) {
+      setExternalFuelError(e instanceof Error ? e.message : "Failed to update fuel prices");
+    } finally {
+      setExternalFuelApplying(false);
+    }
   };
 
   const handlePreviewAdjustments = () => {
@@ -361,13 +387,13 @@ function PricingPageContent() {
               <button
                 type="button"
                 onClick={handleApplyExternalFuelPrices}
-                disabled={!canUpdate}
+                disabled={!canUpdate || externalFuelApplying}
                 className="h-9 px-4 rounded-lg bg-[#0c225e] text-white text-sm font-bold hover:bg-[#0a1a4a] transition-colors disabled:opacity-70"
               >
-                Apply to fields
+                {externalFuelApplying ? "Updating..." : "Apply & update both"}
               </button>
               <div className="text-xs text-[var(--text-muted)] self-center">
-                Values won&apos;t change globally until you click each <span className="font-semibold">Update</span> button.
+                Fills both fields and saves petrol + diesel globally in one click.
               </div>
             </div>
           </div>
