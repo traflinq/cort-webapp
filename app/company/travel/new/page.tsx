@@ -39,6 +39,12 @@ const emptyTraveler: Traveler = {
   nationality: "",
 };
 
+function travelerComplete(traveler: Traveler) {
+  return Boolean(
+    traveler.first_name.trim() && traveler.last_name.trim() && traveler.email.includes("@"),
+  );
+}
+
 export default function NewTravelBookingPage() {
   const t = useTranslations("company.travel");
   const { user } = useAuth();
@@ -63,6 +69,7 @@ export default function NewTravelBookingPage() {
   const [lastProvider, setLastProvider] = useState("BYKEA");
   const [mileOptions, setMileOptions] = useState<any>(null);
   const [traveler, setTraveler] = useState<Traveler>(emptyTraveler);
+  const [editingTraveler, setEditingTraveler] = useState(false);
   const [searching, setSearching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [didSearch, setDidSearch] = useState(false);
@@ -103,6 +110,7 @@ export default function NewTravelBookingPage() {
 
   const selectEmployee = async (id: string) => {
     setEmployeeId(id);
+    setEditingTraveler(false);
     if (!id) return;
     if (user?.company_id) {
       try {
@@ -138,7 +146,8 @@ export default function NewTravelBookingPage() {
 
   const placeCountry = scope === "DOMESTIC" ? "pk" : undefined;
   const canSearch = Boolean(user?.company_id && employeeId && origin.trim() && destination.trim() && travelDate);
-  const canConfirm = Boolean(quoteId && offerId && !submitting);
+  const canConfirm = Boolean(quoteId && offerId && !submitting && travelerComplete(traveler));
+  const showTravelerSummary = travelerComplete(traveler) && !editingTraveler;
 
   const search = async () => {
     if (!user?.company_id || !canSearch) return;
@@ -394,33 +403,98 @@ export default function NewTravelBookingPage() {
       ) : null}
 
       {didSearch && offers.length > 0 ? (
-        <CardSection title={t("travelerDetails")}>
-          <Field label={t("travelerFirstName")} required>
-            <TextInput value={traveler.first_name} onChange={(e) => setTraveler((current) => ({ ...current, first_name: e.target.value }))} />
-          </Field>
-          <Field label={t("travelerLastName")}>
-            <TextInput value={traveler.last_name} onChange={(e) => setTraveler((current) => ({ ...current, last_name: e.target.value }))} />
-          </Field>
-          <Field label={t("travelerEmail")} required>
-            <TextInput type="email" value={traveler.email} onChange={(e) => setTraveler((current) => ({ ...current, email: e.target.value }))} />
-          </Field>
-          <Field label={t("phone")}>
-            <TextInput value={traveler.phone} onChange={(e) => setTraveler((current) => ({ ...current, phone: e.target.value }))} />
-          </Field>
-          <Field label={t("cnicNumber")}>
-            <TextInput value={traveler.cnic_number} onChange={(e) => setTraveler((current) => ({ ...current, cnic_number: e.target.value }))} />
-          </Field>
-          <Field label={t("passportNumber")}>
-            <TextInput value={traveler.passport_number} onChange={(e) => setTraveler((current) => ({ ...current, passport_number: e.target.value }))} />
-          </Field>
-          <Field label={t("nationality")}>
-            <TextInput value={traveler.nationality} onChange={(e) => setTraveler((current) => ({ ...current, nationality: e.target.value }))} />
-          </Field>
-          <div className="sm:col-span-2">
-            <button onClick={submit} disabled={!canConfirm} className={SECONDARY_BUTTON_CLASS}>
-              {submitting ? t("confirming") : t("confirmBooking")}
-            </button>
-          </div>
+        <CardSection title={t("travelerDetails")} grid={!showTravelerSummary}>
+          {showTravelerSummary ? (
+            <>
+              <p className="text-sm text-[var(--text-muted)]">{t("travelerSavedHint")}</p>
+              <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-4">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-secondary)]">
+                    {t("savedDetails")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setEditingTraveler(true)}
+                    className="text-sm font-bold text-[#f47f00]"
+                  >
+                    {t("editTraveler")}
+                  </button>
+                </div>
+                <dl className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">
+                      {t("travelerName")}
+                    </dt>
+                    <dd className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
+                      {`${traveler.first_name} ${traveler.last_name}`.trim()}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">
+                      {t("travelerEmail")}
+                    </dt>
+                    <dd className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{traveler.email}</dd>
+                  </div>
+                  {traveler.phone.trim() ? (
+                    <div>
+                      <dt className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">
+                        {t("phone")}
+                      </dt>
+                      <dd className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{traveler.phone}</dd>
+                    </div>
+                  ) : null}
+                  {traveler.cnic_number.trim() ? (
+                    <div>
+                      <dt className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">
+                        {t("cnicNumber")}
+                      </dt>
+                      <dd className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{traveler.cnic_number}</dd>
+                    </div>
+                  ) : null}
+                  {traveler.passport_number.trim() ? (
+                    <div>
+                      <dt className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">
+                        {t("passportNumber")}
+                      </dt>
+                      <dd className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{traveler.passport_number}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </div>
+              <button onClick={submit} disabled={!canConfirm} className={SECONDARY_BUTTON_CLASS}>
+                {submitting ? t("confirming") : t("confirmBooking")}
+              </button>
+            </>
+          ) : (
+            <>
+              <Field label={t("travelerFirstName")} required>
+                <TextInput value={traveler.first_name} onChange={(e) => setTraveler((current) => ({ ...current, first_name: e.target.value }))} />
+              </Field>
+              <Field label={t("travelerLastName")}>
+                <TextInput value={traveler.last_name} onChange={(e) => setTraveler((current) => ({ ...current, last_name: e.target.value }))} />
+              </Field>
+              <Field label={t("travelerEmail")} required>
+                <TextInput type="email" value={traveler.email} onChange={(e) => setTraveler((current) => ({ ...current, email: e.target.value }))} />
+              </Field>
+              <Field label={t("phone")}>
+                <TextInput value={traveler.phone} onChange={(e) => setTraveler((current) => ({ ...current, phone: e.target.value }))} />
+              </Field>
+              <Field label={t("cnicNumber")}>
+                <TextInput value={traveler.cnic_number} onChange={(e) => setTraveler((current) => ({ ...current, cnic_number: e.target.value }))} />
+              </Field>
+              <Field label={t("passportNumber")}>
+                <TextInput value={traveler.passport_number} onChange={(e) => setTraveler((current) => ({ ...current, passport_number: e.target.value }))} />
+              </Field>
+              <Field label={t("nationality")}>
+                <TextInput value={traveler.nationality} onChange={(e) => setTraveler((current) => ({ ...current, nationality: e.target.value }))} />
+              </Field>
+              <div className="sm:col-span-2">
+                <button onClick={submit} disabled={!canConfirm} className={SECONDARY_BUTTON_CLASS}>
+                  {submitting ? t("confirming") : t("confirmBooking")}
+                </button>
+              </div>
+            </>
+          )}
         </CardSection>
       ) : null}
     </div>
