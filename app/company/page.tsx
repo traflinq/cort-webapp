@@ -7,6 +7,7 @@ import { fetchDashboardStats, selectDashboardStats, selectDashboardStatus } from
 import { selectCompany } from "../lib/store/slices/companySlice";
 import { useAuth } from "../lib/contexts/auth-context";
 import { useState, useEffect } from "react";
+import { apiClient } from "../lib/services/api-client";
 import { useCompanyLocale } from "./lib/locale-context";
 import { formatLocaleDate } from "../lib/i18n/format";
 import Modal from "./bookings/components/Modal";
@@ -29,6 +30,12 @@ import DashboardSkeleton from "./components/DashboardSkeleton";
 import LiveMobilityCenter from "./components/LiveMobilityCenter";
 import CostLeakageDetector from "./components/CostLeakageDetector";
 
+type RosterChanges = {
+  added_count: number;
+  removed_count: number;
+  top_route: { route_id: number; route_name: string; added_count: number } | null;
+};
+
 export default function CompanyDashboardPage() {
   const dispatch = useAppDispatch();
   const company = useAppSelector(selectCompany);
@@ -44,6 +51,11 @@ export default function CompanyDashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const companyId = user?.company_id?.toString();
+  const [rosterChanges, setRosterChanges] = useState<RosterChanges>({
+    added_count: 0,
+    removed_count: 0,
+    top_route: null,
+  });
 
   useEffect(() => {
     if (companyId) {
@@ -62,6 +74,25 @@ export default function CompanyDashboardPage() {
     dashboardStats?.servicesEnabled?.shuttle_enabled ??
     company?.services_enabled?.shuttle_enabled ??
     false;
+
+  useEffect(() => {
+    if (!isShuttleEnabled) {
+      setRosterChanges({ added_count: 0, removed_count: 0, top_route: null });
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiClient.request<RosterChanges>('/company/roster-changes');
+        if (!cancelled) setRosterChanges(data);
+      } catch {
+        if (!cancelled) setRosterChanges({ added_count: 0, removed_count: 0, top_route: null });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isShuttleEnabled]);
 
   const totalServices = (isChauffeurEnabled ? (dashboardStats?.chauffeur.totalBookings || 0) : 0) + (isShuttleEnabled ? (dashboardStats?.shuttle.monthlyTrips || 0) : 0);
   const chauffeurPct = totalServices > 0 ? Math.round(((dashboardStats?.chauffeur.totalBookings || 0) / totalServices) * 100) : 0;
@@ -288,7 +319,7 @@ export default function CompanyDashboardPage() {
       {/* Value Delivered - Hero Row */}
       {(hasChauffeur || hasShuttle) && (
         <div className="w-full dashboard-section dashboard-section-delay-3">
-          <ValueDeliveredSection data={data.valueDelivered} hasChauffeur={hasChauffeur} hasShuttle={hasShuttle} />
+          <ValueDeliveredSection data={data.valueDelivered} rosterChanges={rosterChanges} hasChauffeur={hasChauffeur} hasShuttle={hasShuttle} />
         </div>
       )}
 

@@ -15,7 +15,6 @@ import {
     MapPin,
     Clock,
     CreditCard,
-    Zap,
     Calendar,
     ShieldCheck,
     Star,
@@ -255,10 +254,12 @@ export const NothingToDoSection = ({ data, outstandingAmount = 0, invoices = [] 
     );
 };
 
-export const ValueDeliveredSection = ({ data, hasChauffeur = true, hasShuttle = true }: { data: DashboardData['valueDelivered']; hasChauffeur?: boolean; hasShuttle?: boolean }) => {
+export const ValueDeliveredSection = ({ data, rosterChanges, hasChauffeur = true, hasShuttle = true }: { data: DashboardData['valueDelivered']; rosterChanges?: { added_count: number; removed_count: number; top_route: { route_id: number; route_name: string; added_count: number } | null } | null; hasChauffeur?: boolean; hasShuttle?: boolean }) => {
     const t = useTranslations('company.dashboard');
     const tCurrency = useTranslations('common.currency');
-    const savingsValue = data.estimatedSavings;
+    const addedCount = rosterChanges?.added_count ?? 0;
+    const removedCount = rosterChanges?.removed_count ?? 0;
+    const topRoute = rosterChanges?.top_route ?? null;
     const metricsCount = 2 + (hasChauffeur ? 1 : 0) + (hasShuttle ? 1 : 0);
     const valueGridClass = metricsCount >= 4
         ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full'
@@ -268,21 +269,26 @@ export const ValueDeliveredSection = ({ data, hasChauffeur = true, hasShuttle = 
 
     return (
         <div className={valueGridClass}>
-            {/* Total Savings */}
             <div className="p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all relative overflow-hidden group min-w-0 bg-[var(--bg-card)] border-[var(--border-default)]">
                 <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
-                    <Zap size={120} className="text-[var(--cort-orange)]" />
+                    <Users size={120} className="text-[var(--cort-orange)]" />
                 </div>
                 <div className="relative z-10 flex items-center justify-between">
-                    <div className="text-[var(--text-muted)] text-xs font-bold uppercase tracking-wide">{t('totalSavings')}</div>
+                    <div className="text-[var(--text-muted)] text-xs font-bold uppercase tracking-wide">{t('peopleAddedToRoutes')}</div>
                 </div>
                 <div className="relative z-10">
-                    <div className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight mb-2 flex items-baseline flex-wrap gap-x-1 text-[var(--text-primary)]">
-                        <span className="text-lg sm:text-xl lg:text-2xl text-[var(--text-muted)] font-normal">{tCurrency('pkr')}</span>
-                        {formatCurrency(Math.abs(savingsValue))}
+                    <div className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight mb-2 text-[var(--text-primary)]">
+                        {addedCount}
                     </div>
+                    {topRoute ? (
+                        <div className="text-sm font-bold text-[var(--text-primary)] mt-1 leading-snug">
+                            {t('topRouteAdded', { id: topRoute.route_id, name: topRoute.route_name, count: topRoute.added_count })}
+                        </div>
+                    ) : (
+                        <div className="text-xs text-[var(--text-muted)] mt-1">{t('noPeopleAdded')}</div>
+                    )}
                     <div className="text-xs text-[var(--text-muted)] mt-1">
-                        {t('estimatedMtd')}
+                        {t('peopleRemovedThisMonth', { count: removedCount })}
                     </div>
                 </div>
             </div>
