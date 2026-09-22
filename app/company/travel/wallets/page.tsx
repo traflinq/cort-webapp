@@ -26,6 +26,7 @@ export default function TravelWalletsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
+  const [savingApproval, setSavingApproval] = useState(false);
 
   const load = useCallback(async () => {
     if (!user?.company_id) {
@@ -79,6 +80,30 @@ export default function TravelWalletsPage() {
     }
   };
 
+  const toggleApproval = async () => {
+    if (!user?.company_id || savingApproval) return;
+    const next = !Boolean(wallet?.approval_required);
+    const previous = wallet;
+    setSavingApproval(true);
+    setWallet((current: any) => (current ? { ...current, approval_required: next } : current));
+    try {
+      const res = await apiClient.setTravelApprovalRequired(user.company_id, next);
+      setWallet((current: any) => ({
+        ...(current || {}),
+        ...(res.data || {}),
+        approval_required: res.data?.approval_required ?? next,
+      }));
+      toast.success(t("approvalUpdated"));
+    } catch (err) {
+      setWallet(previous);
+      toast.error(err instanceof Error ? err.message : t("approvalUpdateFailed"));
+    } finally {
+      setSavingApproval(false);
+    }
+  };
+
+  const approvalOn = Boolean(wallet?.approval_required);
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader label={t("label")} title={t("walletTitle")} />
@@ -103,6 +128,32 @@ export default function TravelWalletsPage() {
           </button>
         </KpiCard>
       </div>
+      <Card>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-secondary)]">
+              {t("requireApproval")}
+            </p>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">{t("requireApprovalHint")}</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={approvalOn}
+            disabled={loading || savingApproval || !user?.company_id}
+            onClick={toggleApproval}
+            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
+              approvalOn ? "bg-[#f47f00]" : "bg-[var(--border-default)]"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-[inset-inline-start] ${
+                approvalOn ? "start-5" : "start-0.5"
+              }`}
+            />
+          </button>
+        </div>
+      </Card>
       <Card>
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-secondary)] mb-4">{t("employees")}</p>
         {loading ? (
