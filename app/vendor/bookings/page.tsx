@@ -206,7 +206,7 @@ export default function VendorBookingsPage() {
                             {travelRequests.map((req) => (
                                 <tr key={req.id} className="border-t">
                                     <td className="px-4 py-3">{req.travel_booking?.employee?.full_name}</td>
-                                    <td className="px-4 py-3">{req.travel_booking?.origin} → {req.travel_booking?.destination}</td>
+                                    <td className="px-4 py-3">{req.travel_booking?.quote?.origin} - {req.travel_booking?.quote?.destination}</td>
                                     <td className="px-4 py-3">{req.mile}</td>
                                     <td className="px-4 py-3">{req.assigned_driver?.full_name || "—"} {req.assigned_vehicle?.plate_number || ""}</td>
                                     <td className="px-4 py-3">{req.status}</td>

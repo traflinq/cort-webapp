@@ -14,6 +14,7 @@ import {
   StatusChip,
   TextInput,
   mileLabel,
+  bookingTrip,
   routeTitle,
   shortDate,
 } from "../travel-ui";
@@ -49,12 +50,14 @@ export default function TravelBookingDetailPage({ params }: { params: Promise<{ 
     setError(null);
     apiClient.getCompanyTravelBooking(user.company_id, Number(id))
       .then((res) => {
-        setBooking(res.data);
+        const data = res.data;
+        setBooking(data);
+        const trip = bookingTrip(data);
         setDriver({
-          first_mile_driver: res.data.first_mile_driver || "",
-          first_mile_vehicle: res.data.first_mile_vehicle || "",
-          last_mile_driver: res.data.last_mile_driver || "",
-          last_mile_vehicle: res.data.last_mile_vehicle || "",
+          first_mile_driver: trip.first?.driver || "",
+          first_mile_vehicle: trip.first?.vehicle || "",
+          last_mile_driver: trip.last?.driver || "",
+          last_mile_vehicle: trip.last?.vehicle || "",
         });
       })
       .catch((err) => {
@@ -98,16 +101,18 @@ export default function TravelBookingDetailPage({ params }: { params: Promise<{ 
     );
   }
 
-  const isCar = booking.transport_type === "CAR";
-  const showFirst = !isCar && booking.first_mile_type && booking.first_mile_type !== "NONE";
-  const showLast = !isCar && booking.last_mile_type && booking.last_mile_type !== "NONE";
+  const trip = bookingTrip(booking);
+  const isCar = trip.transport_type === "CAR";
+  const showFirst = !isCar && trip.first && trip.first.type !== "NONE";
+  const showLast = !isCar && trip.last && trip.last.type !== "NONE";
+  const traveler = trip.traveler;
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl pb-12">
       <PageHeader
         label={t("label")}
-        title={routeTitle(booking.origin, booking.destination)}
-        description={shortDate(booking.travel_date)}
+        title={routeTitle(trip.origin, trip.destination)}
+        description={shortDate(trip.travel_date)}
         action={<StatusChip status={booking.status} label={t(STATUS_KEYS[booking.status] || "status")} />}
       />
 
@@ -120,30 +125,30 @@ export default function TravelBookingDetailPage({ params }: { params: Promise<{ 
           <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{t("transport")}</p>
             <p className="mt-1 font-bold text-[var(--text-primary)]">
-              {booking.transport_type} {booking.travel_class ? `- ${booking.travel_class}` : ""}
+              {trip.transport_type} {trip.travel_class ? `- ${trip.travel_class}` : ""}
             </p>
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{t("operator")}</p>
-            <p className="mt-1 font-bold text-[var(--text-primary)]">{booking.operator_name || "-"}</p>
+            <p className="mt-1 font-bold text-[var(--text-primary)]">{trip.operator_name || "-"}</p>
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{t("travelerDetails")}</p>
             <p className="mt-1 font-bold text-[var(--text-primary)]">
-              {booking.traveler_first_name} {booking.traveler_last_name}
+              {traveler?.first_name} {traveler?.last_name}
             </p>
-            <p className="text-sm text-[var(--text-muted)]">{booking.traveler_email}</p>
+            <p className="text-sm text-[var(--text-muted)]">{traveler?.email}</p>
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{t("firstMile")}</p>
             <p className="mt-1 font-medium text-[var(--text-primary)]">
-              {mileLabel(booking.first_mile_type, booking.first_mile_provider, booking.transport_type)}
+              {mileLabel(trip.first?.type, trip.first?.provider, trip.transport_type)}
             </p>
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{t("lastMile")}</p>
             <p className="mt-1 font-medium text-[var(--text-primary)]">
-              {mileLabel(booking.last_mile_type, booking.last_mile_provider, booking.transport_type)}
+              {mileLabel(trip.last?.type, trip.last?.provider, trip.transport_type)}
             </p>
           </div>
         </div>

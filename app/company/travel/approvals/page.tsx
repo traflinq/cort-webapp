@@ -14,7 +14,7 @@ import {
   TableEmptyState,
 } from "../../components/PageLayout";
 import TableSkeleton from "@/app/components/ui/TableSkeleton";
-import { StatusChip, parseTravelRows, shortDate } from "../travel-ui";
+import { StatusChip, bookingTrip, parseTravelRows, shortDate } from "../travel-ui";
 
 const STATUS_KEYS: Record<string, "statusReview" | "statusApproval" | "statusConfirmed" | "statusRejected"> = {
   REVIEW: "statusReview",
@@ -92,12 +92,14 @@ export default function TravelApprovalsPage() {
               ) : rows.length === 0 ? (
                 <TableEmptyState message={t("emptyApprovals")} />
               ) : (
-                rows.map((row) => (
+                rows.map((row) => {
+                  const trip = bookingTrip(row);
+                  return (
                   <tr key={row.id} className="border-t border-[var(--border-light)]">
                     <td className={TABLE_CELL_CLASS}>{row.employee?.full_name || "-"}</td>
-                    <td className={TABLE_CELL_CLASS}>{row.origin}</td>
-                    <td className={TABLE_CELL_CLASS}>{row.destination}</td>
-                    <td className={TABLE_CELL_CLASS}>{shortDate(row.travel_date)}</td>
+                    <td className={TABLE_CELL_CLASS}>{trip.origin}</td>
+                    <td className={TABLE_CELL_CLASS}>{trip.destination}</td>
+                    <td className={TABLE_CELL_CLASS}>{shortDate(trip.travel_date)}</td>
                     <td className={TABLE_CELL_CLASS}>
                       <StatusChip status={row.status} label={t(STATUS_KEYS[row.status] || "status")} />
                     </td>
@@ -118,7 +120,8 @@ export default function TravelApprovalsPage() {
                       </button>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

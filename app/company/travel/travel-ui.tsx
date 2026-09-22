@@ -141,9 +141,37 @@ export function shortDate(value?: string | Date | null) {
   return String(value).slice(0, 10);
 }
 
+export function bookingTrip(row: any) {
+  const snapshot = row?.offer_snapshot || {};
+  const quote = row?.quote || {};
+  const profile = row?.employee?.travel_passenger_profile;
+  const miles: any[] = Array.isArray(row?.miles) ? row.miles : [];
+  const first = miles.find((m) => m.mile === "FIRST");
+  const last = miles.find((m) => m.mile === "LAST");
+  return {
+    origin: quote.origin as string | undefined,
+    destination: quote.destination as string | undefined,
+    travel_date: quote.travel_date as string | undefined,
+    transport_type: (snapshot.mode || snapshot.transport_type) as string | undefined,
+    travel_class: snapshot.class as string | undefined,
+    operator_name: snapshot.operator as string | undefined,
+    traveler: profile as
+      | { first_name?: string; last_name?: string; email?: string; passport_number?: string | null }
+      | undefined,
+    first,
+    last,
+  };
+}
+
 export function mileLabel(type?: string | null, provider?: string | null, transport?: string | null) {
   if (transport === "CAR" || !type || type === "NONE") return "-";
   return provider ? `${type} / ${provider}` : type;
+}
+
+export function bookingMileLabel(row: any, leg: "FIRST" | "LAST") {
+  const trip = bookingTrip(row);
+  const mile = leg === "FIRST" ? trip.first : trip.last;
+  return mileLabel(mile?.type, mile?.provider, trip.transport_type);
 }
 
 export function routeTitle(origin?: string | null, destination?: string | null) {

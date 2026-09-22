@@ -297,7 +297,7 @@ export default function CompanyInvoicingPage() {
                       <tr key={inv.id} className="border-t border-[var(--border-light)]">
                         <td className={TABLE_CELL_CLASS}>{inv.invoice_number}</td>
                         <td className={TABLE_CELL_CLASS}>{inv.travel_booking?.employee?.full_name}</td>
-                        <td className={TABLE_CELL_CLASS}>{inv.travel_booking?.origin} → {inv.travel_booking?.destination}</td>
+                        <td className={TABLE_CELL_CLASS}>{inv.travel_booking?.quote?.origin} - {inv.travel_booking?.quote?.destination}</td>
                         <td className={TABLE_CELL_CLASS}>PKR {Number(inv.total_amount).toLocaleString()}</td>
                         <td className={TABLE_CELL_CLASS}>{inv.status}</td>
                       </tr>

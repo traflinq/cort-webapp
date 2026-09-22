@@ -18,7 +18,8 @@ import TableSkeleton from "@/app/components/ui/TableSkeleton";
 import {
   PRIMARY_BUTTON_CLASS,
   StatusChip,
-  mileLabel,
+  bookingMileLabel,
+  bookingTrip,
   parseTravelRows,
   shortDate,
 } from "./travel-ui";
@@ -86,7 +87,9 @@ export default function TravelBookingsPage() {
               ) : rows.length === 0 ? (
                 <TableEmptyState message={t("empty")} />
               ) : (
-                rows.map((row) => (
+                rows.map((row) => {
+                  const trip = bookingTrip(row);
+                  return (
                   <tr key={row.id} className="border-t border-[var(--border-light)]">
                     <td className={TABLE_CELL_CLASS}>
                       <Link href={`/company/travel/${row.id}`} className="text-[#f47f00] font-semibold">
@@ -94,21 +97,22 @@ export default function TravelBookingsPage() {
                       </Link>
                     </td>
                     <td className={TABLE_CELL_CLASS}>{shortDate(row.created_at)}</td>
-                    <td className={TABLE_CELL_CLASS}>{row.origin}</td>
-                    <td className={TABLE_CELL_CLASS}>{row.destination}</td>
-                    <td className={TABLE_CELL_CLASS}>{shortDate(row.travel_date)}</td>
-                    <td className={TABLE_CELL_CLASS}>{mileLabel(row.first_mile_type, row.first_mile_provider, row.transport_type)}</td>
-                    <td className={TABLE_CELL_CLASS}>{mileLabel(row.last_mile_type, row.last_mile_provider, row.transport_type)}</td>
+                    <td className={TABLE_CELL_CLASS}>{trip.origin}</td>
+                    <td className={TABLE_CELL_CLASS}>{trip.destination}</td>
+                    <td className={TABLE_CELL_CLASS}>{shortDate(trip.travel_date)}</td>
+                    <td className={TABLE_CELL_CLASS}>{bookingMileLabel(row, "FIRST")}</td>
+                    <td className={TABLE_CELL_CLASS}>{bookingMileLabel(row, "LAST")}</td>
                     <td className={TABLE_CELL_CLASS}>
                       <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[var(--bg-subtle)] text-[var(--text-primary)] text-[10px] font-bold border border-[var(--border-input)] uppercase tracking-tight">
-                        {row.transport_type}
+                        {trip.transport_type || "-"}
                       </span>
                     </td>
                     <td className={TABLE_CELL_CLASS}>
                       <StatusChip status={row.status} label={t(STATUS_KEYS[row.status] || "status")} />
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

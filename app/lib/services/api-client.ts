@@ -2362,6 +2362,10 @@ class ApiClient {
         return this.request<any>(`/companies/${companyId}/travel/wallets`);
     }
 
+    async getCompanyEmployeeTravelProfile(companyId: number, employeeId: string) {
+        return this.request<any>(`/companies/${companyId}/travel/employees/${employeeId}/profile`);
+    }
+
     async assignEmployeeTravelWallets(companyId: number, assignments: Array<{ employee_id: string; amount: number }>) {
         return this.request<any>(`/companies/${companyId}/travel/wallets/assign`, {
             method: 'POST',

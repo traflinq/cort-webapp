@@ -101,8 +101,29 @@ export default function NewTravelBookingPage() {
     resetOffers();
   };
 
-  const selectEmployee = (id: string) => {
+  const selectEmployee = async (id: string) => {
     setEmployeeId(id);
+    if (!id) return;
+    if (user?.company_id) {
+      try {
+        const res = await apiClient.getCompanyEmployeeTravelProfile(user.company_id, id);
+        const profile = res.data;
+        if (profile) {
+          setTraveler({
+            first_name: profile.first_name || "",
+            last_name: profile.last_name || "",
+            email: profile.email || "",
+            passport_number: profile.passport_number || "",
+            cnic_number: profile.cnic_number || "",
+            phone: profile.phone || "",
+            nationality: profile.nationality || "",
+          });
+          return;
+        }
+      } catch {
+        // Fall through to employee list fields.
+      }
+    }
     const emp = employees.find((e) => e.id === id);
     if (!emp) return;
     const parts = String(emp.full_name || "").trim().split(/\s+/);
