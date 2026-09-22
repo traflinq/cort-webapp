@@ -21,7 +21,6 @@ import {
   Menu,
   Car,
   BarChart2,
-  TrendingDown,
   Building2,
   Sun,
   Moon,
@@ -156,9 +155,6 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
       }
       if (servicesEnabled.shuttle_enabled || servicesEnabled.chauffeur_enabled) {
         groups[1].items.push({ href: withSaudiBase("/company/fleet-analytics", basePath), labelKey: "nav.fleetAnalytics", icon: BarChart2 });
-      }
-      if (servicesEnabled.shuttle_enabled || servicesEnabled.chauffeur_enabled) {
-        groups[1].items.push({ href: withSaudiBase("/company/savings", basePath), labelKey: "nav.savings", icon: TrendingDown });
       }
       if (
         !hideInvoicing

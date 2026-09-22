@@ -38,7 +38,6 @@
       "accountInactive": "Your account is inactive. Please contact support.",
       "noCompanySelected": "No company selected",
       "noCompanyData": "No company data available",
-      "couldNotLoadSavings": "Could not load savings data",
       "tryAgainOrContact": "Please try again or contact support.",
       "failedToLoadRoute": "Failed to load route"
     },

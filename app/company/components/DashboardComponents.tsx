@@ -255,12 +255,10 @@ export const NothingToDoSection = ({ data, outstandingAmount = 0, invoices = [] 
     );
 };
 
-export const ValueDeliveredSection = ({ data, benchmarkDelta, hasChauffeur = true, hasShuttle = true }: { data: DashboardData['valueDelivered']; benchmarkDelta?: number | null; hasChauffeur?: boolean; hasShuttle?: boolean }) => {
+export const ValueDeliveredSection = ({ data, hasChauffeur = true, hasShuttle = true }: { data: DashboardData['valueDelivered']; hasChauffeur?: boolean; hasShuttle?: boolean }) => {
     const t = useTranslations('company.dashboard');
     const tCurrency = useTranslations('common.currency');
-    const savingsValue = benchmarkDelta != null ? benchmarkDelta : data.estimatedSavings;
-    const isBenchmarkSavings = benchmarkDelta != null;
-    const isSaving = savingsValue >= 0;
+    const savingsValue = data.estimatedSavings;
     const metricsCount = 2 + (hasChauffeur ? 1 : 0) + (hasShuttle ? 1 : 0);
     const valueGridClass = metricsCount >= 4
         ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full'
@@ -271,25 +269,20 @@ export const ValueDeliveredSection = ({ data, benchmarkDelta, hasChauffeur = tru
     return (
         <div className={valueGridClass}>
             {/* Total Savings */}
-            <div className={`p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all relative overflow-hidden group min-w-0 ${isBenchmarkSavings ? (isSaving ? 'bg-gradient-to-br from-emerald-950/60 to-[var(--bg-card)] border-emerald-700/40' : 'bg-gradient-to-br from-red-950/60 to-[var(--bg-card)] border-red-700/40') : 'bg-[var(--bg-card)] border-[var(--border-default)]'}`}>
+            <div className="p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all relative overflow-hidden group min-w-0 bg-[var(--bg-card)] border-[var(--border-default)]">
                 <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
-                    <Zap size={120} className={isBenchmarkSavings ? (isSaving ? 'text-emerald-400' : 'text-red-400') : 'text-[var(--cort-orange)]'} />
+                    <Zap size={120} className="text-[var(--cort-orange)]" />
                 </div>
                 <div className="relative z-10 flex items-center justify-between">
                     <div className="text-[var(--text-muted)] text-xs font-bold uppercase tracking-wide">{t('totalSavings')}</div>
-                    {isBenchmarkSavings && (
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isSaving ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-                            {t('vsVendor')}
-                        </span>
-                    )}
                 </div>
                 <div className="relative z-10">
-                    <div className={`text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight mb-2 flex items-baseline flex-wrap gap-x-1 ${isBenchmarkSavings ? (isSaving ? 'text-emerald-400' : 'text-red-400') : 'text-[var(--text-primary)]'}`}>
+                    <div className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight mb-2 flex items-baseline flex-wrap gap-x-1 text-[var(--text-primary)]">
                         <span className="text-lg sm:text-xl lg:text-2xl text-[var(--text-muted)] font-normal">{tCurrency('pkr')}</span>
                         {formatCurrency(Math.abs(savingsValue))}
                     </div>
                     <div className="text-xs text-[var(--text-muted)] mt-1">
-                        {isBenchmarkSavings ? (isSaving ? t('savedVsVendor') : t('overVsVendor')) : t('estimatedMtd')}
+                        {t('estimatedMtd')}
                     </div>
                 </div>
             </div>

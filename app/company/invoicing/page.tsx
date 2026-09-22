@@ -58,7 +58,6 @@ function formatBillingMonth(
 
 export default function CompanyInvoicingPage() {
     const t = useTranslations("company.invoicing");
-    const tSavings = useTranslations("company.savings");
     const tCommon = useTranslations("common");
     const locale = useLocale() as Locale;
     const { user } = useAuth();
@@ -72,8 +71,8 @@ export default function CompanyInvoicingPage() {
     const [page, setPage] = useState(1);
 
     const getMonthShort = useCallback(
-        (index: number) => tSavings(`monthsShort.${MONTH_SHORT_KEYS[index]}`),
-        [tSavings],
+        (index: number) => t(`monthsShort.${MONTH_SHORT_KEYS[index]}`),
+        [t],
     );
 
     const formatStatus = useCallback(

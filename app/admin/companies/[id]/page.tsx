@@ -1,14 +1,12 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { AdminProtectedPage } from "../../components/AdminProtectedPage";
 import { ADMIN_SUBJECTS } from "../../../lib/abilities/admin-subjects";
 import { Modal } from "../../components/ui/Modal";
 import { cx } from "../../components/ui/cx";
-import { BenchmarksModal } from "../components/BenchmarksModal";
-import { BenchmarkChangeRequestsModal } from "../components/BenchmarkChangeRequestsModal";
 import { useCompanyDetail } from "./hooks/useCompanyDetail";
 import { CompanyEmployeesTab } from "./components/CompanyEmployeesTab";
 import { CompanyServicesTab } from "./components/CompanyServicesTab";
@@ -25,15 +23,7 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
 function CompanyDetailsContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const d = useCompanyDetail(id);
-  const [isChangeRequestsModalOpen, setIsChangeRequestsModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (searchParams.get("benchmarkRequests") === "1") {
-      setIsChangeRequestsModalOpen(true);
-    }
-  }, [searchParams]);
 
   if (d.isLoading) {
     return (
@@ -87,20 +77,6 @@ function CompanyDetailsContent({ params }: { params: Promise<{ id: string }> }) 
             >
               Fleet Efficiency
             </Link>
-            <button
-              type="button"
-              onClick={() => d.setIsBenchmarksModalOpen(true)}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-emerald-600 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors"
-            >
-               Vendor Cost
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsChangeRequestsModalOpen(true)}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-amber-500 bg-white px-4 text-sm font-semibold text-amber-600 shadow-sm hover:bg-amber-50 transition-colors"
-            >
-              Change Requests
-            </button>
             <button
               type="button"
               onClick={d.handleExportCredentials}
@@ -219,20 +195,6 @@ function CompanyDetailsContent({ params }: { params: Promise<{ id: string }> }) 
           </div>
         </div>
       </Modal>
-
-      <BenchmarksModal
-        companyId={Number(id)}
-        companyName={company.name}
-        isOpen={d.isBenchmarksModalOpen}
-        onClose={() => d.setIsBenchmarksModalOpen(false)}
-      />
-
-      <BenchmarkChangeRequestsModal
-        companyId={Number(id)}
-        companyName={company.name}
-        isOpen={isChangeRequestsModalOpen}
-        onClose={() => setIsChangeRequestsModalOpen(false)}
-      />
     </div>
   );
 }

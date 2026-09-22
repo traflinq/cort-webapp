@@ -6,9 +6,7 @@ import { useAppDispatch, useAppSelector } from "../lib/store/hooks";
 import { fetchDashboardStats, selectDashboardStats, selectDashboardStatus } from "../lib/store/slices/dashboardSlice";
 import { selectCompany } from "../lib/store/slices/companySlice";
 import { useAuth } from "../lib/contexts/auth-context";
-import { useState, useEffect, useCallback } from "react";
-import { apiClient } from "../lib/services/api-client";
-import { getCalendarMonthRange } from "../lib/date-utils";
+import { useState, useEffect } from "react";
 import { useCompanyLocale } from "./lib/locale-context";
 import { formatLocaleDate } from "../lib/i18n/format";
 import Modal from "./bookings/components/Modal";
@@ -46,30 +44,12 @@ export default function CompanyDashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const companyId = user?.company_id?.toString();
-  const [benchmarkDelta, setBenchmarkDelta] = useState<number | null>(null);
-
-  const fetchBenchmarkSavings = useCallback(async () => {
-    try {
-      const now = new Date();
-      const { from, to } = getCalendarMonthRange(now.getFullYear(), now.getMonth());
-      const data = await apiClient.request<{ total_fuel_saving_pkr: number; has_benchmarks: boolean }>(
-        `/company/savings-realisation?from=${from}&to=${to}`,
-      );
-      if (data.has_benchmarks) setBenchmarkDelta(data.total_fuel_saving_pkr);
-    } catch {
-      // Silently ignore — card falls back to booking-level savings
-    }
-  }, []);
 
   useEffect(() => {
     if (companyId) {
       dispatch(fetchDashboardStats(companyId));
     }
   }, [dispatch, companyId]);
-
-  useEffect(() => {
-    fetchBenchmarkSavings();
-  }, [fetchBenchmarkSavings]);
 
   // Calculate services breakdown (percentages)
   // Prefer servicesEnabled from dashboard stats (authoritative, always fresh),
@@ -308,7 +288,7 @@ export default function CompanyDashboardPage() {
       {/* Value Delivered - Hero Row */}
       {(hasChauffeur || hasShuttle) && (
         <div className="w-full dashboard-section dashboard-section-delay-3">
-          <ValueDeliveredSection data={data.valueDelivered} benchmarkDelta={benchmarkDelta} hasChauffeur={hasChauffeur} hasShuttle={hasShuttle} />
+          <ValueDeliveredSection data={data.valueDelivered} hasChauffeur={hasChauffeur} hasShuttle={hasShuttle} />
         </div>
       )}
 

@@ -38,7 +38,6 @@
       "accountInactive": "حسابك غير نشط. يرجى التواصل مع الدعم.",
       "noCompanySelected": "لم يتم اختيار شركة",
       "noCompanyData": "لا تتوفر بيانات الشركة",
-      "couldNotLoadSavings": "تعذر تحميل بيانات التوفير",
       "tryAgainOrContact": "يرجى المحاولة مرة أخرى أو التواصل مع الدعم.",
       "failedToLoadRoute": "فشل تحميل المسار"
     },

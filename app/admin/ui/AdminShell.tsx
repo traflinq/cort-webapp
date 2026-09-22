@@ -31,7 +31,6 @@ import {
   FileSpreadsheet,
   Shield,
   UserPlus,
-  Gauge,
   Smartphone,
   ScrollText,
   type LucideIcon,
@@ -39,7 +38,6 @@ import {
 import { useAuth } from "../../lib/contexts/auth-context";
 import { PermissionKey } from "../../lib/types/auth-types";
 import { BookingNotificationProvider } from "../components/BookingNotificationProvider";
-import { BenchmarkChangeRequestAlertProvider } from "../components/BenchmarkChangeRequestAlertProvider";
 import { DeleteRequestsBell } from "../components/DeleteRequestsBell";
 import { cx } from "../components/ui/cx";
 import { useAdminTheme } from "../lib/theme-context";
@@ -60,7 +58,6 @@ const nav: NavItem[] = [
   { href: "/admin/vehicles", label: "Vehicles", icon: Car, permission: "vehicles" },
   { href: "/admin/vehicles/fueling", label: "Fuel Records", icon: Fuel, permission: "fuel_records" },
   { href: "/admin/vehicles/maintenance", label: "Maintenance", icon: Wrench, permission: "maintenance" },
-  { href: "/admin/settings/vehicle-fuel-averages", label: "Fuel Averages", icon: Gauge, permission: "ops_shuttle" },
   { href: "/admin/settings/app-config", label: "App Config", icon: Smartphone },
   { href: "/admin/vendors", label: "Vendors", icon: Store, permission: "vendors" },
   { href: "/admin/vendors/logs", label: "Trip Logs", icon: ClipboardList, permission: "vendor_logs" },
@@ -317,7 +314,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
         <div className="flex min-w-0 flex-1 flex-col">
           <BookingNotificationProvider />
-          <BenchmarkChangeRequestAlertProvider />
           <main className="mx-auto w-full max-w-full flex-1 px-4 py-6 md:px-6 bg-[var(--bg-page)]">
             {children}
           </main>
