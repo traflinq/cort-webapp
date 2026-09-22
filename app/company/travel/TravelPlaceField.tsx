@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
 import { useGooglePlacesAutocomplete } from "../../hooks/useGooglePlacesAutocomplete";
+import { Field, INPUT_CLASS } from "./travel-ui";
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
@@ -11,9 +12,20 @@ type Props = {
   onChange: (value: string) => void;
   placeholder: string;
   country?: string;
+  label?: string;
+  required?: boolean;
+  className?: string;
 };
 
-export function TravelPlaceField({ value, onChange, placeholder, country }: Props) {
+export function TravelPlaceField({
+  value,
+  onChange,
+  placeholder,
+  country,
+  label,
+  required,
+  className,
+}: Props) {
   const [open, setOpen] = useState(false);
   const skipSearchRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -46,10 +58,10 @@ export function TravelPlaceField({ value, onChange, placeholder, country }: Prop
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  return (
+  const input = (
     <div ref={containerRef} className="relative">
       <input
-        className="w-full border rounded-lg px-3 py-2 bg-transparent"
+        className={INPUT_CLASS}
         placeholder={placeholder}
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -59,7 +71,10 @@ export function TravelPlaceField({ value, onChange, placeholder, country }: Prop
         autoComplete="off"
       />
       {open && (suggestions.length > 0 || isLoading) ? (
-        <ul className="absolute z-50 top-full mt-1 w-full bg-white border rounded-lg shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+        <ul className="absolute z-50 top-full mt-1 w-full bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+          {isLoading && suggestions.length === 0 ? (
+            <li className="px-3 py-2.5 text-sm text-[var(--text-muted)]">Searching...</li>
+          ) : null}
           {suggestions.map((suggestion) => (
             <li key={suggestion.place_id}>
               <button
@@ -72,15 +87,23 @@ export function TravelPlaceField({ value, onChange, placeholder, country }: Prop
                   clearSuggestions();
                   refreshToken();
                 }}
-                className="w-full text-left px-3 py-2.5 hover:bg-slate-50 flex items-start gap-2 border-b last:border-b-0"
+                className="w-full text-left px-3 py-2.5 hover:bg-[var(--surface-subtle)] flex items-start gap-2 border-b border-[var(--border-light)] last:border-b-0"
               >
-                <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                <span className="text-sm leading-snug">{suggestion.display_name}</span>
+                <MapPin className="w-4 h-4 text-[var(--text-muted)] shrink-0 mt-0.5" />
+                <span className="text-sm leading-snug text-[var(--text-primary)]">{suggestion.display_name}</span>
               </button>
             </li>
           ))}
         </ul>
       ) : null}
     </div>
+  );
+
+  if (!label) return input;
+
+  return (
+    <Field label={label} required={required} className={className}>
+      {input}
+    </Field>
   );
 }

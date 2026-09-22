@@ -1,55 +1,195 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { apiClient } from "../../../../lib/services/api-client";
-import { useAuth } from "../../../../lib/contexts/auth-context";
-import { Card } from "../../../components/DashboardComponents";
-import { PageHeader } from "../../../components/PageLayout";
+import { apiClient } from "../../../lib/services/api-client";
+import { useAuth } from "../../../lib/contexts/auth-context";
+import { Card } from "../../components/DashboardComponents";
+import { PageHeader } from "../../components/PageLayout";
+import {
+  CardSection,
+  Field,
+  PRIMARY_BUTTON_CLASS,
+  StatusChip,
+  TextInput,
+  mileLabel,
+  routeTitle,
+  shortDate,
+} from "../travel-ui";
+
+const STATUS_KEYS: Record<string, "statusReview" | "statusApproval" | "statusConfirmed" | "statusRejected"> = {
+  REVIEW: "statusReview",
+  APPROVAL: "statusApproval",
+  CONFIRMED: "statusConfirmed",
+  REJECTED: "statusRejected",
+};
 
 export default function TravelBookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const t = useTranslations("company.travel");
   const { user } = useAuth();
   const [booking, setBooking] = useState<any>(null);
-  const [driver, setDriver] = useState({ first_mile_driver: "", first_mile_vehicle: "", last_mile_driver: "", last_mile_vehicle: "" });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [driver, setDriver] = useState({
+    first_mile_driver: "",
+    first_mile_vehicle: "",
+    last_mile_driver: "",
+    last_mile_vehicle: "",
+  });
 
   useEffect(() => {
-    if (!user?.company_id) return;
-    apiClient.getCompanyTravelBooking(user.company_id, Number(id)).then((res) => {
-      setBooking(res.data);
-      setDriver({
-        first_mile_driver: res.data.first_mile_driver || "",
-        first_mile_vehicle: res.data.first_mile_vehicle || "",
-        last_mile_driver: res.data.last_mile_driver || "",
-        last_mile_vehicle: res.data.last_mile_vehicle || "",
-      });
-    });
-  }, [user?.company_id, id]);
+    if (!user?.company_id) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    apiClient.getCompanyTravelBooking(user.company_id, Number(id))
+      .then((res) => {
+        setBooking(res.data);
+        setDriver({
+          first_mile_driver: res.data.first_mile_driver || "",
+          first_mile_vehicle: res.data.first_mile_vehicle || "",
+          last_mile_driver: res.data.last_mile_driver || "",
+          last_mile_vehicle: res.data.last_mile_vehicle || "",
+        });
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : t("loadFailed");
+        setError(message);
+        toast.error(message);
+      })
+      .finally(() => setLoading(false));
+  }, [user?.company_id, id, t]);
 
   const save = async () => {
     if (!user?.company_id) return;
-    await apiClient.patchTravelBooking(user.company_id, Number(id), driver);
-    toast.success("Updated");
+    setSaving(true);
+    try {
+      await apiClient.patchTravelBooking(user.company_id, Number(id), driver);
+      toast.success(t("updated"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("saveFailed"));
+    } finally {
+      setSaving(false);
+    }
   };
 
-  if (!booking) return null;
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-6 max-w-3xl">
+        <PageHeader label={t("label")} title={t("loadingBooking")} />
+        <div className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-card)] h-64 animate-pulse" />
+      </div>
+    );
+  }
+
+  if (error || !booking) {
+    return (
+      <div className="flex flex-col gap-6 max-w-3xl">
+        <PageHeader label={t("label")} title={t("bookingNotFound")} />
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+          {error || t("bookingNotFound")}
+        </div>
+      </div>
+    );
+  }
+
+  const isCar = booking.transport_type === "CAR";
+  const showFirst = !isCar && booking.first_mile_type && booking.first_mile_type !== "NONE";
+  const showLast = !isCar && booking.last_mile_type && booking.last_mile_type !== "NONE";
 
   return (
-    <div className="flex flex-col gap-6 max-w-3xl">
-      <PageHeader label="Travel" title={`${booking.origin} ? ${booking.destination}`} description={booking.status} />
-      <Card className="space-y-3">
-        <p>Employee: {booking.employee?.full_name}</p>
-        <p>Date: {String(booking.travel_date).slice(0, 10)}</p>
-        <p>Transport: {booking.transport_type} {booking.travel_class} - {booking.operator_name}</p>
-        <p>Traveler: {booking.traveler_first_name} {booking.traveler_last_name} - {booking.traveler_email}</p>
-        <p>First mile: {booking.first_mile_type} {booking.first_mile_provider}</p>
-        <p>Last mile: {booking.last_mile_type} {booking.last_mile_provider}</p>
-        <input className="w-full border rounded-lg px-3 py-2 bg-transparent" placeholder="First mile driver" value={driver.first_mile_driver} onChange={(e) => setDriver((d) => ({ ...d, first_mile_driver: e.target.value }))} />
-        <input className="w-full border rounded-lg px-3 py-2 bg-transparent" placeholder="First mile vehicle" value={driver.first_mile_vehicle} onChange={(e) => setDriver((d) => ({ ...d, first_mile_vehicle: e.target.value }))} />
-        <input className="w-full border rounded-lg px-3 py-2 bg-transparent" placeholder="Last mile driver" value={driver.last_mile_driver} onChange={(e) => setDriver((d) => ({ ...d, last_mile_driver: e.target.value }))} />
-        <input className="w-full border rounded-lg px-3 py-2 bg-transparent" placeholder="Last mile vehicle" value={driver.last_mile_vehicle} onChange={(e) => setDriver((d) => ({ ...d, last_mile_vehicle: e.target.value }))} />
-        <button onClick={save} className="bg-[#f47f00] text-white px-4 py-2 rounded-lg font-bold">Save itinerary</button>
+    <div className="flex flex-col gap-6 max-w-3xl pb-12">
+      <PageHeader
+        label={t("label")}
+        title={routeTitle(booking.origin, booking.destination)}
+        description={shortDate(booking.travel_date)}
+        action={<StatusChip status={booking.status} label={t(STATUS_KEYS[booking.status] || "status")} />}
+      />
+
+      <Card className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{t("employee")}</p>
+            <p className="mt-1 font-bold text-[var(--text-primary)]">{booking.employee?.full_name || "-"}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{t("transport")}</p>
+            <p className="mt-1 font-bold text-[var(--text-primary)]">
+              {booking.transport_type} {booking.travel_class ? `- ${booking.travel_class}` : ""}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{t("operator")}</p>
+            <p className="mt-1 font-bold text-[var(--text-primary)]">{booking.operator_name || "-"}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{t("travelerDetails")}</p>
+            <p className="mt-1 font-bold text-[var(--text-primary)]">
+              {booking.traveler_first_name} {booking.traveler_last_name}
+            </p>
+            <p className="text-sm text-[var(--text-muted)]">{booking.traveler_email}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{t("firstMile")}</p>
+            <p className="mt-1 font-medium text-[var(--text-primary)]">
+              {mileLabel(booking.first_mile_type, booking.first_mile_provider, booking.transport_type)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{t("lastMile")}</p>
+            <p className="mt-1 font-medium text-[var(--text-primary)]">
+              {mileLabel(booking.last_mile_type, booking.last_mile_provider, booking.transport_type)}
+            </p>
+          </div>
+        </div>
       </Card>
+
+      {showFirst || showLast ? (
+        <CardSection title={t("itinerary")}>
+          {showFirst ? (
+            <>
+              <Field label={t("firstMileDriver")}>
+                <TextInput
+                  value={driver.first_mile_driver}
+                  onChange={(e) => setDriver((d) => ({ ...d, first_mile_driver: e.target.value }))}
+                />
+              </Field>
+              <Field label={t("firstMileVehicle")}>
+                <TextInput
+                  value={driver.first_mile_vehicle}
+                  onChange={(e) => setDriver((d) => ({ ...d, first_mile_vehicle: e.target.value }))}
+                />
+              </Field>
+            </>
+          ) : null}
+          {showLast ? (
+            <>
+              <Field label={t("lastMileDriver")}>
+                <TextInput
+                  value={driver.last_mile_driver}
+                  onChange={(e) => setDriver((d) => ({ ...d, last_mile_driver: e.target.value }))}
+                />
+              </Field>
+              <Field label={t("lastMileVehicle")}>
+                <TextInput
+                  value={driver.last_mile_vehicle}
+                  onChange={(e) => setDriver((d) => ({ ...d, last_mile_vehicle: e.target.value }))}
+                />
+              </Field>
+            </>
+          ) : null}
+          <div className="sm:col-span-2">
+            <button onClick={save} disabled={saving} className={PRIMARY_BUTTON_CLASS}>
+              {saving ? t("saving") : t("saveItinerary")}
+            </button>
+          </div>
+        </CardSection>
+      ) : null}
     </div>
   );
 }
