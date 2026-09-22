@@ -8,6 +8,7 @@ export interface CreateCompanyRequest {
     logo_url?: string;
     is_shuttle_enabled?: boolean;
     is_chauffeur_enabled?: boolean;
+    is_travel_enabled?: boolean;
     prefix?: string;
     auth_email?: string;
     monthly_budget?: number;
@@ -40,6 +41,7 @@ export interface Company {
     logo_url: string | null;
     is_shuttle_enabled: boolean;
     is_chauffeur_enabled: boolean;
+    is_travel_enabled?: boolean;
     is_cort_managed: boolean | null;
     is_external_vendor_managed: boolean | null;
     is_own_pooled_cars_managed: boolean | null;

@@ -67,6 +67,28 @@ export default function CompanyVendorsPage() {
         </div>
       )}
 
+      {user?.enabled_services?.travel && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
+            {t('travelProviders')}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {['CORT', 'Bykea (ride-hailing)', 'Company vendors'].map((name) => (
+              <Card key={name}>
+                <p className="font-bold text-[var(--text-primary)]">{name}</p>
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  {name === 'Bykea (ride-hailing)'
+                    ? 'Third-party ride-hailing. Service quality is not guaranteed.'
+                    : name === 'CORT'
+                      ? 'CORT-managed rental for first and last mile.'
+                      : 'Linked vendors can accept travel rental requests.'}
+                </p>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
       {!isLoading && error && (
         <Card>
           <p className="text-[var(--accent-danger)] text-sm font-medium">{error}</p>

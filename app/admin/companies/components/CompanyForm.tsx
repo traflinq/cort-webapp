@@ -18,6 +18,7 @@ export const initialFormData: CompanyFormData = {
     logo_url: "",
     is_shuttle_enabled: false,
     is_chauffeur_enabled: false,
+    is_travel_enabled: false,
 };
 
 export const CompanyForm = memo(function CompanyForm({
@@ -43,6 +44,7 @@ export const CompanyForm = memo(function CompanyForm({
                 logo_url: company.logo_url || "",
                 is_shuttle_enabled: company.is_shuttle_enabled,
                 is_chauffeur_enabled: company.is_chauffeur_enabled,
+                is_travel_enabled: company.is_travel_enabled ?? false,
                 prefix: company.prefix || "",
             }
             : initialFormData
@@ -301,6 +303,16 @@ export const CompanyForm = memo(function CompanyForm({
                                 disabled={isSaving}
                             />
                             <span className="text-sm font-medium text-[var(--text-secondary)]">Chauffeur</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer bg-[var(--bg-subtle)] px-3 py-2 rounded-lg border border-[var(--border-default)] hover:bg-slate-100">
+                            <input
+                                type="checkbox"
+                                checked={formData.is_travel_enabled}
+                                onChange={(e) => handleChange('is_travel_enabled', e.target.checked)}
+                                className="accent-[#f47f00] w-4 h-4"
+                                disabled={isSaving}
+                            />
+                            <span className="text-sm font-medium text-[var(--text-secondary)]">Travel</span>
                         </label>
                     </div>
                 </div>

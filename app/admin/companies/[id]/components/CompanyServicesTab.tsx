@@ -5,6 +5,9 @@ import { Badge } from "../../../components/ui/Badge";
 import { Modal } from "../../../components/ui/Modal";
 import { ToggleSwitch } from "../../../components/ToggleSwitch";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { apiClient } from "../../../../lib/services/api-client";
 
 import type { useCompanyDetail } from "../hooks/useCompanyDetail";
 
@@ -401,6 +404,8 @@ export function CompanyServicesTab({ detail: d }: Props) {
                         </div>
                     </div>
 
+                    <TravelModuleCard detail={d} />
+
                     {/* Add-ons Card */}
                     {(() => {
                         const aiEnabled = d.features.find(f => f.feature_key === 'ai_insights')?.is_enabled ?? false;
@@ -453,6 +458,7 @@ export function CompanyServicesTab({ detail: d }: Props) {
                         if (tEnabled) items.push({ label: "Tracking — Third-Party API", color: "orange" });
                         if (appEnabled) items.push({ label: "Tracking — CORT App GPS", color: "orange" });
                         if (aiEnabled) items.push({ label: "Add-on: AI Insights", color: "green" });
+                        if (d.company.is_travel_enabled) items.push({ label: "Travel Packages", color: "blue" });
                         return (
                             <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-5">
                                 <h3 className="text-sm font-bold text-slate-600 mb-3">Active Services Summary</h3>
@@ -512,5 +518,67 @@ export function CompanyServicesTab({ detail: d }: Props) {
                         </>
                     )}
                 </div>
+  );
+}
+
+function TravelModuleCard({ detail: d }: { detail: ReturnType<typeof useCompanyDetail> }) {
+  const [amount, setAmount] = useState("");
+  const [wallet, setWallet] = useState<{ balance: number } | null>(null);
+  const [allocating, setAllocating] = useState(false);
+  const enabled = d.company?.is_travel_enabled ?? false;
+
+  useEffect(() => {
+    if (!enabled || !d.company) return;
+    apiClient.getAdminCompanyTravelWallet(d.company.id)
+      .then((res) => setWallet(res.data))
+      .catch(() => setWallet({ balance: 0 }));
+  }, [enabled, d.company]);
+
+  const allocate = async () => {
+    if (!d.company || allocating) return;
+    setAllocating(true);
+    try {
+      const res = await apiClient.allocateCompanyTravelWallet(d.company.id, Number(amount));
+      setWallet(res.data);
+      setAmount("");
+      toast.success("Company travel wallet funded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to allocate");
+    } finally {
+      setAllocating(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between p-5 border-b border-slate-100">
+        <div>
+          <h3 className="text-base font-bold text-[#0c225e]">Travel Packages</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Bus, flight, train, and car bookings with first and last mile</p>
+        </div>
+        <ToggleSwitch
+          checked={enabled}
+          onChange={() => d.toggleService("travel")}
+          disabled={!d.canUpdate}
+          loading={d.isTogglePending("service:is_travel_enabled")}
+        />
+      </div>
+      {enabled && (
+        <div className="px-5 py-4 space-y-3">
+          <p className="text-sm text-slate-600">Company wallet: <span className="font-bold">PKR {Number(wallet?.balance ?? 0).toLocaleString()}</span></p>
+          <div className="flex gap-2">
+            <input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Allocate amount"
+              className="border rounded-lg px-3 py-2 text-sm flex-1"
+            />
+            <button onClick={allocate} disabled={!d.canUpdate || !amount || allocating} className="bg-[#f47f00] text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50">
+              {allocating ? "Allocating..." : "Allocate"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

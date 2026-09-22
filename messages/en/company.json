@@ -18,7 +18,10 @@
       "chauffeurReports": "Chauffeur Reports",
       "poolFleet": "Pool Fleet",
       "fleetAnalytics": "Fleet Analytics",
-      "invoices": "Invoices"
+      "invoices": "Invoices",
+      "travel": "Travel",
+      "travelApprovals": "Travel approvals",
+      "travelWallets": "Travel wallets"
     },
     "shell": {
       "signOut": "Sign out",
@@ -774,7 +777,38 @@
       "externalVendor": "External Vendor",
       "handles": "Handles",
       "chauffeur": "Chauffeur",
-      "shuttle": "Shuttle"
+      "shuttle": "Shuttle",
+      "travelProviders": "Travel providers"
+    },
+    "travel": {
+      "label": "Travel",
+      "title": "Travel bookings",
+      "description": "Domestic and international trips booked by employees.",
+      "newBooking": "Book travel",
+      "approvals": "Approvals",
+      "wallets": "Wallets",
+      "employee": "Employee",
+      "bookingDate": "Booking date",
+      "from": "From",
+      "to": "To",
+      "travelDate": "Travel date",
+      "firstMile": "First mile",
+      "lastMile": "Last mile",
+      "type": "Transport",
+      "status": "Status",
+      "empty": "No travel bookings yet",
+      "walletTitle": "Travel wallets",
+      "companyBalance": "Company wallet",
+      "assigned": "Assigned to employees",
+      "spend": "Travel spend",
+      "adoption": "Employee adoption",
+      "equalAmount": "Same amount for selected",
+      "assign": "Assign",
+      "unallocated": "Unallocated",
+      "approvalPending": "Approval pending",
+      "approve": "Approve",
+      "reject": "Reject",
+      "providers": "Travel providers"
     },
     "reports": {
       "shuttleLabel": "Financial Reporting",

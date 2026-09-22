@@ -18,7 +18,10 @@
       "chauffeurReports": "تقارير السائق الخاص",
       "poolFleet": "أسطول الشركة",
       "fleetAnalytics": "تحليلات الأسطول",
-      "invoices": "الفواتير"
+      "invoices": "الفواتير",
+      "travel": "السفر",
+      "travelApprovals": "موافقات السفر",
+      "travelWallets": "محافظ السفر"
     },
     "shell": {
       "signOut": "تسجيل الخروج",
@@ -774,7 +777,38 @@
       "externalVendor": "مورد خارجي",
       "handles": "يتولى",
       "chauffeur": "سائق خاص",
-      "shuttle": "نقل جماعي"
+      "shuttle": "نقل جماعي",
+      "travelProviders": "مزودو السفر"
+    },
+    "travel": {
+      "label": "السفر",
+      "title": "حجوزات السفر",
+      "description": "رحلات محلية ودولية حجزها الموظفون.",
+      "newBooking": "حجز سفر",
+      "approvals": "الموافقات",
+      "wallets": "المحافظ",
+      "employee": "الموظف",
+      "bookingDate": "تاريخ الحجز",
+      "from": "من",
+      "to": "إلى",
+      "travelDate": "تاريخ السفر",
+      "firstMile": "الميل الأول",
+      "lastMile": "الميل الأخير",
+      "type": "النقل",
+      "status": "الحالة",
+      "empty": "لا توجد حجوزات سفر بعد",
+      "walletTitle": "محافظ السفر",
+      "companyBalance": "محفظة الشركة",
+      "assigned": "مخصص للموظفين",
+      "spend": "إنفاق السفر",
+      "adoption": "اعتماد الموظفين",
+      "equalAmount": "نفس المبلغ للمحددين",
+      "assign": "تخصيص",
+      "unallocated": "غير مخصص",
+      "approvalPending": "بانتظار الموافقة",
+      "approve": "موافقة",
+      "reject": "رفض",
+      "providers": "مزودو السفر"
     },
     "reports": {
       "shuttleLabel": "التقارير المالية",

@@ -228,7 +228,8 @@ function CompaniesPageContent() {
                     <div className="flex flex-wrap gap-2">
                       {company.is_shuttle_enabled && <Badge color="blue">Shuttle</Badge>}
                       {company.is_chauffeur_enabled && <Badge color="purple">Chauffeur</Badge>}
-                      {!company.is_shuttle_enabled && !company.is_chauffeur_enabled && (
+                      {company.is_travel_enabled && <Badge color="green">Travel</Badge>}
+                      {!company.is_shuttle_enabled && !company.is_chauffeur_enabled && !company.is_travel_enabled && (
                         <Badge color="red">None</Badge>
                       )}
                     </div>

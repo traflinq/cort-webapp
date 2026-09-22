@@ -55,6 +55,7 @@ export default function VendorBookingsPage() {
     const [isEnding, setIsEnding] = useState(false);
     const [isStarting, setIsStarting] = useState<number | null>(null);
     const [isUpdating, setIsUpdating] = useState<number | null>(null);
+    const [travelRequests, setTravelRequests] = useState<any[]>([]);
 
     const load = useCallback(async (page: number) => {
         if (!selectedLink) return;
@@ -69,6 +70,11 @@ export default function VendorBookingsPage() {
             const raw = res?.data ?? res;
             setBookings(raw?.data ?? []);
             setPagination(raw?.pagination ?? { page: 1, total: 0, total_pages: 1 });
+            const travel = await apiClient.getVendorTravelRequests({
+                link_id: selectedLink.id,
+                limit: 20,
+            });
+            setTravelRequests(travel.data?.data ?? []);
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Failed to load bookings");
         } finally {
@@ -182,6 +188,34 @@ export default function VendorBookingsPage() {
                     Refresh
                 </button>
             </div>
+
+            {travelRequests.length > 0 && (
+                <div className="bg-white rounded-xl border overflow-hidden">
+                    <h2 className="px-4 py-3 font-bold text-[#0c225e]">Travel rental requests</h2>
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="bg-gray-50 text-left">
+                                <th className="px-4 py-2">Employee</th>
+                                <th className="px-4 py-2">Route</th>
+                                <th className="px-4 py-2">Mile</th>
+                                <th className="px-4 py-2">Driver / vehicle</th>
+                                <th className="px-4 py-2">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {travelRequests.map((req) => (
+                                <tr key={req.id} className="border-t">
+                                    <td className="px-4 py-3">{req.travel_booking?.employee?.full_name}</td>
+                                    <td className="px-4 py-3">{req.travel_booking?.origin} → {req.travel_booking?.destination}</td>
+                                    <td className="px-4 py-3">{req.mile}</td>
+                                    <td className="px-4 py-3">{req.assigned_driver?.full_name || "—"} {req.assigned_vehicle?.plate_number || ""}</td>
+                                    <td className="px-4 py-3">{req.status}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {/* Status Tabs */}
             <div className="flex gap-2 flex-wrap">

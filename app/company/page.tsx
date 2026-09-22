@@ -62,6 +62,10 @@ export default function CompanyDashboardPage() {
     dashboardStats?.servicesEnabled?.shuttle_enabled ??
     company?.services_enabled?.shuttle_enabled ??
     false;
+  const isTravelEnabled =
+    dashboardStats?.servicesEnabled?.travel_enabled ??
+    company?.services_enabled?.travel_enabled ??
+    false;
 
   const totalServices = (isChauffeurEnabled ? (dashboardStats?.chauffeur.totalBookings || 0) : 0) + (isShuttleEnabled ? (dashboardStats?.shuttle.monthlyTrips || 0) : 0);
   const chauffeurPct = totalServices > 0 ? Math.round(((dashboardStats?.chauffeur.totalBookings || 0) / totalServices) * 100) : 0;
@@ -296,6 +300,28 @@ export default function CompanyDashboardPage() {
       <div className="w-full dashboard-section dashboard-section-delay-3">
         <LiveMobilityCenter data={data.mobility} />
       </div>
+
+      {isTravelEnabled && dashboardStats?.travel && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
+            <p className="text-xs uppercase text-[var(--text-muted)]">Company wallet</p>
+            <p className="text-2xl font-bold">PKR {Number(dashboardStats.travel.company_balance).toLocaleString()}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
+            <p className="text-xs uppercase text-[var(--text-muted)]">Assigned</p>
+            <p className="text-2xl font-bold">PKR {Number(dashboardStats.travel.assigned_total).toLocaleString()}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
+            <p className="text-xs uppercase text-[var(--text-muted)]">Travel spend</p>
+            <p className="text-2xl font-bold">PKR {Number(dashboardStats.travel.spend_total).toLocaleString()}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
+            <p className="text-xs uppercase text-[var(--text-muted)]">Employee adoption</p>
+            <p className="text-2xl font-bold">{dashboardStats.travel.adoption}%</p>
+            <p className="text-xs text-[var(--text-muted)]">{dashboardStats.travel.travelers} / {dashboardStats.travel.active_employees} employees</p>
+          </div>
+        </div>
+      )}
 
       {/* 2. Main Analytics Grid */}
       <div className={analyticsGridClass}>

@@ -64,6 +64,29 @@ import {
 export * from './types';
 export type { LoginRequest, LoginResponse, ProfileResponse, SignupRequest } from '../types/auth-types';
 
+export type TravelCarListing = {
+    id: number;
+    name: string;
+    travel_class: 'ECONOMY' | 'BUSINESS';
+    rental_amount: number;
+    cost_per_km: number;
+    estimated_toll: number;
+    duration: string | null;
+    bag_allowance: number;
+    is_active: boolean;
+};
+
+export type TravelCarInput = {
+    name: string;
+    travel_class: 'ECONOMY' | 'BUSINESS';
+    rental_amount: number;
+    cost_per_km: number;
+    estimated_toll: number;
+    duration?: string;
+    bag_allowance?: number;
+    is_active?: boolean;
+};
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 class ApiClient {
@@ -1638,7 +1661,51 @@ class ApiClient {
         return this.request<{ success: boolean; data: CompanyVendorLink[] }>(`/admin/companies/${companyId}/external-vendors`);
     }
 
+    async getAdminTravelCars() {
+        return this.request<{ success: boolean; data: TravelCarListing[] }>('/admin/travel-cars');
+    }
+
+    async createAdminTravelCar(body: TravelCarInput) {
+        return this.request<{ success: boolean; data: TravelCarListing }>('/admin/travel-cars', {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async updateAdminTravelCar(id: number, body: Partial<TravelCarInput>) {
+        return this.request<{ success: boolean; data: TravelCarListing }>(`/admin/travel-cars/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async deleteAdminTravelCar(id: number) {
+        return this.request<{ success: boolean }>(`/admin/travel-cars/${id}`, { method: 'DELETE' });
+    }
+
     // ===== VENDOR DASHBOARD =====
+
+    async getVendorTravelCars() {
+        return this.request<{ success: boolean; data: TravelCarListing[] }>('/vendor/travel-cars');
+    }
+
+    async createVendorTravelCar(body: TravelCarInput) {
+        return this.request<{ success: boolean; data: TravelCarListing }>('/vendor/travel-cars', {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async updateVendorTravelCar(id: number, body: Partial<TravelCarInput>) {
+        return this.request<{ success: boolean; data: TravelCarListing }>(`/vendor/travel-cars/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async deleteVendorTravelCar(id: number) {
+        return this.request<{ success: boolean }>(`/vendor/travel-cars/${id}`, { method: 'DELETE' });
+    }
 
     async getVendorDashboard() {
         return this.request<{ success: boolean; data: VendorDashboardStats }>('/vendor/dashboard');
@@ -2266,6 +2333,113 @@ class ApiClient {
                 created_at: string;
             }[];
         }>('/admin/leads/trial');
+    }
+
+    // ---------------------------------------------------------------------------
+    // Travel packages
+    // ---------------------------------------------------------------------------
+
+    async allocateCompanyTravelWallet(companyId: number, amount: number, note?: string) {
+        return this.request<any>(`/admin/companies/${companyId}/travel-wallet/allocate`, {
+            method: 'POST',
+            body: JSON.stringify({ amount, note }),
+        });
+    }
+
+    async getAdminCompanyTravelWallet(companyId: number) {
+        return this.request<any>(`/admin/companies/${companyId}/travel-wallet`);
+    }
+
+    async getCompanyTravelOverview(companyId: number) {
+        return this.request<any>(`/companies/${companyId}/travel/overview`);
+    }
+
+    async getCompanyTravelWallet(companyId: number) {
+        return this.request<any>(`/companies/${companyId}/travel/wallet`);
+    }
+
+    async getCompanyEmployeeTravelWallets(companyId: number) {
+        return this.request<any>(`/companies/${companyId}/travel/wallets`);
+    }
+
+    async assignEmployeeTravelWallets(companyId: number, assignments: Array<{ employee_id: string; amount: number }>) {
+        return this.request<any>(`/companies/${companyId}/travel/wallets/assign`, {
+            method: 'POST',
+            body: JSON.stringify({ assignments }),
+        });
+    }
+
+    async setTravelApprovalRequired(companyId: number, approval_required: boolean) {
+        return this.request<any>(`/companies/${companyId}/travel/wallet/approval`, {
+            method: 'PATCH',
+            body: JSON.stringify({ approval_required }),
+        });
+    }
+
+    async searchCompanyTravel(companyId: number, body: Record<string, unknown>) {
+        return this.request<any>(`/companies/${companyId}/travel/search`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async getTravelMileOptions(companyId: number, bagCount = 1) {
+        return this.request<any>(`/companies/${companyId}/travel/mile-options?bag_count=${bagCount}`);
+    }
+
+    async createCompanyTravelBooking(companyId: number, body: Record<string, unknown>) {
+        return this.request<any>(`/companies/${companyId}/travel/bookings`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async getCompanyTravelBookings(companyId: number, params: Record<string, string | number | undefined> = {}) {
+        const query = new URLSearchParams();
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== '') query.append(key, String(value));
+        });
+        const qs = query.toString();
+        return this.request<any>(`/companies/${companyId}/travel/bookings${qs ? `?${qs}` : ''}`);
+    }
+
+    async getCompanyTravelBooking(companyId: number, id: number) {
+        return this.request<any>(`/companies/${companyId}/travel/bookings/${id}`);
+    }
+
+    async approveTravelBooking(companyId: number, id: number) {
+        return this.request<any>(`/companies/${companyId}/travel/bookings/${id}/approve`, { method: 'POST' });
+    }
+
+    async rejectTravelBooking(companyId: number, id: number) {
+        return this.request<any>(`/companies/${companyId}/travel/bookings/${id}/reject`, { method: 'POST' });
+    }
+
+    async patchTravelBooking(companyId: number, id: number, body: Record<string, unknown>) {
+        return this.request<any>(`/companies/${companyId}/travel/bookings/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async getCompanyTravelInvoices(companyId: number, page = 1, limit = 20) {
+        return this.request<any>(`/companies/${companyId}/travel/invoices?page=${page}&limit=${limit}`);
+    }
+
+    async getVendorTravelRequests(params?: { link_id?: number; status?: string; page?: number; limit?: number }) {
+        const query = new URLSearchParams();
+        if (params?.link_id) query.append('link_id', String(params.link_id));
+        if (params?.status) query.append('status', params.status);
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        return this.request<any>(`/vendor/travel-requests?${query}`);
+    }
+
+    async assignVendorTravelRequest(requestId: number, dto: { vehicle_id: number; driver_user_id: string; notes?: string }) {
+        return this.request<any>(`/vendor/travel-requests/${requestId}/assign`, {
+            method: 'PATCH',
+            body: JSON.stringify(dto),
+        });
     }
 
     // ---------------------------------------------------------------------------

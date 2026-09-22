@@ -83,6 +83,8 @@ export default function CompanyInvoicingPage() {
         [t],
     );
 
+    const [travelInvoices, setTravelInvoices] = useState<any[]>([]);
+
     const fetchInvoices = useCallback(async (p: number) => {
         if (!user?.company_id) return;
         setIsLoading(true);
@@ -101,7 +103,11 @@ export default function CompanyInvoicingPage() {
 
     useEffect(() => {
         fetchInvoices(page);
-    }, [page, fetchInvoices]);
+        if (!user?.company_id) return;
+        apiClient.getCompanyTravelInvoices(user.company_id, 1, 20)
+          .then((res) => setTravelInvoices(res.data?.data || []))
+          .catch(() => setTravelInvoices([]));
+    }, [page, fetchInvoices, user?.company_id]);
 
     const downloadPdf = async (id: number, invoiceNumber: string) => {
         if (downloadingId) return;
@@ -273,6 +279,33 @@ export default function CompanyInvoicingPage() {
                     </div>
                 )}
             </Card>
+            {travelInvoices.length > 0 && (
+              <Card className={`${TABLE_CARD_CLASS} mt-6`}>
+                <div className={TABLE_TOP_BAR_CLASS}><h2 className="font-bold">Travel invoices</h2></div>
+                <table className="w-full text-left">
+                  <thead>
+                    <tr>
+                      <th className={TABLE_HEADER_CELL_CLASS}>Invoice</th>
+                      <th className={TABLE_HEADER_CELL_CLASS}>Employee</th>
+                      <th className={TABLE_HEADER_CELL_CLASS}>Route</th>
+                      <th className={TABLE_HEADER_CELL_CLASS}>Amount</th>
+                      <th className={TABLE_HEADER_CELL_CLASS}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {travelInvoices.map((inv) => (
+                      <tr key={inv.id} className="border-t border-[var(--border-light)]">
+                        <td className={TABLE_CELL_CLASS}>{inv.invoice_number}</td>
+                        <td className={TABLE_CELL_CLASS}>{inv.travel_booking?.employee?.full_name}</td>
+                        <td className={TABLE_CELL_CLASS}>{inv.travel_booking?.origin} → {inv.travel_booking?.destination}</td>
+                        <td className={TABLE_CELL_CLASS}>PKR {Number(inv.total_amount).toLocaleString()}</td>
+                        <td className={TABLE_CELL_CLASS}>{inv.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Card>
+            )}
         </div>
     );
 }

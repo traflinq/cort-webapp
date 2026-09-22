@@ -132,7 +132,7 @@ export default function VendorDashboardPage() {
             </div>
 
             {/* KPI Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                 {loading ? (
                     [...Array(4)].map((_, i) => (
                         <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6 h-36 animate-pulse" />
@@ -140,6 +140,7 @@ export default function VendorDashboardPage() {
                 ) : stats ? (
                     <>
                         <KpiCard label="Pending Bookings" value={stats.pending_requests} icon={Inbox} color="bg-orange-50 text-[#f47f00]" trend="+12%" />
+                        <KpiCard label="Travel rentals" value={stats.pending_travel_requests ?? 0} icon={Inbox} color="bg-indigo-50 text-indigo-600" />
                         <KpiCard label="Active Rides" value={stats.active_bookings} icon={Building2} color="bg-blue-50 text-blue-600" trend="+5%" />
                         <KpiCard label="Fleet" value={stats.total_vehicles} icon={Car} color="bg-green-50 text-green-600" />
                         <KpiCard label="Drivers" value={stats.total_drivers} icon={Users} color="bg-purple-50 text-purple-600" />

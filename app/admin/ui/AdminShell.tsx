@@ -56,6 +56,7 @@ const nav: NavItem[] = [
   { href: "/admin/pricing", label: "Contracts & Pricing", icon: FileText, permission: "pricing" },
   { href: "/admin/fixed-contracts", label: "Fixed-Term Cars", icon: Car, permission: "fixed_contracts" },
   { href: "/admin/vehicles", label: "Vehicles", icon: Car, permission: "vehicles" },
+  { href: "/admin/travel-cars", label: "Travel cars", icon: Car },
   { href: "/admin/vehicles/fueling", label: "Fuel Records", icon: Fuel, permission: "fuel_records" },
   { href: "/admin/vehicles/maintenance", label: "Maintenance", icon: Wrench, permission: "maintenance" },
   { href: "/admin/settings/app-config", label: "App Config", icon: Smartphone },

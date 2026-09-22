@@ -20,11 +20,13 @@ const STATUS_COLORS: Record<string, string> = {
 export default function VendorRequestsPage() {
     const { selectedLink } = useVendorContext();
     const [requests, setRequests] = useState<BookingVendorRequest[]>([]);
+    const [travelRequests, setTravelRequests] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState<string>("PENDING");
 
     // Assign modal state
     const [assigningReq, setAssigningReq] = useState<BookingVendorRequest | null>(null);
+    const [assigningTravel, setAssigningTravel] = useState<any | null>(null);
     const [vehicles, setVehicles] = useState<VendorVehicle[]>([]);
     const [drivers, setDrivers] = useState<VendorDriver[]>([]);
     const [assignForm, setAssignForm] = useState({ vehicle_id: 0, driver_user_id: "" });
@@ -36,6 +38,8 @@ export default function VendorRequestsPage() {
         try {
             const res = await apiClient.getVendorRequests({ link_id: selectedLink.id, status: statusFilter || undefined });
             setRequests(res.data.data ?? []);
+            const travel = await apiClient.getVendorTravelRequests({ link_id: selectedLink.id, status: statusFilter || undefined });
+            setTravelRequests(travel.data?.data ?? []);
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Failed to load requests");
         } finally {
@@ -67,20 +71,45 @@ export default function VendorRequestsPage() {
         }
     };
 
+    const openTravelAssign = async (req: any) => {
+        setAssigningTravel(req);
+        setAssigningReq(null);
+        setAssignForm({ vehicle_id: 0, driver_user_id: "" });
+        if (selectedLink) {
+            try {
+                const [vRes, dRes] = await Promise.all([
+                    apiClient.getVendorVehicles(selectedLink.id),
+                    apiClient.getVendorDrivers(selectedLink.id),
+                ]);
+                setVehicles(vRes?.data ?? []);
+                setDrivers(dRes?.data ?? []);
+            } catch (err) { toast.error(err instanceof Error ? err.message : "Failed to load fleet"); }
+        }
+    };
+
     const handleAssign = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!assigningReq || !assignForm.vehicle_id || !assignForm.driver_user_id) {
+        if (!assignForm.vehicle_id || !assignForm.driver_user_id) {
             toast.error("Please select both a vehicle and driver");
             return;
         }
         setAssigning(true);
         try {
-            await apiClient.assignVendorRequest(assigningReq.id, {
-                vehicle_id: assignForm.vehicle_id,
-                driver_user_id: assignForm.driver_user_id,
-            });
-            toast.success("Booking request accepted");
-            setAssigningReq(null);
+            if (assigningTravel) {
+                await apiClient.assignVendorTravelRequest(assigningTravel.id, {
+                    vehicle_id: assignForm.vehicle_id,
+                    driver_user_id: assignForm.driver_user_id,
+                });
+                toast.success("Travel rental request accepted");
+                setAssigningTravel(null);
+            } else if (assigningReq) {
+                await apiClient.assignVendorRequest(assigningReq.id, {
+                    vehicle_id: assignForm.vehicle_id,
+                    driver_user_id: assignForm.driver_user_id,
+                });
+                toast.success("Booking request accepted");
+                setAssigningReq(null);
+            }
             load();
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Failed to assign");
@@ -185,16 +214,50 @@ export default function VendorRequestsPage() {
                 </table>
             </div>
 
+            {travelRequests.length > 0 && (
+                <div className="bg-white rounded-xl border overflow-hidden">
+                    <h2 className="px-4 py-3 font-bold text-[#0c225e]">Travel rental requests</h2>
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="bg-gray-50 text-left">
+                                <th className="px-4 py-2">Employee</th>
+                                <th className="px-4 py-2">Route</th>
+                                <th className="px-4 py-2">Mile</th>
+                                <th className="px-4 py-2">Status</th>
+                                <th className="px-4 py-2"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {travelRequests.map((req) => (
+                                <tr key={req.id} className="border-t">
+                                    <td className="px-4 py-3">{req.travel_booking?.employee?.full_name}</td>
+                                    <td className="px-4 py-3">{req.travel_booking?.origin} → {req.travel_booking?.destination}</td>
+                                    <td className="px-4 py-3">{req.mile}</td>
+                                    <td className="px-4 py-3">{req.status}</td>
+                                    <td className="px-4 py-3">
+                                        {req.status === "PENDING" && (
+                                            <button onClick={() => openTravelAssign(req)} className="text-xs bg-[#f47f00] text-white px-3 py-1.5 rounded-lg font-medium">Assign & Accept</button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
             {/* Assign Modal */}
-            {assigningReq && (
+            {(assigningReq || assigningTravel) && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-semibold text-gray-900">Assign & Accept Request</h2>
-                            <button onClick={() => setAssigningReq(null)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+                            <button onClick={() => { setAssigningReq(null); setAssigningTravel(null); }} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
                         </div>
                         <p className="text-xs text-gray-500 mb-4">
-                            Booking #{assigningReq.booking_id} · {assigningReq.chauffeur_bookings?.pickup_address ?? ""}
+                            {assigningTravel
+                              ? `Travel #${assigningTravel.travel_booking_id} · ${assigningTravel.mile}`
+                              : `Booking #${assigningReq?.booking_id} · ${assigningReq?.chauffeur_bookings?.pickup_address ?? ""}`}
                         </p>
                         <form onSubmit={handleAssign} className="space-y-4">
                             <div>
@@ -216,7 +279,7 @@ export default function VendorRequestsPage() {
                                 </select>
                             </div>
                             <div className="flex justify-end gap-3 pt-2">
-                                <button type="button" onClick={() => setAssigningReq(null)} className={cancelBtnCls}>Cancel</button>
+                                <button type="button" onClick={() => { setAssigningReq(null); setAssigningTravel(null); }} className={cancelBtnCls}>Cancel</button>
                                 <button type="submit" disabled={assigning} className={saveBtnCls}>{assigning ? "Assigning…" : "Confirm Assignment"}</button>
                             </div>
                         </form>

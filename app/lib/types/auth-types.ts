@@ -76,6 +76,7 @@ export interface AuthUser {
     enabled_services: {
         shuttle: boolean;
         chauffeur: boolean;
+        travel: boolean;
     } | null;
   is_trial?: boolean;
   trial_expires_at?: string;

@@ -64,6 +64,7 @@ export interface CompanyVendorLink {
 export interface VendorDashboardStats {
     pending_requests: number;
     active_bookings: number;
+    pending_travel_requests?: number;
     total_vehicles: number;
     total_drivers: number;
     company_links: Array<{
@@ -72,6 +73,7 @@ export interface VendorDashboardStats {
         company_name: string;
         serves_chauffeur: boolean;
         serves_shuttle: boolean;
+        travel_enabled?: boolean;
     }>;
 }
 

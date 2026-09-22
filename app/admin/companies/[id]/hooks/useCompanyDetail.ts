@@ -621,9 +621,9 @@ export function useCompanyDetail(id: string) {
         URL.revokeObjectURL(url);
     };
 
-    const toggleService = async (service: 'shuttle' | 'chauffeur') => {
+    const toggleService = async (service: 'shuttle' | 'chauffeur' | 'travel') => {
         if (!company) return;
-        const key = service === 'shuttle' ? 'is_shuttle_enabled' : 'is_chauffeur_enabled';
+        const key = service === 'shuttle' ? 'is_shuttle_enabled' : service === 'travel' ? 'is_travel_enabled' : 'is_chauffeur_enabled';
         const newVal = !company[key];
 
         // Optimistic

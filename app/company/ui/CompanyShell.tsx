@@ -25,6 +25,7 @@ import {
   Sun,
   Moon,
   Languages,
+  Plane,
 } from "lucide-react";
 import { useAuth } from "../../lib/contexts/auth-context";
 import type { TrialModules } from "../../lib/types/auth-types";
@@ -34,7 +35,7 @@ import { getSaudiBasePath, stripSaudiPrefix, withSaudiBase } from "../../lib/i18
 import { Toaster } from "sonner";
 import { TrialOnboardingWalkthrough } from "../components/TrialOnboardingWalkthrough";
 
-type ServicesEnabled = { shuttle_enabled: boolean; chauffeur_enabled: boolean };
+type ServicesEnabled = { shuttle_enabled: boolean; chauffeur_enabled: boolean; travel_enabled: boolean };
 type FeatureLike = { feature_key: string; is_enabled: boolean };
 
 type NavItem = {
@@ -137,6 +138,11 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
         { titleKey: "nav.administration", items: adminItems },
       ];
 
+      if (servicesEnabled.travel_enabled) {
+        groups[1].items.push({ href: withSaudiBase("/company/travel", basePath), labelKey: "nav.travel", icon: Plane });
+        groups[1].items.push({ href: withSaudiBase("/company/travel/approvals", basePath), labelKey: "nav.travelApprovals", icon: FileBarChart });
+        groups[2].items.push({ href: withSaudiBase("/company/travel/wallets", basePath), labelKey: "nav.travelWallets", icon: Receipt });
+      }
       if (servicesEnabled.shuttle_enabled) {
         groups[1].items.push({ href: withSaudiBase("/company/routes", basePath), labelKey: "nav.routeRoster", icon: Map });
       }
@@ -158,7 +164,7 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
       }
       if (
         !hideInvoicing
-        && (hasFeature("chauffeur_cort_managed") || hasFeature("shuttle_cort_managed"))
+        && (hasFeature("chauffeur_cort_managed") || hasFeature("shuttle_cort_managed") || servicesEnabled.travel_enabled)
       ) {
         groups[2].items.push({ href: withSaudiBase("/company/invoicing", basePath), labelKey: "nav.invoices", icon: Receipt });
       }
@@ -197,12 +203,10 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
   }, [isTrialUser, pathname, router, trialModules, basePath]);
 
   const servicesEnabled = useMemo(() => {
-    if (company?.services_enabled) {
-      return company.services_enabled;
-    }
     return {
-      shuttle_enabled: user?.enabled_services?.shuttle ?? false,
-      chauffeur_enabled: user?.enabled_services?.chauffeur ?? false,
+      shuttle_enabled: company?.services_enabled?.shuttle_enabled ?? user?.enabled_services?.shuttle ?? false,
+      chauffeur_enabled: company?.services_enabled?.chauffeur_enabled ?? user?.enabled_services?.chauffeur ?? false,
+      travel_enabled: company?.services_enabled?.travel_enabled ?? user?.enabled_services?.travel ?? false,
     };
   }, [company, user]);
 

@@ -50,6 +50,15 @@ export type DashboardStats = {
     servicesEnabled?: {
         chauffeur_enabled: boolean;
         shuttle_enabled: boolean;
+        travel_enabled?: boolean;
+    };
+    travel?: {
+        company_balance: number;
+        assigned_total: number;
+        spend_total: number;
+        travelers: number;
+        active_employees: number;
+        adoption: number;
     };
     costLeakage?: {
         aiInsightsEnabled: boolean;
