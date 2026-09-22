@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import { usePathname } from "next/navigation";
 import {
@@ -81,7 +81,7 @@ export function CompanyLocaleProvider({ children }: { children: React.ReactNode 
     setLocale(locale === "en" ? "ar" : "en");
   }, [locale, setLocale]);
 
-  const messages = useMemo(() => loadMessages(locale), [locale]);
+  const messages = loadMessages(locale);
   const isRtl = isRtlLocale(locale);
 
   if (!mounted) {
