@@ -6,7 +6,8 @@ import { getOfficeStops, isOfficeStop } from '@/app/lib/utils/routeStops';
 import { formatEtaTime12h, formatPktTime12h } from '@/app/lib/utils';
 
 export type TripEmployee = {
-  id: number;
+  /** Assignment row id — not always present on the trip employees payload. */
+  id?: number;
   user_id: string;
   users?: {
     id: string;
@@ -309,7 +310,7 @@ export function TripDetailPanel({
                   const name = emp.users?.full_name ?? 'Unknown';
                   return (
                     <div
-                      key={emp.id}
+                      key={emp.user_id}
                       className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50 border border-gray-100"
                     >
                       <div className="w-7 h-7 rounded-full bg-[#0C225E]/10 flex items-center justify-center shrink-0">
