@@ -25,7 +25,6 @@ import {
     Wallet
 } from 'lucide-react';
 import { DashboardData } from '../types';
-import { cn } from '../../lib/utils';
 import { AnimatedList, AnimatedListItem, SimpleGraph } from './motion';
 import SpotlightCard from './SpotlightCard';
 
@@ -41,15 +40,9 @@ const formatCurrency = (value: number) => {
 };
 
 export const Card = ({ children, className = "", withLeftBorder = false }: { children: React.ReactNode; className?: string; withLeftBorder?: boolean }) => (
-    <SpotlightCard
-        className={cn(
-            "p-4 sm:p-6 h-full min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200 hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)]",
-            withLeftBorder && "border-s-4 border-s-[#fe8503]",
-            className,
-        )}
-    >
+    <div className={`bg-[var(--bg-card)] border border-[var(--border-default)] rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 h-full min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200 hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] ${withLeftBorder ? 'border-s-4 border-s-[#fe8503]' : ''} ${className}`}>
         {children}
-    </SpotlightCard>
+    </div>
 );
 
 export const SectionTitle = ({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) => (
@@ -148,7 +141,7 @@ export const TakingCareSection = ({ data }: { data: DashboardData['takingCare'] 
 
     return (
         <div className="grid grid-cols-1 gap-4 h-full">
-            <Card className="relative overflow-hidden group transition-all">
+            <SpotlightCard className="relative group transition-all p-4 sm:p-6 h-full min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)]">
                 <div className={`absolute top-0 end-0 p-4 transition-opacity opacity-5 text-[#fe8503]`}>
                     <AlertCircle size={80} />
                 </div>
@@ -159,9 +152,9 @@ export const TakingCareSection = ({ data }: { data: DashboardData['takingCare'] 
                         {isZero ? t('allCaughtUp') : <span className="bg-[#fe8503]/15 text-[#fe8503] font-bold px-2 py-0.5 rounded-full text-xs border border-[#fe8503]/30">{t('requiresAttention')}</span>}
                     </div>
                 </div>
-            </Card>
+            </SpotlightCard>
 
-            <Card className="bg-[var(--bg-card)] border-[var(--border-default)] relative overflow-hidden group">
+            <SpotlightCard className="bg-[var(--bg-card)] border-[var(--border-default)] relative group p-4 sm:p-6 h-full min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)]">
                 <div className="absolute top-0 end-0 p-4 text-[var(--accent-success)] opacity-5 group-hover:opacity-10 transition-opacity">
                     <CheckCircle size={80} />
                 </div>
@@ -173,7 +166,7 @@ export const TakingCareSection = ({ data }: { data: DashboardData['takingCare'] 
                     </div>
                     <div className="mt-2 text-[var(--text-muted)] text-sm">{t('successfullyCompleted')}</div>
                 </div>
-            </Card>
+            </SpotlightCard>
         </div>
     );
 };
@@ -190,7 +183,7 @@ export const NothingToDoSection = ({ data, outstandingAmount = 0, invoices = [] 
     const hasOutstanding = outstandingAmount > 0;
 
     return (
-        <Card className={`group relative overflow-visible bg-[var(--bg-card)] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] h-full transition-all duration-300 flex flex-col justify-between min-w-0`}>
+        <SpotlightCard className={`group relative overflow-visible bg-[var(--bg-card)] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] h-full transition-all duration-300 flex flex-col justify-between min-w-0`}>
             {/* Background Icon matching Savings card */}
             <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 overflow-hidden flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
                 {hasOutstanding ? (
@@ -260,7 +253,7 @@ export const NothingToDoSection = ({ data, outstandingAmount = 0, invoices = [] 
                     </div>
                 )}
             </div>
-        </Card>
+        </SpotlightCard>
     );
 };
 
@@ -361,7 +354,7 @@ export const OutstandingAmountRow = ({ amount, invoices = [] }: { amount: number
     const { locale } = useCompanyLocale();
 
     return (
-        <Card className="group relative overflow-visible z-20 hover:z-[200] p-5">
+        <SpotlightCard className="group relative overflow-visible z-20 hover:z-[200] p-5">
             <div className="pointer-events-none hidden sm:block absolute inset-0 overflow-hidden rounded-[2rem]">
                 <div className="absolute inset-y-4 end-0 w-40 flex items-center justify-center opacity-10 transform rotate-12">
                     <Wallet size={120} className="text-[var(--text-muted)]" />
@@ -445,7 +438,7 @@ export const OutstandingAmountRow = ({ amount, invoices = [] }: { amount: number
                     </div>
                 </div>
             </div>
-        </Card>
+        </SpotlightCard>
     )
 }
 
@@ -463,7 +456,7 @@ export const CostVisibilitySection = ({
     const percentageUsed = Math.min((data.totalSpendMTD / budget) * 100, 100);
 
     return (
-        <Card>
+        <SpotlightCard className="p-4 sm:p-6 h-full min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)]">
             <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
                 <SectionTitle><CreditCard className="w-5 h-5 text-[var(--cort-orange)]" /> {t('costVisibility')}</SectionTitle>
                 {onEditBudget && (
@@ -543,7 +536,7 @@ export const CostVisibilitySection = ({
                     </div>
                 </div>
             </div>
-        </Card>
+        </SpotlightCard>
     )
 }
 
@@ -592,7 +585,7 @@ export const EmployeeUsageSection = ({ data }: { data: DashboardData['employeeUs
     const t = useTranslations('company.dashboard');
 
     return (
-        <Card className="bg-[var(--bg-card)] border border-[var(--border-default)]">
+        <SpotlightCard className="bg-[var(--bg-card)] border border-[var(--border-default)] p-4 sm:p-6 h-full min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)]">
             <SectionTitle><Users className="w-5 h-5 text-[#fe8503]" /> {t('employeeAdoption')}</SectionTitle>
 
             <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-6">
@@ -644,7 +637,7 @@ export const EmployeeUsageSection = ({ data }: { data: DashboardData['employeeUs
                     })}
                 </div>
             </div>
-        </Card>
+        </SpotlightCard>
     )
 }
 
@@ -653,7 +646,7 @@ export const AdoptionHealthSection = ({ data }: { data: DashboardData['adminHeal
     const tStatus = useTranslations('common.status');
 
     return (
-        <Card className="h-full bg-[var(--bg-card)] border border-[var(--border-default)]">
+        <SpotlightCard className="h-full bg-[var(--bg-card)] border border-[var(--border-default)] p-4 sm:p-6 min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)]">
             <SectionTitle><ShieldCheck className="w-5 h-5 text-[var(--accent-success)]" /> {t('systemHealth')}</SectionTitle>
 
             <div className="space-y-4">
@@ -678,7 +671,7 @@ export const AdoptionHealthSection = ({ data }: { data: DashboardData['adminHeal
                     <span className="text-[var(--accent-success)] font-bold">{tStatus('good')}</span>
                 </div>
             </div>
-        </Card>
+        </SpotlightCard>
     )
 }
 
@@ -694,7 +687,7 @@ export const ServiceUsageSection = ({ data, hasChauffeur = true, hasShuttle = tr
     const chartData = visibleItems.map(({ label, value, color }) => ({ label, value, color }));
 
     return (
-        <Card>
+        <SpotlightCard className="p-4 sm:p-6 h-full min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)]">
             <SectionTitle><Car className="w-5 h-5 text-[#f47f00]" /> {t('serviceSplit')}</SectionTitle>
 
             <div className="flex flex-col items-center justify-center h-full py-2">
@@ -710,7 +703,7 @@ export const ServiceUsageSection = ({ data, hasChauffeur = true, hasShuttle = tr
                     ))}
                 </div>
             </div>
-        </Card>
+        </SpotlightCard>
     )
 }
 
