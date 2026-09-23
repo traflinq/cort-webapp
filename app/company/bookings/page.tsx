@@ -152,20 +152,19 @@ export default function BookingsPage() {
         action={
           company.services_enabled.chauffeur_enabled ? (
             isModalOpen ? (
-              <span className="invisible pointer-events-none inline-flex items-center gap-2.5 rounded-xl px-6 py-3 text-sm font-bold">
+              <span className="invisible pointer-events-none inline-flex items-center justify-center bg-[#f47f00] px-5 py-2.5 rounded-xl text-sm font-bold">
                 {tCommon("actions.newBooking")}
               </span>
             ) : (
             <ModalTrigger
               layoutId="company-bookings-create"
               onClick={() => setIsModalOpen(true)}
-              className="group relative flex items-center gap-2.5 rounded-xl bg-[var(--cort-orange)] px-6 py-3 text-sm font-bold text-[var(--text-primary)] transition-all hover:bg-[var(--cort-orange-hover)] hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(244,127,0,0.25)] hover:shadow-[0_8px_20px_rgba(244,127,0,0.35)] active:translate-y-0 active:shadow-md overflow-hidden"
+              className="inline-flex items-center justify-center gap-2 bg-[#f47f00] text-white px-5 py-2.5 rounded-xl text-sm font-bold"
             >
-              <div className="absolute inset-0 bg-white/10 translate-y-full transition-transform group-hover:translate-y-0" />
-              <svg className="w-4 h-4 text-[var(--text-primary)] transition-transform group-hover:scale-110 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
               </svg>
-              <span className="relative z-10">{tCommon("actions.newBooking")}</span>
+              <span>{tCommon("actions.newBooking")}</span>
             </ModalTrigger>
             )
           ) : undefined

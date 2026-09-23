@@ -268,16 +268,16 @@ export default function CompanyDashboardPage() {
 
             {hasChauffeur && (
               isModalOpen ? (
-                <span className="invisible pointer-events-none flex items-center justify-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold whitespace-nowrap w-full sm:w-auto">
+                <span className="invisible pointer-events-none inline-flex items-center justify-center bg-[#f47f00] px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap">
                   {tCommon('actions.newBooking')}
                 </span>
               ) : (
                 <ModalTrigger
                   layoutId="company-new-booking"
                   onClick={() => setIsModalOpen(true)}
-                  className="group relative flex items-center justify-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-[var(--cort-orange-hover)] hover:-translate-y-0.5 shadow-lg active:translate-y-0 active:shadow-md whitespace-nowrap w-full sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2 bg-[#f47f00] text-white px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap"
                 >
-                  <svg className="w-4 h-4 text-white transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                   </svg>
                   <span>{tCommon('actions.newBooking')}</span>
