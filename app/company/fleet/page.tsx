@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { createPortal } from "react-dom";
 import { useAppSelector } from "../../lib/store/hooks";
 import { selectCompany } from "../../lib/store/slices/companySlice";
 import { useAuth } from "../../lib/contexts/auth-context";
@@ -12,6 +11,7 @@ import { apiClient, canServeChauffeur, canServeShuttle } from "../../lib/service
 import { CompanyFeature, PoolVehicle, PoolDriver } from "../../lib/services/types/multi-mode";
 import { VehicleCategory } from "../../lib/services/types/vehicles";
 import { toast } from "sonner";
+import Modal, { ModalTrigger } from "../bookings/components/Modal";
 import { Card } from "../components/DashboardComponents";
 import { AccountCredentialsReveal, SaveCredentialsNote } from "../components/AccountCredentialsReveal";
 import { PageHeader, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
@@ -377,15 +377,17 @@ export default function CompanyFleetPage() {
                 description={isTrialUser ? t("trialFleetDescription") : t("selfManagedDescription")}
                 action={
                     activeTab === "vehicles" ? (
-                        <button
+                        <ModalTrigger
+                            layoutId="company-add-vehicle"
                             onClick={() => setShowAddVehicle(true)}
                             disabled={atVehicleLimit}
                             className="group relative flex items-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-[var(--text-primary)] transition-all hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 disabled:hover:translate-y-0"
                         >
                             + {t("addVehicle")}
-                        </button>
+                        </ModalTrigger>
                     ) : activeTab === "drivers" ? (
-                        <button
+                        <ModalTrigger
+                            layoutId="company-add-driver"
                             onClick={openAddDriver}
                             disabled={
                                 isTrialUser && trialHasPool(trialModules) && trialHasShuttle(trialModules)
@@ -397,7 +399,7 @@ export default function CompanyFleetPage() {
                             className="group relative flex items-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-[var(--text-primary)] transition-all hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 disabled:hover:translate-y-0"
                         >
                             + {t("inviteDriver")}
-                        </button>
+                        </ModalTrigger>
                     ) : null
                 }
             />
@@ -633,8 +635,13 @@ export default function CompanyFleetPage() {
                 </div>
             )}
 
-            {showAddVehicle && (
-                <Modal title={isTrialUser ? t("addFleetVehicle") : t("addPoolVehicle")} onClose={() => setShowAddVehicle(false)}>
+            <Modal
+                isOpen={showAddVehicle}
+                onClose={() => setShowAddVehicle(false)}
+                title={isTrialUser ? t("addFleetVehicle") : t("addPoolVehicle")}
+                layoutId="company-add-vehicle"
+                panelClassName="!max-w-lg"
+            >
                     <form onSubmit={handleAddVehicle} className="space-y-4">
                         <div className="grid grid-cols-2 gap-3">
                             <Field label={t("plate") + " *"}><input required value={vehicleForm.plate_number} onChange={(e) => setVehicleForm((f) => ({ ...f, plate_number: e.target.value }))} className={inputCls} /></Field>
@@ -662,11 +669,15 @@ export default function CompanyFleetPage() {
                             <button type="submit" disabled={vehicleSaving} className={saveBtnCls}>{vehicleSaving ? t("adding") : t("addVehicle")}</button>
                         </div>
                     </form>
-                </Modal>
-            )}
+            </Modal>
 
-            {showAddDriver && (
-                <Modal title={driverCreatedCredentials ? t("driverCreatedTitle") : (isTrialUser ? t("inviteFleetDriver") : t("invitePoolDriver"))} onClose={closeDriverModal}>
+            <Modal
+                isOpen={showAddDriver}
+                onClose={closeDriverModal}
+                title={driverCreatedCredentials ? t("driverCreatedTitle") : (isTrialUser ? t("inviteFleetDriver") : t("invitePoolDriver"))}
+                layoutId="company-add-driver"
+                panelClassName="!max-w-lg"
+            >
                     {driverCreatedCredentials ? (
                         <div className="space-y-5">
                             <div className="text-center text-sm text-[var(--text-muted)]">
@@ -722,7 +733,6 @@ export default function CompanyFleetPage() {
                         </form>
                     )}
                 </Modal>
-            )}
         </div>
     );
 }
@@ -779,21 +789,6 @@ function UtilBar({ pct }: { pct: number }) {
             </div>
             <span className={cx("text-xs font-bold w-10 text-end", pct < 30 ? "text-rose-400" : "text-[var(--text-secondary)]")}>{pct}%</span>
         </div>
-    );
-}
-
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-    return createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 modal-center-overlay">
-            <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto modal-center-panel">
-                <div className="flex items-center justify-between mb-5">
-                    <h2 className="text-lg font-bold text-[var(--text-primary)]">{title}</h2>
-                    <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-2xl leading-none transition-colors">×</button>
-                </div>
-                {children}
-            </div>
-        </div>,
-        document.body,
     );
 }
 

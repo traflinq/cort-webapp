@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -11,6 +10,7 @@ import { fetchEmployees, selectEmployees, selectEmployeesStatus } from "../../..
 import { useAuth } from "../../../lib/contexts/auth-context";
 import { apiClient } from "../../../lib/services/api-client";
 import { toast } from "sonner";
+import Modal from "../../bookings/components/Modal";
 import { Card } from "../../components/DashboardComponents";
 import { Button } from "@/app/admin/ui/Button";
 import {
@@ -28,7 +28,6 @@ import {
   Car,
   RefreshCw,
   UserPlus,
-  X,
   Sparkles,
   ListOrdered,
   UserMinus,
@@ -699,24 +698,13 @@ export default function RouteDetailPage() {
         </>
       )}
 
-      {showAssignModal && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onClick={() => setShowAssignModal(false)}
-        >
-          <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <Card className="!p-0 shadow-2xl border-[var(--border-light)] overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-light)] bg-[var(--bg-subtle)]">
-                <h3 className="font-bold text-[var(--text-primary)]">{t("assignEmployeeTitle")}</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowAssignModal(false)}
-                  className="p-1 rounded-lg hover:bg-[var(--border-light)] text-[var(--text-muted)] transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 space-y-4">
+      <Modal
+        isOpen={showAssignModal}
+        onClose={() => setShowAssignModal(false)}
+        title={t("assignEmployeeTitle")}
+        panelClassName="!max-w-md"
+      >
+              <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">
                     {t("selectEmployee")}
@@ -784,24 +772,20 @@ export default function RouteDetailPage() {
                     </p>
                   </div>
                 )}
+                <div className="pt-2 flex justify-end gap-3">
+                  <Button variant="outline" onClick={() => setShowAssignModal(false)}>
+                    {tCommon("actions.cancel")}
+                  </Button>
+                  <Button
+                    disabled={!selectedUserId || assigning}
+                    onClick={handleAssignEmployee}
+                    className="bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white"
+                  >
+                    {assigning ? t("assigningEmployee") : t("confirmAssignment")}
+                  </Button>
+                </div>
               </div>
-              <div className="px-6 py-4 border-t border-[var(--border-light)] bg-[var(--bg-subtle)] flex justify-end gap-3">
-                <Button variant="outline" onClick={() => setShowAssignModal(false)}>
-                  {tCommon("actions.cancel")}
-                </Button>
-                <Button
-                  disabled={!selectedUserId || assigning}
-                  onClick={handleAssignEmployee}
-                  className="bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white"
-                >
-                  {assigning ? t("assigningEmployee") : t("confirmAssignment")}
-                </Button>
-              </div>
-            </Card>
-          </div>
-        </div>,
-        document.body
-      )}
+      </Modal>
     </div>
   );
 }

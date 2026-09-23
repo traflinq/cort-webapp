@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { UserPlus, X } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import { selectCompany } from "../../lib/store/slices/companySlice";
@@ -21,6 +20,7 @@ import {
   sanitizePhoneInput,
 } from "../../lib/utils/phone";
 import { toast } from "sonner";
+import Modal, { ModalTrigger } from "../bookings/components/Modal";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -223,8 +223,8 @@ export default function EmployeesPage() {
                 </div>
               </div>
             </div>
-            <button
-              type="button"
+            <ModalTrigger
+              layoutId="company-add-employee"
               onClick={() => setShowAddEmployee(true)}
               disabled={atEmployeeLimit}
               title={atEmployeeLimit ? t("trialBanner", { used: employees.length, max: maxEmployees }) : undefined}
@@ -232,7 +232,7 @@ export default function EmployeesPage() {
             >
               <UserPlus className="w-4 h-4" />
               {t("addEmployee")}
-            </button>
+            </ModalTrigger>
           </div>
         </div>
 
@@ -353,18 +353,13 @@ export default function EmployeesPage() {
         </div>
       </Card>
 
-      {showAddEmployee && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-[var(--text-primary)]">
-                {employeeCreated ? t("employeeCreatedTitle") : t("addEmployee")}
-              </h2>
-              <button type="button" onClick={closeAddEmployeeModal} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
+      <Modal
+        isOpen={showAddEmployee}
+        onClose={closeAddEmployeeModal}
+        title={employeeCreated ? t("employeeCreatedTitle") : t("addEmployee")}
+        layoutId="company-add-employee"
+        panelClassName="!max-w-lg"
+      >
             {employeeCreated ? (
               <div className="space-y-5">
                 {createdCredentials ? (
@@ -440,10 +435,7 @@ export default function EmployeesPage() {
                 </div>
               </form>
             )}
-          </div>
-        </div>,
-        document.body,
-      )}
+      </Modal>
     </div>
   );
 }

@@ -25,6 +25,7 @@ import {
     Wallet
 } from 'lucide-react';
 import { DashboardData } from '../types';
+import { AnimatedList, AnimatedListItem, SimpleGraph } from './motion';
 
 // --- Shared Components ---
 
@@ -481,6 +482,18 @@ export const CostVisibilitySection = ({
                             <span className="text-lg sm:text-xl text-[var(--text-muted)] font-medium me-1">{tCurrency('pkr')}</span>
                             {(data.totalSpendMTD / 1000).toLocaleString()}k
                         </div>
+                        <SimpleGraph
+                          className="w-full h-16 mb-2"
+                          values={[
+                            data.totalSpendMTD * 0.52,
+                            data.totalSpendMTD * 0.61,
+                            data.totalSpendMTD * 0.58,
+                            data.totalSpendMTD * 0.74,
+                            data.totalSpendMTD * 0.81,
+                            data.totalSpendMTD * 0.9,
+                            data.totalSpendMTD || 1,
+                          ]}
+                        />
                     </div>
 
                     {/* Bullet Graph / Progress Bar */}
@@ -533,11 +546,11 @@ export const SmartInsightsSection = ({ insights, seasonality }: { insights: stri
         <Card className="bg-[var(--bg-card)] border border-[var(--border-default)]">
 
             <div className="space-y-4">
+                <AnimatedList>
                 {insights.map((insight, idx) => (
-                    <div
+                    <AnimatedListItem
                         key={idx}
                         className="group flex flex-col gap-1 pb-3 border-b border-[var(--border-light)] last:border-0 last:pb-0 cursor-pointer hover:bg-[var(--surface-muted)] p-2 -mx-2 rounded-lg transition-colors"
-                        title={t('clickViewDetails')}
                     >
                         <div className="flex justify-between items-start gap-2">
                             <div className="text-sm text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-colors">
@@ -545,12 +558,12 @@ export const SmartInsightsSection = ({ insights, seasonality }: { insights: stri
                                 {insight}
                             </div>
                         </div>
-                        {/* Small Sparkline for demand trends */}
                         <div className="self-end mt-1">
-                            <Sparkline color="var(--cort-orange)" data={[30 + Math.random() * 20, 40 + Math.random() * 20, 35, 50, 45, 60, 55]} />
+                            <Sparkline color="var(--cort-orange)" data={[30, 42, 35, 50, 45, 60, 55]} />
                         </div>
-                    </div>
+                    </AnimatedListItem>
                 ))}
+                </AnimatedList>
             </div>
 
             <div className="mt-6 pt-4 border-t border-[var(--border-light)] grid grid-cols-2 gap-3 sm:gap-4">

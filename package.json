@@ -26,6 +26,7 @@
     "jspdf-autotable": "^5.0.8",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.562.0",
+    "motion": "^13.4.1",
     "next": "^16.3.5",
     "next-intl": "^4.13.0",
     "react": "19.2.1",
@@ -46,6 +47,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.0.10",
+    "shadcn": "^4.21.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

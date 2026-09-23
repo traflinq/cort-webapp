@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
+import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppSelector, useAppDispatch } from "../../lib/store/hooks";
@@ -461,14 +462,26 @@ function AddEmployeePanel({ companyId, routes, onClose, onSuccess }: AddEmployee
 
   return createPortal(
     <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm slideover-overlay"
+      <motion.button
+        type="button"
+        aria-label="Close"
+        className="fixed inset-0 z-40 cursor-default"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.22 }}
         onClick={onClose}
+        style={{
+          background:
+            "radial-gradient(circle at 50% 10%, rgba(244, 127, 0, 0.22), transparent 42%), rgba(6, 10, 24, 0.72)",
+          backdropFilter: "blur(10px)",
+        }}
       />
-
-      {/* Slide-over panel */}
-      <div className="fixed inset-y-0 end-0 z-50 flex flex-col w-full max-w-lg bg-[var(--bg-card)] border-s border-[var(--border-default)] shadow-2xl overflow-y-auto slideover-panel">
+      <motion.div
+        className="fixed inset-y-0 end-0 z-50 flex flex-col w-full max-w-lg bg-[var(--bg-card)] border-s border-[var(--border-default)] shadow-2xl overflow-y-auto"
+        initial={{ x: 56, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 380, damping: 32 }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--border-light)] flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -731,7 +744,7 @@ function AddEmployeePanel({ companyId, routes, onClose, onSuccess }: AddEmployee
             </div>
           </form>
         )}
-      </div>
+      </motion.div>
     </>,
     document.body
   );

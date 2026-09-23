@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { formatLocaleDate, formatLocaleTime } from "@/app/lib/i18n/format";
 import type { Locale } from "@/i18n/config";
-import Modal from "./components/Modal";
+import Modal, { ModalTrigger } from "./components/Modal";
 import CreateBookingForm from "./components/CreateBookingForm";
 import { ChauffeurBooking } from "../../lib/services/api-client";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -151,7 +151,13 @@ export default function BookingsPage() {
         title={t("title")}
         action={
           company.services_enabled.chauffeur_enabled ? (
-            <button
+            isModalOpen ? (
+              <span className="invisible pointer-events-none inline-flex items-center gap-2.5 rounded-xl px-6 py-3 text-sm font-bold">
+                {tCommon("actions.newBooking")}
+              </span>
+            ) : (
+            <ModalTrigger
+              layoutId="company-bookings-create"
               onClick={() => setIsModalOpen(true)}
               className="group relative flex items-center gap-2.5 rounded-xl bg-[var(--cort-orange)] px-6 py-3 text-sm font-bold text-[var(--text-primary)] transition-all hover:bg-[var(--cort-orange-hover)] hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(244,127,0,0.25)] hover:shadow-[0_8px_20px_rgba(244,127,0,0.35)] active:translate-y-0 active:shadow-md overflow-hidden"
             >
@@ -160,7 +166,8 @@ export default function BookingsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
               </svg>
               <span className="relative z-10">{tCommon("actions.newBooking")}</span>
-            </button>
+            </ModalTrigger>
+            )
           ) : undefined
         }
       />
@@ -379,6 +386,7 @@ export default function BookingsPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={t("createNewBooking")}
+        layoutId="company-bookings-create"
       >
         <CreateBookingForm
           onSuccess={handleBookingCreated}

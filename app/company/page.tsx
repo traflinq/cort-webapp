@@ -9,7 +9,8 @@ import { useAuth } from "../lib/contexts/auth-context";
 import { useState, useEffect } from "react";
 import { useCompanyLocale } from "./lib/locale-context";
 import { formatLocaleDate } from "../lib/i18n/format";
-import Modal from "./bookings/components/Modal";
+import Modal, { ModalTrigger } from "./bookings/components/Modal";
+import { StaggeredTitle } from "./components/motion";
 import CreateBookingForm from "./bookings/components/CreateBookingForm";
 import EditBudgetForm from "./components/EditBudgetForm";
 import {
@@ -252,7 +253,7 @@ export default function CompanyDashboardPage() {
                 </span>
               </div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-white mb-2 leading-tight">
-                {t('welcomeBack')}{' '}
+                <StaggeredTitle text={t('welcomeBack')} />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
                   {user?.full_name?.split(' ')[0] || tCommon('misc.admin')}
                 </span>
@@ -266,15 +267,22 @@ export default function CompanyDashboardPage() {
             </div>
 
             {hasChauffeur && (
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="group relative flex items-center justify-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-[var(--cort-orange-hover)] hover:-translate-y-0.5 shadow-lg active:translate-y-0 active:shadow-md whitespace-nowrap w-full sm:w-auto"
-              >
-                <svg className="w-4 h-4 text-white transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                </svg>
-                <span>{tCommon('actions.newBooking')}</span>
-              </button>
+              isModalOpen ? (
+                <span className="invisible pointer-events-none flex items-center justify-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold whitespace-nowrap w-full sm:w-auto">
+                  {tCommon('actions.newBooking')}
+                </span>
+              ) : (
+                <ModalTrigger
+                  layoutId="company-new-booking"
+                  onClick={() => setIsModalOpen(true)}
+                  className="group relative flex items-center justify-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-[var(--cort-orange-hover)] hover:-translate-y-0.5 shadow-lg active:translate-y-0 active:shadow-md whitespace-nowrap w-full sm:w-auto"
+                >
+                  <svg className="w-4 h-4 text-white transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>{tCommon('actions.newBooking')}</span>
+                </ModalTrigger>
+              )
             )}
           </div>
         </div>
@@ -380,6 +388,7 @@ export default function CompanyDashboardPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={t('createNewBooking')}
+        layoutId="company-new-booking"
       >
         <CreateBookingForm
           onSuccess={() => setIsModalOpen(false)}

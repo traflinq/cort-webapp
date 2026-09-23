@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -15,6 +15,8 @@ import {
   TableEmptyState,
 } from "../components/PageLayout";
 import TableSkeleton from "@/app/components/ui/TableSkeleton";
+import Modal, { ModalTrigger } from "../bookings/components/Modal";
+import NewTravelBookingForm from "./NewTravelBookingForm";
 import {
   PRIMARY_BUTTON_CLASS,
   StatusChip,
@@ -23,6 +25,8 @@ import {
   parseTravelRows,
   shortDate,
 } from "./travel-ui";
+
+const TRAVEL_BOOK_LAYOUT_ID = "travel-book-form";
 
 const STATUS_KEYS: Record<string, "statusReview" | "statusApproval" | "statusConfirmed" | "statusRejected"> = {
   REVIEW: "statusReview",
@@ -37,24 +41,31 @@ export default function TravelBookingsPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [bookingOpen, setBookingOpen] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!user?.company_id) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
-    apiClient.getCompanyTravelBookings(user.company_id, { limit: 50 })
-      .then((res) => setRows(parseTravelRows(res)))
-      .catch((err) => {
-        const message = err instanceof Error ? err.message : t("loadFailed");
-        setError(message);
-        toast.error(message);
-        setRows([]);
-      })
-      .finally(() => setLoading(false));
+    try {
+      const res = await apiClient.getCompanyTravelBookings(user.company_id, { limit: 50 });
+      setRows(parseTravelRows(res));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t("loadFailed");
+      setError(message);
+      toast.error(message);
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
   }, [user?.company_id, t]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -63,9 +74,17 @@ export default function TravelBookingsPage() {
         title={t("title")}
         description={t("description")}
         action={
-          <Link href="/company/travel/new" className={PRIMARY_BUTTON_CLASS}>
-            {t("newBooking")}
-          </Link>
+          bookingOpen ? (
+            <span className={`${PRIMARY_BUTTON_CLASS} invisible pointer-events-none`}>{t("newBooking")}</span>
+          ) : (
+            <ModalTrigger
+              layoutId={TRAVEL_BOOK_LAYOUT_ID}
+              onClick={() => setBookingOpen(true)}
+              className={PRIMARY_BUTTON_CLASS}
+            >
+              {t("newBooking")}
+            </ModalTrigger>
+          )
         }
       />
       {error ? (
@@ -118,6 +137,21 @@ export default function TravelBookingsPage() {
           </table>
         </div>
       </Card>
+
+      <Modal
+        isOpen={bookingOpen}
+        onClose={() => setBookingOpen(false)}
+        title={t("newTitle")}
+        layoutId={TRAVEL_BOOK_LAYOUT_ID}
+        panelClassName="!max-w-4xl"
+      >
+        <NewTravelBookingForm
+          onSuccess={() => {
+            setBookingOpen(false);
+            load();
+          }}
+        />
+      </Modal>
     </div>
   );
 }
