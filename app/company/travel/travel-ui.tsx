@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import SpotlightCard from "../components/SpotlightCard";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -109,16 +110,16 @@ export function KpiCard({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
-      <p className="text-xs uppercase text-[var(--text-muted)]">{label}</p>
+    <SpotlightCard className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
+      <p className="relative z-10 text-xs uppercase text-[var(--text-muted)]">{label}</p>
       {loading ? (
-        <div className="mt-2 h-8 w-32 animate-pulse rounded-lg bg-[var(--surface-subtle)]" />
+        <div className="relative z-10 mt-2 h-8 w-32 animate-pulse rounded-lg bg-[var(--surface-subtle)]" />
       ) : children ? (
-        children
+        <div className="relative z-10">{children}</div>
       ) : (
-        <p className="mt-1 text-2xl font-bold text-[var(--text-primary)]">{value}</p>
+        <p className="relative z-10 mt-1 text-2xl font-bold text-[var(--text-primary)]">{value}</p>
       )}
-    </div>
+    </SpotlightCard>
   );
 }
 

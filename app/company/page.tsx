@@ -11,6 +11,7 @@ import { useCompanyLocale } from "./lib/locale-context";
 import { formatLocaleDate } from "../lib/i18n/format";
 import Modal, { ModalTrigger } from "./bookings/components/Modal";
 import { StaggeredTitle } from "./components/motion";
+import SpotlightCard from "./components/SpotlightCard";
 import CreateBookingForm from "./bookings/components/CreateBookingForm";
 import EditBudgetForm from "./components/EditBudgetForm";
 import {
@@ -233,7 +234,10 @@ export default function CompanyDashboardPage() {
       {/* Welcome Header */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 dashboard-section dashboard-section-delay-1 relative z-10 has-[.invoice-tooltip-trigger:hover]:z-[200]">
         {/* Welcome Banner - Premium Background Image (Dark Theme - No Fade) */}
-        <div className="lg:col-span-2 relative rounded-[1.5rem] sm:rounded-[2rem] bg-[#0c1a3d] p-5 sm:p-6 md:p-8 shadow-[0_1px_4px_rgba(0,0,0,0.18)] border border-[var(--border-default)] overflow-hidden flex flex-col justify-center min-h-[180px] sm:min-h-[200px] md:min-h-[220px] hover:shadow-[0_2px_10px_rgba(0,0,0,0.24)] transition-all duration-200 group">
+        <SpotlightCard
+          spotlightColor="rgba(255, 255, 255, 0.22)"
+          className="lg:col-span-2 relative rounded-[1.5rem] sm:rounded-[2rem] bg-[#0c1a3d] p-5 sm:p-6 md:p-8 shadow-[0_1px_4px_rgba(0,0,0,0.18)] border border-[var(--border-default)] flex flex-col justify-center min-h-[180px] sm:min-h-[200px] md:min-h-[220px] hover:shadow-[0_2px_10px_rgba(0,0,0,0.24)] transition-all duration-200 group"
+        >
 
           {/* Background Image Layer */}
           <div
@@ -285,7 +289,7 @@ export default function CompanyDashboardPage() {
               )
             )}
           </div>
-        </div>
+        </SpotlightCard>
 
         {/* Quick Status - "Nothing specific for you to do" */}
         <div className="lg:col-span-1 h-full relative overflow-visible">
@@ -311,23 +315,23 @@ export default function CompanyDashboardPage() {
 
       {isTravelEnabled && dashboardStats?.travel && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
-            <p className="text-xs uppercase text-[var(--text-muted)]">Company wallet</p>
-            <p className="text-2xl font-bold">PKR {Number(dashboardStats.travel.company_balance).toLocaleString()}</p>
-          </div>
-          <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
-            <p className="text-xs uppercase text-[var(--text-muted)]">Assigned</p>
-            <p className="text-2xl font-bold">PKR {Number(dashboardStats.travel.assigned_total).toLocaleString()}</p>
-          </div>
-          <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
-            <p className="text-xs uppercase text-[var(--text-muted)]">Travel spend</p>
-            <p className="text-2xl font-bold">PKR {Number(dashboardStats.travel.spend_total).toLocaleString()}</p>
-          </div>
-          <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
-            <p className="text-xs uppercase text-[var(--text-muted)]">Employee adoption</p>
-            <p className="text-2xl font-bold">{dashboardStats.travel.adoption}%</p>
-            <p className="text-xs text-[var(--text-muted)]">{dashboardStats.travel.travelers} / {dashboardStats.travel.active_employees} employees</p>
-          </div>
+          <SpotlightCard className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
+            <p className="relative z-10 text-xs uppercase text-[var(--text-muted)]">Company wallet</p>
+            <p className="relative z-10 text-2xl font-bold">PKR {Number(dashboardStats.travel.company_balance).toLocaleString()}</p>
+          </SpotlightCard>
+          <SpotlightCard className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
+            <p className="relative z-10 text-xs uppercase text-[var(--text-muted)]">Assigned</p>
+            <p className="relative z-10 text-2xl font-bold">PKR {Number(dashboardStats.travel.assigned_total).toLocaleString()}</p>
+          </SpotlightCard>
+          <SpotlightCard className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
+            <p className="relative z-10 text-xs uppercase text-[var(--text-muted)]">Travel spend</p>
+            <p className="relative z-10 text-2xl font-bold">PKR {Number(dashboardStats.travel.spend_total).toLocaleString()}</p>
+          </SpotlightCard>
+          <SpotlightCard className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
+            <p className="relative z-10 text-xs uppercase text-[var(--text-muted)]">Employee adoption</p>
+            <p className="relative z-10 text-2xl font-bold">{dashboardStats.travel.adoption}%</p>
+            <p className="relative z-10 text-xs text-[var(--text-muted)]">{dashboardStats.travel.travelers} / {dashboardStats.travel.active_employees} employees</p>
+          </SpotlightCard>
         </div>
       )}
 

@@ -14,6 +14,7 @@ import {
     Car,
     Package,
 } from 'lucide-react';
+import SpotlightCard from './SpotlightCard';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -110,9 +111,10 @@ const CostLeakageDetector = ({ data }: CostLeakageDetectorProps) => {
                         const isOpen = expanded === insight.id;
 
                         return (
-                            <div
+                            <SpotlightCard
                                 key={insight.id}
-                                className={`${card} rounded-[1.5rem] sm:rounded-[2rem] p-5 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-transparent hover:shadow-[0_8px_40px_rgb(0,0,0,0.16)] hover:-translate-y-1 transition-all flex flex-col justify-between relative overflow-hidden min-w-0`}
+                                spotlightColor="rgba(255, 255, 255, 0.28)"
+                                className={`${card} rounded-[1.5rem] sm:rounded-[2rem] p-5 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-transparent hover:shadow-[0_8px_40px_rgb(0,0,0,0.16)] transition-all flex flex-col justify-between min-w-0`}
                             >
                                 {/* Category — always visible */}
                                 <div className="flex justify-between items-start mb-4 gap-2">
@@ -172,7 +174,7 @@ const CostLeakageDetector = ({ data }: CostLeakageDetectorProps) => {
                                         </button>
                                     )}
                                 </div>
-                            </div>
+                            </SpotlightCard>
                         );
                     })}
                 </div>

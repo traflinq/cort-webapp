@@ -15,13 +15,13 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Card } from './DashboardComponents';
 import { apiClient } from '../../lib/services/api-client';
 import { useAppSelector } from '../../lib/store/hooks';
 import { selectDashboardStats } from '../../lib/store/slices/dashboardSlice';
 import { selectCompany } from '../../lib/store/slices/companySlice';
 import { useLiveMobilityTracking } from '../../lib/hooks/useLiveMobilityTracking';
 import type { MapMarker } from '../../admin/ui/Map';
+import SpotlightCard from './SpotlightCard';
 
 /** Initial map viewport before the first fetch resolves. */
 const DEFAULT_MAP_CENTER: [number, number] = [24.8607, 67.0011];
@@ -353,9 +353,9 @@ const LiveMobilityCenter = ({ data }: LiveMobilityCenterProps) => {
 
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
-        <Card className="p-0 overflow-hidden border-none shadow-2xl bg-[var(--bg-page)] min-h-0 sm:min-h-[520px] lg:min-h-[600px] flex flex-col rounded-3xl sm:rounded-4xl">
+        <div className="p-0 overflow-hidden border-none shadow-2xl bg-[var(--bg-page)] min-h-0 sm:min-h-[520px] lg:min-h-[600px] flex flex-col rounded-3xl sm:rounded-4xl">
             {/* Header Area */}
-            <div className="m-2 sm:m-4 mb-0 p-3 sm:p-6 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-4 bg-[var(--bg-card)] text-[var(--text-primary)] rounded-3xl sm:rounded-4xl border border-[var(--border-default)]">
+            <SpotlightCard className="m-2 sm:m-4 mb-0 p-3 sm:p-6 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-4 bg-[var(--bg-card)] text-[var(--text-primary)] rounded-3xl sm:rounded-4xl border border-[var(--border-default)]">
                 <div className="flex items-center gap-3 sm:gap-4 bg-white/5 backdrop-blur-md p-3 sm:p-4 px-4 sm:px-6 rounded-2xl sm:rounded-3xl border border-[var(--border-input)] min-w-0">
                     <div className="relative shrink-0">
                         <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-25"></div>
@@ -393,10 +393,11 @@ const LiveMobilityCenter = ({ data }: LiveMobilityCenterProps) => {
                         </button>
                     </div>
                 </div>
-            </div>
+            </SpotlightCard>
 
             {/* Counters Strip */}
-            <div className="m-2 sm:m-4 mt-3 sm:mt-5 px-3 sm:px-6 py-3 sm:py-4 bg-white/5 border border-[var(--border-input)] rounded-3xl sm:rounded-4xl grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 shadow-sm">
+            <SpotlightCard className="m-2 sm:m-4 mt-3 sm:mt-5 px-3 sm:px-6 py-3 sm:py-4 bg-white/5 border border-[var(--border-input)] rounded-3xl sm:rounded-4xl shadow-sm">
+                <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                 {stats.map((stat, idx) => (
                     <div key={idx} className="flex flex-col items-center min-w-0">
                         <div className="flex items-center gap-1.5 sm:gap-2 text-[var(--text-primary)] mb-1 justify-center max-w-full">
@@ -406,7 +407,8 @@ const LiveMobilityCenter = ({ data }: LiveMobilityCenterProps) => {
                         <div className="text-2xl sm:text-3xl font-black text-[var(--text-primary)]">{stat.value}</div>
                     </div>
                 ))}
-            </div>
+                </div>
+            </SpotlightCard>
 
             {/* Live Map & Sidebar */}
             <div className="flex-1 flex flex-col lg:flex-row min-h-0">
@@ -648,7 +650,10 @@ const LiveMobilityCenter = ({ data }: LiveMobilityCenterProps) => {
                 </div>
 
                 {/* Sidebar */}
-                <div className="w-full lg:w-80 lg:max-w-xs m-2 sm:m-4 lg:ms-0 p-4 sm:p-6 flex flex-col gap-3 sm:gap-4 bg-orange rounded-3xl sm:rounded-4xl shadow-2xl order-1 lg:order-2 text-[var(--text-primary)] shrink-0">
+                <SpotlightCard
+                    spotlightColor="rgba(255, 255, 255, 0.28)"
+                    className="w-full lg:w-80 lg:max-w-xs m-2 sm:m-4 lg:ms-0 p-4 sm:p-6 flex flex-col gap-3 sm:gap-4 bg-orange border-transparent rounded-3xl sm:rounded-4xl shadow-2xl order-1 lg:order-2 text-[var(--text-primary)] shrink-0"
+                >
                     <div className="flex items-center justify-between">
                         <h3 className="text-sm font-black uppercase tracking-widest text-[var(--text-primary)]">{t('activeAlerts')}</h3>
                         {hasChauffeur && (dashboardStats?.chauffeur.unassignedBookings ?? 0) > 0 && (
@@ -781,9 +786,9 @@ const LiveMobilityCenter = ({ data }: LiveMobilityCenterProps) => {
                             )}
                         </div>
                     </div>
-                </div>
+                </SpotlightCard>
             </div>
-        </Card>
+        </div>
     );
 };
 

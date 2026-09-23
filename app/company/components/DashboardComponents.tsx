@@ -25,7 +25,9 @@ import {
     Wallet
 } from 'lucide-react';
 import { DashboardData } from '../types';
+import { cn } from '../../lib/utils';
 import { AnimatedList, AnimatedListItem, SimpleGraph } from './motion';
+import SpotlightCard from './SpotlightCard';
 
 // --- Shared Components ---
 
@@ -39,9 +41,15 @@ const formatCurrency = (value: number) => {
 };
 
 export const Card = ({ children, className = "", withLeftBorder = false }: { children: React.ReactNode; className?: string; withLeftBorder?: boolean }) => (
-    <div className={`bg-[var(--bg-card)] border border-[var(--border-default)] rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 h-full min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200 hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] ${withLeftBorder ? 'border-s-4 border-s-[#fe8503]' : ''} ${className}`}>
+    <SpotlightCard
+        className={cn(
+            "p-4 sm:p-6 h-full min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200 hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)]",
+            withLeftBorder && "border-s-4 border-s-[#fe8503]",
+            className,
+        )}
+    >
         {children}
-    </div>
+    </SpotlightCard>
 );
 
 export const SectionTitle = ({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) => (
@@ -270,7 +278,7 @@ export const ValueDeliveredSection = ({ data, hasChauffeur = true, hasShuttle = 
     return (
         <div className={valueGridClass}>
             {/* Total Savings */}
-            <div className="p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all relative overflow-hidden group min-w-0 bg-[var(--bg-card)] border-[var(--border-default)]">
+            <SpotlightCard className="p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all group min-w-0 bg-[var(--bg-card)] border-[var(--border-default)]">
                 <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
                     <Zap size={120} className="text-[var(--cort-orange)]" />
                 </div>
@@ -286,10 +294,10 @@ export const ValueDeliveredSection = ({ data, hasChauffeur = true, hasShuttle = 
                         {t('estimatedMtd')}
                     </div>
                 </div>
-            </div>
+            </SpotlightCard>
 
         {/* Avg Trip Cost */}
-        <div className="bg-gradient-to-br from-white/[0.04] via-white/[0.03] to-white/[0.02] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between text-[var(--text-primary)] hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all relative overflow-hidden group min-w-0">
+        <SpotlightCard className="bg-gradient-to-br from-white/[0.04] via-white/[0.03] to-white/[0.02] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between text-[var(--text-primary)] hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all group min-w-0">
             <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
                 <Activity size={120} className="text-[var(--text-primary)]" />
             </div>
@@ -306,9 +314,9 @@ export const ValueDeliveredSection = ({ data, hasChauffeur = true, hasShuttle = 
                     {t('totalSpendLifetime')}: {tCurrency('pkr')} {formatCurrency(data.avgTripTotalSpendLifetime)}
                 </div>
             </div>
-        </div>
+        </SpotlightCard>
 
-        {hasChauffeur && <div className="bg-[var(--bg-card)] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all relative overflow-hidden group min-w-0">
+        {hasChauffeur && <SpotlightCard className="bg-[var(--bg-card)] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all group min-w-0">
                 <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
                     <Car size={120} className="text-[#fe8503]" />
                 </div>
@@ -327,9 +335,9 @@ export const ValueDeliveredSection = ({ data, hasChauffeur = true, hasShuttle = 
                     <div className="text-4xl sm:text-5xl font-black text-[var(--text-primary)] tracking-tight mb-2">{data.activeRides}</div>
                     <div className="text-xs text-[var(--accent-success)] font-bold mt-1">{t('inProgress')}</div>
                 </div>
-            </div>}
+            </SpotlightCard>}
 
-        {hasShuttle && <div className="bg-[var(--bg-card)] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all relative overflow-hidden group min-w-0">
+        {hasShuttle && <SpotlightCard className="bg-[var(--bg-card)] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all group min-w-0">
                 <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
                     <Bus size={120} className="text-[#fe8503]" />
                 </div>
@@ -341,7 +349,7 @@ export const ValueDeliveredSection = ({ data, hasChauffeur = true, hasShuttle = 
                     <div className="text-xs text-[var(--text-muted)] mt-1">{t('totalRunsMtd')}</div>
                     <div className="text-xs text-[var(--text-muted)] mt-1">{t('totalTripsLifetime')}: {data.shuttleTotalTripsLifetime}</div>
                 </div>
-            </div>}
+            </SpotlightCard>}
         </div>
     );
 };
@@ -543,9 +551,9 @@ export const SmartInsightsSection = ({ insights, seasonality }: { insights: stri
     const t = useTranslations('company.dashboard');
 
     return (
-        <Card className="bg-[var(--bg-card)] border border-[var(--border-default)]">
+        <SpotlightCard className="bg-[var(--bg-card)] border border-[var(--border-default)] p-4 sm:p-6 h-full min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)]">
 
-            <div className="space-y-4">
+            <div className="relative z-10 space-y-4">
                 <AnimatedList>
                 {insights.map((insight, idx) => (
                     <AnimatedListItem
@@ -566,7 +574,7 @@ export const SmartInsightsSection = ({ insights, seasonality }: { insights: stri
                 </AnimatedList>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-[var(--border-light)] grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="relative z-10 mt-6 pt-4 border-t border-[var(--border-light)] grid grid-cols-2 gap-3 sm:gap-4">
                 <div className="min-w-0">
                     <div className="text-xs text-[var(--text-muted)] uppercase tracking-wide font-bold">{t('peakDay')}</div>
                     <div className="text-white font-bold text-base sm:text-lg truncate">{seasonality.highDemandDay}</div>
@@ -576,7 +584,7 @@ export const SmartInsightsSection = ({ insights, seasonality }: { insights: stri
                     <div className="text-white font-bold text-base sm:text-lg truncate">{seasonality.lowDemandDay}</div>
                 </div>
             </div>
-        </Card>
+        </SpotlightCard>
     )
 }
 
