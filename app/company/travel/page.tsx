@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { apiClient } from "../../lib/services/api-client";
@@ -17,6 +16,7 @@ import {
 import TableSkeleton from "@/app/components/ui/TableSkeleton";
 import Modal, { ModalTrigger } from "../bookings/components/Modal";
 import NewTravelBookingForm from "./NewTravelBookingForm";
+import TravelBookingDetailModal from "./TravelBookingDetailModal";
 import {
   PRIMARY_BUTTON_CLASS,
   StatusChip,
@@ -42,6 +42,7 @@ export default function TravelBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!user?.company_id) {
@@ -109,11 +110,13 @@ export default function TravelBookingsPage() {
                 rows.map((row) => {
                   const trip = bookingTrip(row);
                   return (
-                  <tr key={row.id} className="border-t border-[var(--border-light)]">
-                    <td className={TABLE_CELL_CLASS}>
-                      <Link href={`/company/travel/${row.id}`} className="text-[#f47f00] font-semibold">
-                        {row.employee?.full_name || "-"}
-                      </Link>
+                  <tr
+                    key={row.id}
+                    onClick={() => setSelectedId(row.id)}
+                    className="border-t border-[var(--border-light)] cursor-pointer hover:bg-[var(--surface-subtle)]/80 transition-colors"
+                  >
+                    <td className={`${TABLE_CELL_CLASS} font-semibold text-[var(--text-primary)]`}>
+                      {row.employee?.full_name || "-"}
                     </td>
                     <td className={TABLE_CELL_CLASS}>{shortDate(row.created_at)}</td>
                     <td className={TABLE_CELL_CLASS}>{trip.origin}</td>
@@ -152,6 +155,12 @@ export default function TravelBookingsPage() {
           }}
         />
       </Modal>
+
+      <TravelBookingDetailModal
+        bookingId={selectedId}
+        onClose={() => setSelectedId(null)}
+        onChanged={load}
+      />
     </div>
   );
 }

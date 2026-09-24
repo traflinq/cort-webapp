@@ -142,6 +142,38 @@ export function shortDate(value?: string | Date | null) {
   return String(value).slice(0, 10);
 }
 
+export function shortDateTime(value?: string | Date | null) {
+  if (!value) return "-";
+  const text = String(value).replace("T", " ");
+  return text.slice(0, 16);
+}
+
+export function bookingFareTotal(row: any) {
+  const fare = Number(row?.fare_amount ?? 0);
+  const miles: any[] = Array.isArray(row?.miles) ? row.miles : [];
+  return fare + miles.reduce((sum, mile) => sum + Number(mile?.estimate ?? 0), 0);
+}
+
+export function mileVendorName(mile?: any) {
+  return mile?.vendor?.external_vendors?.name || mile?.provider || null;
+}
+
+export function DetailItem({
+  label,
+  value,
+}: {
+  label: string;
+  value?: React.ReactNode;
+}) {
+  const empty = value === null || value === undefined || value === "";
+  return (
+    <div>
+      <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{label}</p>
+      <div className="mt-1 font-semibold text-[var(--text-primary)] break-words">{empty ? "-" : value}</div>
+    </div>
+  );
+}
+
 export function bookingTrip(row: any) {
   const snapshot = row?.offer_snapshot || {};
   const quote = row?.quote || {};
@@ -153,11 +185,31 @@ export function bookingTrip(row: any) {
     origin: quote.origin as string | undefined,
     destination: quote.destination as string | undefined,
     travel_date: quote.travel_date as string | undefined,
+    scope: quote.scope as string | undefined,
+    bag_count: quote.bag_count as number | undefined,
     transport_type: (snapshot.mode || snapshot.transport_type) as string | undefined,
     travel_class: snapshot.class as string | undefined,
     operator_name: snapshot.operator as string | undefined,
+    duration: snapshot.duration as string | undefined,
+    meal_included: snapshot.meal_included as boolean | undefined,
+    bag_allowance: snapshot.bag_allowance as number | undefined,
+    source_url: snapshot.source_url as string | undefined,
+    rental_amount: snapshot.rental_amount as number | undefined,
+    fuel_amount: snapshot.fuel_amount as number | undefined,
+    estimated_toll: snapshot.estimated_toll as number | undefined,
+    cost_per_km: snapshot.cost_per_km as number | undefined,
+    distance_km: snapshot.distance_km as number | undefined,
+    trip_direction: snapshot.trip_direction as string | undefined,
     traveler: profile as
-      | { first_name?: string; last_name?: string; email?: string; passport_number?: string | null }
+      | {
+          first_name?: string;
+          last_name?: string;
+          email?: string;
+          phone?: string | null;
+          passport_number?: string | null;
+          cnic_number?: string | null;
+          nationality?: string | null;
+        }
       | undefined,
     first,
     last,

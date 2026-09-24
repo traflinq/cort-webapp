@@ -14,6 +14,7 @@ import {
   TableEmptyState,
 } from "../../components/PageLayout";
 import TableSkeleton from "@/app/components/ui/TableSkeleton";
+import TravelBookingDetailModal from "../TravelBookingDetailModal";
 import { StatusChip, bookingTrip, parseTravelRows, shortDate } from "../travel-ui";
 
 const STATUS_KEYS: Record<string, "statusReview" | "statusApproval" | "statusConfirmed" | "statusRejected"> = {
@@ -30,6 +31,7 @@ export default function TravelApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!user?.company_id) {
@@ -95,8 +97,12 @@ export default function TravelApprovalsPage() {
                 rows.map((row) => {
                   const trip = bookingTrip(row);
                   return (
-                  <tr key={row.id} className="border-t border-[var(--border-light)]">
-                    <td className={TABLE_CELL_CLASS}>{row.employee?.full_name || "-"}</td>
+                  <tr
+                    key={row.id}
+                    onClick={() => setSelectedId(row.id)}
+                    className="border-t border-[var(--border-light)] cursor-pointer hover:bg-[var(--surface-subtle)]/80 transition-colors"
+                  >
+                    <td className={`${TABLE_CELL_CLASS} font-semibold text-[var(--text-primary)]`}>{row.employee?.full_name || "-"}</td>
                     <td className={TABLE_CELL_CLASS}>{trip.origin}</td>
                     <td className={TABLE_CELL_CLASS}>{trip.destination}</td>
                     <td className={TABLE_CELL_CLASS}>{shortDate(trip.travel_date)}</td>
@@ -105,14 +111,20 @@ export default function TravelApprovalsPage() {
                     </td>
                     <td className={TABLE_CELL_CLASS}>
                       <button
-                        onClick={() => act(row.id, true)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          act(row.id, true);
+                        }}
                         disabled={actingId === row.id}
                         className="text-emerald-600 font-bold mr-3 disabled:opacity-50"
                       >
                         {t("approve")}
                       </button>
                       <button
-                        onClick={() => act(row.id, false)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          act(row.id, false);
+                        }}
                         disabled={actingId === row.id}
                         className="text-rose-600 font-bold disabled:opacity-50"
                       >
@@ -127,6 +139,12 @@ export default function TravelApprovalsPage() {
           </table>
         </div>
       </Card>
+
+      <TravelBookingDetailModal
+        bookingId={selectedId}
+        onClose={() => setSelectedId(null)}
+        onChanged={load}
+      />
     </div>
   );
 }
