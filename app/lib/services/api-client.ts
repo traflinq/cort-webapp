@@ -2373,6 +2373,37 @@ class ApiClient {
         });
     }
 
+    async getCompanyTravelGrades(companyId: number) {
+        return this.request<any>(`/companies/${companyId}/travel/grades`);
+    }
+
+    async createCompanyTravelGrade(
+        companyId: number,
+        body: { name: string; approval_required?: boolean; sort_order?: number },
+    ) {
+        return this.request<any>(`/companies/${companyId}/travel/grades`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async updateCompanyTravelGrade(
+        companyId: number,
+        gradeId: number,
+        body: { name?: string; approval_required?: boolean; sort_order?: number },
+    ) {
+        return this.request<any>(`/companies/${companyId}/travel/grades/${gradeId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async deleteCompanyTravelGrade(companyId: number, gradeId: number) {
+        return this.request<any>(`/companies/${companyId}/travel/grades/${gradeId}`, {
+            method: 'DELETE',
+        });
+    }
+
     async setTravelApprovalRequired(companyId: number, approval_required: boolean) {
         return this.request<any>(`/companies/${companyId}/travel/wallet/approval`, {
             method: 'PATCH',

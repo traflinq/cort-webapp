@@ -7,6 +7,7 @@ export interface CreateEmployeeRequest {
     employee_id?: string;
     department?: string;
     home_address?: string;
+    travel_grade_id?: number | null;
 }
 
 export interface UpdateEmployeeRequest extends Partial<CreateEmployeeRequest> {
@@ -21,6 +22,8 @@ export interface Employee {
     employee_id: string | null;
     department: string | null;
     home_address?: string | null;
+    travel_grade_id?: number | null;
+    travel_grade?: { id: number; name: string; approval_required: boolean } | null;
     status: string;
     company_id: number | null;
     created_at: string;

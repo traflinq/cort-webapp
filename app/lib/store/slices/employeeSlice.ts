@@ -14,6 +14,8 @@ export type Employee = {
     employee_id?: string | null;
     department?: string | null;
     home_address?: string | null;
+    travel_grade_id?: number | null;
+    travel_grade?: { id: number; name: string; approval_required: boolean } | null;
 };
 
 interface EmployeeState {

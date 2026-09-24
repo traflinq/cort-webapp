@@ -53,7 +53,6 @@ export default function TravelWalletsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
-  const [savingApproval, setSavingApproval] = useState(false);
 
   const load = useCallback(async () => {
     if (!user?.company_id) {
@@ -130,28 +129,6 @@ export default function TravelWalletsPage() {
     }
   };
 
-  const toggleApproval = async () => {
-    if (!user?.company_id || savingApproval) return;
-    const next = !Boolean(wallet?.approval_required);
-    const previous = wallet;
-    setSavingApproval(true);
-    setWallet((current: any) => (current ? { ...current, approval_required: next } : current));
-    try {
-      const res = await apiClient.setTravelApprovalRequired(user.company_id, next);
-      setWallet((current: any) => ({
-        ...(current || {}),
-        ...(res.data || {}),
-        approval_required: res.data?.approval_required ?? next,
-      }));
-      toast.success(t("approvalUpdated"));
-    } catch (err) {
-      setWallet(previous);
-      toast.error(err instanceof Error ? err.message : t("approvalUpdateFailed"));
-    } finally {
-      setSavingApproval(false);
-    }
-  };
-
   const toggleAllVisible = () => {
     const nextSelected = { ...selected };
     const nextValue = !allVisibleSelected;
@@ -168,8 +145,6 @@ export default function TravelWalletsPage() {
     });
   };
 
-  const approvalOn = Boolean(wallet?.approval_required);
-
   return (
     <div className="flex flex-col gap-6">
       <PageHeader label={t("label")} title={t("walletTitle")} description={t("walletDescription")} />
@@ -177,15 +152,19 @@ export default function TravelWalletsPage() {
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</div>
       ) : null}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <KpiCard label={t("companyAvailable")} value={money(wallet?.balance)} loading={loading} />
         <KpiCard
-          label={t("allocatedToEmployees")}
-          value={money(wallet?.employee_allocated_total ?? wallet?.assigned_total)}
+          label={t("allocatedToCompany")}
+          value={money(wallet?.company_allocated_total ?? (Number(wallet?.balance ?? 0) + Number(wallet?.employee_allocated_total ?? 0)))}
           loading={loading}
         />
-        <KpiCard label={t("used")} value={money(wallet?.employee_used_total)} loading={loading} />
         <KpiCard
-          label={t("remainingOnEmployees")}
+          label={t("allocatedToEmployees")}
+          value={money(wallet?.employee_allocated_total ?? 0)}
+          loading={loading}
+        />
+        <KpiCard label={t("usedByEmployees")} value={money(wallet?.employee_used_total)} loading={loading} />
+        <KpiCard
+          label={t("remaining")}
           value={money(wallet?.employee_remaining_total ?? wallet?.assigned_total)}
           loading={loading}
         />
@@ -244,33 +223,6 @@ export default function TravelWalletsPage() {
                 left: money(companyLeft),
               })}
         </p>
-      </Card>
-
-      <Card>
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-secondary)]">
-              {t("requireApproval")}
-            </p>
-            <p className="mt-2 text-sm text-[var(--text-muted)]">{t("requireApprovalHint")}</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={approvalOn}
-            disabled={loading || savingApproval || !user?.company_id}
-            onClick={toggleApproval}
-            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
-              approvalOn ? "bg-[#f47f00]" : "bg-[var(--border-default)]"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-[inset-inline-start] ${
-                approvalOn ? "start-5" : "start-0.5"
-              }`}
-            />
-          </button>
-        </div>
       </Card>
 
       <Card className="overflow-hidden !p-0">

@@ -62,6 +62,16 @@ export default function EmployeesPage() {
     dispatch(fetchEmployees(company.id.toString()));
   }, [dispatch, company?.id, lastFetchedParams, status]);
 
+  useEffect(() => {
+    if (!company?.id || !company.services_enabled?.travel_enabled) {
+      setGrades([]);
+      return;
+    }
+    apiClient.getCompanyTravelGrades(Number(company.id))
+      .then((res) => setGrades(res.data || []))
+      .catch(() => setGrades([]));
+  }, [company?.id, company?.services_enabled?.travel_enabled]);
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPhone, setEditPhone] = useState<string>("");
   const [editEmail, setEditEmail] = useState<string>("");
@@ -77,7 +87,15 @@ export default function EmployeesPage() {
     phone: "",
     department: "",
     employee_id: "",
+    travel_grade_id: "",
   });
+  const [grades, setGrades] = useState<Array<{ id: number; name: string; approval_required: boolean }>>([]);
+  const [editGradeId, setEditGradeId] = useState("");
+  const [gradeName, setGradeName] = useState("");
+  const [gradeNeedsApproval, setGradeNeedsApproval] = useState(true);
+  const [savingGrade, setSavingGrade] = useState(false);
+  const [editingGrade, setEditingGrade] = useState<Record<number, string>>({});
+  const travelEnabled = !!company?.services_enabled?.travel_enabled;
 
   const atEmployeeLimit = isTrialUser && employees.length >= maxEmployees;
 
@@ -86,7 +104,7 @@ export default function EmployeesPage() {
     setEmployeeCreated(false);
     setCreatedCredentials(null);
     setEmployeeFormError(null);
-    setEmployeeForm({ full_name: "", email: "", phone: "", department: "", employee_id: "" });
+    setEmployeeForm({ full_name: "", email: "", phone: "", department: "", employee_id: "", travel_grade_id: "" });
   }
 
   async function handleAddEmployee(e: React.FormEvent) {
@@ -111,6 +129,7 @@ export default function EmployeesPage() {
         phone: employeeForm.phone.trim(),
         department: employeeForm.department.trim() || undefined,
         employee_id: employeeForm.employee_id.trim() || undefined,
+        travel_grade_id: employeeForm.travel_grade_id ? Number(employeeForm.travel_grade_id) : undefined,
         company_id: Number(company.id),
       });
       const password = created.data?.password ?? (created.data as { generatedPassword?: string })?.generatedPassword;
@@ -143,12 +162,20 @@ export default function EmployeesPage() {
     setEditingId(employee.id);
     setEditPhone(employee.phone || "");
     setEditEmail(employee.email);
+    setEditGradeId(
+      employee.travel_grade_id
+        ? String(employee.travel_grade_id)
+        : employee.travel_grade?.id
+          ? String(employee.travel_grade.id)
+          : "",
+    );
   }
 
   function cancelEdit() {
     setEditingId(null);
     setEditPhone("");
     setEditEmail("");
+    setEditGradeId("");
   }
 
   async function saveEdit(employee: typeof employees[0]) {
@@ -165,7 +192,11 @@ export default function EmployeesPage() {
     }
     const result = await dispatch(updateEmployee({
       employeeId: employee.id,
-      data: { phone: editPhone, email: editEmail }
+      data: {
+        phone: editPhone,
+        email: editEmail,
+        travel_grade_id: editGradeId ? Number(editGradeId) : null,
+      }
     }));
     if (updateEmployee.fulfilled.match(result)) {
       toast.success(t("updatedSuccess"));
@@ -197,6 +228,51 @@ export default function EmployeesPage() {
     }
   }
 
+  async function addGrade() {
+    if (!company?.id || savingGrade) return;
+    const name = gradeName.trim();
+    if (!name) return;
+    setSavingGrade(true);
+    try {
+      const res = await apiClient.createCompanyTravelGrade(Number(company.id), {
+        name,
+        approval_required: gradeNeedsApproval,
+      });
+      setGrades((current) => [...current, res.data].sort((a, b) => a.name.localeCompare(b.name)));
+      setGradeName("");
+      setGradeNeedsApproval(true);
+      toast.success(t("gradeCreated"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("gradeSaveFailed"));
+    } finally {
+      setSavingGrade(false);
+    }
+  }
+
+  async function patchGrade(gradeId: number, body: { name?: string; approval_required?: boolean }) {
+    if (!company?.id) return;
+    try {
+      const res = await apiClient.updateCompanyTravelGrade(Number(company.id), gradeId, body);
+      setGrades((current) => current.map((row) => (row.id === gradeId ? { ...row, ...res.data } : row)));
+      toast.success(t("gradeUpdated"));
+      dispatch(fetchEmployees(company.id.toString()));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("gradeSaveFailed"));
+    }
+  }
+
+  async function removeGrade(gradeId: number) {
+    if (!company?.id) return;
+    try {
+      await apiClient.deleteCompanyTravelGrade(Number(company.id), gradeId);
+      setGrades((current) => current.filter((row) => row.id !== gradeId));
+      toast.success(t("gradeDeleted"));
+      dispatch(fetchEmployees(company.id.toString()));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("gradeDeleteFailed"));
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
       <PageHeader label={t("label")} title={t("title")} />
@@ -206,6 +282,89 @@ export default function EmployeesPage() {
           {t("trialBanner", { used: employees.length, max: maxEmployees })}
         </div>
       )}
+
+      {travelEnabled ? (
+        <Card className="overflow-hidden !p-0">
+          <div className="border-b border-[var(--border-light)] bg-[var(--surface-subtle)]/50 p-6">
+            <div className="text-sm font-bold text-[var(--text-primary)]">{t("gradesTitle")}</div>
+            <div className="text-sm text-[var(--text-muted)] mt-0.5 leading-relaxed max-w-3xl">{t("gradesHint")}</div>
+          </div>
+          <div className="p-6">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+              <div className="flex-1 min-w-0">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("gradeName")}</label>
+                <TextInput
+                  value={gradeName}
+                  onChange={(e) => setGradeName(e.target.value)}
+                  placeholder={t("gradeNamePlaceholder")}
+                  className="w-full"
+                />
+              </div>
+              <label className="flex items-center gap-2 h-9 text-sm font-medium text-[var(--text-primary)]">
+                <input
+                  type="checkbox"
+                  checked={gradeNeedsApproval}
+                  onChange={(e) => setGradeNeedsApproval(e.target.checked)}
+                />
+                {t("requireApproval")}
+              </label>
+              <button
+                type="button"
+                onClick={addGrade}
+                disabled={savingGrade || !gradeName.trim()}
+                className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-[var(--cort-orange)] px-4 text-sm font-bold text-white shadow-sm hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {t("addGrade")}
+              </button>
+            </div>
+            <div className="mt-4">
+              {grades.length === 0 ? (
+                <p className="text-sm text-[var(--text-muted)]">{t("noGrades")}</p>
+              ) : (
+                grades.map((grade) => (
+                  <div
+                    key={grade.id}
+                    className="flex flex-wrap items-center gap-3 py-3 border-b border-[var(--border-light)] last:border-b-0"
+                  >
+                    <input
+                      value={editingGrade[grade.id] ?? grade.name}
+                      onChange={(e) => setEditingGrade((current) => ({ ...current, [grade.id]: e.target.value }))}
+                      onBlur={() => {
+                        const next = (editingGrade[grade.id] ?? grade.name).trim();
+                        if (!next || next === grade.name) {
+                          setEditingGrade((current) => {
+                            const copy = { ...current };
+                            delete copy[grade.id];
+                            return copy;
+                          });
+                          return;
+                        }
+                        patchGrade(grade.id, { name: next });
+                      }}
+                      className="flex-1 min-w-[8rem] h-9 rounded-lg border border-[var(--border-light)] bg-[var(--bg-card)] px-3 text-sm font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/20 focus:border-[var(--cort-orange)]"
+                    />
+                    <label className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+                      <input
+                        type="checkbox"
+                        checked={grade.approval_required}
+                        onChange={(e) => patchGrade(grade.id, { approval_required: e.target.checked })}
+                      />
+                      {t("requireApproval")}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => removeGrade(grade.id)}
+                      className="text-sm font-bold text-rose-500 hover:text-rose-400"
+                    >
+                      {t("deleteGrade")}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </Card>
+      ) : null}
 
       <Card className={`min-h-[500px] ${TABLE_CARD_CLASS}`}>
         <div className={TABLE_TOP_BAR_CLASS}>
@@ -245,16 +404,17 @@ export default function EmployeesPage() {
                 <th className={TABLE_HEADER_CELL_CLASS}>{t("phone")}</th>
                 <th className={TABLE_HEADER_CELL_CLASS}>{t("email")}</th>
                 <th className={TABLE_HEADER_CELL_CLASS}>{t("department")}</th>
+                {travelEnabled ? <th className={TABLE_HEADER_CELL_CLASS}>{t("grade")}</th> : null}
                 <th className={TABLE_HEADER_CELL_CLASS}>{t("status")}</th>
                 <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-light)]/50">
               {loading && employees.length === 0 ? (
-                <TableSkeleton columns={7} rows={8} />
+                <TableSkeleton columns={travelEnabled ? 8 : 7} rows={8} />
               ) : employees.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan={7} className={`${TABLE_CELL_CLASS} py-12 text-center text-[var(--text-muted)]`}>
+                  <td colSpan={travelEnabled ? 8 : 7} className={`${TABLE_CELL_CLASS} py-12 text-center text-[var(--text-muted)]`}>
                     {t("noEmployees")}
                   </td>
                 </tr>
@@ -291,6 +451,24 @@ export default function EmployeesPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 text-[var(--text-muted)]">{e.department || "—"}</td>
+                      {travelEnabled ? (
+                        <td className={TABLE_CELL_CLASS}>
+                          {isEditing ? (
+                            <select
+                              value={editGradeId}
+                              onChange={(ev) => setEditGradeId(ev.target.value)}
+                              className="h-9 rounded-lg border border-[var(--border-light)] bg-[var(--bg-card)] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/20 focus:border-[var(--cort-orange)] text-[var(--text-primary)]"
+                            >
+                              <option value="">{t("noGrade")}</option>
+                              {grades.map((grade) => (
+                                <option key={grade.id} value={grade.id}>{grade.name}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-[var(--text-secondary)]">{e.travel_grade?.name || t("noGrade")}</span>
+                          )}
+                        </td>
+                      ) : null}
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${e.status.toLowerCase() === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
                           'bg-rose-500/10 text-rose-400 border-rose-500/20'
@@ -399,6 +577,22 @@ export default function EmployeesPage() {
                     <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("department")}</label>
                     <TextInput value={employeeForm.department} onChange={(e) => setEmployeeForm((f) => ({ ...f, department: e.target.value }))} placeholder={t("departmentPlaceholder")} />
                   </div>
+                  {travelEnabled ? (
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("grade")}</label>
+                      <select
+                        value={employeeForm.travel_grade_id}
+                        onChange={(e) => setEmployeeForm((f) => ({ ...f, travel_grade_id: e.target.value }))}
+                        className="h-9 w-full rounded-lg border border-[var(--border-light)] bg-[var(--bg-card)] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/20 focus:border-[var(--cort-orange)] text-[var(--text-primary)]"
+                      >
+                        <option value="">{t("noGrade")}</option>
+                        {grades.map((grade) => (
+                          <option key={grade.id} value={grade.id}>{grade.name}</option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-[11px] text-[var(--text-muted)]">{t("noGradeHint")}</p>
+                    </div>
+                  ) : null}
                   <div className="col-span-2">
                     <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("email")} *</label>
                     <TextInput required type="email" value={employeeForm.email} onChange={(e) => setEmployeeForm((f) => ({ ...f, email: e.target.value }))} placeholder={t("emailPlaceholder")} />
