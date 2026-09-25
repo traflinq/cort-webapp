@@ -95,6 +95,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
         { href: "/vendor/bookings", label: "Bookings", icon: ClipboardList },
         { href: "/vendor/fleet/vehicles", label: "Vehicles", icon: Car },
         { href: "/vendor/travel-cars", label: "Travel rentals", icon: Car },
+        { href: "/vendor/travel-mile-vehicles", label: "Travel miles", icon: Car },
         { href: "/vendor/fleet/drivers", label: "Drivers", icon: Users },
         ...(selectedLink?.serves_shuttle ? [{ href: "/vendor/routes", label: "Routes", icon: Map }] : []),
     ];

@@ -218,6 +218,9 @@ export function bookingTrip(row: any) {
 
 export function mileLabel(type?: string | null, provider?: string | null, transport?: string | null) {
   if (transport === "CAR" || !type || type === "NONE") return "-";
+  if (type === "AIRPORT_TRANSFER") return provider ? `Airport transfer / ${provider}` : "Airport transfer";
+  if (type === "RENTAL") return provider ? `Rental 10hr / ${provider}` : "Rental 10hr";
+  if (type === "RIDE_HAIL") return provider ? `Ride-hailing / ${provider}` : "Ride-hailing";
   return provider ? `${type} / ${provider}` : type;
 }
 

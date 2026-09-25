@@ -66,8 +66,14 @@ export default function NewTravelBookingForm({
   const [packageFilter, setPackageFilter] = useState("ALL");
   const [wantFirst, setWantFirst] = useState(false);
   const [wantLast, setWantLast] = useState(false);
+  const [firstType, setFirstType] = useState<"RIDE_HAIL" | "AIRPORT_TRANSFER">("RIDE_HAIL");
+  const [lastType, setLastType] = useState<"RIDE_HAIL" | "AIRPORT_TRANSFER" | "RENTAL">("RIDE_HAIL");
+  const [firstMileVehicleId, setFirstMileVehicleId] = useState<number | null>(null);
+  const [lastMileVehicleId, setLastMileVehicleId] = useState<number | null>(null);
   const [firstProvider, setFirstProvider] = useState("BYKEA");
   const [lastProvider, setLastProvider] = useState("BYKEA");
+  const [firstVendorLinkId, setFirstVendorLinkId] = useState<number | null>(null);
+  const [lastVendorLinkId, setLastVendorLinkId] = useState<number | null>(null);
   const [mileOptions, setMileOptions] = useState<any>(null);
   const [traveler, setTraveler] = useState<Traveler>(emptyTraveler);
   const [editingTraveler, setEditingTraveler] = useState(false);
@@ -168,7 +174,7 @@ export default function NewTravelBookingForm({
       setOffers(res.data.offers || []);
       setDidSearch(true);
       if (transportType !== "CAR") {
-        const miles = await apiClient.getTravelMileOptions(user.company_id, Number(bags));
+        const miles = await apiClient.getTravelMileOptions(user.company_id, Number(bags), res.data.quote_id);
         setMileOptions(miles.data);
       } else {
         setMileOptions(null);
@@ -182,11 +188,21 @@ export default function NewTravelBookingForm({
     }
   };
 
-  const mile = (want: boolean, provider: string) => {
+  const mile = (
+    want: boolean,
+    type: "RIDE_HAIL" | "AIRPORT_TRANSFER" | "RENTAL",
+    provider: string,
+    vehicleId: number | null,
+    vendorLinkId: number | null,
+  ) => {
     if (!want) return { type: "NONE" };
-    if (provider === "BYKEA") return { type: "RIDE_HAIL", provider: "BYKEA" };
-    const rental = (mileOptions?.rentals || []).find((r: any) => r.provider === provider);
-    return { type: "RENTAL", provider, vendor_link_id: rental?.vendor_link_id };
+    if (type === "RIDE_HAIL") return { type: "RIDE_HAIL", provider: "BYKEA" };
+    return {
+      type,
+      provider,
+      mile_vehicle_id: vehicleId ?? undefined,
+      vendor_link_id: vendorLinkId ?? undefined,
+    };
   };
 
   const submit = async () => {
@@ -200,8 +216,20 @@ export default function NewTravelBookingForm({
         employee_id: employeeId,
         package_filter: transportType === "CAR" ? "ALL" : packageFilter,
         bag_count: Number(bags),
-        first_mile: mile(transportType === "CAR" ? false : wantFirst, firstProvider),
-        last_mile: mile(transportType === "CAR" ? false : wantLast, lastProvider),
+        first_mile: mile(
+          transportType === "CAR" ? false : wantFirst,
+          firstType,
+          firstProvider,
+          firstMileVehicleId,
+          firstVendorLinkId,
+        ),
+        last_mile: mile(
+          transportType === "CAR" ? false : wantLast,
+          lastType,
+          lastProvider,
+          lastMileVehicleId,
+          lastVendorLinkId,
+        ),
         traveler,
       });
       toast.success(t("bookingCreated"));
@@ -375,28 +403,93 @@ export default function NewTravelBookingForm({
             {t("firstMile")}
           </label>
           {wantFirst ? (
-            <Field label={t("firstMile")}>
-              <Select value={firstProvider} onChange={(e) => setFirstProvider(e.target.value)}>
-                <option value="BYKEA">{t("bykea")}</option>
-                <option value="CORT">{t("cortRental")}</option>
-                <option value="COMPANY_VENDOR">{t("companyVendor")}</option>
-                <option value="SHORT_RENTAL">{t("shortRental")}</option>
-              </Select>
-            </Field>
+            <MileOptionList
+              groupName="first-mile"
+              rideHail={mileOptions?.ride_hail}
+              airportTransfers={mileOptions?.airport_transfers || []}
+              selectedType={firstType}
+              selectedVehicleId={firstMileVehicleId}
+              selectedProvider={firstProvider}
+              onRideHail={() => {
+                setFirstType("RIDE_HAIL");
+                setFirstProvider("BYKEA");
+                setFirstMileVehicleId(null);
+                setFirstVendorLinkId(null);
+              }}
+              onAirport={(row) => {
+                setFirstType("AIRPORT_TRANSFER");
+                setFirstProvider(row.provider);
+                setFirstMileVehicleId(row.id);
+                setFirstVendorLinkId(row.vendor_link_id ?? null);
+              }}
+              t={t}
+            />
           ) : null}
           <label className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
             <input type="checkbox" checked={wantLast} onChange={(e) => setWantLast(e.target.checked)} />
             {t("lastMile")}
           </label>
           {wantLast ? (
-            <Field label={t("lastMile")}>
-              <Select value={lastProvider} onChange={(e) => setLastProvider(e.target.value)}>
-                <option value="BYKEA">{t("bykea")}</option>
-                <option value="CORT">{t("cortRental")}</option>
-                <option value="COMPANY_VENDOR">{t("companyVendor")}</option>
-                <option value="SHORT_RENTAL">{t("shortRental")}</option>
-              </Select>
-            </Field>
+            <>
+              <MileOptionList
+                groupName="last-mile"
+                rideHail={mileOptions?.ride_hail}
+                airportTransfers={mileOptions?.airport_transfers || []}
+                selectedType={lastType}
+                selectedVehicleId={lastMileVehicleId}
+                selectedProvider={lastProvider}
+                onRideHail={() => {
+                  setLastType("RIDE_HAIL");
+                  setLastProvider("BYKEA");
+                  setLastMileVehicleId(null);
+                  setLastVendorLinkId(null);
+                }}
+                onAirport={(row) => {
+                  setLastType("AIRPORT_TRANSFER");
+                  setLastProvider(row.provider);
+                  setLastMileVehicleId(row.id);
+                  setLastVendorLinkId(row.vendor_link_id ?? null);
+                }}
+                t={t}
+              />
+              {(mileOptions?.rentals_10hr || []).length > 0 ? (
+              <div className="mt-3 space-y-3">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">{t("rental10Hours")}</p>
+                {(mileOptions?.rentals_10hr || []).map((row: any) => {
+                  const selected = lastType === "RENTAL" && lastMileVehicleId === row.id && lastProvider === row.provider;
+                  return (
+                    <label
+                      key={`rental-${row.provider}-${row.id}`}
+                      className={`flex gap-3 items-start rounded-2xl border p-4 cursor-pointer transition-all ${
+                        selected
+                          ? "border-[#f47f00] bg-[#f47f00]/5"
+                          : "border-[var(--border-default)] bg-[var(--bg-card)] hover:border-[#f47f00]/40"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="last-mile"
+                        className="mt-1"
+                        checked={selected}
+                        onChange={() => {
+                          setLastType("RENTAL");
+                          setLastProvider(row.provider);
+                          setLastMileVehicleId(row.id);
+                          setLastVendorLinkId(row.vendor_link_id ?? null);
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-[var(--text-primary)]">
+                          {row.operator} - {row.name}
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--text-muted)]">{t("rental10Hours")}</p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              ) : null}
+            </>
           ) : null}
         </CardSection>
       ) : null}
@@ -496,6 +589,97 @@ export default function NewTravelBookingForm({
           )}
         </CardSection>
       ) : null}
+    </div>
+  );
+}
+
+function MileOptionList({
+  groupName,
+  rideHail,
+  airportTransfers,
+  selectedType,
+  selectedVehicleId,
+  selectedProvider,
+  onRideHail,
+  onAirport,
+  t,
+}: {
+  groupName: string;
+  rideHail?: { amount?: number; disclaimer?: string } | null;
+  airportTransfers: Array<{
+    id: number;
+    provider: string;
+    name: string;
+    operator: string;
+    amount: number;
+    vendor_link_id?: number | null;
+  }>;
+  selectedType: string;
+  selectedVehicleId: number | null;
+  selectedProvider: string;
+  onRideHail: () => void;
+  onAirport: (row: {
+    id: number;
+    provider: string;
+    vendor_link_id?: number | null;
+  }) => void;
+  t: (key: string) => string;
+}) {
+  const rideSelected = selectedType === "RIDE_HAIL";
+  return (
+    <div className="space-y-3">
+      <label
+        className={`flex gap-3 items-start rounded-2xl border p-4 cursor-pointer transition-all ${
+          rideSelected
+            ? "border-[#f47f00] bg-[#f47f00]/5"
+            : "border-[var(--border-default)] bg-[var(--bg-card)] hover:border-[#f47f00]/40"
+        }`}
+      >
+        <input type="radio" name={groupName} className="mt-1" checked={rideSelected} onChange={onRideHail} />
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-[var(--text-primary)]">
+            {t("bykea")} - {money(rideHail?.amount ?? 0)}
+          </p>
+          {rideHail?.disclaimer ? (
+            <p className="mt-1 text-xs text-[var(--text-muted)]">{rideHail.disclaimer}</p>
+          ) : null}
+        </div>
+      </label>
+      {airportTransfers.length > 0 ? (
+        <p className="text-sm font-semibold text-[var(--text-primary)]">{t("airportTransfer")}</p>
+      ) : null}
+      {airportTransfers.map((row) => {
+        const selected =
+          selectedType === "AIRPORT_TRANSFER" &&
+          selectedVehicleId === row.id &&
+          selectedProvider === row.provider;
+        return (
+          <label
+            key={`${row.provider}-${row.id}`}
+            className={`flex gap-3 items-start rounded-2xl border p-4 cursor-pointer transition-all ${
+              selected
+                ? "border-[#f47f00] bg-[#f47f00]/5"
+                : "border-[var(--border-default)] bg-[var(--bg-card)] hover:border-[#f47f00]/40"
+            }`}
+          >
+            <input
+              type="radio"
+              name={groupName}
+              className="mt-1"
+              checked={selected}
+              onChange={() => onAirport(row)}
+            />
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-[var(--text-primary)]">
+                {row.operator} - {row.name}
+              </p>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">
+                {t("fixedAmount")} {money(row.amount)}
+              </p>
+            </div>
+          </label>
+        );
+      })}
     </div>
   );
 }

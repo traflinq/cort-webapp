@@ -87,6 +87,27 @@ export type TravelCarInput = {
     is_active?: boolean;
 };
 
+export type MileVehiclePurpose = 'AIRPORT_TRANSFER' | 'RENTAL_10HR';
+
+export type MileVehicleListing = {
+    id: number;
+    purpose: MileVehiclePurpose;
+    name: string;
+    fixed_amount: number;
+    cost_per_km: number;
+    bag_allowance: number;
+    is_active: boolean;
+};
+
+export type MileVehicleInput = {
+    purpose: MileVehiclePurpose;
+    name: string;
+    fixed_amount: number;
+    cost_per_km?: number;
+    bag_allowance?: number;
+    is_active?: boolean;
+};
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 class ApiClient {
@@ -1683,6 +1704,29 @@ class ApiClient {
         return this.request<{ success: boolean }>(`/admin/travel-cars/${id}`, { method: 'DELETE' });
     }
 
+    async getAdminMileVehicles(purpose?: MileVehiclePurpose) {
+        const query = purpose ? `?purpose=${purpose}` : '';
+        return this.request<{ success: boolean; data: MileVehicleListing[] }>(`/admin/travel-mile-vehicles${query}`);
+    }
+
+    async createAdminMileVehicle(body: MileVehicleInput) {
+        return this.request<{ success: boolean; data: MileVehicleListing }>('/admin/travel-mile-vehicles', {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async updateAdminMileVehicle(id: number, body: Partial<MileVehicleInput>) {
+        return this.request<{ success: boolean; data: MileVehicleListing }>(`/admin/travel-mile-vehicles/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async deleteAdminMileVehicle(id: number) {
+        return this.request<{ success: boolean }>(`/admin/travel-mile-vehicles/${id}`, { method: 'DELETE' });
+    }
+
     // ===== VENDOR DASHBOARD =====
 
     async getVendorTravelCars() {
@@ -1705,6 +1749,29 @@ class ApiClient {
 
     async deleteVendorTravelCar(id: number) {
         return this.request<{ success: boolean }>(`/vendor/travel-cars/${id}`, { method: 'DELETE' });
+    }
+
+    async getVendorMileVehicles(purpose?: MileVehiclePurpose) {
+        const query = purpose ? `?purpose=${purpose}` : '';
+        return this.request<{ success: boolean; data: MileVehicleListing[] }>(`/vendor/travel-mile-vehicles${query}`);
+    }
+
+    async createVendorMileVehicle(body: MileVehicleInput) {
+        return this.request<{ success: boolean; data: MileVehicleListing }>('/vendor/travel-mile-vehicles', {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async updateVendorMileVehicle(id: number, body: Partial<MileVehicleInput>) {
+        return this.request<{ success: boolean; data: MileVehicleListing }>(`/vendor/travel-mile-vehicles/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async deleteVendorMileVehicle(id: number) {
+        return this.request<{ success: boolean }>(`/vendor/travel-mile-vehicles/${id}`, { method: 'DELETE' });
     }
 
     async getVendorDashboard() {
@@ -2418,8 +2485,17 @@ class ApiClient {
         });
     }
 
-    async getTravelMileOptions(companyId: number, bagCount = 1) {
-        return this.request<any>(`/companies/${companyId}/travel/mile-options?bag_count=${bagCount}`);
+    async getTravelMileOptions(
+        companyId: number,
+        bagCount = 1,
+        quoteId?: number,
+        lastMileAddress?: string,
+    ) {
+        const query = new URLSearchParams();
+        query.set('bag_count', String(bagCount));
+        if (quoteId) query.set('quote_id', String(quoteId));
+        if (lastMileAddress?.trim()) query.set('last_mile_address', lastMileAddress.trim());
+        return this.request<any>(`/companies/${companyId}/travel/mile-options?${query}`);
     }
 
     async createCompanyTravelBooking(companyId: number, body: Record<string, unknown>) {
