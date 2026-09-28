@@ -140,15 +140,15 @@ export default function VendorTravelRequestsPage() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Loadingù</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
             ) : requests.length === 0 ? (
               <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No {statusFilter.toLowerCase()} travel requests</td></tr>
             ) : requests.map((req) => (
               <tr key={req.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3">{req.travel_booking?.employee?.full_name ?? "ù"}</td>
-                <td className="px-4 py-3">{req.travel_booking?.quote?.origin} ? {req.travel_booking?.quote?.destination}</td>
+                <td className="px-4 py-3">{req.travel_booking?.employee?.full_name ?? "-"}</td>
+                <td className="px-4 py-3">{req.travel_booking?.quote?.origin} - {req.travel_booking?.quote?.destination}</td>
                 <td className="px-4 py-3 text-gray-600">
-                  {req.travel_booking?.quote?.travel_date ? new Date(req.travel_booking.quote.travel_date).toLocaleDateString() : "ù"}
+                  {req.travel_booking?.quote?.travel_date ? new Date(req.travel_booking.quote.travel_date).toLocaleDateString() : "-"}
                 </td>
                 <td className="px-4 py-3">{req.mile}</td>
                 <td className="px-4 py-3">
@@ -184,7 +184,7 @@ export default function VendorTravelRequestsPage() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Assign & Accept Request</h2>
-              <button onClick={() => setAssigning(null)} className="text-gray-400 hover:text-gray-600 text-xl">ù</button>
+              <button onClick={() => setAssigning(null)} className="text-gray-400 hover:text-gray-600 text-xl">x</button>
             </div>
             <form onSubmit={handleAssign} className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">
@@ -216,7 +216,7 @@ export default function VendorTravelRequestsPage() {
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setAssigning(null)} className="px-4 py-2 text-sm rounded-lg border">Cancel</button>
                 <button type="submit" disabled={saving} className="px-4 py-2 text-sm rounded-lg bg-[#f47f00] text-white font-medium disabled:opacity-50">
-                  {saving ? "Savingù" : "Accept"}
+                  {saving ? "Saving..." : "Accept"}
                 </button>
               </div>
             </form>

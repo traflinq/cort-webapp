@@ -10,7 +10,7 @@ function money(value: unknown) {
 }
 
 function dateLabel(value?: string | Date | null) {
-  if (!value) return "—";
+  if (!value) return "-";
   return new Date(value).toLocaleDateString();
 }
 
@@ -97,14 +97,14 @@ export default function AdminTravelInvoicesPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {loading && pending.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">Loading…</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">Loading...</td></tr>
               ) : pending.length === 0 ? (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">No confirmed bookings waiting for a CORT invoice</td></tr>
               ) : pending.map((booking) => (
                 <tr key={booking.id}>
-                  <td className="px-4 py-3">{booking.employee?.full_name ?? "—"}</td>
-                  <td className="px-4 py-3">{booking.companies?.name ?? "—"}</td>
-                  <td className="px-4 py-3">{booking.quote?.origin} ? {booking.quote?.destination}</td>
+                  <td className="px-4 py-3">{booking.employee?.full_name ?? "-"}</td>
+                  <td className="px-4 py-3">{booking.companies?.name ?? "-"}</td>
+                  <td className="px-4 py-3">{booking.quote?.origin} - {booking.quote?.destination}</td>
                   <td className="px-4 py-3">{dateLabel(booking.quote?.travel_date)}</td>
                   <td className="px-4 py-3 text-right">{money(booking.fare_amount)}</td>
                   <td className="px-4 py-3 text-right">
@@ -113,7 +113,7 @@ export default function AdminTravelInvoicesPage() {
                       disabled={generatingId === booking.id}
                       className="inline-flex items-center rounded-lg bg-[#f47f00] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#d97000] disabled:opacity-50"
                     >
-                      {generatingId === booking.id ? "Generating…" : "Generate invoice"}
+                      {generatingId === booking.id ? "Generating..." : "Generate invoice"}
                     </button>
                   </td>
                 </tr>
@@ -141,19 +141,19 @@ export default function AdminTravelInvoicesPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {loading && invoices.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">Loading…</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">Loading...</td></tr>
               ) : invoices.length === 0 ? (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">No travel invoices generated yet</td></tr>
               ) : invoices.map((inv) => (
                 <tr key={inv.id}>
                   <td className="px-4 py-3 font-mono text-xs">{inv.invoice_number}</td>
-                  <td className="px-4 py-3">{inv.travel_booking?.employee?.full_name ?? "—"}</td>
+                  <td className="px-4 py-3">{inv.travel_booking?.employee?.full_name ?? "-"}</td>
                   <td className="px-4 py-3">
-                    {inv.travel_booking?.quote?.origin} ? {inv.travel_booking?.quote?.destination}
+                    {inv.travel_booking?.quote?.origin} - {inv.travel_booking?.quote?.destination}
                     {inv.line_items?.length ? (
                       <ul className="mt-1 text-xs text-muted space-y-0.5">
                         {inv.line_items.map((item: any) => (
-                          <li key={item.id}>{item.description} — {money(item.total_price)}</li>
+                          <li key={item.id}>{item.description} - {money(item.total_price)}</li>
                         ))}
                       </ul>
                     ) : null}

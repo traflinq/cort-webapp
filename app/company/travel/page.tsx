@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import { apiClient } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";
 import { Card } from "../components/DashboardComponents";
@@ -43,6 +44,7 @@ export default function TravelBookingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!user?.company_id) {
@@ -67,6 +69,22 @@ export default function TravelBookingsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const remove = async (id: number) => {
+    if (!user?.company_id) return;
+    if (!confirm(t("deleteConfirm"))) return;
+    setDeletingId(id);
+    try {
+      await apiClient.deleteCompanyTravelBooking(user.company_id, id);
+      toast.success(t("deleted"));
+      if (selectedId === id) setSelectedId(null);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("actionFailed"));
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -96,14 +114,14 @@ export default function TravelBookingsPage() {
           <table className="w-full text-left min-w-full">
             <thead className="bg-[var(--surface-subtle)]/50">
               <tr>
-                {[t("employee"), t("bookingDate"), t("from"), t("to"), t("travelDate"), t("firstMile"), t("lastMile"), t("type"), t("status")].map((h) => (
+                {[t("employee"), t("bookingDate"), t("from"), t("to"), t("travelDate"), t("firstMile"), t("lastMile"), t("type"), t("status"), t("actions")].map((h) => (
                   <th key={h} className={TABLE_HEADER_CELL_CLASS}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <TableSkeleton columns={9} rows={8} />
+                <TableSkeleton columns={10} rows={8} />
               ) : rows.length === 0 ? (
                 <TableEmptyState message={t("empty")} />
               ) : (
@@ -131,6 +149,20 @@ export default function TravelBookingsPage() {
                     </td>
                     <td className={TABLE_CELL_CLASS}>
                       <StatusChip status={row.status} label={t(STATUS_KEYS[row.status] || "status")} />
+                    </td>
+                    <td className={TABLE_CELL_CLASS}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void remove(row.id);
+                        }}
+                        disabled={deletingId === row.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-100 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {deletingId === row.id ? t("saving") : t("deleteBooking")}
+                      </button>
                     </td>
                   </tr>
                   );

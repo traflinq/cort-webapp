@@ -24,6 +24,7 @@ import {
   Plane,
   Route,
   TrainFront,
+  Trash2,
   User,
   UtensilsCrossed,
   Wallet,
@@ -33,10 +34,7 @@ import { apiClient } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";
 import Modal from "../bookings/components/Modal";
 import {
-  Field,
-  PRIMARY_BUTTON_CLASS,
   StatusChip,
-  TextInput,
   bookingFareTotal,
   bookingTrip,
   mileLabel,
@@ -84,7 +82,7 @@ function InfoRow({
       </span>
       <div className="min-w-0">
         <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{label}</p>
-        <p className="mt-0.5 font-bold text-[var(--text-primary)] break-words">{empty ? "-" : value}</p>
+        <div className="mt-0.5 font-bold text-[var(--text-primary)] break-words">{empty ? "-" : value}</div>
       </div>
     </div>
   );
@@ -114,13 +112,7 @@ export default function TravelBookingDetailModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [driver, setDriver] = useState({
-    first_mile_driver: "",
-    first_mile_vehicle: "",
-    last_mile_driver: "",
-    last_mile_vehicle: "",
-  });
+  const [deleting, setDeleting] = useState(false);
 
   const isOpen = bookingId !== null;
 
@@ -133,13 +125,6 @@ export default function TravelBookingDetailModal({
       .then((res) => {
         const data = res.data;
         setBooking(data);
-        const trip = bookingTrip(data);
-        setDriver({
-          first_mile_driver: trip.first?.driver || "",
-          first_mile_vehicle: trip.first?.vehicle || "",
-          last_mile_driver: trip.last?.driver || "",
-          last_mile_vehicle: trip.last?.vehicle || "",
-        });
       })
       .catch((err) => {
         const message = err instanceof Error ? err.message : t("loadFailed");
@@ -173,18 +158,19 @@ export default function TravelBookingDetailModal({
     }
   };
 
-  const save = async () => {
+  const remove = async () => {
     if (!user?.company_id || bookingId === null) return;
-    setSaving(true);
+    if (!confirm(t("deleteConfirm"))) return;
+    setDeleting(true);
     try {
-      const res = await apiClient.patchTravelBooking(user.company_id, bookingId, driver);
-      setBooking(res.data);
-      toast.success(t("updated"));
+      await apiClient.deleteCompanyTravelBooking(user.company_id, bookingId);
+      toast.success(t("deleted"));
       onChanged?.();
+      onClose();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("saveFailed"));
+      toast.error(err instanceof Error ? err.message : t("actionFailed"));
     } finally {
-      setSaving(false);
+      setDeleting(false);
     }
   };
 
@@ -252,26 +238,36 @@ export default function TravelBookingDetailModal({
               </div>
               <StatusChip status={booking.status} label={t(STATUS_KEYS[booking.status] || "status")} />
             </div>
-            {booking.status === "APPROVAL" ? (
-              <div className="mt-5 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => act(true)}
-                  disabled={acting}
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-                >
-                  <CheckCircle2 className="h-4 w-4" /> {t("approve")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => act(false)}
-                  disabled={acting}
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-                >
-                  <XCircle className="h-4 w-4" /> {t("reject")}
-                </button>
-              </div>
-            ) : null}
+            <div className="mt-5 flex flex-wrap gap-3">
+              {booking.status === "APPROVAL" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => act(true)}
+                    disabled={acting || deleting}
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="h-4 w-4" /> {t("approve")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => act(false)}
+                    disabled={acting || deleting}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    <XCircle className="h-4 w-4" /> {t("reject")}
+                  </button>
+                </>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void remove()}
+                disabled={acting || deleting}
+                className="inline-flex items-center gap-2 rounded-xl border border-rose-300/50 bg-rose-500/90 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" /> {deleting ? t("saving") : t("deleteBooking")}
+              </button>
+            </div>
           </div>
 
           <Group title={t("travelerDetails")}>
@@ -385,12 +381,24 @@ export default function TravelBookingDetailModal({
                 value={mileLabel(trip?.first?.type, trip?.first?.provider, trip?.transport_type)}
               />
               <InfoRow icon={Building2} label={t("vendor")} value={mileVendorName(trip?.first)} />
+              {showFirst ? (
+                <>
+                  <InfoRow icon={User} label={t("firstMileDriver")} value={trip?.first?.driver} />
+                  <InfoRow icon={Car} label={t("firstMileVehicle")} value={trip?.first?.vehicle} />
+                </>
+              ) : null}
               <InfoRow
                 icon={Ban}
                 label={t("lastMile")}
                 value={mileLabel(trip?.last?.type, trip?.last?.provider, trip?.transport_type)}
               />
               <InfoRow icon={Building2} label={t("vendor")} value={mileVendorName(trip?.last)} />
+              {showLast ? (
+                <>
+                  <InfoRow icon={User} label={t("lastMileDriver")} value={trip?.last?.driver} />
+                  <InfoRow icon={Car} label={t("lastMileVehicle")} value={trip?.last?.vehicle} />
+                </>
+              ) : null}
             </Group>
           ) : null}
 
@@ -400,53 +408,6 @@ export default function TravelBookingDetailModal({
             <InfoRow icon={Calendar} label={t("createdAt")} value={shortDateTime(booking.created_at)} />
             <InfoRow icon={Calendar} label={t("confirmedAt")} value={shortDateTime(booking.confirmed_at)} />
           </Group>
-
-          {showFirst || showLast ? (
-            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5">
-              <p className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-secondary)]">
-                {t("itinerary")}
-              </p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {showFirst ? (
-                  <>
-                    <Field label={t("firstMileDriver")}>
-                      <TextInput
-                        value={driver.first_mile_driver}
-                        onChange={(e) => setDriver((d) => ({ ...d, first_mile_driver: e.target.value }))}
-                      />
-                    </Field>
-                    <Field label={t("firstMileVehicle")}>
-                      <TextInput
-                        value={driver.first_mile_vehicle}
-                        onChange={(e) => setDriver((d) => ({ ...d, first_mile_vehicle: e.target.value }))}
-                      />
-                    </Field>
-                  </>
-                ) : null}
-                {showLast ? (
-                  <>
-                    <Field label={t("lastMileDriver")}>
-                      <TextInput
-                        value={driver.last_mile_driver}
-                        onChange={(e) => setDriver((d) => ({ ...d, last_mile_driver: e.target.value }))}
-                      />
-                    </Field>
-                    <Field label={t("lastMileVehicle")}>
-                      <TextInput
-                        value={driver.last_mile_vehicle}
-                        onChange={(e) => setDriver((d) => ({ ...d, last_mile_vehicle: e.target.value }))}
-                      />
-                    </Field>
-                  </>
-                ) : null}
-              </div>
-              <div className="mt-4">
-                <button onClick={save} disabled={saving} className={PRIMARY_BUTTON_CLASS}>
-                  {saving ? t("saving") : t("saveItinerary")}
-                </button>
-              </div>
-            </div>
-          ) : null}
         </div>
       )}
     </Modal>

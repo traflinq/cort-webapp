@@ -2533,6 +2533,10 @@ class ApiClient {
         });
     }
 
+    async deleteCompanyTravelBooking(companyId: number, id: number) {
+        return this.request<any>(`/companies/${companyId}/travel/bookings/${id}`, { method: 'DELETE' });
+    }
+
     async getCompanyTravelInvoices(companyId: number, page = 1, limit = 20) {
         return this.request<any>(`/companies/${companyId}/travel/invoices?page=${page}&limit=${limit}`);
     }
@@ -2589,6 +2593,24 @@ class ApiClient {
 
     async viewAdminTravelInvoicePdf(id: number) {
         return this.viewPdf(`/admin/travel-invoices/${id}/pdf`);
+    }
+
+    async getAdminTravelMiles(params: { page?: number; limit?: number; unassigned?: boolean } = {}) {
+        const query = new URLSearchParams();
+        query.set('page', String(params.page ?? 1));
+        query.set('limit', String(params.limit ?? 50));
+        if (params.unassigned) query.set('unassigned', 'true');
+        return this.request<any>(`/admin/travel-bookings?${query}`);
+    }
+
+    async assignAdminTravelMile(
+        bookingId: number,
+        body: { mile: 'FIRST' | 'LAST'; vehicle_id: number; driver_id: string },
+    ) {
+        return this.request<any>(`/admin/travel-bookings/${bookingId}/assign`, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+        });
     }
 
     async getVendorTravelRequests(params?: { link_id?: number; status?: string; page?: number; limit?: number }) {

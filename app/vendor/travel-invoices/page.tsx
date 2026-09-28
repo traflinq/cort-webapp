@@ -97,7 +97,7 @@ export default function VendorTravelInvoicesPage() {
             disabled={creating || Object.values(selected).every((v) => !v.checked)}
             className="text-xs bg-[#f47f00] text-white px-3 py-1.5 rounded-lg font-medium disabled:opacity-50"
           >
-            {creating ? "Creating…" : "Create invoice"}
+            {creating ? "Creating..." : "Create invoice"}
           </button>
         </div>
         <table className="w-full text-sm">
@@ -112,7 +112,7 @@ export default function VendorTravelInvoicesPage() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
             ) : eligible.length === 0 ? (
               <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No completed legs waiting to be invoiced</td></tr>
             ) : eligible.map((leg) => (
@@ -121,7 +121,7 @@ export default function VendorTravelInvoicesPage() {
                   <input type="checkbox" checked={!!selected[leg.request_id]?.checked} onChange={() => toggle(leg)} />
                 </td>
                 <td className="px-4 py-3">{leg.employee_name}</td>
-                <td className="px-4 py-3">{leg.origin} ? {leg.destination}</td>
+                <td className="px-4 py-3">{leg.origin} - {leg.destination}</td>
                 <td className="px-4 py-3">{leg.mile}</td>
                 <td className="px-4 py-3">
                   <input
