@@ -236,7 +236,40 @@ export default function VendorRequestsPage() {
                                     <td className="px-4 py-3">{req.status}</td>
                                     <td className="px-4 py-3">
                                         {req.status === "PENDING" && (
-                                            <button onClick={() => openTravelAssign(req)} className="text-xs bg-[#f47f00] text-white px-3 py-1.5 rounded-lg font-medium">Assign & Accept</button>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => openTravelAssign(req)} className="text-xs bg-[#f47f00] text-white px-3 py-1.5 rounded-lg font-medium">Assign & Accept</button>
+                                                <button
+                                                    onClick={async () => {
+                                                        if (!confirm("Reject this travel request?")) return;
+                                                        try {
+                                                            await apiClient.rejectVendorTravelRequest(req.id);
+                                                            toast.success("Request rejected");
+                                                            load();
+                                                        } catch (err) {
+                                                            toast.error(err instanceof Error ? err.message : "Failed to reject");
+                                                        }
+                                                    }}
+                                                    className="text-xs border border-red-300 text-red-600 px-3 py-1.5 rounded-lg font-medium"
+                                                >
+                                                    Reject
+                                                </button>
+                                            </div>
+                                        )}
+                                        {req.status === "ACCEPTED" && (
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        await apiClient.completeVendorTravelRequest(req.id);
+                                                        toast.success("Request marked completed");
+                                                        load();
+                                                    } catch (err) {
+                                                        toast.error(err instanceof Error ? err.message : "Failed to complete");
+                                                    }
+                                                }}
+                                                className="text-xs bg-[#0c225e] text-white px-3 py-1.5 rounded-lg font-medium"
+                                            >
+                                                Mark completed
+                                            </button>
                                         )}
                                     </td>
                                 </tr>

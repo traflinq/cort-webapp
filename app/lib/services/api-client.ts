@@ -2537,6 +2537,60 @@ class ApiClient {
         return this.request<any>(`/companies/${companyId}/travel/invoices?page=${page}&limit=${limit}`);
     }
 
+    async downloadCompanyTravelInvoicePdf(companyId: number, invoiceId: number, invoiceNumber: string) {
+        return this.downloadPdf(`/companies/${companyId}/travel/invoices/${invoiceId}/pdf`, `travel-invoice-${invoiceNumber}.pdf`);
+    }
+
+    async viewCompanyTravelInvoicePdf(companyId: number, invoiceId: number) {
+        return this.viewPdf(`/companies/${companyId}/travel/invoices/${invoiceId}/pdf`);
+    }
+
+    async getCompanyTravelVendorInvoices(companyId: number, page = 1, limit = 20) {
+        return this.request<any>(`/companies/${companyId}/travel/vendor-invoices?page=${page}&limit=${limit}`);
+    }
+
+    async downloadCompanyTravelVendorInvoicePdf(companyId: number, invoiceId: number, invoiceNumber: string) {
+        return this.downloadPdf(`/companies/${companyId}/travel/vendor-invoices/${invoiceId}/pdf`, `vendor-travel-invoice-${invoiceNumber}.pdf`);
+    }
+
+    async viewCompanyTravelVendorInvoicePdf(companyId: number, invoiceId: number) {
+        return this.viewPdf(`/companies/${companyId}/travel/vendor-invoices/${invoiceId}/pdf`);
+    }
+
+    async updateCompanyTravelVendorInvoiceStatus(companyId: number, invoiceId: number, status: string) {
+        return this.request<any>(`/companies/${companyId}/travel/vendor-invoices/${invoiceId}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status }),
+        });
+    }
+
+    async getAdminTravelInvoicesPending(page = 1, limit = 20) {
+        return this.request<any>(`/admin/travel-invoices/pending?page=${page}&limit=${limit}`);
+    }
+
+    async getAdminTravelInvoices(page = 1, limit = 20) {
+        return this.request<any>(`/admin/travel-invoices?page=${page}&limit=${limit}`);
+    }
+
+    async generateAdminTravelInvoice(bookingId: number) {
+        return this.request<any>(`/admin/travel-invoices/${bookingId}/generate`, { method: 'POST' });
+    }
+
+    async updateAdminTravelInvoiceStatus(id: number, status: string) {
+        return this.request<any>(`/admin/travel-invoices/${id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status }),
+        });
+    }
+
+    async downloadAdminTravelInvoicePdf(id: number, invoiceNumber: string) {
+        return this.downloadPdf(`/admin/travel-invoices/${id}/pdf`, `travel-invoice-${invoiceNumber}.pdf`);
+    }
+
+    async viewAdminTravelInvoicePdf(id: number) {
+        return this.viewPdf(`/admin/travel-invoices/${id}/pdf`);
+    }
+
     async getVendorTravelRequests(params?: { link_id?: number; status?: string; page?: number; limit?: number }) {
         const query = new URLSearchParams();
         if (params?.link_id) query.append('link_id', String(params.link_id));
@@ -2551,6 +2605,43 @@ class ApiClient {
             method: 'PATCH',
             body: JSON.stringify(dto),
         });
+    }
+
+    async rejectVendorTravelRequest(requestId: number) {
+        return this.request<any>(`/vendor/travel-requests/${requestId}/reject`, { method: 'PATCH' });
+    }
+
+    async completeVendorTravelRequest(requestId: number) {
+        return this.request<any>(`/vendor/travel-requests/${requestId}/complete`, { method: 'PATCH' });
+    }
+
+    async getVendorTravelInvoiceEligible(linkId?: number) {
+        const query = linkId ? `?link_id=${linkId}` : '';
+        return this.request<any>(`/vendor/travel-invoices/eligible${query}`);
+    }
+
+    async getVendorTravelInvoices(params?: { link_id?: number; page?: number; limit?: number }) {
+        const query = new URLSearchParams();
+        if (params?.link_id) query.append('link_id', String(params.link_id));
+        if (params?.page) query.append('page', String(params.page));
+        if (params?.limit) query.append('limit', String(params.limit));
+        const qs = query.toString();
+        return this.request<any>(`/vendor/travel-invoices${qs ? `?${qs}` : ''}`);
+    }
+
+    async createVendorTravelInvoice(body: { legs: Array<{ request_id: number; amount?: number }>; notes?: string }) {
+        return this.request<any>('/vendor/travel-invoices', {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    }
+
+    async downloadVendorTravelInvoicePdf(id: number, invoiceNumber: string) {
+        return this.downloadPdf(`/vendor/travel-invoices/${id}/pdf`, `vendor-travel-invoice-${invoiceNumber}.pdf`);
+    }
+
+    async viewVendorTravelInvoicePdf(id: number) {
+        return this.viewPdf(`/vendor/travel-invoices/${id}/pdf`);
     }
 
     // ---------------------------------------------------------------------------

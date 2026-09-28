@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, Fragment } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { apiClient, Invoice } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";
@@ -84,6 +84,9 @@ export default function CompanyInvoicingPage() {
     );
 
     const [travelInvoices, setTravelInvoices] = useState<any[]>([]);
+    const [vendorTravelInvoices, setVendorTravelInvoices] = useState<any[]>([]);
+    const [expandedTravelId, setExpandedTravelId] = useState<number | null>(null);
+    const [travelPdfBusy, setTravelPdfBusy] = useState<string | null>(null);
 
     const fetchInvoices = useCallback(async (p: number) => {
         if (!user?.company_id) return;
@@ -107,6 +110,9 @@ export default function CompanyInvoicingPage() {
         apiClient.getCompanyTravelInvoices(user.company_id, 1, 20)
           .then((res) => setTravelInvoices(res.data?.data || []))
           .catch(() => setTravelInvoices([]));
+        apiClient.getCompanyTravelVendorInvoices(user.company_id, 1, 20)
+          .then((res) => setVendorTravelInvoices(res.data?.data || []))
+          .catch(() => setVendorTravelInvoices([]));
     }, [page, fetchInvoices, user?.company_id]);
 
     const downloadPdf = async (id: number, invoiceNumber: string) => {
@@ -279,33 +285,184 @@ export default function CompanyInvoicingPage() {
                     </div>
                 )}
             </Card>
-            {travelInvoices.length > 0 && (
-              <Card className={`${TABLE_CARD_CLASS} mt-6`}>
-                <div className={TABLE_TOP_BAR_CLASS}><h2 className="font-bold">Travel invoices</h2></div>
-                <table className="w-full text-left">
-                  <thead>
-                    <tr>
-                      <th className={TABLE_HEADER_CELL_CLASS}>Invoice</th>
-                      <th className={TABLE_HEADER_CELL_CLASS}>Employee</th>
-                      <th className={TABLE_HEADER_CELL_CLASS}>Route</th>
-                      <th className={TABLE_HEADER_CELL_CLASS}>Amount</th>
-                      <th className={TABLE_HEADER_CELL_CLASS}>Status</th>
+            <Card className={`${TABLE_CARD_CLASS} mt-6`}>
+              <div className={TABLE_TOP_BAR_CLASS}><h2 className="font-bold">{t("travelInvoices")}</h2></div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-start text-sm">
+                  <thead className="bg-[var(--surface-subtle)]/50">
+                    <tr className="border-b border-[var(--border-light)]">
+                      <th className={TABLE_HEADER_CELL_CLASS}>{t("invoiceNumber")}</th>
+                      <th className={TABLE_HEADER_CELL_CLASS}>{t("employee")}</th>
+                      <th className={TABLE_HEADER_CELL_CLASS}>{t("route")}</th>
+                      <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("totalAmount")}</th>
+                      <th className={TABLE_HEADER_CELL_CLASS}>{t("status")}</th>
+                      <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("actions")}</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {travelInvoices.map((inv) => (
-                      <tr key={inv.id} className="border-t border-[var(--border-light)]">
-                        <td className={TABLE_CELL_CLASS}>{inv.invoice_number}</td>
-                        <td className={TABLE_CELL_CLASS}>{inv.travel_booking?.employee?.full_name}</td>
-                        <td className={TABLE_CELL_CLASS}>{inv.travel_booking?.quote?.origin} - {inv.travel_booking?.quote?.destination}</td>
-                        <td className={TABLE_CELL_CLASS}>PKR {Number(inv.total_amount).toLocaleString()}</td>
-                        <td className={TABLE_CELL_CLASS}>{inv.status}</td>
+                  <tbody className="divide-y divide-[var(--border-light)]/50">
+                    {travelInvoices.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-10 text-center text-[var(--text-muted)]">{t("noTravelInvoices")}</td>
+                      </tr>
+                    ) : travelInvoices.map((inv) => (
+                      <Fragment key={inv.id}>
+                        <tr className="hover:bg-[var(--surface-subtle)]/80">
+                          <td className={`${TABLE_CELL_CLASS} font-mono`}>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedTravelId(expandedTravelId === inv.id ? null : inv.id)}
+                              className="text-start font-bold text-[var(--text-primary)]"
+                            >
+                              #{inv.invoice_number}
+                            </button>
+                          </td>
+                          <td className={TABLE_CELL_CLASS}>{inv.travel_booking?.employee?.full_name}</td>
+                          <td className={TABLE_CELL_CLASS}>{inv.travel_booking?.quote?.origin} - {inv.travel_booking?.quote?.destination}</td>
+                          <td className={`${TABLE_CELL_CLASS} text-end font-semibold`}>
+                            {tCommon("currency.pkr")} {formatLocaleNumber(Number(inv.total_amount), locale)}
+                          </td>
+                          <td className={TABLE_CELL_CLASS}>{formatStatus(inv.status)}</td>
+                          <td className={`${TABLE_CELL_CLASS} text-end`}>
+                            <div className="flex items-center justify-end gap-3">
+                              <button
+                                onClick={async () => {
+                                  if (!user?.company_id) return;
+                                  setTravelPdfBusy(`view-${inv.id}`);
+                                  try {
+                                    await apiClient.viewCompanyTravelInvoicePdf(user.company_id, inv.id);
+                                  } catch {
+                                    alert(t("failedToViewPdf"));
+                                  } finally {
+                                    setTravelPdfBusy(null);
+                                  }
+                                }}
+                                disabled={travelPdfBusy === `view-${inv.id}`}
+                                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium text-sm"
+                              >
+                                {t("viewInvoice")}
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!user?.company_id) return;
+                                  setTravelPdfBusy(`dl-${inv.id}`);
+                                  try {
+                                    await apiClient.downloadCompanyTravelInvoicePdf(user.company_id, inv.id, inv.invoice_number);
+                                  } catch {
+                                    alert(t("failedToDownloadPdf"));
+                                  } finally {
+                                    setTravelPdfBusy(null);
+                                  }
+                                }}
+                                disabled={travelPdfBusy === `dl-${inv.id}`}
+                                className="text-[var(--cort-orange)] hover:text-[var(--cort-orange-hover)] font-medium text-sm"
+                              >
+                                {t("downloadPdf")}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {expandedTravelId === inv.id && (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-3 bg-[var(--surface-subtle)]/40">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">{t("lineItems")}</p>
+                              <ul className="space-y-1 text-sm">
+                                {(inv.line_items ?? []).map((item: any) => (
+                                  <li key={item.id} className="flex justify-between gap-4">
+                                    <span>{item.description}</span>
+                                    <span className="font-medium">{tCommon("currency.pkr")} {formatLocaleNumber(Number(item.total_price), locale)}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            <Card className={`${TABLE_CARD_CLASS} mt-6`}>
+              <div className={TABLE_TOP_BAR_CLASS}><h2 className="font-bold">{t("vendorTravelInvoices")}</h2></div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-start text-sm">
+                  <thead className="bg-[var(--surface-subtle)]/50">
+                    <tr className="border-b border-[var(--border-light)]">
+                      <th className={TABLE_HEADER_CELL_CLASS}>{t("invoiceNumber")}</th>
+                      <th className={TABLE_HEADER_CELL_CLASS}>{t("vendor")}</th>
+                      <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("totalAmount")}</th>
+                      <th className={TABLE_HEADER_CELL_CLASS}>{t("status")}</th>
+                      <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("actions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-light)]/50">
+                    {vendorTravelInvoices.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-10 text-center text-[var(--text-muted)]">{t("noVendorTravelInvoices")}</td>
+                      </tr>
+                    ) : vendorTravelInvoices.map((inv) => (
+                      <tr key={inv.id}>
+                        <td className={`${TABLE_CELL_CLASS} font-mono font-bold`}>#{inv.invoice_number}</td>
+                        <td className={TABLE_CELL_CLASS}>{inv.company_vendor_links?.external_vendors?.name ?? "—"}</td>
+                        <td className={`${TABLE_CELL_CLASS} text-end font-semibold`}>
+                          {tCommon("currency.pkr")} {formatLocaleNumber(Number(inv.total_amount), locale)}
+                        </td>
+                        <td className={TABLE_CELL_CLASS}>{formatStatus(inv.status)}</td>
+                        <td className={`${TABLE_CELL_CLASS} text-end`}>
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              onClick={async () => {
+                                if (!user?.company_id) return;
+                                try {
+                                  await apiClient.viewCompanyTravelVendorInvoicePdf(user.company_id, inv.id);
+                                } catch {
+                                  alert(t("failedToViewPdf"));
+                                }
+                              }}
+                              className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium text-sm"
+                            >
+                              {t("viewInvoice")}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!user?.company_id) return;
+                                try {
+                                  await apiClient.downloadCompanyTravelVendorInvoicePdf(user.company_id, inv.id, inv.invoice_number);
+                                } catch {
+                                  alert(t("failedToDownloadPdf"));
+                                }
+                              }}
+                              className="text-[var(--cort-orange)] font-medium text-sm"
+                            >
+                              {t("downloadPdf")}
+                            </button>
+                            {inv.status !== "PAID" && (
+                              <button
+                                onClick={async () => {
+                                  if (!user?.company_id) return;
+                                  try {
+                                    await apiClient.updateCompanyTravelVendorInvoiceStatus(user.company_id, inv.id, "PAID");
+                                    setVendorTravelInvoices((rows) =>
+                                      rows.map((row) => (row.id === inv.id ? { ...row, status: "PAID" } : row)),
+                                    );
+                                  } catch {
+                                    alert(tCommon("errors.failedToLoadInvoices"));
+                                  }
+                                }}
+                                className="text-emerald-700 font-medium text-sm"
+                              >
+                                {t("markPaid")}
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </Card>
-            )}
+              </div>
+            </Card>
         </div>
     );
 }

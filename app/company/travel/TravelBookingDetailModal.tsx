@@ -332,10 +332,47 @@ export default function TravelBookingDetailModal({
               />
             ) : null}
             {booking.travel_invoice ? (
+              <>
+                <InfoRow
+                  icon={FileText}
+                  label={t("invoice")}
+                  value={`${booking.travel_invoice.invoice_number} - ${money(booking.travel_invoice.total_amount)} - ${booking.travel_invoice.status}`}
+                />
+                {(booking.travel_invoice.line_items ?? []).length > 0 ? (
+                  <InfoRow
+                    icon={FileText}
+                    label={t("invoiceLineItems")}
+                    value={
+                      <ul className="space-y-1">
+                        {booking.travel_invoice.line_items.map((item: { id: number; description: string; total_price: number | string }) => (
+                          <li key={item.id}>{item.description} — {money(item.total_price)}</li>
+                        ))}
+                      </ul>
+                    }
+                  />
+                ) : null}
+              </>
+            ) : (
+              <InfoRow icon={FileText} label={t("invoice")} value={t("noInvoiceYet")} />
+            )}
+            {(booking.travel_vendor_invoice_line_items ?? []).length > 0 ? (
               <InfoRow
                 icon={FileText}
-                label={t("invoice")}
-                value={`${booking.travel_invoice.invoice_number} - ${money(booking.travel_invoice.total_amount)} - ${booking.travel_invoice.status}`}
+                label={t("vendorInvoice")}
+                value={
+                  <ul className="space-y-1">
+                    {booking.travel_vendor_invoice_line_items.map((item: {
+                      id: number;
+                      description: string;
+                      amount: number | string;
+                      travel_vendor_invoice?: { invoice_number: string; status: string };
+                    }) => (
+                      <li key={item.id}>
+                        {item.travel_vendor_invoice?.invoice_number} · {item.description} — {money(item.amount)} ({item.travel_vendor_invoice?.status})
+                      </li>
+                    ))}
+                  </ul>
+                }
               />
             ) : null}
           </Group>

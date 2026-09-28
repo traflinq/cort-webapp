@@ -58,6 +58,7 @@ const nav: NavItem[] = [
   { href: "/admin/vehicles", label: "Vehicles", icon: Car, permission: "vehicles" },
   { href: "/admin/travel-cars", label: "Travel cars", icon: Car },
   { href: "/admin/travel-mile-vehicles", label: "Travel miles", icon: Car },
+  { href: "/admin/travel-invoices", label: "Travel invoices", icon: FileSpreadsheet },
   { href: "/admin/vehicles/fueling", label: "Fuel Records", icon: Fuel, permission: "fuel_records" },
   { href: "/admin/vehicles/maintenance", label: "Maintenance", icon: Wrench, permission: "maintenance" },
   { href: "/admin/settings/app-config", label: "App Config", icon: Smartphone },
