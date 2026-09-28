@@ -23,6 +23,7 @@ const MONTH_SHORT_KEYS = [
 ] as const;
 
 type InvoiceStatus = "PAID" | "UNPAID" | "PARTIALLY_PAID" | "OVERDUE" | "DRAFT";
+type InvoiceTab = "services" | "travel" | "vendor";
 
 function formatBillingMonth(
     value: string,
@@ -83,6 +84,7 @@ export default function CompanyInvoicingPage() {
         [t],
     );
 
+    const [tab, setTab] = useState<InvoiceTab>("services");
     const [travelInvoices, setTravelInvoices] = useState<any[]>([]);
     const [vendorTravelInvoices, setVendorTravelInvoices] = useState<any[]>([]);
     const [expandedTravelId, setExpandedTravelId] = useState<number | null>(null);
@@ -154,6 +156,45 @@ export default function CompanyInvoicingPage() {
             />
 
             <Card className={`min-h-[500px] ${TABLE_CARD_CLASS}`}>
+                <div className={TABLE_TOP_BAR_CLASS}>
+                    <div
+                        role="tablist"
+                        aria-label={t("title")}
+                        className="inline-flex rounded-xl border border-[var(--border-light)] bg-[var(--bg-card)] p-1"
+                    >
+                        {([
+                            { id: "services" as const, label: t("tabServices"), count: pagination.total },
+                            { id: "travel" as const, label: t("tabTravel"), count: travelInvoices.length },
+                            { id: "vendor" as const, label: t("tabVendor"), count: vendorTravelInvoices.length },
+                        ]).map((item) => {
+                            const active = tab === item.id;
+                            return (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={active}
+                                    onClick={() => setTab(item.id)}
+                                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+                                        active
+                                            ? "bg-[#0c225e] text-white shadow-sm"
+                                            : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                                    }`}
+                                >
+                                    {item.label}
+                                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${
+                                        active ? "bg-white/15 text-white" : "bg-[var(--surface-subtle)] text-[var(--text-muted)]"
+                                    }`}>
+                                        {item.count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {tab === "services" && (
+                <>
                 <div className="overflow-x-auto">
                     <table className="min-w-full text-start text-sm">
                         <thead className="bg-[var(--surface-subtle)]/50">
@@ -284,9 +325,10 @@ export default function CompanyInvoicingPage() {
                         />
                     </div>
                 )}
-            </Card>
-            <Card className={`${TABLE_CARD_CLASS} mt-6`}>
-              <div className={TABLE_TOP_BAR_CLASS}><h2 className="font-bold">{t("travelInvoices")}</h2></div>
+                </>
+                )}
+
+                {tab === "travel" && (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-start text-sm">
                   <thead className="bg-[var(--surface-subtle)]/50">
@@ -381,10 +423,9 @@ export default function CompanyInvoicingPage() {
                   </tbody>
                 </table>
               </div>
-            </Card>
+                )}
 
-            <Card className={`${TABLE_CARD_CLASS} mt-6`}>
-              <div className={TABLE_TOP_BAR_CLASS}><h2 className="font-bold">{t("vendorTravelInvoices")}</h2></div>
+                {tab === "vendor" && (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-start text-sm">
                   <thead className="bg-[var(--surface-subtle)]/50">
@@ -462,6 +503,7 @@ export default function CompanyInvoicingPage() {
                   </tbody>
                 </table>
               </div>
+                )}
             </Card>
         </div>
     );

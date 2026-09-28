@@ -764,6 +764,9 @@
       "noVendorTravelInvoices": "No vendor invoices yet.",
       "vendor": "Vendor",
       "markPaid": "Mark paid",
+      "tabServices": "Services",
+      "tabTravel": "Travel",
+      "tabVendor": "Vendor",
       "statusLabels": {
         "PAID": "PAID",
         "UNPAID": "UNPAID",
