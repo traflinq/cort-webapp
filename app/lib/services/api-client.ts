@@ -2526,6 +2526,10 @@ class ApiClient {
         return this.request<any>(`/companies/${companyId}/travel/bookings/${id}/reject`, { method: 'POST' });
     }
 
+    async completeTravelBooking(companyId: number, id: number) {
+        return this.request<any>(`/companies/${companyId}/travel/bookings/${id}/complete`, { method: 'POST' });
+    }
+
     async patchTravelBooking(companyId: number, id: number, body: Record<string, unknown>) {
         return this.request<any>(`/companies/${companyId}/travel/bookings/${id}`, {
             method: 'PATCH',

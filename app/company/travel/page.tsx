@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { CheckCircle2, Trash2 } from "lucide-react";
 import { apiClient } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";
 import { Card } from "../components/DashboardComponents";
@@ -29,11 +29,15 @@ import {
 
 const TRAVEL_BOOK_LAYOUT_ID = "travel-book-form";
 
-const STATUS_KEYS: Record<string, "statusReview" | "statusApproval" | "statusConfirmed" | "statusRejected"> = {
+const STATUS_KEYS: Record<
+  string,
+  "statusReview" | "statusApproval" | "statusConfirmed" | "statusRejected" | "statusCompleted"
+> = {
   REVIEW: "statusReview",
   APPROVAL: "statusApproval",
   CONFIRMED: "statusConfirmed",
   REJECTED: "statusRejected",
+  COMPLETED: "statusCompleted",
 };
 
 export default function TravelBookingsPage() {
@@ -45,6 +49,7 @@ export default function TravelBookingsPage() {
   const [bookingOpen, setBookingOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [completingId, setCompletingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!user?.company_id) {
@@ -69,6 +74,21 @@ export default function TravelBookingsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const complete = async (id: number) => {
+    if (!user?.company_id) return;
+    if (!confirm(t("completeConfirm"))) return;
+    setCompletingId(id);
+    try {
+      await apiClient.completeTravelBooking(user.company_id, id);
+      toast.success(t("completed"));
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("actionFailed"));
+    } finally {
+      setCompletingId(null);
+    }
+  };
 
   const remove = async (id: number) => {
     if (!user?.company_id) return;
@@ -151,18 +171,34 @@ export default function TravelBookingsPage() {
                       <StatusChip status={row.status} label={t(STATUS_KEYS[row.status] || "status")} />
                     </td>
                     <td className={TABLE_CELL_CLASS}>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void remove(row.id);
-                        }}
-                        disabled={deletingId === row.id}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-100 disabled:opacity-50"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        {deletingId === row.id ? t("saving") : t("deleteBooking")}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {row.status === "CONFIRMED" ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void complete(row.id);
+                            }}
+                            disabled={completingId === row.id}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-600 hover:bg-emerald-100 disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            {completingId === row.id ? t("saving") : t("completeBooking")}
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void remove(row.id);
+                          }}
+                          disabled={deletingId === row.id}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-100 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {deletingId === row.id ? t("saving") : t("deleteBooking")}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   );
