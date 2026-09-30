@@ -2580,8 +2580,22 @@ class ApiClient {
         return this.request<any>(`/admin/travel-invoices?page=${page}&limit=${limit}`);
     }
 
-    async generateAdminTravelInvoice(bookingId: number) {
-        return this.request<any>(`/admin/travel-invoices/${bookingId}/generate`, { method: 'POST' });
+    async previewAdminTravelInvoice(bookingId: number, rentalDistanceKm?: number) {
+        return this.request<any>(`/admin/travel-invoices/${bookingId}/preview`, {
+            method: 'POST',
+            body: JSON.stringify(
+                rentalDistanceKm != null ? { rental_distance_km: rentalDistanceKm } : {},
+            ),
+        });
+    }
+
+    async generateAdminTravelInvoice(bookingId: number, rentalDistanceKm?: number) {
+        return this.request<any>(`/admin/travel-invoices/${bookingId}/generate`, {
+            method: 'POST',
+            body: JSON.stringify(
+                rentalDistanceKm != null ? { rental_distance_km: rentalDistanceKm } : {},
+            ),
+        });
     }
 
     async updateAdminTravelInvoiceStatus(id: number, status: string) {
