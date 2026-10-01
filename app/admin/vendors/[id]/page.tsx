@@ -414,7 +414,10 @@ function VendorDetailsContent() {
                                 logs.map((log: any) => {
                                     const statusRaw = log.status || '';
                                     const isPaid = ['FULLY_PAID', 'PAID'].includes(statusRaw.toUpperCase());
-                                    const canSettle = !isPaid && (log.booking_id || log.invoice_id);
+                                    const canSettle = !isPaid && (
+                                        (log.type === 'CHAUFFEUR' && log.booking_id) ||
+                                        (log.type === 'SHUTTLE' && log.invoice_id)
+                                    );
                                     const isAdvanceOnly = Number(log.cost) <= 0;
 
                                     return (
@@ -422,7 +425,7 @@ function VendorDetailsContent() {
                                             key={log.id}
                                             className="hover:bg-slate-50 transition-colors cursor-pointer"
                                             onClick={() => openSettlement(log)}
-                                            title={log.type === 'CHAUFFEUR' ? 'Click to view settlement breakdown' : 'Settlement breakdown not available for shuttle yet'}
+                                            title={log.type === 'CHAUFFEUR' ? 'Click to view settlement breakdown' : log.type === 'TRAVEL' ? 'Travel partner vehicle log' : 'Settlement breakdown not available for shuttle yet'}
                                         >
                                             <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
                                                 {new Date(log.date).toLocaleDateString()}
@@ -443,7 +446,13 @@ function VendorDetailsContent() {
                                                 )}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${log.type === 'SHUTTLE' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                                    log.type === 'SHUTTLE'
+                                                        ? 'bg-purple-100 text-purple-700'
+                                                        : log.type === 'TRAVEL'
+                                                            ? 'bg-orange-100 text-orange-700'
+                                                            : 'bg-blue-100 text-blue-700'
+                                                }`}>
                                                     {log.type}
                                                 </span>
                                             </td>
