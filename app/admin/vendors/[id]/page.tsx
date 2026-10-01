@@ -92,7 +92,7 @@ function VendorDetailsContent() {
     // Payment Modal State
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [selectedLogForPayment, setSelectedLogForPayment] = useState<{
-        type: 'CHAUFFEUR' | 'SHUTTLE';
+        type: 'CHAUFFEUR' | 'SHUTTLE' | 'TRAVEL';
         id: number;
         cost: number;
         paid: number;
@@ -169,7 +169,11 @@ function VendorDetailsContent() {
                 payment_date: editTxnForm.payment_date ? new Date(editTxnForm.payment_date).toISOString() : undefined,
             });
 
-            if (settlementLog?.booking_id) {
+            if (settlementLog?.type === 'TRAVEL' && settlementLog?.travel_mile_id) {
+                const res: any = await apiClient.getTravelVendorPaymentHistory(settlementLog.travel_mile_id);
+                const txns = Array.isArray(res) ? res : (res?.data ?? []);
+                setSettlementTxns(Array.isArray(txns) ? txns : []);
+            } else if (settlementLog?.booking_id) {
                 const res: any = await apiClient.getVendorPaymentHistory(settlementLog.booking_id);
                 const txns = Array.isArray(res) ? res : (res?.data ?? []);
                 setSettlementTxns(Array.isArray(txns) ? txns : []);
@@ -191,13 +195,15 @@ function VendorDetailsContent() {
         setEditingTxnId(null);
         setTxnEditError(null);
 
-        if (!log?.booking_id || log?.type !== 'CHAUFFEUR') {
+        if (!log?.travel_mile_id && (!log?.booking_id || log?.type !== 'CHAUFFEUR')) {
             return;
         }
 
         setSettlementLoading(true);
         try {
-            const res: any = await apiClient.getVendorPaymentHistory(log.booking_id);
+            const res: any = log.type === 'TRAVEL'
+                ? await apiClient.getTravelVendorPaymentHistory(log.travel_mile_id)
+                : await apiClient.getVendorPaymentHistory(log.booking_id);
             const txns = Array.isArray(res) ? res : (res?.data ?? []);
             setSettlementTxns(Array.isArray(txns) ? txns : []);
         } catch (e: any) {
@@ -208,16 +214,16 @@ function VendorDetailsContent() {
     };
 
     const openPaymentModal = (
-        log: { type?: string; booking_id?: number; invoice_id?: number; cost: number; amount_paid?: number },
+        log: { type?: string; booking_id?: number; invoice_id?: number; travel_mile_id?: number; cost: number; amount_paid?: number },
     ) => {
-        const isShuttle = log.type === 'SHUTTLE';
-        const id = isShuttle ? log.invoice_id : log.booking_id;
+        const type = log.type === 'SHUTTLE' ? 'SHUTTLE' : log.type === 'TRAVEL' ? 'TRAVEL' : 'CHAUFFEUR';
+        const id = type === 'SHUTTLE' ? log.invoice_id : type === 'TRAVEL' ? log.travel_mile_id : log.booking_id;
         if (!id) return;
 
         const cost = Number(log.cost);
         const paid = Number(log.amount_paid || 0);
         setSelectedLogForPayment({
-            type: isShuttle ? 'SHUTTLE' : 'CHAUFFEUR',
+            type,
             id,
             cost,
             paid,
@@ -252,6 +258,8 @@ function VendorDetailsContent() {
             const payload =
                 selectedLogForPayment.type === 'SHUTTLE'
                     ? { invoice_id: selectedLogForPayment.id, amount, notes: paymentNotes, payment_method: 'CASH' as const }
+                    : selectedLogForPayment.type === 'TRAVEL'
+                        ? { travel_mile_id: selectedLogForPayment.id, amount, notes: paymentNotes, payment_method: 'CASH' as const }
                     : { booking_id: selectedLogForPayment.id, amount, notes: paymentNotes, payment_method: 'CASH' as const };
 
             await dispatch(createVendorPayment(payload)).unwrap();
@@ -416,7 +424,8 @@ function VendorDetailsContent() {
                                     const isPaid = ['FULLY_PAID', 'PAID'].includes(statusRaw.toUpperCase());
                                     const canSettle = !isPaid && (
                                         (log.type === 'CHAUFFEUR' && log.booking_id) ||
-                                        (log.type === 'SHUTTLE' && log.invoice_id)
+                                        (log.type === 'SHUTTLE' && log.invoice_id) ||
+                                        (log.type === 'TRAVEL' && log.travel_mile_id)
                                     );
                                     const isAdvanceOnly = Number(log.cost) <= 0;
 
@@ -425,7 +434,7 @@ function VendorDetailsContent() {
                                             key={log.id}
                                             className="hover:bg-slate-50 transition-colors cursor-pointer"
                                             onClick={() => openSettlement(log)}
-                                            title={log.type === 'CHAUFFEUR' ? 'Click to view settlement breakdown' : log.type === 'TRAVEL' ? 'Travel partner vehicle log' : 'Settlement breakdown not available for shuttle yet'}
+                                            title={log.type === 'CHAUFFEUR' || log.type === 'TRAVEL' ? 'Click to view settlement breakdown' : 'Settlement breakdown not available for shuttle yet'}
                                         >
                                             <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
                                                 {new Date(log.date).toLocaleDateString()}
@@ -559,7 +568,7 @@ function VendorDetailsContent() {
                             <form onSubmit={handleSubmitPayment} className="p-4 space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                                        {selectedLogForPayment.type === 'SHUTTLE' ? 'Invoice ID' : 'Booking ID'}
+                                        {selectedLogForPayment.type === 'SHUTTLE' ? 'Invoice ID' : selectedLogForPayment.type === 'TRAVEL' ? 'Travel mile ID' : 'Booking ID'}
                                     </label>
                                     <div className="text-slate-900 font-semibold">#{selectedLogForPayment.id}</div>
                                 </div>
@@ -673,7 +682,11 @@ function VendorDetailsContent() {
                                 </div>
                                 <div>
                                     <div className="text-xs text-slate-500">Booking</div>
-                                    <div className="font-semibold text-slate-900">{settlementLog.booking_id ? `#${settlementLog.booking_id}` : '—'}</div>
+                                    <div className="font-semibold text-slate-900">
+                                        {settlementLog.type === 'TRAVEL' && settlementLog.travel_mile_id
+                                            ? `Mile #${settlementLog.travel_mile_id}`
+                                            : settlementLog.booking_id ? `#${settlementLog.booking_id}` : '—'}
+                                    </div>
                                 </div>
                                 <div>
                                     <div className="text-xs text-slate-500">Status</div>
@@ -693,9 +706,9 @@ function VendorDetailsContent() {
                                 </div>
                             </div>
 
-                            {settlementLog.type !== 'CHAUFFEUR' ? (
+                            {settlementLog.type !== 'CHAUFFEUR' && settlementLog.type !== 'TRAVEL' ? (
                                 <div className="text-sm text-slate-500">
-                                    Settlement breakdown is currently available for chauffeur logs only.
+                                    Settlement breakdown is currently available for chauffeur and travel logs only.
                                 </div>
                             ) : settlementLoading ? (
                                 <div className="text-sm text-slate-500">Loading settlement history…</div>

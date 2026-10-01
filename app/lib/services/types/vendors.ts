@@ -196,6 +196,7 @@ export interface BulkPayVendorLogsDto {
 export interface CreateVendorPaymentRequest {
     booking_id?: number;
     invoice_id?: number;
+    travel_mile_id?: number;
     amount: number;
     payment_method?: string;
     notes?: string;
