@@ -17,6 +17,13 @@ import { RootState } from '../store';
 
 const STALE_TIME_MS = 60_000; // 60 seconds
 
+/** "" / null / undefined / NaN -> null (no override); otherwise the numeric value. */
+const toNullableNumber = (v: string | number | null | undefined): number | null => {
+    if (v === null || v === undefined || String(v).trim() === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+};
+
 export type RateRow = Partial<ChauffeurContractRate> & { tempId?: string; isNew?: boolean; isDeleted?: boolean };
 export type ShuttleRouteRow = Partial<ShuttleContractRoute> & { tempId?: string; isNew?: boolean; isDeleted?: boolean };
 
@@ -288,7 +295,10 @@ export const savePricingChanges = createAsyncThunk(
                     marketRateSpot24hr: Number(row.market_rate_spot_24hr || 0),
                     marketRateMonthly10hr: Number(row.market_rate_monthly_10hr || 0),
                     marketRateMonthly24hr: Number(row.market_rate_monthly_24hr || 0),
-                    marketRateOvertimePerHr: Number(row.market_rate_overtime_per_hr || 0)
+                    marketRateOvertimePerHr: Number(row.market_rate_overtime_per_hr || 0),
+                    // Empty = no override (null) -> company default applies. "0" is a real override.
+                    vehicleAllowanceOutstation: toNullableNumber(row.allowance_outstation),
+                    vehicleAllowanceAccommodation: toNullableNumber(row.allowance_accommodation),
                 };
 
                 if (row.isNew) {

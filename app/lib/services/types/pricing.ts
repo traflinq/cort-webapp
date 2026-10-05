@@ -16,6 +16,9 @@ export interface ChauffeurContractRate {
     market_rate_monthly_10hr?: string;
     market_rate_monthly_24hr?: string;
     market_rate_overtime_per_hr?: string;
+    /** Per-vehicle override. null/undefined = use the company default allowance. */
+    allowance_outstation?: string | null;
+    allowance_accommodation?: string | null;
 }
 
 export interface ChauffeurContract {
@@ -59,6 +62,9 @@ export interface CreateChauffeurContractRequest {
     marketRateOvertimePerHr?: number;
     allowanceOutstation?: number;
     allowanceAccommodation?: number;
+    /** Per-vehicle overrides; null clears the override (falls back to company default). */
+    vehicleAllowanceOutstation?: number | null;
+    vehicleAllowanceAccommodation?: number | null;
 }
 
 export interface UpdateChauffeurContractRequest {
@@ -86,6 +92,8 @@ export interface UpdateChauffeurContractRequest {
     marketRateOvertimePerHr?: number;
     allowanceOutstation?: number;
     allowanceAccommodation?: number;
+    vehicleAllowanceOutstation?: number | null;
+    vehicleAllowanceAccommodation?: number | null;
 }
 
 export interface ChauffeurContractResponse {
