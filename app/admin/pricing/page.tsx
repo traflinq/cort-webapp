@@ -600,15 +600,17 @@ function PricingPageContent() {
                     max={100}
                   />
                   <Input
-                    label="Outstation Allowance"
+                    label="Outstation Allowance (Default)"
                     value={globalSettings.allowanceOutstation}
                     onChange={(v: string) => dispatch(setGlobalSettings({ allowanceOutstation: v }))}
+                    helperText="Per day. Used for any vehicle without its own allowance in the Vehicle Rates table."
                     disabled={!canUpdate}
                   />
                   <Input
-                    label="Accommodation Allowance"
+                    label="Accommodation Allowance (Default)"
                     value={globalSettings.allowanceAccommodation}
                     onChange={(v: string) => dispatch(setGlobalSettings({ allowanceAccommodation: v }))}
+                    helperText="Per night. Used for any vehicle without its own allowance in the Vehicle Rates table."
                     disabled={!canUpdate}
                   />
                   <label className="flex flex-col gap-1.5">
@@ -684,6 +686,8 @@ function PricingPageContent() {
                         <th className="px-4 py-4 min-w-[100px]">Mth 10hr</th>
                         <th className="px-4 py-4 min-w-[100px]">Mth 24hr</th>
                         <th className="px-4 py-4 min-w-[100px]">Overtime/Hr</th>
+                        <th className="px-4 py-4 min-w-[130px]">Outstation Allow./Day</th>
+                        <th className="px-4 py-4 min-w-[130px]">Accommodation/Night</th>
                         <th className="px-4 py-4 w-[50px]"></th>
                       </tr>
                     </thead>
@@ -781,6 +785,28 @@ function PricingPageContent() {
                                 </>
                               )}
                             </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="number"
+                              min={0}
+                              disabled={!canUpdate}
+                              className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm placeholder:text-slate-400"
+                              value={row.allowance_outstation ?? ""}
+                              onChange={e => dispatch(updateRateRow({ index: idx, field: 'allowance_outstation', value: e.target.value }))}
+                              placeholder={globalSettings.allowanceOutstation ? `Default (${globalSettings.allowanceOutstation})` : "Default"}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="number"
+                              min={0}
+                              disabled={!canUpdate}
+                              className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm placeholder:text-slate-400"
+                              value={row.allowance_accommodation ?? ""}
+                              onChange={e => dispatch(updateRateRow({ index: idx, field: 'allowance_accommodation', value: e.target.value }))}
+                              placeholder={globalSettings.allowanceAccommodation ? `Default (${globalSettings.allowanceAccommodation})` : "Default"}
+                            />
                           </td>
                           <td className="px-4 py-3 text-center">
                             <button
