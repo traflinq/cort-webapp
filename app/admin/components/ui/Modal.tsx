@@ -1,4 +1,6 @@
-import React, { memo } from "react";
+"use client";
+
+import React, { memo, useEffect } from "react";
 import {
   adminModalBody,
   adminModalHeader,
@@ -23,6 +25,13 @@ export const Modal = memo(function Modal({
   /** Use elevated when stacking above another open modal (e.g. image zoom). */
   priority?: "default" | "elevated" | "high";
 }) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const sizeClass =
@@ -39,13 +48,18 @@ export const Modal = memo(function Modal({
 
   return (
     <div
-      className={`fixed inset-0 ${zClass} flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className={`admin-fade-in fixed inset-0 ${zClass} flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto`}
     >
       <div className={cx(adminModalShell, sizeClass)}>
         <div className={adminModalHeader}>
           <h3 className={adminModalTitle}>{title}</h3>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close"
             className="rounded-full p-1 text-[var(--text-muted)] hover:bg-[var(--row-hover)] hover:text-[var(--text-primary)]"
           >
             <svg

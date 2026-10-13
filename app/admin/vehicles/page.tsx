@@ -24,6 +24,7 @@ import { PermissionGate } from "../components/PermissionGate";
 import { AdminCan, useAdminAbility } from "../../lib/abilities/AdminAbilityProvider";
 import { ADMIN_SUBJECTS } from "../../lib/abilities/admin-subjects";
 import { useDebounce } from "../../lib/hooks/useDebounce";
+import { AdminPageHeader } from "../components/AdminPageHeader";
 
 export default function VehiclesPage() {
     return (
@@ -146,10 +147,10 @@ function VehiclesPageContent() {
     return (
         <div className="flex flex-col gap-6 p-6 mx-auto">
             {/* Header */}
-            <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#0c225e]">Vehicles</h1>
-                </div>
+            <AdminPageHeader
+              title="Vehicles"
+              description="Fleet inventory across owned, vendor and client vehicles."
+              action={
                 <button
                     type="button"
                     onClick={handleCreateNew}
@@ -161,7 +162,8 @@ function VehiclesPageContent() {
                     </svg>
                     Add Vehicle
                 </button>
-            </div>
+              }
+            />
 
             {/* Filters */}
             <div className="flex flex-wrap gap-4 items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">

@@ -1,14 +1,88 @@
-import { ArrowDownIcon, ArrowUpIcon, MinusIcon, TrendingUp, DollarSign, Activity, Percent, Briefcase } from "lucide-react";
+"use client";
+
+import { ArrowDownRight, ArrowUpRight, Minus, type LucideIcon } from "lucide-react";
+import { motion } from "motion/react";
 import { MetricComparison } from "../../../lib/types/admin-dashboard";
-import { adminCard } from "../../components/ui/admin-styles";
+import { AnimatedNumber } from "../../components/ui/AnimatedNumber";
 import { cx } from "../../components/ui/cx";
+
+export type MetricType = "currency" | "number" | "percentage";
+
+const currency = new Intl.NumberFormat("en-PK", {
+  style: "currency",
+  currency: "PKR",
+  maximumFractionDigits: 0,
+});
+const integer = new Intl.NumberFormat("en-US");
+
+export const formatCurrency = (v: number) => currency.format(Math.round(v));
+export const formatInteger = (v: number) => integer.format(Math.round(v));
+export const formatPercent = (v: number) => `${v.toFixed(2)}%`;
+
+export function formatterFor(type: MetricType) {
+  return type === "currency" ? formatCurrency : type === "percentage" ? formatPercent : formatInteger;
+}
+
+/** Trend pill. `invert` flips the colour (not the arrow) for cost-like metrics where down is good. */
+export function TrendBadge({
+  trend,
+  change,
+  invert,
+}: {
+  trend: string;
+  change: number;
+  invert?: boolean;
+}) {
+  const Icon = trend === "neutral" ? Minus : trend === "up" ? ArrowUpRight : ArrowDownRight;
+  const good = trend === "neutral" ? null : (trend === "up") !== !!invert;
+  return (
+    <span
+      className={cx(
+        "inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ring-1 ring-inset",
+        good === null && "bg-[var(--bg-subtle)] text-[var(--text-muted)] ring-[var(--border-default)]",
+        good === true && "bg-emerald-500/10 text-[var(--success-text)] ring-emerald-500/20",
+        good === false && "bg-rose-500/10 text-[var(--danger-text)] ring-rose-500/20",
+      )}
+    >
+      <Icon className="h-3 w-3" strokeWidth={2.5} />
+      {Math.abs(change).toFixed(1)}%
+    </span>
+  );
+}
+
+/** Two thin bars — this period vs the previous one — scaled against the larger of the two. */
+export function CompareBars({ current, previous }: { current: number; previous: number }) {
+  const max = Math.max(Math.abs(current), Math.abs(previous), 1);
+  const rows = [
+    { key: "now", w: (Math.abs(current) / max) * 100, className: "bg-[var(--cort-orange)]" },
+    { key: "prev", w: (Math.abs(previous) / max) * 100, className: "bg-[var(--border-strong)]" },
+  ];
+  return (
+    <div className="space-y-1.5" aria-hidden>
+      {rows.map((r, i) => (
+        <div key={r.key} className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-subtle)]">
+          <motion.div
+            className={cx("h-full rounded-full", r.className)}
+            initial={{ width: 0 }}
+            whileInView={{ width: `${r.w}%` }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.1 + i * 0.1, ease: [0.22, 1, 0.36, 1] }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface MetricCardProps {
   label: string;
   metric: MetricComparison;
-  type?: "currency" | "number" | "percentage";
-  prefix?: string;
-  suffix?: string;
+  type?: MetricType;
+  icon?: LucideIcon;
+  /** Colours the value for risk metrics (e.g. unassigned bookings > 0). */
+  tone?: "default" | "danger";
+  /** Cost-like metric: a rise is bad news. */
+  invert?: boolean;
   overlayContent?: React.ReactNode;
 }
 
@@ -16,112 +90,53 @@ export function MetricCard({
   label,
   metric,
   type = "number",
-  prefix = "",
-  suffix = "",
+  icon: Icon,
+  tone = "default",
+  invert,
   overlayContent,
 }: MetricCardProps) {
-  const { current, percentageChange, trend } = metric;
-
-  const formatValue = (val: number) => {
-    if (type === "currency") {
-      return new Intl.NumberFormat("en-PK", {
-        style: "currency",
-        currency: "PKR",
-        maximumFractionDigits: 0,
-      }).format(val);
-    }
-    if (type === "percentage") {
-      return `${val.toFixed(2)}%`;
-    }
-    return new Intl.NumberFormat("en-US").format(val);
-  };
-
-  const isPositive = trend === "up";
-  const isNeutral = trend === "neutral";
-
-  const TrendIcon = isNeutral ? MinusIcon : isPositive ? ArrowUpIcon : ArrowDownIcon;
-
-  const trendColor = isNeutral
-    ? "text-[var(--text-muted)]"
-    : isPositive
-      ? "text-emerald-500"
-      : "text-rose-500";
-
-  const bgColor = isNeutral
-    ? "bg-[var(--bg-subtle)]"
-    : isPositive
-      ? "bg-emerald-500/10"
-      : "bg-rose-500/10";
-
-  const getIcon = () => {
-    const iconClass = "h-4 w-4 text-[var(--text-muted)]";
-    const lowerLabel = label.toLowerCase();
-    if (
-      lowerLabel.includes("revenue") ||
-      lowerLabel.includes("price") ||
-      lowerLabel.includes("receivable") ||
-      lowerLabel.includes("payable") ||
-      lowerLabel.includes("cogs")
-    )
-      return <DollarSign className={iconClass} />;
-    if (lowerLabel.includes("margin") || lowerLabel.includes("percentage"))
-      return <Percent className={iconClass} />;
-    if (lowerLabel.includes("profit")) return <TrendingUp className={iconClass} />;
-    if (lowerLabel.includes("ride") || lowerLabel.includes("cost"))
-      return <Activity className={iconClass} />;
-    return <Briefcase className={iconClass} />;
-  };
+  const { current, previous, percentageChange, trend } = metric;
+  const hasComparison = previous !== 0;
+  const format = formatterFor(type);
 
   return (
-    <div
-      className={cx(
-        adminCard,
-        "p-6 relative group transition-all duration-300 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5",
-      )}
-    >
-      <div className="flex justify-between items-start mb-4">
-        <div className="p-2.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-default)] group-hover:border-[var(--cort-orange)]/20 transition-colors">
-          {getIcon()}
+    <div className="group relative flex flex-col rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)] transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-card-hover)]">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          {Icon && (
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-subtle)] text-[var(--text-secondary)] ring-1 ring-inset ring-[var(--border-default)] transition-colors group-hover:text-[var(--cort-orange)]">
+              <Icon className="h-4 w-4" strokeWidth={1.8} />
+            </span>
+          )}
+          <span className="truncate text-[13px] font-medium text-[var(--text-muted)]">{label}</span>
         </div>
-        {metric.previous !== 0 && (
-          <div
-            className={cx(
-              "flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold border border-current/10",
-              bgColor,
-              trendColor,
-            )}
-          >
-            <TrendIcon className="h-3 w-3 stroke-[3]" />
-            <span>{Math.abs(percentageChange).toFixed(1)}%</span>
-          </div>
+        {hasComparison && <TrendBadge trend={trend} change={percentageChange} invert={invert} />}
+      </div>
+
+      <AnimatedNumber
+        value={current}
+        format={format}
+        className={cx(
+          "mt-4 block text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums",
+          tone === "danger" && current > 0 ? "text-[var(--danger-text)]" : "text-[var(--text-primary)]",
         )}
-      </div>
+      />
 
-      <div className="space-y-1">
-        <div className="text-[13px] font-medium text-[var(--text-muted)] tracking-tight">{label}</div>
-        <div className="text-2xl font-bold text-[var(--text-primary)] tracking-tight">
-          {prefix}
-          {formatValue(current)}
-          {suffix}
+      {hasComparison ? (
+        <div className="mt-4 space-y-2">
+          <CompareBars current={current} previous={previous} />
+          <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+            <span>Previous period</span>
+            <span className="font-medium tabular-nums text-[var(--text-secondary)]">{format(previous)}</span>
+          </div>
         </div>
-      </div>
-
-      {metric.previous !== 0 && (
-        <div className="mt-4 pt-4 border-t border-[var(--divider)] flex items-center justify-between">
-          <span className="text-[11px] text-[var(--text-muted)] font-medium">Previous Period</span>
-          <span className="text-[11px] text-[var(--text-secondary)] font-semibold">
-            {prefix}
-            {formatValue(metric.previous)}
-            {suffix}
-          </span>
-        </div>
+      ) : (
+        <div className="mt-4 h-[2.1rem]" aria-hidden />
       )}
 
       {overlayContent && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 invisible opacity-0 scale-95 transition-all duration-300 group-hover:visible group-hover:opacity-100 group-hover:scale-100 z-50">
-          <div className="relative bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl shadow-[var(--shadow-modal)] overflow-hidden w-64 md:w-85 max-h-72 flex flex-col">
-            {overlayContent}
-          </div>
+        <div className="invisible absolute left-1/2 top-1/2 z-50 w-64 -translate-x-1/2 -translate-y-1/2 scale-95 opacity-0 transition-all duration-200 group-hover:visible group-hover:scale-100 group-hover:opacity-100 md:w-80">
+          {overlayContent}
         </div>
       )}
     </div>

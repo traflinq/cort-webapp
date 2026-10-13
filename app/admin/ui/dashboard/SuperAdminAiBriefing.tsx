@@ -60,9 +60,11 @@ type Props = {
 
 function severityClasses(severity: string) {
   const s = severity.toLowerCase();
-  if (s === "high" || s === "critical") return "bg-rose-50 text-rose-900 border-rose-200";
-  if (s === "medium" || s === "watch") return "bg-amber-50 text-amber-900 border-amber-200";
-  return "bg-emerald-50 text-emerald-900 border-emerald-200";
+  if (s === "high" || s === "critical")
+    return "bg-rose-500/10 text-[var(--danger-text)] border-rose-500/25";
+  if (s === "medium" || s === "watch")
+    return "bg-amber-500/10 text-[var(--warning-text)] border-amber-500/25";
+  return "bg-emerald-500/10 text-[var(--success-text)] border-emerald-500/25";
 }
 
 function categoryIcon(category: string) {
@@ -131,7 +133,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
   const showGeneral = hasRun && activeMode === "general";
 
   return (
-    <section className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-card)] p-6 shadow-sm space-y-6">
+    <section className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-card)] space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#fe8503]/10 border border-[#fe8503]/20">
@@ -144,7 +146,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
               {mode === "finance" ? "AI CFO" : "Platform AI"}
             </span>
           </div>
-          <h2 className="text-xl font-bold text-[var(--text-primary)]">
+          <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
             {mode === "finance" ? "Financial Consultancy Brief" : "Operations Summary"}
           </h2>
           <p className="text-sm text-[var(--text-muted)]">
@@ -155,12 +157,12 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="inline-flex rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-1">
+          <div className="inline-flex rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] p-1">
             <button
               type="button"
               onClick={() => setMode("finance")}
               disabled={generating}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
                 mode === "finance"
                   ? "bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
@@ -172,7 +174,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
               type="button"
               onClick={() => setMode("general")}
               disabled={generating}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
                 mode === "general"
                   ? "bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm"
                   : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
@@ -185,7 +187,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
             type="button"
             onClick={runAnalysis}
             disabled={generating}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#fe8503] px-5 text-[13px] font-bold text-white shadow-lg shadow-[#fe8503]/20 hover:bg-[#f07a00] transition-all disabled:opacity-60"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--cort-orange)] px-4 text-[13px] font-semibold text-white shadow-sm hover:bg-[var(--cort-orange-hover)] active:scale-[0.98] transition-all disabled:opacity-60"
           >
             <RefreshCw className={`h-4 w-4 ${generating ? "animate-spin" : ""}`} />
             {generating ? "Generating…" : "Run AI Analysis"}
@@ -194,7 +196,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
       </div>
 
       {!hasRun && !generating && (
-        <div className="rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-subtle)] px-6 py-10 text-center">
+        <div className="rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-subtle)] px-6 py-10 text-center">
           {mode === "finance" ? (
             <Landmark className="h-7 w-7 text-[var(--text-muted)] mx-auto mb-3 opacity-50" />
           ) : (
@@ -209,7 +211,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
       )}
 
       {generating && (
-        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-subtle)] px-6 py-10 text-center">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] px-6 py-10 text-center">
           <RefreshCw className="h-6 w-6 text-[#fe8503] mx-auto mb-3 animate-spin" />
           <p className="text-sm font-medium text-[var(--text-muted)]">
             {mode === "finance" ? "Preparing financial brief…" : "Analyzing platform ops…"}
@@ -231,7 +233,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-4">
+            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-4">
               <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                 <TrendingDown className="h-3.5 w-3.5 text-[#fe8503]" />
                 P&amp;L
@@ -240,7 +242,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
                 {financialBrief.plNarrative}
               </p>
             </div>
-            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-4">
+            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-4">
               <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                 <Wallet className="h-3.5 w-3.5 text-amber-600" />
                 Cash
@@ -249,7 +251,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
                 {financialBrief.cashRisks}
               </p>
             </div>
-            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-4">
+            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-4">
               <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
                 <CircleDollarSign className="h-3.5 w-3.5 text-navy" />
                 Unit economics
@@ -269,7 +271,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
                 {financialBrief.actions.map((action) => (
                   <div
                     key={`${action.priority}-${action.title}`}
-                    className="rounded-2xl border border-[var(--border-default)] p-4 bg-[var(--bg-card)]"
+                    className="rounded-xl border border-[var(--border-default)] p-4 bg-[var(--bg-card)]"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-navy text-white text-[11px] font-bold">
@@ -304,7 +306,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
                 {briefing.map((card) => (
                   <div
                     key={card.id}
-                    className={`rounded-2xl border p-4 ${severityClasses(card.severity)}`}
+                    className={`rounded-xl border p-4 ${severityClasses(card.severity)}`}
                   >
                     <div className="flex items-start gap-3">
                       {categoryIcon(card.category)}
@@ -345,7 +347,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
                   <Link
                     key={c.companyId}
                     href={c.href}
-                    className={`group rounded-2xl border p-4 transition-all hover:shadow-md ${severityClasses(c.severity)}`}
+                    className={`group rounded-xl border p-4 transition-all hover:shadow-md ${severityClasses(c.severity)}`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2 min-w-0">

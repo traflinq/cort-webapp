@@ -22,7 +22,7 @@ export const Badge = memo(function Badge({
   return (
     <span
       className={cx(
-        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
         colors[color],
       )}
     >
