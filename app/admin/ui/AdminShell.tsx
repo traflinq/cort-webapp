@@ -1,137 +1,146 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  Menu,
-  X,
-  LogOut,
-  Sun,
-  Moon,
-  ChevronLeft,
-  ChevronRight,
-  LayoutDashboard,
-  Building2,
-  FileText,
-  Car,
-  Fuel,
-  Wrench,
-  Store,
-  ClipboardList,
-  Truck,
-  Users,
-  Calendar,
-  Map,
-  MapPin,
-  Bus,
-  ArrowLeftRight,
-  BarChart3,
-  Receipt,
-  FileSpreadsheet,
-  Shield,
-  UserPlus,
-  Smartphone,
-  ScrollText,
-  type LucideIcon,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { LayoutGroup } from "motion/react";
+import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { useAuth } from "../../lib/contexts/auth-context";
-import { PermissionKey } from "../../lib/types/auth-types";
 import { BookingNotificationProvider } from "../components/BookingNotificationProvider";
 import { DeleteRequestsBell } from "../components/DeleteRequestsBell";
 import { cx } from "../components/ui/cx";
+import { CommandPalette } from "../components/ui/CommandPalette";
+import { Tooltip, TooltipProvider } from "../components/ui/Tooltip";
 import { useAdminTheme } from "../lib/theme-context";
-
-type NavItem = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  permission?: PermissionKey;
-  allowInternalStaff?: boolean;
-};
-
-const nav: NavItem[] = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
-  { href: "/admin/companies", label: "Companies", icon: Building2, permission: "companies" },
-  { href: "/admin/pricing", label: "Contracts & Pricing", icon: FileText, permission: "pricing" },
-  { href: "/admin/fixed-contracts", label: "Fixed-Term Cars", icon: Car, permission: "fixed_contracts" },
-  { href: "/admin/vehicles", label: "Vehicles", icon: Car, permission: "vehicles" },
-  { href: "/admin/vehicles/fueling", label: "Fuel Records", icon: Fuel, permission: "fuel_records" },
-  { href: "/admin/vehicles/maintenance", label: "Maintenance", icon: Wrench, permission: "maintenance" },
-  { href: "/admin/settings/app-config", label: "App Config", icon: Smartphone },
-  { href: "/admin/vendors", label: "Vendors", icon: Store, permission: "vendors" },
-  { href: "/admin/vendors/logs", label: "Trip Logs", icon: ClipboardList, permission: "vendor_logs" },
-  { href: "/admin/external-vendors", label: "External Vendors", icon: Truck, permission: "external_vendors" },
-  { href: "/admin/drivers", label: "Drivers", icon: Users, permission: "drivers" },
-  { href: "/admin/bookings/pending", label: "Bookings", icon: Calendar, permission: "bookings" },
-  { href: "/admin/routes", label: "Routes", icon: Map, permission: "routes" },
-  // Utilities
-  { href: "/admin/tracker-test", label: "Tracker Test", icon: MapPin, allowInternalStaff: true },
-  { href: "/admin/routes/daily-overrides", label: "Today's shuttle plan", icon: ArrowLeftRight, permission: "ops_shuttle" },
-  { href: "/admin/routes/shuttle-trips", label: "Shuttle trip scheduling", icon: Bus, permission: "ops_shuttle" },
-  { href: "/admin/routes/shuttle-audit", label: "Shuttle audit logs", icon: ScrollText, permission: "shuttle_audit" },
-  { href: "/admin/ops/shuttle", label: "Ops: Shuttle", icon: Bus, permission: "ops_shuttle" },
-  { href: "/admin/ops/chauffeur", label: "Ops: Chauffeur", icon: Car, permission: "ops_chauffeur" },
-  { href: "/admin/reports", label: "Reports", icon: BarChart3, permission: "reports" },
-  { href: "/admin/expenses", label: "Expenses", icon: Receipt, permission: "expenses" },
-  { href: "/admin/invoicing", label: "Invoicing", icon: FileSpreadsheet, permission: "invoicing" },
-  { href: "/admin/permissions", label: "Staff & Permissions", icon: Shield },
-  { href: "/admin/leads", label: "Leads", icon: UserPlus, permission: "dashboard" },
-];
+import { findActiveItem, NAV_GROUPS, SHUTTLE_AUDIT_HREF, type NavGroup } from "./nav/nav-config";
+import { SidebarGroup } from "./nav/SidebarGroup";
+import { navItemClass, NavHover, NavLabel } from "./nav/SidebarItem";
+import { Topbar } from "./nav/Topbar";
+import { UserMenu } from "./nav/UserMenu";
 
 const SIDEBAR_COLLAPSED_KEY = "cort-admin-sidebar-collapsed";
+const GROUPS_OPEN_KEY = "cort-admin-nav-groups";
+const DEFAULT_OPEN: Record<string, boolean> = { overview: true };
 
-function readCollapsed(): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+// TODO: remove email allowlist — keep shuttle_audit permission as the real gate
+const SHUTTLE_AUDIT_EMAIL = "hashir.ahmed@cort.com.pk";
+
+function readStorage(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // storage unavailable (private mode) — state simply won't persist
+  }
+}
+
+function readOpenGroups(): Record<string, boolean> {
+  const raw = readStorage(GROUPS_OPEN_KEY);
+  if (!raw) return DEFAULT_OPEN;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : DEFAULT_OPEN;
+  } catch {
+    return DEFAULT_OPEN;
+  }
 }
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [searchOpen, setSearchOpen] = useState(false);
   const { logout, user, isSuperAdmin, isInternalStaff, hasPermission } = useAuth();
   const { theme, toggle } = useAdminTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(DEFAULT_OPEN);
 
+  // Storage is read after mount so the server and first client render agree.
   useEffect(() => {
-    setCollapsed(readCollapsed());
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCollapsed(readStorage(SIDEBAR_COLLAPSED_KEY) === "true");
+    setOpenGroups(readOpenGroups());
   }, []);
 
   const setCollapsedPersisted = (value: boolean) => {
     setCollapsed(value);
-    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(value));
+    writeStorage(SIDEBAR_COLLAPSED_KEY, String(value));
   };
 
   const isLogin = pathname === "/admin/login";
+  const email = user?.email?.trim().toLowerCase();
 
-  const visibleNav = useMemo(() => {
-    return nav.filter((item) => {
+  const visibleGroups = useMemo<NavGroup[]>(() => {
+    const canSee = (item: NavGroup["items"][number]) => {
       if (item.allowInternalStaff && isInternalStaff) return true;
       if (!item.permission) return isSuperAdmin;
-      if (isSuperAdmin) {
-        // TODO: remove email allowlist — keep shuttle_audit permission as the real gate
-        if (item.href === "/admin/routes/shuttle-audit") {
-          return user?.email?.trim().toLowerCase() === "hashir.ahmed@cort.com.pk";
-        }
-        return true;
-      }
-      if (item.href === "/admin/routes/shuttle-audit") {
-        return (
-          hasPermission(item.permission) &&
-          user?.email?.trim().toLowerCase() === "hashir.ahmed@cort.com.pk"
-        );
-      }
+      if (item.href === SHUTTLE_AUDIT_HREF && email !== SHUTTLE_AUDIT_EMAIL) return false;
+      if (isSuperAdmin) return true;
       return hasPermission(item.permission);
-    });
-  }, [isSuperAdmin, isInternalStaff, hasPermission, user?.email]);
+    };
+    return NAV_GROUPS.map((group) => ({ ...group, items: group.items.filter(canSee) })).filter(
+      (group) => group.items.length > 0,
+    );
+  }, [isSuperAdmin, isInternalStaff, hasPermission, email]);
 
-  const activeHref = useMemo(() => {
-    if (!pathname) return "/admin";
-    const found = visibleNav.find((n) => pathname === n.href);
-    if (found) return found.href;
-    const prefix = visibleNav.find((n) => n.href !== "/admin" && pathname.startsWith(n.href));
-    return prefix?.href ?? "/admin";
-  }, [pathname, visibleNav]);
+  const active = useMemo(() => findActiveItem(pathname, visibleGroups), [pathname, visibleGroups]);
+  const activeHref = active?.item.href ?? null;
+  const activeGroupId = active?.group.id ?? null;
+
+  // When navigation lands in a group the user had collapsed, open it (adjusting state during render).
+  const [seenGroupId, setSeenGroupId] = useState<string | null>(null);
+  if (activeGroupId !== seenGroupId) {
+    setSeenGroupId(activeGroupId);
+    if (activeGroupId && !openGroups[activeGroupId]) {
+      const next = { ...openGroups, [activeGroupId]: true };
+      setOpenGroups(next);
+      writeStorage(GROUPS_OPEN_KEY, JSON.stringify(next));
+    }
+  }
+
+  const toggleGroup = useCallback((id: string) => {
+    setOpenGroups((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      writeStorage(GROUPS_OPEN_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const closeMobileMenu = useCallback(() => setIsMobileMenuOpen(false), []);
+
+  // ⌘B / Ctrl+B toggles the sidebar.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setCollapsed((prev) => {
+          writeStorage(SIDEBAR_COLLAPSED_KEY, String(!prev));
+          return !prev;
+        });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Lock page scroll while the drawer is open; close on Escape (links close it via onNavigate).
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setIsMobileMenuOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [isMobileMenuOpen]);
 
   const logoSrc =
     theme === "light"
@@ -140,185 +149,150 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   if (isLogin) return <>{children}</>;
 
-  const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
-    <>
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+  const renderSidebar = (isMobile: boolean) => {
+    const rail = collapsed && !isMobile;
+    let offset = 0;
+    return (
+      <LayoutGroup id={isMobile ? "mobile" : "desktop"}>
         <div
           className={cx(
-            "flex flex-col items-center justify-center transition-all duration-300",
-            collapsed && !isMobile ? "px-2 py-6" : "px-6 py-8",
+            "flex h-[3.25rem] shrink-0 items-center transition-[padding] duration-300",
+            rail ? "justify-center px-2" : "px-4",
           )}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={collapsed && !isMobile ? "/app_icon.png" : logoSrc}
+            src={rail ? "/app_icon.png" : logoSrc}
             alt="TrafLinq"
             className={cx(
               "object-contain transition-all duration-300",
-              collapsed && !isMobile ? "h-9 w-9 rounded-lg" : "h-14 w-auto",
+              rail ? "h-8 w-8 rounded-lg" : "h-8 w-auto",
             )}
           />
         </div>
 
-        <nav className="px-3 pb-6 space-y-1">
-          {visibleNav.map((item, index) => {
-            const active = item.href === activeHref;
-            const Icon = item.icon;
-            const isSubItem =
-              item.href.includes("/fueling") ||
-              item.href.includes("/maintenance") ||
-              item.href.includes("/logs") ||
-              item.href.includes("/shuttle-trips") ||
-              item.href.includes("/shuttle-audit") ||
-              item.href.includes("/daily-overrides") ||
-              item.href === "/admin/fixed-contracts";
-
+        <nav aria-label="Main" className="flex-1 overflow-y-auto overflow-x-hidden px-2.5 pb-2">
+          {visibleGroups.map((group) => {
+            const groupOffset = offset;
+            offset += group.items.length;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={collapsed && !isMobile ? item.label : undefined}
-                onClick={() => isMobile && setIsMobileMenuOpen(false)}
-                style={isMobile ? { animationDelay: `${(index + 1) * 50}ms` } : undefined}
-                className={cx(
-                  "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 relative",
-                  isMobile && "animate-fade-slide-up opacity-0",
-                  !collapsed || isMobile ? (isSubItem ? "pl-5" : "") : "justify-center px-2",
-                  active
-                    ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-text)]"
-                    : "text-[var(--nav-inactive-text)] hover:text-[var(--text-primary)] hover:bg-[var(--nav-hover-bg)]",
-                )}
-              >
-                {active && (!collapsed || isMobile) && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-[var(--cort-orange)]" />
-                )}
-                <Icon
-                  size={18}
-                  strokeWidth={active ? 2 : 1.5}
-                  className={cx(
-                    "shrink-0",
-                    active ? "text-[var(--nav-active-text)]" : "group-hover:text-[var(--text-primary)]",
-                  )}
-                />
-                <span
-                  className={cx(
-                    "whitespace-nowrap transition-all duration-300 ease-in-out overflow-hidden",
-                    collapsed && !isMobile ? "max-w-0 opacity-0" : "max-w-[200px] opacity-100",
-                  )}
-                >
-                  {item.label}
-                </span>
-              </Link>
+              <SidebarGroup
+                key={group.id}
+                group={group}
+                open={!!openGroups[group.id]}
+                rail={rail}
+                activeHref={activeHref}
+                hasActive={group.id === activeGroupId}
+                onToggle={() => toggleGroup(group.id)}
+                onNavigate={isMobile ? closeMobileMenu : undefined}
+                animate={isMobile}
+                indexOffset={groupOffset}
+                layoutScope={isMobile ? "mobile" : "desktop"}
+              />
             );
           })}
-          <div className="my-2 border-t border-[var(--nav-border)]" />
-          <DeleteRequestsBell collapsed={collapsed && !isMobile} />
         </nav>
-      </div>
 
-      <div className="border-t border-[var(--nav-border)] p-3 mt-auto bg-[var(--nav-footer-bg)]">
-        <div
-          className={cx(
-            "flex items-center gap-2 rounded-lg p-2 transition-all duration-300",
-            collapsed && !isMobile ? "flex-col justify-center" : "justify-between",
+        {/* Pinned so the pending-count badge stays visible even when groups are collapsed. */}
+        <div className="shrink-0 space-y-1 border-t border-[var(--nav-border)] p-2.5">
+          {isSuperAdmin && <DeleteRequestsBell collapsed={rail} />}
+          {!isMobile && (
+            <Tooltip label={collapsed ? "Expand sidebar  ⌘B" : "Collapse sidebar  ⌘B"} disabled={!rail}>
+              <button
+                type="button"
+                onClick={() => setCollapsedPersisted(!collapsed)}
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                className={navItemClass({ rail })}
+              >
+                <NavHover />
+                {collapsed ? (
+                  <PanelLeftOpen size={17} strokeWidth={1.6} className="relative z-10 shrink-0" />
+                ) : (
+                  <PanelLeftClose size={17} strokeWidth={1.6} className="relative z-10 shrink-0" />
+                )}
+                <NavLabel rail={rail}>Collapse sidebar</NavLabel>
+                {!rail && (
+                  <kbd className="relative z-10 ml-auto rounded border border-[var(--border-default)] px-1.5 py-0.5 font-sans text-[10px] text-[var(--text-muted)]">
+                    ⌘B
+                  </kbd>
+                )}
+              </button>
+            </Tooltip>
           )}
-        >
-          <div
-            className={cx(
-              "flex flex-col overflow-hidden transition-all duration-300",
-              collapsed && !isMobile ? "max-w-0 opacity-0 h-0" : "max-w-[150px] opacity-100",
-            )}
-          >
-            <span className="truncate text-xs font-medium text-[var(--text-secondary)]">
-              {user?.email}
-            </span>
-            <span className="text-[10px] text-[var(--text-muted)]">
-              {isSuperAdmin ? "Super Admin Portal" : "Staff Portal"}
-            </span>
-          </div>
-
-          <div className={cx("flex shrink-0 items-center gap-1", collapsed && !isMobile && "flex-col")}>
-            <button
-              type="button"
-              onClick={toggle}
-              className="rounded-md p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--nav-hover-bg)] transition-colors"
-              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-            <button
-              type="button"
-              onClick={() => logout()}
-              className="rounded-md p-1.5 text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors"
-              title="Sign out"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
+          <UserMenu
+            email={user?.email}
+            roleLabel={isSuperAdmin ? "Super Admin" : "Staff"}
+            rail={rail}
+            theme={theme}
+            onToggleTheme={toggle}
+            onLogout={() => logout()}
+          />
         </div>
-      </div>
-    </>
-  );
+      </LayoutGroup>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text-primary)] font-sans">
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-[var(--nav-border)] bg-[var(--bg-header)] px-4 md:hidden">
-        <button
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="rounded-md p-2 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]"
-        >
-          <Menu size={24} />
-        </button>
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <img src={logoSrc} alt="TrafLinq" className="h-10 w-auto" />
-        </div>
-        <div className="w-10" />
-      </header>
-
-      <div className="flex min-h-screen">
-        <aside
-          className={cx(
-            "sticky top-0 h-screen hidden shrink-0 border-r border-[var(--border-default)] bg-[var(--bg-sidebar)] text-[var(--text-primary)] md:flex md:flex-col transition-all duration-300 ease-in-out relative",
-            collapsed ? "w-[4.5rem]" : "w-72",
-          )}
-        >
-          <button
-            type="button"
-            onClick={() => setCollapsedPersisted(!collapsed)}
-            className="absolute -right-3 top-9 z-50 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--bg-sidebar)] border border-[var(--border-input)] text-[var(--text-muted)] shadow-sm hover:text-[var(--text-primary)] hover:scale-105 transition-all focus:outline-none"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+    <TooltipProvider>
+      <div className="min-h-screen bg-[var(--bg-page)] font-sans text-[var(--text-primary)]">
+        <div className="flex min-h-screen">
+          {/* Floating sidebar: an inset rounded panel rather than a full-height rail. */}
+          <div
+            className={cx(
+              "sticky top-0 z-40 hidden h-screen shrink-0 p-2 md:block",
+              "transition-[width] duration-300 ease-[var(--ease-smooth)]",
+              collapsed ? "w-[calc(var(--sidebar-width-collapsed)+0.5rem)]" : "w-[calc(var(--sidebar-width)+0.5rem)]",
+            )}
           >
-            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-          </button>
-          <SidebarContent />
-        </aside>
-
-        {isMobileMenuOpen && (
-          <div className="fixed inset-0 z-50 flex md:hidden">
-            <div
-              className="fixed inset-0 bg-black/70 backdrop-blur-sm animate-fade-in"
-              onClick={() => setIsMobileMenuOpen(false)}
-            />
-            <div className="relative flex w-full max-w-xs flex-1 flex-col bg-[var(--bg-sidebar)] animate-slide-in-left">
-              <div className="absolute right-2 top-2">
-                <button
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              <SidebarContent isMobile />
-            </div>
+            <aside className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-sidebar)] shadow-[var(--shadow-card)]">
+              {renderSidebar(false)}
+            </aside>
           </div>
-        )}
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <BookingNotificationProvider />
-          <main className="mx-auto w-full max-w-full flex-1 px-4 py-6 md:px-6 bg-[var(--bg-page)]">
-            {children}
-          </main>
+          {isMobileMenuOpen && (
+            <div className="fixed inset-0 z-50 flex md:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
+              <div className="admin-fade-in fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={closeMobileMenu} />
+              <div className="admin-drawer-in relative m-2 flex w-full max-w-[18rem] flex-col rounded-2xl bg-[var(--bg-sidebar)] shadow-2xl">
+                <button
+                  type="button"
+                  onClick={closeMobileMenu}
+                  aria-label="Close menu"
+                  className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--nav-hover-bg)]"
+                >
+                  <X size={18} />
+                </button>
+                {renderSidebar(true)}
+              </div>
+            </div>
+          )}
+
+          <div className="flex min-w-0 flex-1 flex-col">
+            <Topbar
+              active={active}
+              theme={theme}
+              sidebarCollapsed={collapsed}
+              onToggleTheme={toggle}
+              onToggleSidebar={() => setCollapsedPersisted(!collapsed)}
+              onOpenMenu={() => setIsMobileMenuOpen(true)}
+              onOpenSearch={() => setSearchOpen(true)}
+            />
+            <BookingNotificationProvider />
+            <main
+              key={pathname}
+              className="admin-route-enter mx-auto w-full max-w-[1600px] flex-1 px-4 pb-8 pt-2 md:px-6"
+            >
+              {children}
+            </main>
+          </div>
         </div>
       </div>
-    </div>
+
+      <CommandPalette
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        groups={visibleGroups}
+        onSelect={(href) => router.push(href)}
+      />
+    </TooltipProvider>
   );
 }

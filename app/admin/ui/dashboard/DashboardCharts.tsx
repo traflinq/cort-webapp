@@ -1,26 +1,76 @@
 "use client";
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { motion } from "motion/react";
+import { PieChart } from "lucide-react";
 import { BreakdownItem } from "../../../lib/types/admin-dashboard";
-import { adminCard } from "../../components/ui/admin-styles";
-import { useAdminTheme } from "../../lib/theme-context";
+import { cx } from "../../components/ui/cx";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { formatCurrency, formatInteger } from "./MetricCard";
 
-const COLORS = ["#1E293B", "#3B82F6", "#10B981", "#F59E0B", "#6366F1", "#8B5CF6"];
-const RADIAN = Math.PI / 180;
+const PALETTE = ["#fe8503", "#3b5bdb", "#10b981", "#8b5cf6", "#f59e0b", "#64748b"];
 
-const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-  if (percent < 0.05) return null;
+/** Ranked horizontal bars: reads faster than pies and stays legible with many categories. */
+function RankedCard({
+  title,
+  subtitle,
+  data,
+  emptyMessage,
+  formatValue,
+}: {
+  title: string;
+  subtitle: string;
+  data: BreakdownItem[];
+  emptyMessage: string;
+  formatValue: (value: number) => string;
+}) {
+  const rows = [...(data ?? [])].filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
+  const total = rows.reduce((sum, r) => sum + r.value, 0);
 
   return (
-    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="800">
-      {`${(percent * 100).toFixed(0)}%`}
-    </text>
+    <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">{title}</h3>
+        <span className="text-xs text-[var(--text-muted)]">{subtitle}</span>
+      </div>
+      {rows.length === 0 ? (
+        <EmptyState icon={PieChart} title={emptyMessage} className="py-10" />
+      ) : (
+        <ul className="mt-5 space-y-4">
+          {rows.map((r, i) => {
+            const pct = total > 0 ? (r.value / total) * 100 : 0;
+            return (
+              <li key={r.name}>
+                <div className="mb-1.5 flex items-center justify-between gap-3 text-[13px]">
+                  <span className="inline-flex min-w-0 items-center gap-2 text-[var(--text-secondary)]">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: PALETTE[i % PALETTE.length] }}
+                    />
+                    <span className="truncate">{r.name}</span>
+                  </span>
+                  <span className="shrink-0 tabular-nums">
+                    <span className="font-semibold text-[var(--text-primary)]">{formatValue(r.value)}</span>
+                    <span className="ml-2 text-xs text-[var(--text-muted)]">{pct.toFixed(0)}%</span>
+                  </span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-subtle)]">
+                  <motion.div
+                    className={cx("h-full rounded-full")}
+                    style={{ background: PALETTE[i % PALETTE.length] }}
+                    initial={{ width: 0 }}
+                    whileInView={{ width: `${pct}%` }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.8, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
-};
+}
 
 export function DashboardCharts({
   ridesBreakdown,
@@ -31,166 +81,29 @@ export function DashboardCharts({
   expensesBreakdown: BreakdownItem[];
   revenueBreakdown: BreakdownItem[];
 }) {
-  const { theme } = useAdminTheme();
-  const hasRides = ridesBreakdown && ridesBreakdown.some((i) => i.value > 0);
-  const hasExpenses = expensesBreakdown && expensesBreakdown.some((i) => i.value > 0);
-  const hasRevenue = revenueBreakdown && revenueBreakdown.some((i) => i.value > 0);
-
-  const tooltipStyle = {
-    backgroundColor: theme === "dark" ? "rgba(13, 17, 32, 0.95)" : "rgba(255, 255, 255, 0.95)",
-    borderRadius: "12px",
-    border: theme === "dark" ? "1px solid rgba(255,255,255,0.1)" : "1px solid #f1f5f9",
-    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
-    padding: "10px 14px",
-    fontSize: "12px",
-    fontWeight: "600" as const,
-    color: theme === "dark" ? "#ffffff" : "#0f172a",
-  };
-
-  const ChartCard = ({ title, children, hasData, emptyMessage }: any) => (
-    <div className={`${adminCard} p-7 transition-all hover:shadow-[var(--shadow-card-hover)]`}>
-      <div className="flex items-center justify-between mb-8">
-        <h3 className="text-[13px] font-bold text-[var(--text-muted)] uppercase tracking-[0.15em]">{title}</h3>
-        <div className="w-8 h-1 bg-[var(--bg-subtle)] rounded-full" />
-      </div>
-      <div className="h-64 w-full">
-        {hasData ? (
-          children
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center text-[var(--text-muted)] gap-3">
-            <div className="w-12 h-12 rounded-full bg-[var(--bg-subtle)] flex items-center justify-center">
-              <div className="w-6 h-6 border-2 border-[var(--border-default)] rounded-full border-dashed" />
-            </div>
-            <span className="text-xs font-medium uppercase tracking-wider">{emptyMessage}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   return (
-    <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-      <ChartCard title="Rides Distribution" hasData={hasRides} emptyMessage="No Rides Data">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={ridesBreakdown}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={renderCustomizedLabel}
-              innerRadius={60}
-              outerRadius={95}
-              paddingAngle={4}
-              stroke="none"
-              dataKey="value"
-              nameKey="name"
-            >
-              {ridesBreakdown.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip formatter={(value) => [`${value} Trips`, "Volume"]} contentStyle={tooltipStyle} />
-            <Legend
-              verticalAlign="bottom"
-              height={36}
-              iconType="circle"
-              iconSize={8}
-              formatter={(value) => (
-                <span className="text-[11px] font-bold text-[var(--text-secondary)] px-1">{value}</span>
-              )}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
-      <ChartCard title="Expense allocation" hasData={hasExpenses} emptyMessage="No Expense Data">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={expensesBreakdown}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={renderCustomizedLabel}
-              innerRadius={60}
-              outerRadius={95}
-              paddingAngle={4}
-              stroke="none"
-              dataKey="value"
-              nameKey="name"
-            >
-              {expensesBreakdown.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(value) => [
-                new Intl.NumberFormat("en-PK", {
-                  style: "currency",
-                  currency: "PKR",
-                  maximumFractionDigits: 0,
-                }).format(Number(value)),
-                "Amount",
-              ]}
-              contentStyle={tooltipStyle}
-            />
-            <Legend
-              verticalAlign="bottom"
-              height={36}
-              iconType="circle"
-              iconSize={8}
-              formatter={(value) => (
-                <span className="text-[11px] font-bold text-[var(--text-secondary)] px-1">{value}</span>
-              )}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
-      <ChartCard title="Revenue Stream" hasData={hasRevenue} emptyMessage="No Revenue Data">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={revenueBreakdown}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={renderCustomizedLabel}
-              innerRadius={60}
-              outerRadius={95}
-              paddingAngle={4}
-              stroke="none"
-              dataKey="value"
-              nameKey="name"
-            >
-              {revenueBreakdown.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[(index + 4) % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(value) => [
-                new Intl.NumberFormat("en-PK", {
-                  style: "currency",
-                  currency: "PKR",
-                  maximumFractionDigits: 0,
-                }).format(Number(value)),
-                "Impact",
-              ]}
-              contentStyle={tooltipStyle}
-            />
-            <Legend
-              verticalAlign="bottom"
-              height={36}
-              iconType="circle"
-              iconSize={8}
-              formatter={(value) => (
-                <span className="text-[11px] font-bold text-[var(--text-secondary)] px-1">{value}</span>
-              )}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </ChartCard>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <RankedCard
+        title="Revenue stream"
+        subtitle="Share of revenue"
+        data={revenueBreakdown}
+        emptyMessage="No revenue data"
+        formatValue={formatCurrency}
+      />
+      <RankedCard
+        title="Expense allocation"
+        subtitle="Share of spend"
+        data={expensesBreakdown}
+        emptyMessage="No expense data"
+        formatValue={formatCurrency}
+      />
+      <RankedCard
+        title="Rides distribution"
+        subtitle="Share of trips"
+        data={ridesBreakdown}
+        emptyMessage="No rides data"
+        formatValue={(v) => `${formatInteger(v)} trips`}
+      />
     </div>
   );
 }

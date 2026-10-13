@@ -7,7 +7,7 @@ import { Bell } from "lucide-react";
 import { apiClient } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";
 import { DeleteRequestsModal } from "./DeleteRequestsModal";
-import { cx } from "./ui/cx";
+import { navItemClass, NavHover, NavLabel } from "../ui/nav/SidebarItem";
 
 type DeleteRequestSocketAlert = {
   id: number;
@@ -88,28 +88,18 @@ export function DeleteRequestsBell({ collapsed = false }: DeleteRequestsBellProp
         type="button"
         onClick={() => setIsModalOpen(true)}
         title={collapsed ? "Delete Requests" : undefined}
-        className={cx(
-          "group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 relative",
-          !collapsed ? "" : "justify-center px-2",
-          "text-[var(--nav-inactive-text)] hover:text-[var(--text-primary)] hover:bg-[var(--nav-hover-bg)]",
-        )}
+        className={navItemClass({ rail: collapsed })}
       >
-        <span className="relative shrink-0">
-          <Bell size={18} strokeWidth={1.5} className="group-hover:text-[var(--text-primary)]" />
+        <NavHover />
+        <span className="relative z-10 shrink-0">
+          <Bell size={17} strokeWidth={1.6} />
           {pendingCount > 0 && (
             <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
               {pendingCount > 99 ? "99+" : pendingCount}
             </span>
           )}
         </span>
-        <span
-          className={cx(
-            "whitespace-nowrap transition-all duration-300 ease-in-out overflow-hidden",
-            collapsed ? "max-w-0 opacity-0" : "max-w-[200px] opacity-100",
-          )}
-        >
-          Delete Requests
-        </span>
+        <NavLabel rail={collapsed}>Delete Requests</NavLabel>
       </button>
 
       <DeleteRequestsModal

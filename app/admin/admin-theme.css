@@ -1,45 +1,360 @@
-/* Admin portal — theme-aware overrides for legacy light-only Tailwind classes */
+/* Admin portal — design tokens, global element styling and legacy-class remaps.
+ *
+ * Everything here is scoped to `.admin-portal` so the company / vendor portals
+ * (which share the base tokens in globals.css) are not affected.
+ */
+
+/* ── Tokens: shared ───────────────────────────────────────────── */
 
 .admin-portal {
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 150ms;
+  --dur-base: 240ms;
+  --dur-slow: 360ms;
+
+  --sidebar-width: 17rem;
+  --sidebar-width-collapsed: 4.5rem;
+  --topbar-height: 3.5rem;
+
+  --focus-ring: color-mix(in srgb, var(--cort-orange) 38%, transparent);
+
   color-scheme: light;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
 }
 
+/* ── Tokens: light ────────────────────────────────────────────── */
+
+[data-theme="light"] .admin-portal {
+  --bg-page: #f6f7f9;
+  --bg-card: #ffffff;
+  --bg-card-hover: #fafbfc;
+  --bg-subtle: #f3f4f7;
+  --bg-input: #ffffff;
+  --bg-input-focus: #ffffff;
+  --bg-sidebar: #ffffff;
+  --bg-header: rgba(246, 247, 249, 0.82);
+
+  --border-default: #e6e8ee;
+  --border-strong: #d5d9e2;
+  --border-input: #d5d9e2;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-light: #cbd5e1;
+  --text-placeholder: #94a3b8;
+
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.02);
+  --shadow-card-hover: 0 8px 24px -8px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --shadow-modal: 0 24px 60px -12px rgba(15, 23, 42, 0.28);
+
+  --nav-active-bg: rgba(254, 133, 3, 0.1);
+  --nav-active-text: #b85c00;
+  --nav-inactive-text: #5b6577;
+  --nav-hover-bg: #f1f3f7;
+  --nav-group-label: #8b94a5;
+  --nav-border: #e6e8ee;
+  --nav-footer-bg: transparent;
+
+  --row-hover: #f7f8fa;
+  --divider: #edeff4;
+
+  --success-text: #059669;
+  --danger-text: #e11d48;
+  --warning-text: #b45309;
+}
+
+/* ── Tokens: dark ─────────────────────────────────────────────── */
+
 [data-theme="dark"] .admin-portal {
+  --bg-page: #0a0b0f;
+  --bg-card: #111318;
+  --bg-card-hover: #15181f;
+  --bg-subtle: rgba(255, 255, 255, 0.045);
+  --bg-input: #0d0f14;
+  --bg-input-focus: #0d0f14;
+  --bg-sidebar: #0d0f14;
+  --bg-header: rgba(10, 11, 15, 0.8);
+
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-input: rgba(255, 255, 255, 0.12);
+
+  --text-primary: #f3f4f7;
+  --text-secondary: #b0b6c3;
+  --text-muted: #838b9b;
+  --text-light: rgba(255, 255, 255, 0.18);
+  --text-placeholder: #5d6574;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-card-hover: 0 10px 28px -8px rgba(0, 0, 0, 0.6);
+  --shadow-modal: 0 28px 70px -12px rgba(0, 0, 0, 0.7);
+
+  --nav-active-bg: rgba(254, 133, 3, 0.12);
+  --nav-active-text: #ffa133;
+  --nav-inactive-text: #9aa1b0;
+  --nav-hover-bg: rgba(255, 255, 255, 0.05);
+  --nav-group-label: #6b7384;
+  --nav-border: rgba(255, 255, 255, 0.07);
+  --nav-footer-bg: transparent;
+
+  --row-hover: rgba(255, 255, 255, 0.035);
+  --divider: rgba(255, 255, 255, 0.07);
+
+  --success-text: #34d399;
+  --danger-text: #fb7185;
+  --warning-text: #fbbf24;
+
+  /* Navy is invisible on near-black surfaces — lift it for primary buttons. */
+  --cort-navy: #2f54c4;
+  --cort-navy-hover: #3b63d9;
+
   color-scheme: dark;
 }
 
-/* ── Surfaces ─────────────────────────────────────────────────── */
+/* ── Motion ───────────────────────────────────────────────────── */
 
-[data-theme="dark"] .admin-portal :is(.bg-white, .bg-white\/70) {
+@keyframes admin-route-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes admin-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes admin-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes admin-drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes admin-item-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes admin-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* `backwards` (not `both`): a lingering transform would turn <main> into the containing block
+ * for position:fixed descendants, so modals would size and centre against the page, not the viewport. */
+.admin-route-enter {
+  animation: admin-route-enter var(--dur-slow) var(--ease-smooth) backwards;
+}
+
+.admin-fade-in {
+  animation: admin-fade-in var(--dur-base) ease-out both;
+}
+
+.admin-pop-in {
+  animation: admin-pop-in var(--dur-base) var(--ease-smooth) both;
+}
+
+.admin-drawer-in {
+  animation: admin-drawer-in var(--dur-base) var(--ease-smooth) both;
+}
+
+.admin-item-in {
+  animation: admin-item-in var(--dur-slow) var(--ease-smooth) both;
+}
+
+.admin-skeleton {
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    90deg,
+    var(--bg-subtle) 25%,
+    color-mix(in srgb, var(--text-muted) 14%, transparent) 37%,
+    var(--bg-subtle) 63%
+  );
+  background-size: 400% 100%;
+  animation: admin-shimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-portal *,
+  .admin-portal *::before,
+  .admin-portal *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Global element styling ───────────────────────────────────── */
+
+.admin-portal ::selection {
+  background: color-mix(in srgb, var(--cort-orange) 30%, transparent);
+}
+
+.admin-portal * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.admin-portal .custom-scrollbar::-webkit-scrollbar,
+.admin-portal ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.admin-portal ::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+
+.admin-portal ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* One page-title style across all pages */
+.admin-portal main h1 {
+  font-size: 1.5rem !important;
+  line-height: 2rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--text-primary) !important;
+}
+
+.admin-portal :is(button, a, [role="button"]) {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: var(--dur-fast);
+  transition-timing-function: ease;
+}
+
+.admin-portal :is(button, a, [role="button"], summary):focus-visible {
+  outline: 2px solid var(--cort-orange);
+  outline-offset: 2px;
+}
+
+/* Tables */
+.admin-portal table {
+  border-collapse: collapse;
+}
+
+/* Opaque (so sticky headers hide scrolling rows) but visually the subtle tint. */
+.admin-portal thead {
+  background-color: var(--bg-card);
+  background-image: linear-gradient(var(--bg-subtle), var(--bg-subtle));
+}
+
+.admin-portal thead th {
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.admin-portal tbody tr {
+  transition: background-color var(--dur-fast) ease;
+}
+
+.admin-portal tbody tr:hover {
+  background-color: var(--row-hover);
+}
+
+/* Form controls */
+.admin-portal :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not(.input-bare) {
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border-color: var(--border-input);
+  border-radius: var(--radius-md);
+  transition:
+    border-color var(--dur-fast) ease,
+    box-shadow var(--dur-fast) ease,
+    background-color var(--dur-fast) ease;
+}
+
+.admin-portal :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not(.input-bare):focus {
+  border-color: var(--cort-orange);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  outline: none;
+}
+
+.admin-portal :is(input, select, textarea)::placeholder {
+  color: var(--text-placeholder);
+}
+
+.admin-portal :is(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--cort-orange);
+}
+
+.admin-portal .input-bare {
+  background: transparent;
+  border: 0;
+  outline: none;
+  box-shadow: none;
+  color: var(--text-primary);
+}
+
+/* ── Legacy class remaps — neutrals follow tokens in both themes ─ */
+
+.admin-portal :is(.bg-white, .bg-white\/70) {
   background-color: var(--bg-card) !important;
 }
 
-[data-theme="dark"] .admin-portal :is(
+.admin-portal :is(
   .bg-gray-50,
   .bg-gray-100,
   .bg-slate-50,
   .bg-slate-100,
-  .bg-indigo-50,
-  .bg-green-50,
-  .bg-purple-50,
-  .bg-red-50,
-  .bg-yellow-50,
-  .bg-blue-50,
-  .bg-orange-50,
-  .bg-emerald-50
+  .bg-\[\#F8FAFC\],
+  .bg-\[\#f8fafc\]
 ) {
   background-color: var(--bg-subtle) !important;
 }
 
-[data-theme="dark"] .admin-portal .bg-gray-200 {
+.admin-portal :is(.bg-gray-200, .bg-slate-200) {
   background-color: var(--border-strong) !important;
 }
 
-[data-theme="dark"] .admin-portal .bg-slate-200 {
-  background-color: var(--border-strong) !important;
-}
-
-[data-theme="dark"] .admin-portal :is(
+.admin-portal :is(
   .hover\:bg-gray-50:hover,
   .hover\:bg-gray-100:hover,
   .hover\:bg-slate-50:hover,
@@ -48,30 +363,21 @@
   background-color: var(--row-hover) !important;
 }
 
-/* ── Typography ───────────────────────────────────────────────── */
-
-[data-theme="dark"] .admin-portal :is(
+.admin-portal :is(
   .text-gray-900,
   .text-slate-900,
-  .text-\[\#0c225e\]
+  .text-navy,
+  .text-\[\#0c225e\],
+  .text-\[\#0C225E\]
 ) {
   color: var(--text-primary) !important;
 }
 
-[data-theme="dark"] .admin-portal .text-navy {
-  color: var(--text-primary) !important;
-}
-
-[data-theme="dark"] .admin-portal :is(
-  .text-gray-800,
-  .text-gray-700,
-  .text-slate-800,
-  .text-slate-700
-) {
+.admin-portal :is(.text-gray-800, .text-gray-700, .text-slate-800, .text-slate-700) {
   color: var(--text-secondary) !important;
 }
 
-[data-theme="dark"] .admin-portal :is(
+.admin-portal :is(
   .text-gray-600,
   .text-gray-500,
   .text-gray-400,
@@ -82,11 +388,95 @@
   color: var(--text-muted) !important;
 }
 
-[data-theme="dark"] .admin-portal .text-gray-300 {
+.admin-portal .text-gray-300 {
   color: var(--text-light) !important;
 }
 
-/* Status tints — keep hue, improve contrast on dark */
+.admin-portal :is(
+  .border-gray-100,
+  .border-gray-200,
+  .border-slate-100,
+  .border-slate-200
+) {
+  border-color: var(--border-default) !important;
+}
+
+.admin-portal :is(.border-gray-300, .border-slate-300) {
+  border-color: var(--border-strong) !important;
+}
+
+.admin-portal :is(
+  .divide-gray-50 > :not(:last-child),
+  .divide-gray-100 > :not(:last-child),
+  .divide-slate-50 > :not(:last-child),
+  .divide-slate-100 > :not(:last-child),
+  .divide-y.divide-slate-50 > :not(:last-child)
+) {
+  border-color: var(--divider) !important;
+}
+
+.admin-portal .ring-slate-200 {
+  --tw-ring-color: var(--border-default) !important;
+}
+
+.admin-portal .shadow-sm {
+  box-shadow: var(--shadow-card) !important;
+}
+
+.admin-portal .bg-\[\#0c225e\] {
+  background-color: var(--cort-navy) !important;
+}
+
+.admin-portal :is(.bg-\[\#fe8503\], .bg-\[\#f47f00\]) {
+  background-color: var(--cort-orange) !important;
+}
+
+.admin-portal :is(.text-\[\#fe8503\], .text-\[\#f47f00\]) {
+  color: var(--cort-orange) !important;
+}
+
+.admin-portal :is(.border-\[\#0c225e\], .border-\[\#fe8503\], .border-\[\#f47f00\]) {
+  border-color: var(--border-default) !important;
+}
+
+/* ── Legacy status tints — only remapped on dark ──────────────── */
+
+[data-theme="dark"] .admin-portal :is(
+  .bg-indigo-50,
+  .bg-green-50,
+  .bg-purple-50,
+  .bg-red-50,
+  .bg-yellow-50,
+  .bg-blue-50,
+  .bg-orange-50,
+  .bg-emerald-50,
+  .bg-rose-50,
+  .bg-amber-50,
+  .bg-blue-50\/30,
+  .bg-orange-50\/30,
+  .bg-orange-50\/80,
+  .bg-rose-50\/50,
+  .bg-amber-50\/30
+) {
+  background-color: var(--bg-subtle) !important;
+}
+
+[data-theme="dark"] .admin-portal :is(
+  .border-indigo-200,
+  .border-green-200,
+  .border-purple-200,
+  .border-red-200,
+  .border-yellow-200,
+  .border-emerald-100,
+  .border-emerald-200,
+  .border-rose-100,
+  .border-orange-100,
+  .border-blue-100,
+  .border-indigo-100
+) {
+  border-color: var(--border-default) !important;
+}
+
 [data-theme="dark"] .admin-portal .text-indigo-700 {
   color: #a5b4fc !important;
 }
@@ -100,134 +490,58 @@
   color: #fcd34d !important;
 }
 
-/* ── Borders & dividers ───────────────────────────────────────── */
+/* ── Modern polish for legacy pages ───────────────────────────── */
 
-[data-theme="dark"] .admin-portal :is(
-  .border-gray-100,
-  .border-gray-200,
-  .border-gray-300,
-  .border-slate-200,
-  .border-slate-300,
-  .border-indigo-200,
-  .border-green-200,
-  .border-purple-200,
-  .border-red-200,
-  .border-yellow-200,
-  .border-emerald-100,
-  .border-emerald-200
+/* The shell already pads <main>; pages that wrap themselves in p-6 / p-8 would double it. */
+.admin-portal main > :is(.p-6, .p-8, .lg\:p-10, .md\:p-8) {
+  padding: 0 !important;
+}
+
+/* Coloured "glow" shadows on buttons/cards read as dated — use one soft elevation. */
+.admin-portal :is(
+  [class*="shadow-orange"],
+  [class*="shadow-navy"],
+  [class*="shadow-rose"],
+  [class*="shadow-blue"],
+  [class*="shadow-indigo"],
+  [class*="shadow-emerald"]
 ) {
-  border-color: var(--border-default) !important;
-}
-
-[data-theme="dark"] .admin-portal :is(.divide-gray-50 > :not(:last-child), .divide-gray-100 > :not(:last-child)) {
-  border-color: var(--divider) !important;
-}
-
-[data-theme="dark"] .admin-portal .ring-slate-200 {
-  --tw-ring-color: var(--border-default) !important;
-}
-
-/* ── Form controls ────────────────────────────────────────────── */
-
-[data-theme="dark"] .admin-portal :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
-  background-color: var(--bg-input);
-  color: var(--text-primary);
-  border-color: var(--border-input);
-}
-
-[data-theme="dark"] .admin-portal :is(input, select, textarea)::placeholder {
-  color: var(--text-placeholder);
-}
-
-[data-theme="dark"] .admin-portal input[type="checkbox"],
-[data-theme="dark"] .admin-portal input[type="radio"] {
-  accent-color: var(--cort-orange);
-}
-
-/* ── Tables ───────────────────────────────────────────────────── */
-
-[data-theme="dark"] .admin-portal thead.bg-gray-50,
-[data-theme="dark"] .admin-portal tr.bg-gray-50 {
-  background-color: var(--bg-subtle) !important;
-}
-
-[data-theme="dark"] .admin-portal tbody tr:hover,
-[data-theme="dark"] .admin-portal .hover\:bg-slate-50:hover {
-  background-color: var(--row-hover) !important;
-}
-
-/* Muted table header text */
-[data-theme="dark"] .admin-portal th.text-gray-500 {
-  color: var(--text-muted) !important;
-}
-
-[data-theme="dark"] .admin-portal td.text-gray-900,
-[data-theme="dark"] .admin-portal td.text-gray-700 {
-  color: var(--text-primary) !important;
-}
-
-/* ── Shadows (soften on dark) ─────────────────────────────────── */
-
-[data-theme="dark"] .admin-portal .shadow-sm {
   box-shadow: var(--shadow-card) !important;
 }
 
-/* ── Hex literals (legacy pages) ───────────────────────────────── */
-
-[data-theme="dark"] .admin-portal .bg-\[\#F8FAFC\] {
-  background-color: var(--bg-page) !important;
+.admin-portal :is(.shadow-lg, .shadow-xl, .shadow-2xl):not([role="dialog"]) {
+  box-shadow: var(--shadow-card-hover) !important;
 }
 
-[data-theme="dark"] .admin-portal .bg-\[\#0c225e\] {
-  background-color: var(--cort-navy) !important;
+/* Buttons: medium weight, no lift-on-hover jumpiness. */
+.admin-portal :is(button, a).font-bold,
+.admin-portal :is(button, a).font-extrabold {
+  font-weight: 600 !important;
 }
 
-[data-theme="dark"] .admin-portal :is(
-  .text-\[\#0c225e\],
-  .text-\[\#0C225E\]
-) {
-  color: var(--text-primary) !important;
+.admin-portal :is(button, a):active:not(:disabled) {
+  transform: scale(0.985);
 }
 
-[data-theme="dark"] .admin-portal :is(
-  .border-\[\#0c225e\],
-  .border-\[\#fe8503\],
-  .border-\[\#f47f00\]
-) {
-  border-color: var(--border-default) !important;
+.admin-portal :is(button, a).hover\:-translate-y-0\.5:hover {
+  transform: none !important;
 }
 
-[data-theme="dark"] .admin-portal :is(
-  .bg-\[\#fe8503\],
-  .bg-\[\#f47f00\]
-) {
-  background-color: var(--cort-orange) !important;
+.admin-portal :is(button, a):is(.bg-\[\#f47f00\], .bg-\[\#fe8503\]):hover:not(:disabled) {
+  background-color: var(--cort-orange-hover) !important;
 }
 
-[data-theme="dark"] .admin-portal :is(
-  .text-\[\#fe8503\],
-  .text-\[\#f47f00\]
-) {
-  color: var(--cort-orange) !important;
+/* Table cards: let the container clip rows so corners stay round. */
+.admin-portal .overflow-hidden > table,
+.admin-portal .overflow-x-auto > table {
+  width: 100%;
 }
 
-/* Tinted status backgrounds on dark */
-[data-theme="dark"] .admin-portal :is(
-  .bg-rose-50,
-  .bg-amber-50,
-  .bg-blue-50\/30,
-  .bg-orange-50\/30,
-  .bg-orange-50,
-  .bg-rose-50\/50,
-  .bg-amber-50\/30
-) {
-  background-color: var(--bg-subtle) !important;
+.admin-portal tbody tr td {
+  vertical-align: middle;
 }
 
-[data-theme="dark"] .admin-portal :is(
-  .divide-slate-50 > :not(:last-child),
-  .divide-y.divide-slate-50 > :not(:last-child)
-) {
-  border-color: var(--divider) !important;
+/* Subtle focus-within ring on search-style wrappers. */
+.admin-portal label:focus-within > svg {
+  color: var(--cort-orange);
 }
-
