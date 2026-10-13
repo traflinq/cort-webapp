@@ -14,11 +14,21 @@ interface UseGooglePlacesOptions {
     apiKey: string;
     /** ISO 3166-1 alpha-2 country bias, e.g. 'pk' */
     country?: string;
+    /** API key for the geocode.maps.co fallback, used when Google Maps fails (e.g. billing disabled) */
+    fallbackApiKey?: string;
 }
+
+const GEOCODE_FALLBACK_KEY =
+    process.env.NEXT_PUBLIC_GEOCODE_MAPS_API_KEY || '';
 
 /**
  * Loads the Google Maps JavaScript API once, then provides a Places
  * Autocomplete-powered search that returns resolved lat/lng for each result.
+ *
+ * Falls back to geocode.maps.co (Nominatim-based) whenever the Google Maps
+ * script fails to load or the Places API returns a non-OK status (e.g.
+ * REQUEST_DENIED when Google billing is disabled), so address search keeps
+ * working even if Google Maps is unavailable.
  */
 export function useGooglePlacesAutocomplete(options: UseGooglePlacesOptions) {
     const [suggestions, setSuggestions] = useState<GooglePlaceSuggestion[]>([]);
@@ -31,12 +41,77 @@ export function useGooglePlacesAutocomplete(options: UseGooglePlacesOptions) {
     const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const mountedRef = useRef(true);
+    const googleUnavailableRef = useRef(false);
+    const fallbackAbortRef = useRef<AbortController | null>(null);
+
+    const fallbackApiKey = options.fallbackApiKey || GEOCODE_FALLBACK_KEY;
+
+    // ── Fallback search via geocode.maps.co ───────────────────────────────────
+    const searchFallback = useCallback(
+        async (query: string) => {
+            if (!fallbackApiKey) {
+                setSuggestions([]);
+                setIsLoading(false);
+                setError('Address search is temporarily unavailable');
+                return;
+            }
+
+            if (fallbackAbortRef.current) fallbackAbortRef.current.abort();
+            fallbackAbortRef.current = new AbortController();
+
+            setIsLoading(true);
+            setError(null);
+
+            try {
+                const params = new URLSearchParams({
+                    q: query,
+                    api_key: fallbackApiKey,
+                    format: 'json',
+                    limit: '5',
+                });
+                if (options.country) {
+                    params.set('countrycodes', options.country);
+                }
+
+                const response = await fetch(
+                    `https://geocode.maps.co/search?${params}`,
+                    { signal: fallbackAbortRef.current.signal }
+                );
+                if (!response.ok) throw new Error('Failed to fetch suggestions');
+
+                const data = await response.json();
+                if (!mountedRef.current) return;
+
+                const resolved: GooglePlaceSuggestion[] = Array.isArray(data)
+                    ? data.map((item: any) => ({
+                          place_id: String(item.place_id),
+                          display_name: item.display_name,
+                          name: item.name || item.display_name,
+                          lat: parseFloat(item.lat),
+                          lng: parseFloat(item.lon),
+                      }))
+                    : [];
+                setSuggestions(resolved);
+            } catch (err: any) {
+                if (err?.name !== 'AbortError' && mountedRef.current) {
+                    setError(err?.message ?? 'Failed to resolve places');
+                    setSuggestions([]);
+                }
+            } finally {
+                if (mountedRef.current) setIsLoading(false);
+            }
+        },
+        [fallbackApiKey, options.country]
+    );
 
     // ── Load the Google Maps script once ─────────────────────────────────────
     useEffect(() => {
         mountedRef.current = true;
 
-        if (!options.apiKey) return;
+        if (!options.apiKey) {
+            googleUnavailableRef.current = true;
+            return;
+        }
 
         // Already loaded
         if (window.google?.maps?.places) {
@@ -57,7 +132,9 @@ export function useGooglePlacesAutocomplete(options: UseGooglePlacesOptions) {
             if (mountedRef.current) initServices();
         };
         script.onerror = () => {
-            if (mountedRef.current) setError('Failed to load Google Maps');
+            if (!mountedRef.current) return;
+            googleUnavailableRef.current = true;
+            setError('Failed to load Google Maps');
         };
 
         document.head.appendChild(script);
@@ -128,6 +205,11 @@ export function useGooglePlacesAutocomplete(options: UseGooglePlacesOptions) {
             }
 
             debounceRef.current = setTimeout(async () => {
+                if (googleUnavailableRef.current) {
+                    searchFallback(query);
+                    return;
+                }
+
                 if (!autocompleteServiceRef.current) {
                     // Script not yet loaded
                     return;
@@ -150,12 +232,20 @@ export function useGooglePlacesAutocomplete(options: UseGooglePlacesOptions) {
                     async (predictions, status) => {
                         if (!mountedRef.current) return;
 
+                        if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+                            setSuggestions([]);
+                            setIsLoading(false);
+                            return;
+                        }
+
                         if (
                             status !== google.maps.places.PlacesServiceStatus.OK ||
                             !predictions
                         ) {
-                            setSuggestions([]);
-                            setIsLoading(false);
+                            // Non-OK status (e.g. REQUEST_DENIED from disabled billing,
+                            // OVER_QUERY_LIMIT, UNKNOWN_ERROR) — switch to fallback provider.
+                            googleUnavailableRef.current = true;
+                            searchFallback(query);
                             return;
                         }
 
@@ -200,7 +290,7 @@ export function useGooglePlacesAutocomplete(options: UseGooglePlacesOptions) {
                 );
             }, 300);
         },
-        [options.country, getLatLng]
+        [options.country, getLatLng, searchFallback]
     );
 
     const clearSuggestions = useCallback(() => {
