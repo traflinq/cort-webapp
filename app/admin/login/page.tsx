@@ -69,14 +69,7 @@ export default function AdminLoginPage() {
           />
         </Field>
 
-        <Field
-          label={
-            <span className="flex w-full items-center justify-between">
-              <span>Password</span>
-            </span>
-          }
-          required
-        >
+        <Field label="Password" required>
           <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" placeholder="••••••••" required />
         </Field>
         <div className="-mt-3 text-right">
