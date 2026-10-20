@@ -7,7 +7,6 @@ import { useAuth } from "../../lib/contexts/auth-context";
 import type { PermissionKey } from "../../lib/types/auth-types";
 import { BookingNotificationProvider } from "../components/BookingNotificationProvider";
 import { useAdminTheme } from "../lib/theme-context";
-import { usePersistedBoolean } from "../lib/use-persisted-boolean";
 import { activeNavItem, navGroupFor, visibleNavGroups, type NavViewer } from "../lib/nav";
 import { Drawer, DrawerContent } from "./Drawer";
 import { Sidebar } from "./shell/Sidebar";
@@ -16,7 +15,6 @@ import { CommandPalette } from "./shell/CommandPalette";
 import { BreadcrumbProvider, useBreadcrumbContext } from "./shell/breadcrumbs-context";
 import type { Crumb } from "./PageHeader";
 
-const SIDEBAR_COLLAPSED_KEY = "cort-admin-sidebar-collapsed";
 const SHOW_DESIGN_SYSTEM = process.env.NODE_ENV !== "production";
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -32,7 +30,21 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 function ShellFrame({ pathname, children }: { pathname: string; children: React.ReactNode }) {
   const { logout, user, isSuperAdmin, isInternalStaff, hasPermission } = useAuth();
   const { theme, toggle } = useAdminTheme();
-  const [collapsed, setCollapsed] = usePersistedBoolean(SIDEBAR_COLLAPSED_KEY, false);
+  const [hovered, setHovered] = React.useState(false);
+  const [focused, setFocused] = React.useState(false);
+  const closeTimer = React.useRef<number | null>(null);
+  const expanded = hovered || focused;
+
+  const openRail = () => {
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    setHovered(true);
+  };
+  // Short grace period so brushing past the edge doesn't make the rail flicker shut.
+  const closeRail = () => {
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => setHovered(false), 120);
+  };
+  React.useEffect(() => () => { if (closeTimer.current) window.clearTimeout(closeTimer.current); }, []);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const { extra } = useBreadcrumbContext();
@@ -86,21 +98,25 @@ function ShellFrame({ pathname, children }: { pathname: string; children: React.
       </a>
 
       <div className="flex min-h-screen">
-        <aside
-          className={cn(
-            "sticky top-0 hidden h-screen shrink-0 border-r border-line bg-card transition-[width] duration-200 ease-out md:block",
-            collapsed ? "w-16" : "w-60",
-          )}
-        >
-          <Sidebar
-            groups={groups}
-            activeHref={active?.href}
-            collapsed={collapsed}
-            onToggleCollapsed={() => setCollapsed(!collapsed)}
-            theme={theme}
-            isSuperAdmin={isSuperAdmin}
-          />
-        </aside>
+        {/* Reserves the rail's width in the layout; the real sidebar overlays content when expanded. */}
+        <div className="relative hidden w-16 shrink-0 md:block">
+          <aside
+            onMouseEnter={openRail}
+            onMouseLeave={closeRail}
+            onFocus={() => setFocused(true)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
+            }}
+            className={cn(
+              "fixed inset-y-0 left-0 z-40 overflow-hidden border-r border-line bg-card transition-[width,box-shadow] duration-200 ease-[cubic-bezier(0.22,0.61,0.36,1)]",
+              expanded ? "w-60 shadow-[var(--shadow-modal)]" : "w-16",
+            )}
+          >
+            <div className="h-full w-60">
+              <Sidebar groups={groups} activeHref={active?.href} expanded={expanded} theme={theme} isSuperAdmin={isSuperAdmin} />
+            </div>
+          </aside>
+        </div>
 
         <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
           <DrawerContent side="left" size="sm" flush hideHeader title="Navigation" className="max-w-[18rem]">

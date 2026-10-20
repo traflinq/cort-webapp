@@ -76,7 +76,7 @@ Super-admin-only routes use `SuperAdminPage` (e.g. Staff & Permissions).
 
 - Light/dark toggle in the top bar and account menu. Stored in `localStorage` key `cort-admin-theme` (default: light);
   `useAdminTheme()` exposes `theme`, `setTheme`, `toggle`.
-- Sidebar collapse state: `cort-admin-sidebar-collapsed`.
+- Sidebar is a hover/focus-to-expand icon rail that overlays the page (no persisted state).
 - The old `admin-theme.css` dark-mode bridge and `admin-styles.ts` helpers were removed; every page uses the tokens above.
 
 ## Known flagged items (not changed on purpose)
