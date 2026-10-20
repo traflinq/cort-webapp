@@ -21,7 +21,16 @@ const menuSurface =
 const DropdownMenuContent = React.forwardRef<React.ElementRef<typeof DM.Content>, React.ComponentPropsWithoutRef<typeof DM.Content>>(
   ({ className, sideOffset = 6, align = "end", ...props }, ref) => (
     <DM.Portal>
-      <DM.Content ref={ref} sideOffset={sideOffset} align={align} collisionPadding={8} className={cn(menuSurface, className)} {...props} />
+      <DM.Content
+        ref={ref}
+        sideOffset={sideOffset}
+        align={align}
+        collisionPadding={8}
+        // Don't hand focus back to the trigger: an item often opens a dialog, which must keep focus.
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        className={cn(menuSurface, className)}
+        {...props}
+      />
     </DM.Portal>
   ),
 );
