@@ -17,4 +17,4 @@ export const inputBase =
 
 /** Surface for cards and panels. */
 export const surface =
-  "rounded-xl border border-line bg-card text-fg shadow-[var(--shadow-card)]";
+  "rounded-2xl border border-line bg-card text-fg shadow-[var(--shadow-card)]";

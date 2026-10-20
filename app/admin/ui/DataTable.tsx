@@ -155,7 +155,7 @@ export function DataTable<T>({
   };
 
   return (
-    <div className={cn("flex flex-col", className)}>
+    <div className={cn("flex flex-col overflow-hidden rounded-[inherit]", className)}>
       {selectable && bulkActions && selectedKeys.length > 0 && (
         <div
           role="region"

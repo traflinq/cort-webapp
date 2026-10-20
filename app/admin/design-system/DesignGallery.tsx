@@ -198,7 +198,7 @@ export function GalleryContent() {
             </div>
           ))}
         </div>
-        <div className="flex flex-wrap items-baseline gap-6 rounded-xl border border-line bg-card p-5">
+        <div className="flex flex-wrap items-baseline gap-6 rounded-2xl border border-line bg-card p-5">
           <span className="text-2xl font-semibold tracking-tight">Display 24/600</span>
           <span className="text-xl font-semibold">H1 20/600</span>
           <span className="text-base font-semibold">H2 16/600</span>

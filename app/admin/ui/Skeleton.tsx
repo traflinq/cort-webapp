@@ -25,7 +25,7 @@ export function TableSkeletonRows({ columns = 5, rows = 5, cellClassName = "px-4
 /** Stand-alone skeleton for a card/panel. */
 export function CardSkeleton({ lines = 3, className }: { lines?: number; className?: string }) {
   return (
-    <div className={cn("rounded-xl border border-line bg-card p-5", className)}>
+    <div className={cn("rounded-2xl border border-line bg-card p-5", className)}>
       <Skeleton className="mb-4 h-4 w-1/3" />
       <div className="space-y-2">
         {Array.from({ length: lines }).map((_, i) => (
@@ -39,7 +39,7 @@ export function CardSkeleton({ lines = 3, className }: { lines?: number; classNa
 /** KPI card skeleton. */
 export function KpiSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("rounded-xl border border-line bg-card p-4", className)}>
+    <div className={cn("rounded-2xl border border-line bg-card p-4", className)}>
       <Skeleton className="h-3 w-24" />
       <Skeleton className="mt-3 h-7 w-32" />
       <Skeleton className="mt-3 h-3 w-20" />
@@ -60,7 +60,7 @@ export function PageSkeleton() {
           <KpiSkeleton key={i} />
         ))}
       </div>
-      <div className="rounded-xl border border-line bg-card">
+      <div className="rounded-2xl border border-line bg-card">
         <div className="border-b border-line px-4 py-3">
           <Skeleton className="h-4 w-40" />
         </div>

@@ -218,6 +218,18 @@
     --chart-axis: rgba(15,23,42,0.45);
 }
 
+/* Super Admin portal (and its auth pages): plain white page in light theme. Scoped so company/vendor keep their tint. */
+/* Applied on <html> while an admin page is mounted (:has), so the body, overscroll area and portalled dialogs are white too. */
+html[data-theme="light"]:has(.admin-portal) {
+    --bg-page: #ffffff;
+    --bg-header: #ffffff;
+    /* Slightly stronger edges so white cards and form fields stay visible on a white page. */
+    --border-default: rgba(15,23,42,0.10);
+    --border-strong: rgba(15,23,42,0.18);
+    --border-input: rgba(15,23,42,0.24);
+    --divider: rgba(15,23,42,0.08);
+}
+
 /* Theme-aware tinted alert banners (readable in light + dark mode) */
 .alert-banner-warning {
     border-radius: 0.75rem;

@@ -134,7 +134,7 @@ export function DeleteRequestsModal({ isOpen, onClose, onChanged }: DeleteReques
               const Icon = ENTITY_ICON[r.entity_type];
               const busy = actingId === r.id;
               return (
-                <li key={r.id} className="rounded-xl border border-line bg-card p-4">
+                <li key={r.id} className="rounded-2xl border border-line bg-card p-4">
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <StatusBadge status={r.status} size="sm" />
                     <Badge tone="neutral" size="sm" icon={<Icon aria-hidden="true" />}>

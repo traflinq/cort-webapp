@@ -68,7 +68,7 @@ export function PreviewDialog({ open, onClose, loading, fuelPrice, data }: Previ
               const petrol = item.calculation;
               const diesel = item.diesel_calculation;
               return (
-                <section key={idx} className="rounded-xl border border-line bg-card p-4">
+                <section key={idx} className="rounded-2xl border border-line bg-card p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <h4 className="text-sm font-semibold text-fg">{item.company?.name || "Company"}</h4>
