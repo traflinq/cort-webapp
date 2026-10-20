@@ -1,24 +1,62 @@
-import * as React from "react"
+"use client";
 
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { cn } from "@/lib/utils";
+import { inputBase } from "./styles";
+import { useFieldContext } from "./Field";
 
-export type InputProps = React.InputHTMLAttributes<HTMLInputElement>
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  invalid?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+  /** Monospace: IDs, plates, codes, amounts in tables. */
+  mono?: boolean;
+}
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-    ({ className, type, ...props }, ref) => {
-        return (
-            <input
-                type={type}
-                className={cn(
-                    "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-                    className
-                )}
-                ref={ref}
-                {...props}
-            />
-        )
-    }
-)
-Input.displayName = "Input"
+  ({ className, invalid, leftIcon, rightIcon, mono, id, ...props }, ref) => {
+    const field = useFieldContext();
+    const resolvedId = id ?? field?.id;
+    const ariaInvalid = invalid ?? field?.invalid ?? props["aria-invalid"];
+    const describedBy = [props["aria-describedby"], field?.describedBy].filter(Boolean).join(" ") || undefined;
 
-export { Input }
+    const input = (
+      <input
+        ref={ref}
+        id={resolvedId}
+        aria-invalid={ariaInvalid ? true : undefined}
+        aria-describedby={describedBy}
+        className={cn(
+          inputBase,
+          "[&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60",
+          leftIcon && "pl-9",
+          rightIcon && "pr-9",
+          mono && "font-mono tabular-nums",
+          className,
+        )}
+        {...props}
+      />
+    );
+
+    if (!leftIcon && !rightIcon) return input;
+
+    return (
+      <div className="relative w-full">
+        {leftIcon && (
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted [&_svg]:size-4">
+            {leftIcon}
+          </span>
+        )}
+        {input}
+        {rightIcon && (
+          <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center text-fg-muted [&_svg]:size-4">
+            {rightIcon}
+          </span>
+        )}
+      </div>
+    );
+  },
+);
+Input.displayName = "Input";
+
+export { Input };

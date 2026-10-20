@@ -1,19 +1,25 @@
 "use client";
 
+import { Eye, FileText, Trash2 } from "lucide-react";
 import { ChauffeurBooking } from "../../../../lib/services/api-client";
-import Pagination from "../../../../components/ui/Pagination";
-import { cx } from "../../../components/ui/cx";
-import { formatDateTime } from "../utils/formatDateTime";
-import { Trash2 } from "lucide-react";
+import { Badge, DataTable, Select, StatusBadge, type DataTableColumn } from "../../../ui";
+import { formatDateTime, humanize } from "../../../lib/format";
+import { BOOKING_STATUS_OPTIONS, BOOKING_STATUS_OVERRIDES, selectableStatus } from "./booking-status";
+import { BOOKINGS_PAGE_SIZE } from "../hooks/usePendingBookings";
 
 type BookingListProps = {
   bookings: ChauffeurBooking[];
   isLoading: boolean;
+  error: string | null;
+  onRetry: () => void;
   selectedBookingId: number | null;
   currentPage: number;
   totalPages: number;
+  total: number;
   canEditBookings: boolean;
   isDeleting: boolean;
+  hasFilters: boolean;
+  onClearFilters: () => void;
   onSelectBooking: (booking: ChauffeurBooking) => void;
   onPageChange: (page: number) => void;
   onStatusChange: (booking: ChauffeurBooking, status: string) => void;
@@ -24,202 +30,171 @@ type BookingListProps = {
 export function BookingList({
   bookings,
   isLoading,
+  error,
+  onRetry,
   selectedBookingId,
   currentPage,
   totalPages,
+  total,
   canEditBookings,
   isDeleting,
+  hasFilters,
+  onClearFilters,
   onSelectBooking,
   onPageChange,
   onStatusChange,
   onDeleteBooking,
   onGenerateInvoice,
 }: BookingListProps) {
-  return (
-    <section className="rounded-xl border border-border bg-white overflow-hidden shadow-sm">
-      <div className="p-4 border-b border-border bg-surface/30">
-        <div className="text-sm font-semibold text-navy">Booking List</div>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-surface text-xs font-semibold tracking-wider text-muted">
-            <tr>
-              <th className="px-4 py-3 text-left">Company</th>
-              <th className="px-4 py-3 text-left">Passenger</th>
-              <th className="px-4 py-3 text-left">Request</th>
-              <th className="px-4 py-3 text-left">City</th>
-              <th className="px-4 py-3 text-left">Pickup Address</th>
-              <th className="px-4 py-3 text-left">Assigned Driver</th>
-              <th className="px-4 py-3 text-left">Assigned Vehicle</th>
-              <th className="px-4 py-3 text-left">Scheduled At</th>
-              <th className="px-4 py-3 text-center">Days</th>
-              <th className="px-4 py-3 text-center">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {isLoading && bookings.length === 0 ? (
-              <tr>
-                <td colSpan={10} className="p-4 text-center">
-                  Loading...
-                </td>
-              </tr>
-            ) : (
-              bookings.map((b) => {
-                const isSelected = selectedBookingId === b.id;
-                const driver = b.users_chauffeur_bookings_driver_idTousers;
-                const vehicle = b.vehicles;
-
-                return (
-                  <tr
-                    key={b.id}
-                    onClick={() => onSelectBooking(b)}
-                    className={cx(
-                      "cursor-pointer transition-colors group",
-                      isSelected ? "bg-blue/5" : "hover:bg-surface"
-                    )}
-                  >
-                    <td className="px-4 py-4">
-                      <div className="font-semibold text-ink group-hover:text-blue transition-colors">
-                        {b.companies?.name || "Unknown Company"}
-                      </div>
-                      <div className="text-[10px] text-muted font-mono">{b.id}</div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="text-ink">
-                        {b.users_chauffeur_bookings_passenger_idTousers?.full_name || "Unknown Passenger"}
-                      </div>
-                      <div className="text-[11px] text-muted">
-                        {b.users_chauffeur_bookings_passenger_idTousers?.email}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="text-ink font-medium">{b.vehicle_model || "Any Model"}</div>
-                      {b.is_special_request && (
-                        <div className="mt-1 inline-flex items-center rounded-md bg-orange/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange">
-                          Special request
-                        </div>
-                      )}
-                      <div className="text-[11px] text-muted">{b.package_selected.replace(/_/g, " ")}</div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="text-sm font-medium text-ink">{b.city || "—"}</div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <div
-                        className="max-w-[150px] truncate text-sm text-ink"
-                        title={b.pickup_address || "No address"}
-                      >
-                        {b.pickup_address || "-"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      {driver ? (
-                        <div>
-                          <div className="text-sm font-medium text-ink">{driver.full_name}</div>
-                          {driver.phone && (
-                            <div className="text-[11px] text-muted mt-0.5">{driver.phone}</div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted text-xs italic">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      {vehicle ? (
-                        <div>
-                          <div className="text-sm font-medium text-ink">{vehicle.model}</div>
-                          <div className="text-[11px] text-muted font-mono mt-0.5">{vehicle.plate_number}</div>
-                        </div>
-                      ) : (
-                        <span className="text-muted text-xs italic">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-muted">{formatDateTime(b.scheduled_for)}</td>
-                    <td className="px-4 py-4 text-center font-medium text-ink">{b.no_of_days || 1}</td>
-                    <td className="px-4 py-4 text-center">
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <select
-                          value={
-                            b.status === "DROPPED_OFF"
-                              ? "IN_PROGRESS"
-                              : b.status === "OTW"
-                                ? "ASSIGNED"
-                                : b.status
-                          }
-                          onChange={(e) => {
-                            if (!canEditBookings) return;
-                            onStatusChange(b, e.target.value);
-                          }}
-                          disabled={!canEditBookings}
-                          className={cx(
-                            "h-7 rounded-full px-2 text-[11px] font-semibold border-none outline-none cursor-pointer appearance-none text-center min-w-[100px]",
-                            b.status === "PENDING"
-                              ? "bg-yellow/10 text-yellow"
-                              : b.status === "COMPLETED"
-                                ? "bg-green/10 text-green-600"
-                                : b.status === "CANCELLED"
-                                  ? "bg-red/10 text-red-600"
-                                  : "bg-blue/10 text-blue"
-                          )}
-                        >
-                          <option value="PENDING">PENDING</option>
-                          <option value="ASSIGNED">ASSIGNED</option>
-                          <option value="ARRIVED">ARRIVED</option>
-                          <option value="IN_PROGRESS">IN_PROGRESS</option>
-                          <option value="ENDED">ENDED</option>
-                          <option value="COMPLETED">COMPLETED</option>
-                          <option value="CANCELLED">CANCELLED</option>
-                        </select>
-                      </div>
-
-                      {canEditBookings && (
-                        <div className="mt-2 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            aria-label={`Delete booking #${b.id}`}
-                            title={`Delete booking #${b.id}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteBooking(b.id);
-                            }}
-                            disabled={isDeleting}
-                            className="text-danger hover:text-danger/80 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      )}
-
-                      {b.status === "COMPLETED" && !b.invoices && (
-                        <div className="mt-2 text-center" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={() => canEditBookings && onGenerateInvoice(b.id)}
-                            disabled={!canEditBookings}
-                            className="text-[10px] bg-navy text-white px-2 py-1 rounded hover:opacity-90 disabled:opacity-50"
-                          >
-                            Generate Invoice
-                          </button>
-                        </div>
-                      )}
-                      {b.invoices && (
-                        <div className="mt-2 text-center text-[10px] text-green-600 font-medium">
-                          Invoiced #{b.invoices.invoice_number}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
+  const columns: DataTableColumn<ChauffeurBooking>[] = [
+    {
+      key: "company",
+      header: "Company",
+      cell: (b) => (
+        <div className="min-w-0">
+          <div className="truncate font-medium text-fg">{b.companies?.name || "Unknown company"}</div>
+          <div className="font-mono text-[11px] text-fg-muted">#{b.id}</div>
+        </div>
+      ),
+    },
+    {
+      key: "passenger",
+      header: "Passenger",
+      cell: (b) => (
+        <div className="min-w-0">
+          <div className="truncate text-fg">{b.users_chauffeur_bookings_passenger_idTousers?.full_name || "Unknown passenger"}</div>
+          <div className="truncate text-xs text-fg-muted">{b.users_chauffeur_bookings_passenger_idTousers?.email}</div>
+        </div>
+      ),
+    },
+    {
+      key: "request",
+      header: "Request",
+      cell: (b) => (
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-medium text-fg">{b.vehicle_model || "Any model"}</span>
+            {b.is_special_request && (
+              <Badge tone="brand" size="sm">
+                Special request
+              </Badge>
             )}
-          </tbody>
-        </table>
-        {!isLoading && bookings.length === 0 ? (
-          <div className="py-12 text-center">
-            <div className="text-sm text-muted">No bookings found matching criteria.</div>
           </div>
-        ) : null}
-      </div>
-      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={onPageChange} />
-    </section>
+          <div className="text-xs text-fg-muted">{humanize(b.package_selected)}</div>
+        </div>
+      ),
+    },
+    { key: "city", header: "City", hideBelow: "lg", cell: (b) => <span className="text-fg">{b.city || "—"}</span> },
+    {
+      key: "pickup",
+      header: "Pickup",
+      hideBelow: "xl",
+      cell: (b) => (
+        <span className="block max-w-[14rem] truncate text-fg-secondary" title={b.pickup_address || undefined}>
+          {b.pickup_address || "—"}
+        </span>
+      ),
+    },
+    {
+      key: "driver",
+      header: "Driver",
+      hideBelow: "md",
+      cell: (b) => {
+        const driver = b.users_chauffeur_bookings_driver_idTousers;
+        if (!driver) return <span className="text-fg-muted">—</span>;
+        return (
+          <div className="min-w-0">
+            <div className="truncate text-fg">{driver.full_name}</div>
+            {driver.phone && <div className="font-mono text-xs text-fg-muted">{driver.phone}</div>}
+          </div>
+        );
+      },
+    },
+    {
+      key: "vehicle",
+      header: "Vehicle",
+      hideBelow: "md",
+      cell: (b) => {
+        const v = b.vehicles;
+        if (!v) return <span className="text-fg-muted">—</span>;
+        return (
+          <div className="min-w-0">
+            <div className="truncate text-fg">{v.model}</div>
+            <div className="font-mono text-xs text-fg-muted">{v.plate_number}</div>
+          </div>
+        );
+      },
+    },
+    { key: "scheduled", header: "Scheduled", cell: (b) => <span className="whitespace-nowrap text-fg-secondary">{formatDateTime(b.scheduled_for)}</span> },
+    { key: "days", header: "Days", align: "center", mono: true, hideBelow: "lg", cell: (b) => b.no_of_days || 1 },
+    {
+      key: "status",
+      header: "Status",
+      cell: (b) => (
+        <div className="flex flex-col items-start gap-1.5">
+          <StatusBadge status={b.status} overrides={BOOKING_STATUS_OVERRIDES} />
+          {canEditBookings && (
+            <Select
+              width="auto"
+              aria-label={`Change status of booking #${b.id}`}
+              value={selectableStatus(b.status)}
+              onChange={(e) => onStatusChange(b, e.target.value)}
+              className="h-7 py-0 pr-7 text-xs"
+            >
+              {BOOKING_STATUS_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          )}
+          {b.invoices && <span className="text-[11px] text-success-ink">Invoice #{b.invoices.invoice_number}</span>}
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <DataTable<ChauffeurBooking>
+      caption="Chauffeur bookings"
+      columns={columns}
+      rows={bookings}
+      rowKey={(b) => b.id}
+      loading={isLoading}
+      error={error}
+      onRetry={onRetry}
+      minWidth={880}
+      empty={{
+        title: hasFilters ? "No bookings match these filters" : "No bookings yet",
+        description: hasFilters ? "Try widening the date range or clearing a filter." : "New chauffeur bookings appear here as companies request them.",
+        action: hasFilters ? (
+          <button type="button" onClick={onClearFilters} className="text-sm font-medium text-brand underline-offset-4 hover:underline">
+            Clear filters
+          </button>
+        ) : undefined,
+      }}
+      onRowClick={onSelectBooking}
+      rowClassName={(b) => (b.id === selectedBookingId ? "bg-brand-soft/40" : undefined)}
+      rowActions={(b) => [
+        { label: "View details", icon: <Eye />, onSelect: () => onSelectBooking(b) },
+        {
+          label: "Generate invoice",
+          icon: <FileText />,
+          hidden: !(b.status === "COMPLETED" && !b.invoices),
+          disabled: !canEditBookings,
+          onSelect: () => onGenerateInvoice(b.id),
+        },
+        {
+          label: "Delete booking",
+          icon: <Trash2 />,
+          destructive: true,
+          separatorBefore: true,
+          hidden: !canEditBookings,
+          disabled: isDeleting,
+          onSelect: () => onDeleteBooking(b.id),
+        },
+      ]}
+      pagination={{ page: currentPage, totalPages, total, pageSize: BOOKINGS_PAGE_SIZE, onPageChange }}
+    />
   );
 }

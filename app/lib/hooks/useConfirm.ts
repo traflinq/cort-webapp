@@ -1,13 +1,20 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 
 export type ConfirmOptions = {
-  title?: string;
-  message: string;
+  title?: ReactNode;
+  /** The question. Keep it specific: "Delete Acme Logistics?" */
+  message: ReactNode;
+  /** Secondary explanation under the question. */
+  description?: ReactNode;
+  /** What will happen if the user confirms. Always set for destructive actions. */
+  consequences?: string[];
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  /** Require typing this exact string before confirming (high-risk actions). */
+  typeToConfirm?: string;
 };
 
 type ConfirmFn = (options: ConfirmOptions) => Promise<boolean>;

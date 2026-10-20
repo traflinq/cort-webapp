@@ -51,6 +51,7 @@ interface AdminVehiclesState {
         startDate: string;
         endDate: string;
     };
+    fuelPagination: { page: number; limit: number; total: number; pages: number };
 
     // Maintenance
     maintenanceRecords: MaintenanceRecord[];
@@ -65,6 +66,7 @@ interface AdminVehiclesState {
         startDate: string;
         endDate: string;
     };
+    maintenancePagination: { page: number; limit: number; total: number; pages: number };
     lastFetched: number | null;
 }
 
@@ -100,6 +102,7 @@ const initialState: AdminVehiclesState = {
         startDate: "",
         endDate: ""
     },
+    fuelPagination: { page: 1, limit: 25, total: 0, pages: 0 },
 
     // Maintenance
     maintenanceRecords: [],
@@ -114,6 +117,7 @@ const initialState: AdminVehiclesState = {
         startDate: "",
         endDate: ""
     },
+    maintenancePagination: { page: 1, limit: 25, total: 0, pages: 0 },
     lastFetched: null,
 };
 
@@ -482,6 +486,15 @@ export const adminVehiclesSlice = createSlice({
                 state.fuelStatus = 'succeeded';
                 state.fuelRecords = action.payload.data.data || action.payload.data;
                 state.fuelFilters = action.payload.filters;
+                const fuelPg = action.payload.data?.pagination;
+                if (fuelPg) {
+                    state.fuelPagination = {
+                        page: Number(fuelPg.page) || 1,
+                        limit: Number(fuelPg.limit) || state.fuelPagination.limit,
+                        total: Number(fuelPg.total) || 0,
+                        pages: Number(fuelPg.pages) || 0,
+                    };
+                }
             })
             .addCase(fetchFuelRecords.rejected, (state, action) => { state.fuelStatus = 'failed'; state.fuelError = action.payload as string; })
 
@@ -526,6 +539,15 @@ export const adminVehiclesSlice = createSlice({
                 state.maintenanceStatus = 'succeeded';
                 state.maintenanceRecords = action.payload.data.data || action.payload.data;
                 state.maintenanceFilters = action.payload.filters;
+                const maintPg = action.payload.data?.pagination;
+                if (maintPg) {
+                    state.maintenancePagination = {
+                        page: Number(maintPg.page) || 1,
+                        limit: Number(maintPg.limit) || state.maintenancePagination.limit,
+                        total: Number(maintPg.total) || 0,
+                        pages: Number(maintPg.pages) || 0,
+                    };
+                }
             })
             .addCase(fetchMaintenanceRecords.rejected, (state, action) => { state.maintenanceStatus = 'failed'; state.maintenanceError = action.payload as string; })
 
@@ -579,6 +601,7 @@ export const selectFuelStatus = (state: RootState) => state.adminVehicles.fuelSt
 export const selectFuelActionStatus = (state: RootState) => state.adminVehicles.fuelActionStatus;
 export const selectFuelActionError = (state: RootState) => state.adminVehicles.fuelActionError;
 export const selectFuelFilters = (state: RootState) => state.adminVehicles.fuelFilters;
+export const selectFuelPagination = (state: RootState) => state.adminVehicles.fuelPagination;
 
 export const selectMaintenanceRecords = (state: RootState) => state.adminVehicles.maintenanceRecords;
 export const selectUpcomingMaintenance = (state: RootState) => state.adminVehicles.upcomingMaintenance;
@@ -586,6 +609,7 @@ export const selectMaintenanceStatus = (state: RootState) => state.adminVehicles
 export const selectMaintenanceActionStatus = (state: RootState) => state.adminVehicles.maintenanceActionStatus;
 export const selectMaintenanceActionError = (state: RootState) => state.adminVehicles.maintenanceActionError;
 export const selectMaintenanceFilters = (state: RootState) => state.adminVehicles.maintenanceFilters;
+export const selectMaintenancePagination = (state: RootState) => state.adminVehicles.maintenancePagination;
 export const selectAdminVehiclesPagination = (state: RootState) => state.adminVehicles.pagination;
 
 export default adminVehiclesSlice.reducer;

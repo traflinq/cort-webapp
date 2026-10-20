@@ -2,20 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  Building2,
-  CircleDollarSign,
-  Fuel,
-  Landmark,
-  RefreshCw,
-  Sparkles,
-  TrendingDown,
-  Truck,
-  Wallet,
-} from "lucide-react";
+import { ArrowRight, Building2, CircleDollarSign, Fuel, Landmark, Sparkles, TrendingDown, Truck, Wallet } from "lucide-react";
 import { apiClient } from "@/app/lib/services/api-client";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { focusRing } from "../styles";
+import { Badge, Button, Card, CardContent, CardHeader, EmptyState, LoadingBlock, Tabs, TabsList, TabsTrigger, type BadgeTone } from "..";
+import { humanize } from "../../lib/format";
 
 export type SuperAdminInsightCard = {
   id: string;
@@ -58,32 +51,43 @@ type Props = {
   endDate?: string;
 };
 
-function severityClasses(severity: string) {
+function severityTone(severity: string): BadgeTone {
   const s = severity.toLowerCase();
-  if (s === "high" || s === "critical") return "bg-rose-50 text-rose-900 border-rose-200";
-  if (s === "medium" || s === "watch") return "bg-amber-50 text-amber-900 border-amber-200";
-  return "bg-emerald-50 text-emerald-900 border-emerald-200";
+  if (s === "high" || s === "critical") return "danger";
+  if (s === "medium" || s === "watch") return "warning";
+  return "success";
 }
 
+const toneBorder: Record<BadgeTone, string> = {
+  danger: "border-danger-line",
+  warning: "border-warning-line",
+  success: "border-success-line",
+  info: "border-info-line",
+  brand: "border-brand-line",
+  purple: "border-purple-line",
+  neutral: "border-line",
+};
+
 function categoryIcon(category: string) {
+  const cls = "size-4 shrink-0";
   switch (category) {
     case "margin":
     case "revenue":
     case "pnl":
-      return <TrendingDown className="h-5 w-5 text-[#fe8503]" />;
+      return <TrendingDown className={cn(cls, "text-brand-ink")} aria-hidden="true" />;
     case "receivables":
     case "cash":
     case "collections":
-      return <Wallet className="h-5 w-5 text-amber-600" />;
+      return <Wallet className={cn(cls, "text-warning-ink")} aria-hidden="true" />;
     case "dispatch":
-      return <Truck className="h-5 w-5 text-rose-600" />;
+      return <Truck className={cn(cls, "text-danger-ink")} aria-hidden="true" />;
     case "expenses":
     case "costs":
-      return <Fuel className="h-5 w-5 text-orange-600" />;
+      return <Fuel className={cn(cls, "text-brand-ink")} aria-hidden="true" />;
     case "unit_economics":
-      return <CircleDollarSign className="h-5 w-5 text-navy" />;
+      return <CircleDollarSign className={cn(cls, "text-info-ink")} aria-hidden="true" />;
     default:
-      return <Sparkles className="h-5 w-5 text-navy" />;
+      return <Sparkles className={cn(cls, "text-fg-muted")} aria-hidden="true" />;
   }
 }
 
@@ -113,10 +117,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
       setHasRun(true);
 
       const emptyFinance = mode === "finance" && !result.financialBrief?.plNarrative;
-      const emptyGeneral =
-        mode === "general" &&
-        (result.briefing?.length ?? 0) === 0 &&
-        (result.companies?.length ?? 0) === 0;
+      const emptyGeneral = mode === "general" && (result.briefing?.length ?? 0) === 0 && (result.companies?.length ?? 0) === 0;
       if (emptyFinance || emptyGeneral) {
         toast.message("AI returned no insights for this period");
       }
@@ -131,243 +132,165 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
   const showGeneral = hasRun && activeMode === "general";
 
   return (
-    <section className="rounded-3xl border border-[var(--border-default)] bg-[var(--bg-card)] p-6 shadow-sm space-y-6">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#fe8503]/10 border border-[#fe8503]/20">
-            {mode === "finance" ? (
-              <Landmark className="w-3.5 h-3.5 text-[#fe8503]" />
-            ) : (
-              <Sparkles className="w-3.5 h-3.5 text-[#fe8503]" />
+    <Card>
+      <CardHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            {mode === "finance" ? <Landmark className="size-4 text-brand-ink" aria-hidden="true" /> : <Sparkles className="size-4 text-brand-ink" aria-hidden="true" />}
+            {mode === "finance" ? "AI financial brief" : "AI operations summary"}
+          </span>
+        }
+        description={
+          mode === "finance"
+            ? "Interim CFO read of P&L, cash and unit economics for the selected period."
+            : "Ops signals and companies that need attention for the selected period."
+        }
+        actions={
+          <>
+            <Tabs value={mode} onValueChange={(v) => setMode(v as InsightsMode)}>
+              <TabsList variant="pills" aria-label="Analysis mode">
+                <TabsTrigger value="finance" disabled={generating}>
+                  Finance
+                </TabsTrigger>
+                <TabsTrigger value="general" disabled={generating}>
+                  General
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button onClick={runAnalysis} loading={generating} leftIcon={<Sparkles />}>
+              {generating ? "Generating…" : hasRun ? "Run again" : "Run analysis"}
+            </Button>
+          </>
+        }
+      />
+      <CardContent className="space-y-6">
+        {!hasRun && !generating && (
+          <EmptyState
+            compact
+            icon={mode === "finance" ? <Landmark aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+            title={mode === "finance" ? "No brief generated yet" : "No summary generated yet"}
+            description={mode === "finance" ? "Run the analysis for a CFO-style brief of this period." : "Run the analysis for ops signals and company attention."}
+          />
+        )}
+
+        {generating && <LoadingBlock label={mode === "finance" ? "Preparing financial brief…" : "Analysing platform operations…"} />}
+
+        {showFinance && !generating && financialBrief && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-fg">CFO brief</h3>
+              <Badge tone={severityTone(financialBrief.health)} dot>
+                {humanize(financialBrief.health)}
+              </Badge>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-3">
+              {[
+                { label: "P&L", icon: <TrendingDown className="size-3.5 text-brand-ink" aria-hidden="true" />, text: financialBrief.plNarrative },
+                { label: "Cash", icon: <Wallet className="size-3.5 text-warning-ink" aria-hidden="true" />, text: financialBrief.cashRisks },
+                { label: "Unit economics", icon: <CircleDollarSign className="size-3.5 text-info-ink" aria-hidden="true" />, text: financialBrief.unitEconomics },
+              ].map((block) => (
+                <div key={block.label} className="rounded-lg border border-line bg-subtle p-4">
+                  <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+                    {block.icon}
+                    {block.label}
+                  </div>
+                  <p className="text-sm leading-relaxed text-fg">{block.text}</p>
+                </div>
+              ))}
+            </div>
+
+            {financialBrief.actions.length > 0 && (
+              <div>
+                <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Priority actions</h4>
+                <ol className="grid gap-3 sm:grid-cols-3">
+                  {financialBrief.actions.map((action) => (
+                    <li key={`${action.priority}-${action.title}`} className="rounded-lg border border-line bg-card p-4">
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="inline-flex size-6 items-center justify-center rounded-full bg-fg text-[11px] font-semibold text-page">{action.priority}</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">{humanize(action.category)}</span>
+                      </div>
+                      <h5 className="text-sm font-semibold text-fg">{action.title}</h5>
+                      <p className="mt-1.5 text-xs leading-relaxed text-fg-secondary">{action.detail}</p>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             )}
-            <span className="text-[11px] font-bold text-[#fe8503] uppercase tracking-wider">
-              {mode === "finance" ? "AI CFO" : "Platform AI"}
-            </span>
           </div>
-          <h2 className="text-xl font-bold text-[var(--text-primary)]">
-            {mode === "finance" ? "Financial Consultancy Brief" : "Operations Summary"}
-          </h2>
-          <p className="text-sm text-[var(--text-muted)]">
-            {mode === "finance"
-              ? "Interim CFO read of P&L, cash, and unit economics for the selected period."
-              : "Ops signals and companies that need attention for the selected period."}
-          </p>
-        </div>
+        )}
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="inline-flex rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-1">
-            <button
-              type="button"
-              onClick={() => setMode("finance")}
-              disabled={generating}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
-                mode === "finance"
-                  ? "bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm"
-                  : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-              }`}
-            >
-              Finance
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("general")}
-              disabled={generating}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
-                mode === "general"
-                  ? "bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm"
-                  : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-              }`}
-            >
-              General
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={runAnalysis}
-            disabled={generating}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#fe8503] px-5 text-[13px] font-bold text-white shadow-lg shadow-[#fe8503]/20 hover:bg-[#f07a00] transition-all disabled:opacity-60"
-          >
-            <RefreshCw className={`h-4 w-4 ${generating ? "animate-spin" : ""}`} />
-            {generating ? "Generating…" : "Run AI Analysis"}
-          </button>
-        </div>
-      </div>
-
-      {!hasRun && !generating && (
-        <div className="rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-subtle)] px-6 py-10 text-center">
-          {mode === "finance" ? (
-            <Landmark className="h-7 w-7 text-[var(--text-muted)] mx-auto mb-3 opacity-50" />
-          ) : (
-            <Sparkles className="h-7 w-7 text-[var(--text-muted)] mx-auto mb-3 opacity-50" />
-          )}
-          <p className="text-sm font-medium text-[var(--text-secondary)]">
-            {mode === "finance"
-              ? "Select Finance and click Run AI Analysis for a CFO-style brief."
-              : "Select General and click Run AI Analysis for ops signals and company attention."}
-          </p>
-        </div>
-      )}
-
-      {generating && (
-        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-subtle)] px-6 py-10 text-center">
-          <RefreshCw className="h-6 w-6 text-[#fe8503] mx-auto mb-3 animate-spin" />
-          <p className="text-sm font-medium text-[var(--text-muted)]">
-            {mode === "finance" ? "Preparing financial brief…" : "Analyzing platform ops…"}
-          </p>
-        </div>
-      )}
-
-      {showFinance && !generating && financialBrief && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-              CFO brief
-            </h3>
-            <span
-              className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full border ${severityClasses(financialBrief.health)}`}
-            >
-              {financialBrief.health}
-            </span>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-4">
-              <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                <TrendingDown className="h-3.5 w-3.5 text-[#fe8503]" />
-                P&amp;L
-              </div>
-              <p className="text-sm text-[var(--text-primary)] leading-relaxed">
-                {financialBrief.plNarrative}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-4">
-              <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                <Wallet className="h-3.5 w-3.5 text-amber-600" />
-                Cash
-              </div>
-              <p className="text-sm text-[var(--text-primary)] leading-relaxed">
-                {financialBrief.cashRisks}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-4">
-              <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                <CircleDollarSign className="h-3.5 w-3.5 text-navy" />
-                Unit economics
-              </div>
-              <p className="text-sm text-[var(--text-primary)] leading-relaxed">
-                {financialBrief.unitEconomics}
-              </p>
-            </div>
-          </div>
-
-          {financialBrief.actions.length > 0 && (
+        {showGeneral && !generating && (
+          <div className="space-y-6">
             <div>
-              <h4 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
-                Priority CFO actions
-              </h4>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {financialBrief.actions.map((action) => (
-                  <div
-                    key={`${action.priority}-${action.title}`}
-                    className="rounded-2xl border border-[var(--border-default)] p-4 bg-[var(--bg-card)]"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-navy text-white text-[11px] font-bold">
-                        {action.priority}
-                      </span>
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">
-                        {action.category.replace(/_/g, " ")}
-                      </span>
-                    </div>
-                    <h5 className="text-sm font-bold text-[var(--text-primary)]">{action.title}</h5>
-                    <p className="text-xs mt-1.5 text-[var(--text-secondary)] leading-relaxed">
-                      {action.detail}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {showGeneral && !generating && (
-        <div className="space-y-8">
-          <div>
-            <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-3 uppercase tracking-wider">
-              Ops signals
-            </h3>
-            {briefing.length === 0 ? (
-              <p className="text-sm text-[var(--text-muted)]">No ops briefing cards for this period.</p>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {briefing.map((card) => (
-                  <div
-                    key={card.id}
-                    className={`rounded-2xl border p-4 ${severityClasses(card.severity)}`}
-                  >
-                    <div className="flex items-start gap-3">
-                      {categoryIcon(card.category)}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span className="text-xs font-semibold uppercase tracking-wide">
-                            {card.category}
-                          </span>
-                          <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-[var(--bg-card)]/70">
-                            {card.severity}
-                          </span>
-                          {card.relatedMetric && (
-                            <span className="text-[10px] font-medium opacity-80">{card.relatedMetric}</span>
-                          )}
+              <h3 className="mb-3 text-sm font-semibold text-fg">Ops signals</h3>
+              {briefing.length === 0 ? (
+                <p className="text-sm text-fg-muted">No ops briefing cards for this period.</p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {briefing.map((card) => {
+                    const tone = severityTone(card.severity);
+                    return (
+                      <div key={card.id} className={cn("rounded-lg border bg-card p-4", toneBorder[tone])}>
+                        <div className="flex items-start gap-3">
+                          {categoryIcon(card.category)}
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-1 flex flex-wrap items-center gap-2">
+                              <span className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">{humanize(card.category)}</span>
+                              <Badge tone={tone} size="sm">
+                                {humanize(card.severity)}
+                              </Badge>
+                              {card.relatedMetric && <span className="text-[11px] text-fg-muted">{card.relatedMetric}</span>}
+                            </div>
+                            <h4 className="text-sm font-semibold text-fg">{card.title}</h4>
+                            <p className="mt-1 text-sm text-fg-secondary">{card.summary}</p>
+                            <p className="mt-2 text-xs font-medium text-fg">{card.recommendation}</p>
+                          </div>
                         </div>
-                        <h4 className="text-sm font-bold">{card.title}</h4>
-                        <p className="text-sm mt-1 opacity-90">{card.summary}</p>
-                        <p className="text-xs mt-2 font-medium opacity-80">{card.recommendation}</p>
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-          <div>
-            <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-3 uppercase tracking-wider">
-              Companies needing attention
-            </h3>
-            {companies.length === 0 ? (
-              <p className="text-sm text-[var(--text-muted)]">
-                No elevated company signals right now.
-              </p>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {companies.map((c) => (
-                  <Link
-                    key={c.companyId}
-                    href={c.href}
-                    className={`group rounded-2xl border p-4 transition-all hover:shadow-md ${severityClasses(c.severity)}`}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Building2 className="h-4 w-4 shrink-0" />
-                        <span className="font-bold text-sm truncate">{c.companyName}</span>
-                      </div>
-                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-[var(--bg-card)]/70 shrink-0">
-                        {c.severity}
-                      </span>
-                    </div>
-                    <p className="text-sm opacity-90">{c.reason}</p>
-                    <p className="text-xs mt-2 font-medium opacity-80 flex items-center gap-1">
-                      {c.suggestedAction}
-                      <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            )}
+            <div>
+              <h3 className="mb-3 text-sm font-semibold text-fg">Companies needing attention</h3>
+              {companies.length === 0 ? (
+                <p className="text-sm text-fg-muted">No elevated company signals right now.</p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {companies.map((c) => {
+                    const tone = severityTone(c.severity);
+                    return (
+                      <Link
+                        key={c.companyId}
+                        href={c.href}
+                        className={cn("group rounded-lg border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)]", toneBorder[tone], focusRing)}
+                      >
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <Building2 className="size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+                            <span className="truncate text-sm font-semibold text-fg">{c.companyName}</span>
+                          </span>
+                          <Badge tone={tone} size="sm">
+                            {humanize(c.severity)}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-fg-secondary">{c.reason}</p>
+                        <p className="mt-2 flex items-center gap-1 text-xs font-medium text-fg">
+                          {c.suggestedAction}
+                          <ArrowRight className="size-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true" />
+                        </p>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </section>
+        )}
+      </CardContent>
+    </Card>
   );
 }

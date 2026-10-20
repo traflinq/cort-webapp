@@ -1,12 +1,14 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Calculator, Download, Save, Undo2 } from "lucide-react";
+import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import { PermissionGate } from "../components/PermissionGate";
 import { AdminCan, useAdminAbility } from "../../lib/abilities/AdminAbilityProvider";
 import { ADMIN_SUBJECTS } from "../../lib/abilities/admin-subjects";
+import { useConfirm } from "../../lib/hooks/useConfirm";
 import {
   fetchPricingCompanies,
   fetchSystemFuelPrice,
@@ -39,96 +41,35 @@ import {
   updateShuttleRouteRow,
   removeShuttleRouteRow,
 } from "../../lib/store/slices/adminPricingSlice";
-import { ChauffeurContractRate, FuelPriceHistoryEntry, apiClient } from "../../lib/services/api-client";
+import { apiClient, type ChauffeurContractRate } from "../../lib/services/api-client";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardSkeleton,
+  EmptyState,
+  ErrorState,
+  Field,
+  FormGrid,
+  InlineError,
+  Input,
+  PageHeader,
+  PageSkeleton,
+  Select,
+} from "../ui";
+import { formatCurrency, formatDateTime } from "../lib/format";
+import { CONTRACT_DURATION_OPTIONS } from "./components/constants";
+import { FuelPricePanel } from "./components/FuelPricePanel";
+import { ChauffeurRatesTable } from "./components/ChauffeurRatesTable";
+import { ShuttleRatesTable, type ShuttleRouteField } from "./components/ShuttleRatesTable";
+import { PreviewDialog, type PreviewItem } from "./components/PreviewDialog";
 
-const Input = ({
-  label,
-  value,
-  onChange,
-  placeholder = "0",
-  type = "number",
-  helperText,
-  disabled,
-  ...rest
-}: any) => (
-  <label className="flex flex-col gap-1.5">
-    <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">{label}</span>
-    <input
-      type={type}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      disabled={disabled}
-      {...rest}
-      className="h-10 rounded-lg border border-[var(--border-default)] px-3 text-sm outline-none focus:border-[#f47f00] focus:ring-1 focus:ring-[#f47f00] transition-all disabled:cursor-not-allowed disabled:bg-[var(--bg-subtle)] disabled:opacity-70"
-    />
-    {helperText && <span className="text-xs text-[var(--text-muted)]">{helperText}</span>}
-  </label>
-);
-
-const FuelPriceHistoryChart = ({
-  data,
-  color,
-  gradientId,
-}: {
-  data: FuelPriceHistoryEntry[];
-  color: string;
-  gradientId: string;
-}) => {
-  const chartData = data.map((entry) => ({
-    date: new Date(entry.effective_from).toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
-    fullDate: new Date(entry.effective_from).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
-    price: Number(entry.price),
-  }));
-
-  if (chartData.length < 2) {
-    return (
-      <div className="h-40 flex items-center justify-center text-xs text-[var(--text-muted)]">
-        Not enough history yet — make another price update to see the trend.
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-40 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-              <stop offset="95%" stopColor={color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-default)" />
-          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} dy={8} />
-          <YAxis
-            axisLine={false}
-            tickLine={false}
-            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-            width={44}
-            domain={["dataMin - 5", "dataMax + 5"]}
-          />
-          <Tooltip
-            contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)", fontSize: "12px" }}
-            formatter={(value: any) => [`PKR ${value}`, "Price"]}
-            labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDate ?? ""}
-          />
-          <Area type="stepAfter" dataKey="price" stroke={color} strokeWidth={2.5} fillOpacity={1} fill={`url(#${gradientId})`} />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-};
+type PendingAction = "fuel" | "diesel" | "chauffeur" | "shuttle" | "delete-row" | null;
 
 export default function PricingPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center py-24">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0c225e] border-t-transparent" />
-        </div>
-      }
-    >
+    <Suspense fallback={<PageSkeleton />}>
       <PermissionGate permission="pricing">
         <AdminCan I="read" a="Pricing">
           <PricingPageContent />
@@ -141,6 +82,7 @@ export default function PricingPage() {
 function PricingPageContent() {
   const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
+  const confirm = useConfirm();
   const companies = useAppSelector(selectPricingCompanies);
   const currentCompany = useAppSelector(selectPricingCurrentCompany);
   const {
@@ -156,7 +98,7 @@ function PricingPageContent() {
     isLoadingPreview,
     status,
     actionStatus,
-    error
+    error,
   } = useAppSelector(selectAdminPricingState);
   const shuttleSettings = useAppSelector(selectShuttleSettings);
   const shuttleRouteRows = useAppSelector(selectShuttleRouteRows);
@@ -171,14 +113,13 @@ function PricingPageContent() {
   const [externalFuelLoading, setExternalFuelLoading] = useState(false);
   const [externalFuelApplying, setExternalFuelApplying] = useState(false);
   const [externalFuelError, setExternalFuelError] = useState<string | null>(null);
-  const [externalFuelSuggestion, setExternalFuelSuggestion] = useState<{
-    petrolPrice: string;
-    dieselPrice: string;
-    asOf?: string;
-  } | null>(null);
+  const [externalFuelSuggestion, setExternalFuelSuggestion] = useState<{ petrolPrice: string; dieselPrice: string; asOf?: string } | null>(null);
+  /** Which thunk is in flight — replaces the shared actionStatus for button spinners. */
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [chauffeurDirty, setChauffeurDirty] = useState(false);
+  const [shuttleDirty, setShuttleDirty] = useState(false);
 
-  // Initial load
-  useEffect(() => {
+  const loadGlobals = useCallback(() => {
     dispatch(fetchPricingCompanies());
     dispatch(fetchSystemFuelPrice());
     dispatch(fetchSystemDieselPrice());
@@ -186,15 +127,18 @@ function PricingPageContent() {
     dispatch(fetchDieselPriceHistory());
   }, [dispatch]);
 
-  // Deep-link from company detail: /admin/pricing?companyId=123
+  // Initial load
+  useEffect(() => {
+    loadGlobals();
+  }, [loadGlobals]);
+
+  // Deep-link from company detail: /admin/pricing?companyId=123 (or ?company=)
   useEffect(() => {
     const cid = searchParams.get("company") || searchParams.get("companyId");
-    if (cid) {
-      dispatch(setSelectedCompanyId(cid));
-    }
+    if (cid) dispatch(setSelectedCompanyId(cid));
   }, [dispatch, searchParams]);
 
-  // Load Contract Details when company selected
+  // Load contract details when the company changes
   useEffect(() => {
     if (selectedCompanyId) {
       dispatch(fetchCompanyContractDetails(selectedCompanyId));
@@ -202,26 +146,47 @@ function PricingPageContent() {
     }
   }, [selectedCompanyId, dispatch]);
 
-  // Handle action status updates
-  useEffect(() => {
-    if (actionStatus === 'succeeded') {
-      alert("Action completed successfully!");
-      dispatch(resetActionStatus());
-    } else if (actionStatus === 'failed' && error) {
-      alert("Action failed: " + error);
-      dispatch(resetActionStatus());
-    }
-  }, [actionStatus, error, dispatch]);
-
+  const errorMessage = (result: { payload?: unknown; error?: { message?: string } }, fallback: string) =>
+    typeof result.payload === "string" ? result.payload : result.error?.message || fallback;
 
   const handleUpdateGlobalFuel = async () => {
-    await dispatch(updateSystemFuelPrice(systemFuelPrice));
-    dispatch(fetchFuelPriceHistory());
+    const ok = await confirm({
+      title: "Update the global petrol price?",
+      message: `Set the current petrol price to ${formatCurrency(Number(systemFuelPrice || 0), { digits: 2 })}.`,
+      consequences: ["Applies to every company's chauffeur and shuttle contracts", "Rates are re-adjusted at the next invoice generation"],
+      confirmLabel: "Update price",
+    });
+    if (!ok) return;
+    setPendingAction("fuel");
+    const result = await dispatch(updateSystemFuelPrice(systemFuelPrice));
+    setPendingAction(null);
+    if (updateSystemFuelPrice.fulfilled.match(result)) {
+      toast.success("Petrol price updated");
+      dispatch(fetchFuelPriceHistory());
+    } else {
+      toast.error(errorMessage(result, "Failed to update petrol price"));
+    }
+    dispatch(resetActionStatus());
   };
 
   const handleUpdateGlobalDiesel = async () => {
-    await dispatch(updateSystemDieselPrice(systemDieselPrice));
-    dispatch(fetchDieselPriceHistory());
+    const ok = await confirm({
+      title: "Update the global diesel price?",
+      message: `Set the current diesel price to ${formatCurrency(Number(systemDieselPrice || 0), { digits: 2 })}.`,
+      consequences: ["Applies to every shuttle route marked as diesel, across all companies", "Fuel cost is re-adjusted at the next invoice generation"],
+      confirmLabel: "Update price",
+    });
+    if (!ok) return;
+    setPendingAction("diesel");
+    const result = await dispatch(updateSystemDieselPrice(systemDieselPrice));
+    setPendingAction(null);
+    if (updateSystemDieselPrice.fulfilled.match(result)) {
+      toast.success("Diesel price updated");
+      dispatch(fetchDieselPriceHistory());
+    } else {
+      toast.error(errorMessage(result, "Failed to update diesel price"));
+    }
+    dispatch(resetActionStatus());
   };
 
   const handleFetchExternalFuelPrices = async () => {
@@ -240,9 +205,16 @@ function PricingPageContent() {
 
   const handleApplyExternalFuelPrices = async () => {
     if (!externalFuelSuggestion || !canUpdate) return;
-
     const petrolPrice = String(externalFuelSuggestion.petrolPrice);
     const dieselPrice = String(externalFuelSuggestion.dieselPrice);
+
+    const ok = await confirm({
+      title: "Apply the suggested fuel prices?",
+      message: `Petrol ${formatCurrency(Number(petrolPrice), { digits: 2 })} and diesel ${formatCurrency(Number(dieselPrice), { digits: 2 })} will be saved globally.`,
+      consequences: ["Applies to every company's contracts", "Rates are re-adjusted at the next invoice generation"],
+      confirmLabel: "Apply both",
+    });
+    if (!ok) return;
 
     dispatch(setSystemFuelPriceLocal(petrolPrice));
     dispatch(setSystemDieselPriceLocal(dieselPrice));
@@ -261,7 +233,7 @@ function PricingPageContent() {
         dispatch(fetchFuelPriceHistory()),
         dispatch(fetchDieselPriceHistory()),
       ]);
-      alert("Petrol and diesel prices updated successfully!");
+      toast.success("Petrol and diesel prices updated");
     } catch (e) {
       setExternalFuelError(e instanceof Error ? e.message : "Failed to update fuel prices");
     } finally {
@@ -272,859 +244,361 @@ function PricingPageContent() {
   const handlePreviewAdjustments = () => {
     if (!selectedCompanyId) return;
     dispatch(setShowPreview(true));
-    dispatch(previewRateAdjustments({
-      fuelPrice: Number(systemFuelPrice),
-      companyId: Number(selectedCompanyId)
-    }));
+    dispatch(previewRateAdjustments({ fuelPrice: Number(systemFuelPrice), companyId: Number(selectedCompanyId) }));
   };
 
-  const handleDeleteRow = (index: number) => {
+  const handleDeleteRow = async (index: number) => {
     const row = rateRows[index];
-    if (row.id) {
-      if (!confirm("Are you sure you want to delete this rate card?")) return;
+    if (row?.id) {
+      const ok = await confirm({
+        title: "Remove this rate card?",
+        message: `Remove the rates for ${row.vehicle_model || "this vehicle"}.`,
+        consequences: ["The row is removed only when you save the vehicle rates", "Existing bookings keep the rates they were created with"],
+        destructive: true,
+        confirmLabel: "Remove",
+      });
+      if (!ok) return;
     }
-    dispatch(deleteRateRow(index));
+    setPendingAction("delete-row");
+    const result = await dispatch(deleteRateRow(index));
+    setPendingAction(null);
+    if (deleteRateRow.fulfilled.match(result)) {
+      setChauffeurDirty(true);
+    } else {
+      toast.error(errorMessage(result, "Failed to remove the rate card"));
+    }
   };
 
-  const handleSave = () => {
-    dispatch(savePricingChanges());
+  const handleDeleteShuttleRow = async (index: number) => {
+    const row = shuttleRouteRows[index];
+    if (row?.id) {
+      const ok = await confirm({
+        title: "Remove this shuttle route rate?",
+        message: `Remove ${row.particulars || "this route"} from the shuttle contract.`,
+        consequences: ["The row is removed only when you save the shuttle contract", "Invoices already generated are not changed"],
+        destructive: true,
+        confirmLabel: "Remove",
+      });
+      if (!ok) return;
+    }
+    dispatch(removeShuttleRouteRow(index));
+    setShuttleDirty(true);
   };
 
-  const handleShuttleSave = () => {
-    dispatch(saveShuttleChanges());
+  const handleSave = async () => {
+    setPendingAction("chauffeur");
+    const result = await dispatch(savePricingChanges());
+    setPendingAction(null);
+    if (savePricingChanges.fulfilled.match(result)) {
+      toast.success("Chauffeur contract saved");
+      setChauffeurDirty(false);
+    } else {
+      toast.error(errorMessage(result, "Failed to save chauffeur contract"));
+    }
+    dispatch(resetActionStatus());
   };
 
-  const formatExternalAsOf = (asOf?: string) => {
-    if (!asOf) return "";
-    const d = new Date(asOf);
-    if (Number.isNaN(d.getTime())) return asOf;
-    return d.toLocaleString("en-GB", {
-      timeZone: "Asia/Karachi",
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
+  const handleShuttleSave = async () => {
+    setPendingAction("shuttle");
+    const result = await dispatch(saveShuttleChanges());
+    setPendingAction(null);
+    if (saveShuttleChanges.fulfilled.match(result)) {
+      toast.success("Shuttle contract saved");
+      setShuttleDirty(false);
+    } else {
+      toast.error(errorMessage(result, "Failed to save shuttle contract"));
+    }
+    dispatch(resetActionStatus());
+  };
+
+  const handleDiscard = async () => {
+    const ok = await confirm({
+      title: "Discard unsaved changes?",
+      message: "The contract will be reloaded from the server.",
+      destructive: true,
+      confirmLabel: "Discard",
     });
+    if (!ok || !selectedCompanyId) return;
+    dispatch(fetchCompanyContractDetails(selectedCompanyId));
+    dispatch(fetchShuttleContract(selectedCompanyId));
+    setChauffeurDirty(false);
+    setShuttleDirty(false);
   };
 
-  const getSavings = (contractVal: string | number | undefined, marketVal: string | number | undefined) => {
-    const c = Number(contractVal || 0);
-    const m = Number(marketVal || 0);
-    if (!m || !c || m <= c) return null;
-    const diff = m - c;
-    const pct = (diff / m) * 100;
-    return (
-      <div className="text-[10px] font-bold text-green-600 flex items-center gap-1">
-        <span>↓ {pct.toFixed(0)}%</span>
-        <span className="text-green-600/70">({diff.toLocaleString()})</span>
-      </div>
-    );
+  const onCompanyChange = (id: string) => {
+    dispatch(setSelectedCompanyId(id));
+    setChauffeurDirty(false);
+    setShuttleDirty(false);
   };
 
-  const isLoading = status === 'loading';
-  const isSaving = actionStatus === 'loading';
-  const isUpdatingFuel = actionStatus === 'loading'; // Simplified for now, could distinct
+  const updateGlobal = (patch: Parameters<typeof setGlobalSettings>[0]) => {
+    dispatch(setGlobalSettings(patch));
+    setChauffeurDirty(true);
+  };
+  const updateShuttle = (patch: Parameters<typeof setShuttleSettings>[0]) => {
+    dispatch(setShuttleSettings(patch));
+    setShuttleDirty(true);
+  };
+  const changeRateRow = (index: number, field: keyof ChauffeurContractRate, value: string) => {
+    dispatch(updateRateRow({ index, field, value }));
+    setChauffeurDirty(true);
+  };
+  const changeShuttleRow = (index: number, field: ShuttleRouteField, value: string) => {
+    dispatch(updateShuttleRouteRow({ index, field, value }));
+    setShuttleDirty(true);
+  };
+
+  const isLoading = status === "loading";
+  const loadFailed = status === "failed";
+  const isSaving = actionStatus === "loading";
+  const anyDirty = chauffeurDirty || shuttleDirty;
 
   return (
-    <div className="flex flex-col gap-8 mx-auto p-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Contracts & Pricing</h1>
-          <p className="mt-2 text-[var(--text-muted)]">Manage client-specific rates and contract terms with dynamic fuel price adjustments.</p>
-        </div>
-        <label className="flex flex-col gap-1.5 min-w-[300px]">
-          <span className="text-sm font-medium text-[var(--text-secondary)]">Select Company</span>
-          <select
-            value={selectedCompanyId}
-            onChange={(e) => dispatch(setSelectedCompanyId(e.target.value))}
-            className="h-11 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] px-4 text-sm font-medium outline-none focus:border-[#f47f00] focus:ring-1 focus:ring-[#f47f00] transition-all"
-          >
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      {/* Global Fuel System Setting */}
-      <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-6 flex flex-col gap-4">
-        <div>
-          <h3 className="text-base font-bold text-[var(--text-primary)]">Global Fuel Configuration</h3>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Set the current fuel price. Rates are calculated dynamically during invoice generation.</p>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <button
-            type="button"
-            onClick={handleFetchExternalFuelPrices}
-            disabled={externalFuelLoading}
-            className="h-10 px-4 rounded-lg border border-blue-200 bg-white/10 text-[var(--text-primary)] text-sm font-bold hover:bg-white/15 transition-colors disabled:opacity-70"
-          >
-            {externalFuelLoading ? "Checking..." : "Fetch latest prices"}
-          </button>
-
-          {externalFuelError && (
-            <div className="text-sm text-rose-500 font-semibold">{externalFuelError}</div>
-          )}
-        </div>
-
-        {externalFuelSuggestion && (
-          <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 flex flex-col gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="text-sm font-bold text-[var(--text-primary)]">Suggested global fuel prices</div>
-              <div className="text-xs text-[var(--text-muted)]">
-                {externalFuelSuggestion.asOf ? `As of ${formatExternalAsOf(externalFuelSuggestion.asOf)}` : "Latest snapshot"}
-              </div>
-            </div>
-            <div className="text-sm text-[var(--text-secondary)]">
-              Petrol: <span className="font-bold text-[var(--text-primary)]">PKR {Number(externalFuelSuggestion.petrolPrice).toFixed(2)}</span>
-              <span className="mx-2">|</span>
-              Diesel: <span className="font-bold text-[var(--text-primary)]">PKR {Number(externalFuelSuggestion.dieselPrice).toFixed(2)}</span>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={handleApplyExternalFuelPrices}
-                disabled={!canUpdate || externalFuelApplying}
-                className="h-9 px-4 rounded-lg bg-[#0c225e] text-white text-sm font-bold hover:bg-[#0a1a4a] transition-colors disabled:opacity-70"
-              >
-                {externalFuelApplying ? "Updating..." : "Apply & update both"}
-              </button>
-              <div className="text-xs text-[var(--text-muted)] self-center">
-                Fills both fields and saves petrol + diesel globally in one click.
-              </div>
-            </div>
-          </div>
-        )}
-        <div className="flex items-end gap-3 flex-wrap">
-          <label className="flex-1 min-w-[200px]">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1 block">Current Fuel Price (PKR)</span>
-            <input
-              type="number"
-              value={systemFuelPrice}
-              onChange={(e) => dispatch(setSystemFuelPriceLocal(e.target.value))}
-              disabled={!canUpdate}
-              className="h-10 w-full rounded-lg border border-[var(--border-default)] px-3 text-sm outline-none focus:border-[#f47f00] focus:ring-1 focus:ring-[#f47f00] disabled:cursor-not-allowed disabled:bg-[var(--bg-subtle)] disabled:opacity-70"
-            />
-          </label>
-          <button
-            onClick={handleUpdateGlobalFuel}
-            className="h-10 px-4 rounded-lg bg-[#0c225e] text-white text-sm font-bold hover:bg-[#0a1a4a] transition-colors disabled:opacity-70"
-            disabled={!canUpdate || isUpdatingFuel}
-          >
-            {isUpdatingFuel ? "Updating..." : "Update"}
-          </button>
-          <button
-            onClick={handlePreviewAdjustments}
-            className="h-10 px-4 rounded-lg border-2 border-[#f47f00] text-[#f47f00] text-sm font-bold hover:bg-[#f47f00] hover:text-white transition-all disabled:opacity-70"
-            disabled={isLoadingPreview}
-          >
-            {isLoadingPreview ? "Loading..." : "Preview Adjustments"}
-          </button>
-        </div>
-        <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1 block">Price History</span>
-          <FuelPriceHistoryChart data={fuelPriceHistory} color="#f47f00" gradientId="colorFuelHistory" />
-        </div>
-      </div>
-
-      {/* Global Diesel Rate (Shuttle Only) */}
-      <div className="rounded-2xl border border-amber-100 bg-amber-50/50 p-6 flex flex-col gap-4">
-        <div>
-          <h3 className="text-base font-bold text-[var(--text-primary)]">Global Diesel Rate <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Shuttle Only</span></h3>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Set the current diesel price used for shuttle route rows marked as Diesel. Adjusted dynamically at invoice generation.</p>
-        </div>
-        <div className="flex items-end gap-3 flex-wrap">
-          <label className="flex-1 min-w-[200px]">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1 block">Current Diesel Price (PKR)</span>
-            <input
-              type="number"
-              value={systemDieselPrice}
-              onChange={(e) => dispatch(setSystemDieselPriceLocal(e.target.value))}
-              disabled={!canUpdate}
-              className="h-10 w-full rounded-lg border border-[var(--border-default)] px-3 text-sm outline-none focus:border-[#f47f00] focus:ring-1 focus:ring-[#f47f00] disabled:cursor-not-allowed disabled:bg-[var(--bg-subtle)] disabled:opacity-70"
-            />
-          </label>
-          <button
-            onClick={handleUpdateGlobalDiesel}
-            className="h-10 px-4 rounded-lg bg-[#0c225e] text-white text-sm font-bold hover:bg-[#0a1a4a] transition-colors disabled:opacity-70"
-            disabled={!canUpdate || isUpdatingFuel}
-          >
-            Update
-          </button>
-        </div>
-        <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1 block">Price History</span>
-          <FuelPriceHistoryChart data={dieselPriceHistory} color="#d97706" gradientId="colorDieselHistory" />
-        </div>
-      </div>
-
-      {/* Preview Modal */}
-      {showPreview && (
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-6">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-[var(--text-primary)]">Rate Adjustment Preview</h3>
-              <p className="text-sm text-[var(--text-secondary)] mt-1">How rates will be adjusted at fuel price: PKR {systemFuelPrice}</p>
-            </div>
-            <button onClick={() => dispatch(setShowPreview(false))} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">✕</button>
-          </div>
-          {previewData && previewData.length > 0 && (
-            <div className="space-y-4">
-              {previewData.map((item: any, idx: number) => (
-                <div key={idx} className="bg-[var(--bg-card)] rounded-lg p-4 border border-[var(--border-default)]">
-                  <div className="flex justify-between items-center mb-3">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-[var(--text-primary)]">{item.company?.name || 'Company'}</h4>
-                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-[var(--text-secondary)]">
-                        {item.type === 'shuttle' ? 'Shuttle' : 'Chauffeur'}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${item.calculation.will_adjust ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
-                        Petrol: {item.calculation.will_adjust ? 'Will Adjust' : 'No Adjustment'}
-                      </span>
-                      {item.type === 'shuttle' && item.diesel_calculation && (
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${item.diesel_calculation.will_adjust ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                          Diesel: {item.diesel_calculation.will_adjust ? 'Will Adjust' : 'No Adjustment'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Petrol row */}
-                  <div className="grid grid-cols-2 gap-2 text-sm mb-2 bg-blue-50/50 rounded p-2">
-                    <div className="col-span-2 text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Petrol</div>
-                    <div><span className="text-[var(--text-muted)]">Base Fuel Price:</span> <span className="font-semibold">PKR {Number(item.contract.fuel_base_price).toFixed(0)}</span></div>
-                    <div><span className="text-[var(--text-muted)]">Threshold:</span> <span className="font-semibold">{item.contract.revision_percentage != null ? `${(Number(item.contract.revision_percentage) * 100).toFixed(1)}%` : 'No Limit'}</span></div>
-                    <div><span className="text-[var(--text-muted)]">Price Change:</span> <span className="font-semibold text-orange-600">{(Number(item.calculation.percent_change) * 100).toFixed(2)}%</span></div>
-                    <div><span className="text-[var(--text-muted)]">Multiplier:</span> <span className="font-semibold">{Number(item.calculation.multiplier).toFixed(4)}x</span></div>
-                  </div>
-
-                  {/* Diesel row (shuttle only, when diesel_base_price is set) */}
-                  {item.type === 'shuttle' && item.diesel_calculation && (
-                    <div className="grid grid-cols-2 gap-2 text-sm mb-3 bg-amber-50/50 rounded p-2">
-                      <div className="col-span-2 text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Diesel</div>
-                      <div><span className="text-[var(--text-muted)]">Base Diesel Price:</span> <span className="font-semibold">PKR {Number(item.diesel_calculation.diesel_base_price).toFixed(0)}</span></div>
-                      <div><span className="text-[var(--text-muted)]">Threshold:</span> <span className="font-semibold">{item.contract.revision_percentage != null ? `${(Number(item.contract.revision_percentage) * 100).toFixed(1)}%` : 'No Limit'}</span></div>
-                      <div><span className="text-[var(--text-muted)]">Price Change:</span> <span className="font-semibold text-amber-600">{(Number(item.diesel_calculation.percent_change) * 100).toFixed(2)}%</span></div>
-                      <div><span className="text-[var(--text-muted)]">Multiplier:</span> <span className="font-semibold">{Number(item.diesel_calculation.multiplier).toFixed(4)}x</span></div>
-                    </div>
-                  )}
-                  {(item.type !== 'shuttle') && item.rates?.length > 0 && (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead className="bg-[var(--bg-subtle)]">
-                          <tr>
-                            <th className="px-2 py-2 text-left">Vehicle</th>
-                            <th className="px-2 py-2 text-right">Base Cost/KM</th>
-                            <th className="px-2 py-2 text-right">Adjusted Cost/KM</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {item.rates.map((rate: any, rIdx: number) => (
-                            <tr key={rIdx} className="border-t">
-                              <td className="px-2 py-2">{rate.vehicle_model}</td>
-                              <td className="px-2 py-2 text-right">PKR {Number(rate.base_cost_per_km).toFixed(2)}</td>
-                              <td className={`px-2 py-2 text-right font-semibold ${rate.base_cost_per_km !== rate.adjusted_cost_per_km ? 'text-orange-600' : 'text-green-600'}`}>
-                                PKR {Number(rate.adjusted_cost_per_km).toFixed(2)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                  {item.type === 'shuttle' && item.routes?.length > 0 && (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead className="bg-[var(--bg-subtle)]">
-                          <tr>
-                            <th className="px-2 py-2 text-left">Particulars</th>
-                            <th className="px-2 py-2 text-left">Vehicle Type</th>
-                            <th className="px-2 py-2 text-right">Base Fuel/Vehicle</th>
-                            <th className="px-2 py-2 text-right">Adjusted Fuel/Vehicle</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {item.routes.map((route: any, rIdx: number) => (
-                            <tr key={rIdx} className="border-t">
-                              <td className="px-2 py-2">{route.particulars}</td>
-                              <td className="px-2 py-2">{route.vehicle_type}</td>
-                              <td className="px-2 py-2 text-right">PKR {Number(route.base_fuel_cost_per_vehicle).toFixed(2)}</td>
-                              <td className={`px-2 py-2 text-right font-semibold ${Number(route.base_fuel_cost_per_vehicle) !== Number(route.adjusted_fuel_cost_per_vehicle) ? 'text-orange-600' : 'text-green-600'}`}>
-                                PKR {Number(route.adjusted_fuel_cost_per_vehicle).toFixed(2)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
+    <div className="space-y-6 pb-24">
+      <PageHeader
+        title="Contracts & Pricing"
+        description="Client-specific rates and contract terms with dynamic fuel price adjustments."
+        actions={
+          <Field inline label="Company" className="w-full sm:w-auto">
+            <Select aria-label="Company" value={selectedCompanyId} onChange={(e) => onCompanyChange(e.target.value)} placeholder="Select a company" className="w-full sm:w-64">
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
               ))}
+            </Select>
+          </Field>
+        }
+      />
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <FuelPricePanel
+          kind="petrol"
+          title="Global petrol price"
+          description="Rates are calculated dynamically from this price during invoice generation."
+          value={systemFuelPrice}
+          onChange={(v) => dispatch(setSystemFuelPriceLocal(v))}
+          onUpdate={handleUpdateGlobalFuel}
+          updating={pendingAction === "fuel"}
+          canUpdate={canUpdate}
+          history={fuelPriceHistory}
+          extraActions={
+            <Button variant="outline" leftIcon={<Calculator />} onClick={handlePreviewAdjustments} disabled={!selectedCompanyId} loading={isLoadingPreview}>
+              Preview adjustments
+            </Button>
+          }
+        >
+          <div className="space-y-3 rounded-lg border border-line bg-subtle p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium text-fg">Market prices</p>
+              <Button variant="outline" size="sm" leftIcon={<Download />} onClick={handleFetchExternalFuelPrices} loading={externalFuelLoading}>
+                {externalFuelLoading ? "Checking…" : "Fetch latest prices"}
+              </Button>
             </div>
-          )}
+            {externalFuelError && <InlineError>{externalFuelError}</InlineError>}
+            {externalFuelSuggestion && (
+              <div className="space-y-2 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-fg-secondary">
+                    Petrol <span className="font-mono font-semibold tabular-nums text-fg">{formatCurrency(Number(externalFuelSuggestion.petrolPrice), { digits: 2 })}</span>
+                    <span className="mx-2 text-fg-muted">·</span>
+                    Diesel <span className="font-mono font-semibold tabular-nums text-fg">{formatCurrency(Number(externalFuelSuggestion.dieselPrice), { digits: 2 })}</span>
+                  </span>
+                  <span className="text-xs text-fg-muted">{externalFuelSuggestion.asOf ? `As of ${formatDateTime(externalFuelSuggestion.asOf)}` : "Latest snapshot"}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" onClick={handleApplyExternalFuelPrices} disabled={!canUpdate} loading={externalFuelApplying}>
+                    {externalFuelApplying ? "Updating…" : "Apply & update both"}
+                  </Button>
+                  <span className="text-xs text-fg-muted">Fills both fields and saves petrol and diesel globally in one step.</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </FuelPricePanel>
+
+        <FuelPricePanel
+          kind="diesel"
+          title="Global diesel price"
+          description="Used for shuttle route rows marked as diesel. Adjusted dynamically at invoice generation."
+          value={systemDieselPrice}
+          onChange={(v) => dispatch(setSystemDieselPriceLocal(v))}
+          onUpdate={handleUpdateGlobalDiesel}
+          updating={pendingAction === "diesel"}
+          canUpdate={canUpdate}
+          history={dieselPriceHistory}
+        />
+      </div>
+
+      <PreviewDialog open={showPreview} onClose={() => dispatch(setShowPreview(false))} loading={isLoadingPreview} fuelPrice={systemFuelPrice} data={previewData as PreviewItem[] | null} />
+
+      {loadFailed && !isLoading && (
+        <ErrorState
+          title="Couldn't load contract details"
+          message={error}
+          onRetry={() => {
+            loadGlobals();
+            if (selectedCompanyId) {
+              dispatch(fetchCompanyContractDetails(selectedCompanyId));
+              dispatch(fetchShuttleContract(selectedCompanyId));
+            }
+          }}
+        />
+      )}
+
+      {isLoading && (
+        <div className="space-y-4" aria-busy="true">
+          <CardSkeleton lines={4} />
+          <CardSkeleton lines={6} />
         </div>
       )}
 
-      {isLoading && <div className="p-12 text-center text-[var(--text-muted)]">Loading...</div>}
+      {!isLoading && !loadFailed && !selectedCompanyId && (
+        <EmptyState title="Select a company" description="Choose a company above to view and edit its contract rates." />
+      )}
 
-      {!isLoading && currentCompany && (
-        <>
-          {/* Chauffeur Section */}
-          {currentCompany.is_chauffeur_enabled ? (
-            <div className="flex flex-col gap-6">
-              {/* Contract Settings */}
-              <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-6 shadow-sm">
-                <div className="mb-6 border-b border-[var(--border-default)] pb-4">
-                  <h2 className="text-lg font-bold text-[var(--text-primary)]">Chauffeur Contract Terms</h2>
-                  <p className="text-sm text-[var(--text-muted)]">Global settings for this company.</p>
-                </div>
-                <div className="grid gap-6 sm:grid-cols-2">
-                  <Input
-                    label="Base Fuel Price (PKR)"
-                    value={globalSettings.fuelBasePrice}
-                    onChange={(v: string) => dispatch(setGlobalSettings({ fuelBasePrice: v }))}
-                    disabled={!canUpdate}
-                  />
-                  <Input
-                    label="Revision Threshold (%)"
-                    value={globalSettings.revisionPercentage}
-                    onChange={(v: string) => dispatch(setGlobalSettings({ revisionPercentage: v }))}
-                    helperText="Recommended: 10–20. Leave empty to always adjust rates with fuel price changes."
-                    disabled={!canUpdate}
-                    min={0}
-                    max={100}
-                  />
-                  <Input
-                    label="Outstation Allowance (Default)"
-                    value={globalSettings.allowanceOutstation}
-                    onChange={(v: string) => dispatch(setGlobalSettings({ allowanceOutstation: v }))}
-                    helperText="Per day. Used for any vehicle without its own allowance in the Vehicle Rates table."
-                    disabled={!canUpdate}
-                  />
-                  <Input
-                    label="Accommodation Allowance (Default)"
-                    value={globalSettings.allowanceAccommodation}
-                    onChange={(v: string) => dispatch(setGlobalSettings({ allowanceAccommodation: v }))}
-                    helperText="Per night. Used for any vehicle without its own allowance in the Vehicle Rates table."
-                    disabled={!canUpdate}
-                  />
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Contract Duration</span>
-                    <select
-                      value={globalSettings.contractDuration}
-                      onChange={(e) => dispatch(setGlobalSettings({ contractDuration: e.target.value }))}
-                      disabled={!canUpdate}
-                      className="h-10 rounded-lg border border-[var(--border-default)] px-3 text-sm outline-none focus:border-[#f47f00] focus:ring-1 focus:ring-[#f47f00] transition-all bg-[var(--bg-card)] disabled:cursor-not-allowed disabled:bg-[var(--bg-subtle)] disabled:opacity-70"
-                    >
-                      <option value="">Select Duration</option>
-                      <option value="6 Months">6 Months</option>
-                      <option value="1 Year">1 Year</option>
-                      <option value="2 Years">2 Years</option>
-                      <option value="3 Years">3 Years</option>
-                      <option value="5 Years">5 Years</option>
-                    </select>
-                  </label>
-                  <Input
-                    label="Contract Date"
-                    value={globalSettings.contractDate}
-                    onChange={(v: string) => dispatch(setGlobalSettings({ contractDate: v }))}
-                    type="date"
-                    disabled={!canUpdate}
-                  />
-                </div>
-              </div>
+      {!isLoading && !loadFailed && selectedCompanyId && currentCompany && !currentCompany.is_chauffeur_enabled && !currentCompany.is_shuttle_enabled && (
+        <EmptyState title="No services enabled" description={`${currentCompany.name} has neither chauffeur nor shuttle service enabled, so there are no rates to configure.`} />
+      )}
 
-              {/* Rates Table */}
-              <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] shadow-sm overflow-hidden">
-                <div className="border-b border-[var(--border-default)] bg-[var(--bg-subtle)]/50 px-6 py-4 flex justify-between items-center">
-                  <div>
-                    <h2 className="text-base font-bold text-[var(--text-primary)]">Vehicle Rates</h2>
-                    <p className="text-xs text-[var(--text-muted)] mt-1">Base rates - actual billing rates calculated dynamically.</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)] mr-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={showMarketRates}
-                        onChange={e => setShowMarketRates(e.target.checked)}
-                        disabled={!canUpdate}
-                        className="rounded border-slate-300 text-[#f47f00] focus:ring-[#f47f00]"
-                      />
-                      Show Market Rates
-                    </label>
-                    <button
-                      onClick={() => dispatch(addRateRow())}
-                      disabled={!canAddRows}
-                      className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-[var(--bg-card)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] px-3 disabled:opacity-50 disabled:pointer-events-none"
-                    >
-                      + Add Vehicle
-                    </button>
-                    <button
-                      onClick={handleSave}
-                      disabled={!canUpdate || isSaving}
-                      className="inline-flex items-center justify-center rounded-lg bg-[#f47f00] px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#d97000] disabled:opacity-70 transition-all"
-                    >
-                      {isSaving ? "Saving..." : "Save All Changes"}
-                    </button>
-                  </div>
-                </div>
+      {!isLoading && !loadFailed && currentCompany?.is_chauffeur_enabled && (
+        <section className="space-y-4" aria-labelledby="chauffeur-terms">
+          <Card>
+            <CardHeader title={<span id="chauffeur-terms">Chauffeur contract terms</span>} description="Company-wide settings for chauffeur billing." />
+            <CardContent>
+              <FormGrid cols={3}>
+                <Field label="Base fuel price (PKR)">
+                  <Input type="number" min={0} mono value={globalSettings.fuelBasePrice} onChange={(e) => updateGlobal({ fuelBasePrice: e.target.value })} disabled={!canUpdate} />
+                </Field>
+                <Field label="Revision threshold (%)" hint="Recommended 10–20. Leave empty to always adjust rates with fuel price changes.">
+                  <Input type="number" min={0} max={100} mono value={globalSettings.revisionPercentage} onChange={(e) => updateGlobal({ revisionPercentage: e.target.value })} disabled={!canUpdate} />
+                </Field>
+                <Field label="Contract duration">
+                  <Select value={globalSettings.contractDuration} onChange={(e) => updateGlobal({ contractDuration: e.target.value })} disabled={!canUpdate} placeholder="Select duration">
+                    {CONTRACT_DURATION_OPTIONS.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Outstation allowance (default)" hint="Per day. Used for vehicles without their own allowance.">
+                  <Input type="number" min={0} mono value={globalSettings.allowanceOutstation} onChange={(e) => updateGlobal({ allowanceOutstation: e.target.value })} disabled={!canUpdate} />
+                </Field>
+                <Field label="Accommodation allowance (default)" hint="Per night. Used for vehicles without their own allowance.">
+                  <Input type="number" min={0} mono value={globalSettings.allowanceAccommodation} onChange={(e) => updateGlobal({ allowanceAccommodation: e.target.value })} disabled={!canUpdate} />
+                </Field>
+                <Field label="Contract date">
+                  <Input type="date" value={globalSettings.contractDate} onChange={(e) => updateGlobal({ contractDate: e.target.value })} disabled={!canUpdate} />
+                </Field>
+              </FormGrid>
+            </CardContent>
+          </Card>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-[var(--bg-subtle)] text-xs uppercase font-semibold text-[var(--text-muted)]">
-                      <tr>
-                        <th className="px-6 py-4 min-w-[200px]">Vehicle Model</th>
-                        <th className="px-4 py-4 min-w-[120px]">Cost/KM (PKR)</th>
-                        <th className="px-4 py-4 min-w-[100px]">5Hr Spot</th>
-                        <th className="px-4 py-4 min-w-[100px]">10Hr Spot</th>
-                        <th className="px-4 py-4 min-w-[100px]">24Hr Spot</th>
-                        <th className="px-4 py-4 min-w-[100px]">Mth 10hr</th>
-                        <th className="px-4 py-4 min-w-[100px]">Mth 24hr</th>
-                        <th className="px-4 py-4 min-w-[100px]">Overtime/Hr</th>
-                        <th className="px-4 py-4 min-w-[130px]">Outstation Allow./Day</th>
-                        <th className="px-4 py-4 min-w-[130px]">Accommodation/Night</th>
-                        <th className="px-4 py-4 w-[50px]"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {rateRows.length === 0 ? (
-                        <tr>
-                          <td colSpan={11} className="px-6 py-12 text-center text-[var(--text-muted)]">
-                            No rates configured. Click "Add Vehicle" to start.
-                          </td>
-                        </tr>
-                      ) : rateRows.map((row, idx) => (
-                        <tr key={row.id || row.tempId} className="hover:bg-[var(--bg-subtle)]/50">
-                          <td className="px-6 py-3">
-                            <input
-                              disabled={!canUpdate}
-                              className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm focus:border-blue-500 focus:outline-none placeholder:text-slate-300"
-                              value={row.vehicle_model}
-                              onChange={e => dispatch(updateRateRow({ index: idx, field: 'vehicle_model', value: e.target.value }))}
-                              placeholder="e.g. Honda City"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1">
-                              <input disabled={!canUpdate} className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm" value={row.cost_per_km} onChange={e => dispatch(updateRateRow({ index: idx, field: 'cost_per_km', value: e.target.value }))} placeholder="Contract" />
-                              {showMarketRates && (
-                                <>
-                                  <input disabled={!canUpdate} className="w-full h-9 rounded border border-orange-200 bg-orange-50 px-2 text-sm" value={row.market_cost_per_km} onChange={e => dispatch(updateRateRow({ index: idx, field: 'market_cost_per_km', value: e.target.value }))} placeholder="Market" />
-                                  {getSavings(row.cost_per_km, row.market_cost_per_km)}
-                                </>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1">
-                              <input disabled={!canUpdate} className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm" value={row.rate_spot_5hr} onChange={e => dispatch(updateRateRow({ index: idx, field: 'rate_spot_5hr', value: e.target.value }))} placeholder="Contract" />
-                              {showMarketRates && (
-                                <>
-                                  <input disabled={!canUpdate} className="w-full h-9 rounded border border-orange-200 bg-orange-50 px-2 text-sm" value={row.market_rate_spot_5hr} onChange={e => dispatch(updateRateRow({ index: idx, field: 'market_rate_spot_5hr', value: e.target.value }))} placeholder="Market" />
-                                  {getSavings(row.rate_spot_5hr, row.market_rate_spot_5hr)}
-                                </>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1">
-                              <input disabled={!canUpdate} className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm" value={row.rate_spot_10hr} onChange={e => dispatch(updateRateRow({ index: idx, field: 'rate_spot_10hr', value: e.target.value }))} placeholder="Contract" />
-                              {showMarketRates && (
-                                <>
-                                  <input disabled={!canUpdate} className="w-full h-9 rounded border border-orange-200 bg-orange-50 px-2 text-sm" value={row.market_rate_spot_10hr} onChange={e => dispatch(updateRateRow({ index: idx, field: 'market_rate_spot_10hr', value: e.target.value }))} placeholder="Market" />
-                                  {getSavings(row.rate_spot_10hr, row.market_rate_spot_10hr)}
-                                </>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1">
-                              <input disabled={!canUpdate} className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm" value={row.rate_spot_24hr} onChange={e => dispatch(updateRateRow({ index: idx, field: 'rate_spot_24hr', value: e.target.value }))} placeholder="Contract" />
-                              {showMarketRates && (
-                                <>
-                                  <input disabled={!canUpdate} className="w-full h-9 rounded border border-orange-200 bg-orange-50 px-2 text-sm" value={row.market_rate_spot_24hr} onChange={e => dispatch(updateRateRow({ index: idx, field: 'market_rate_spot_24hr', value: e.target.value }))} placeholder="Market" />
-                                  {getSavings(row.rate_spot_24hr, row.market_rate_spot_24hr)}
-                                </>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1">
-                              <input disabled={!canUpdate} className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm" value={row.rate_monthly_10hr} onChange={e => dispatch(updateRateRow({ index: idx, field: 'rate_monthly_10hr', value: e.target.value }))} placeholder="Contract" />
-                              {showMarketRates && (
-                                <>
-                                  <input disabled={!canUpdate} className="w-full h-9 rounded border border-orange-200 bg-orange-50 px-2 text-sm" value={row.market_rate_monthly_10hr} onChange={e => dispatch(updateRateRow({ index: idx, field: 'market_rate_monthly_10hr', value: e.target.value }))} placeholder="Market" />
-                                  {getSavings(row.rate_monthly_10hr, row.market_rate_monthly_10hr)}
-                                </>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1">
-                              <input disabled={!canUpdate} className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm" value={row.rate_monthly_24hr} onChange={e => dispatch(updateRateRow({ index: idx, field: 'rate_monthly_24hr', value: e.target.value }))} placeholder="Contract" />
-                              {showMarketRates && (
-                                <>
-                                  <input disabled={!canUpdate} className="w-full h-9 rounded border border-orange-200 bg-orange-50 px-2 text-sm" value={row.market_rate_monthly_24hr} onChange={e => dispatch(updateRateRow({ index: idx, field: 'market_rate_monthly_24hr', value: e.target.value }))} placeholder="Market" />
-                                  {getSavings(row.rate_monthly_24hr, row.market_rate_monthly_24hr)}
-                                </>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1">
-                              <input disabled={!canUpdate} className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm" value={row.rate_overtime_per_hr} onChange={e => dispatch(updateRateRow({ index: idx, field: 'rate_overtime_per_hr', value: e.target.value }))} placeholder="Contract" />
-                              {showMarketRates && (
-                                <>
-                                  <input disabled={!canUpdate} className="w-full h-9 rounded border border-orange-200 bg-orange-50 px-2 text-sm" value={row.market_rate_overtime_per_hr} onChange={e => dispatch(updateRateRow({ index: idx, field: 'market_rate_overtime_per_hr', value: e.target.value }))} placeholder="Market" />
-                                  {getSavings(row.rate_overtime_per_hr, row.market_rate_overtime_per_hr)}
-                                </>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              min={0}
-                              disabled={!canUpdate}
-                              className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm placeholder:text-slate-400"
-                              value={row.allowance_outstation ?? ""}
-                              onChange={e => dispatch(updateRateRow({ index: idx, field: 'allowance_outstation', value: e.target.value }))}
-                              placeholder={globalSettings.allowanceOutstation ? `Default (${globalSettings.allowanceOutstation})` : "Default"}
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              min={0}
-                              disabled={!canUpdate}
-                              className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm placeholder:text-slate-400"
-                              value={row.allowance_accommodation ?? ""}
-                              onChange={e => dispatch(updateRateRow({ index: idx, field: 'allowance_accommodation', value: e.target.value }))}
-                              placeholder={globalSettings.allowanceAccommodation ? `Default (${globalSettings.allowanceAccommodation})` : "Default"}
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteRow(idx)}
-                              disabled={!canDelete}
-                              className="text-red-400 hover:text-red-600 p-1 disabled:opacity-30 disabled:pointer-events-none"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+          <ChauffeurRatesTable
+            rows={rateRows}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
+            canAddRows={canAddRows}
+            showMarketRates={showMarketRates}
+            onToggleMarketRates={setShowMarketRates}
+            onAdd={() => {
+              dispatch(addRateRow());
+              setChauffeurDirty(true);
+            }}
+            onChange={changeRateRow}
+            onDelete={handleDeleteRow}
+            onSave={handleSave}
+            saving={pendingAction === "chauffeur" && isSaving}
+            dirty={chauffeurDirty}
+            defaultOutstation={globalSettings.allowanceOutstation}
+            defaultAccommodation={globalSettings.allowanceAccommodation}
+          />
+        </section>
+      )}
+
+      {!isLoading && !loadFailed && currentCompany?.is_shuttle_enabled && (
+        <section className="space-y-4" aria-labelledby="shuttle-terms">
+          <Card>
+            <CardHeader
+              title={<span id="shuttle-terms">Shuttle contract terms</span>}
+              description="Monthly shuttle settings for this company. Fuel cost per vehicle uses the same revision logic as chauffeur contracts."
+            />
+            <CardContent>
+              <FormGrid cols={3}>
+                <Field label="Base fuel price (PKR)">
+                  <Input type="number" min={0} mono value={shuttleSettings.fuelBasePrice} onChange={(e) => updateShuttle({ fuelBasePrice: e.target.value })} disabled={!canUpdate} />
+                </Field>
+                <Field label="Base diesel price (PKR)" hint="Required for route rows marked as diesel.">
+                  <Input type="number" min={0} mono value={shuttleSettings.dieselBasePrice} onChange={(e) => updateShuttle({ dieselBasePrice: e.target.value })} disabled={!canUpdate} placeholder="0" />
+                </Field>
+                <Field label="Revision threshold (%)" hint="Recommended 10–20. Leave empty to always adjust fuel cost with price changes.">
+                  <Input type="number" min={0} max={100} mono value={shuttleSettings.revisionPercentage} onChange={(e) => updateShuttle({ revisionPercentage: e.target.value })} disabled={!canUpdate} />
+                </Field>
+                <Field label="Sales tax, SST (%)">
+                  <Input type="number" min={0} mono value={shuttleSettings.sstPercentage} onChange={(e) => updateShuttle({ sstPercentage: e.target.value })} disabled={!canUpdate} placeholder="10" />
+                </Field>
+                <Field label="Contract duration">
+                  <Select value={shuttleSettings.contractDuration} onChange={(e) => updateShuttle({ contractDuration: e.target.value })} disabled={!canUpdate} placeholder="Select duration">
+                    {CONTRACT_DURATION_OPTIONS.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Contract date">
+                  <Input type="date" value={shuttleSettings.contractDate} onChange={(e) => updateShuttle({ contractDate: e.target.value })} disabled={!canUpdate} />
+                </Field>
+              </FormGrid>
+            </CardContent>
+          </Card>
+
+          <ShuttleRatesTable
+            rows={shuttleRouteRows}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
+            canAddRows={canAddRows}
+            onAdd={() => {
+              dispatch(addShuttleRouteRow());
+              setShuttleDirty(true);
+            }}
+            onChange={changeShuttleRow}
+            onDelete={handleDeleteShuttleRow}
+            onSave={handleShuttleSave}
+            saving={pendingAction === "shuttle" && isSaving}
+            dirty={shuttleDirty}
+          />
+        </section>
+      )}
+
+      {anyDirty && (
+        <div className="sticky bottom-4 z-20 flex justify-center" role="region" aria-label="Unsaved changes">
+          <Card className="flex w-full max-w-3xl flex-col gap-3 border-brand-line p-3 shadow-[var(--shadow-modal)] sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-fg">
+              <span className="font-medium">Unsaved changes</span>
+              <span className="text-fg-muted">
+                {" "}
+                in {[chauffeurDirty && "chauffeur contract", shuttleDirty && "shuttle contract"].filter(Boolean).join(" and ")}
+              </span>
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="ghost" size="sm" leftIcon={<Undo2 />} onClick={handleDiscard} disabled={isSaving}>
+                Discard
+              </Button>
+              {chauffeurDirty && (
+                <Button size="sm" leftIcon={<Save />} onClick={handleSave} disabled={!canUpdate} loading={pendingAction === "chauffeur" && isSaving}>
+                  Save chauffeur
+                </Button>
+              )}
+              {shuttleDirty && (
+                <Button size="sm" leftIcon={<Save />} onClick={handleShuttleSave} disabled={!canUpdate} loading={pendingAction === "shuttle" && isSaving}>
+                  Save shuttle
+                </Button>
+              )}
             </div>
-          ) : null}
-
-          {currentCompany.is_shuttle_enabled && (
-            <div className="flex flex-col gap-6 mt-6">
-              {/* Shuttle Contract Settings */}
-              <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-6 shadow-sm">
-                <div className="mb-6 border-b border-[var(--border-default)] pb-4">
-                  <h2 className="text-lg font-bold text-[var(--text-primary)]">Shuttle Contract Terms</h2>
-                  <p className="text-sm text-[var(--text-muted)]">
-                    Monthly shuttle contract settings for this company. Fuel cost per vehicle is adjusted using the same
-                    fuel revision logic as chauffeur contracts.
-                  </p>
-                </div>
-                <div className="grid gap-6 sm:grid-cols-2">
-                  <Input
-                    label="Base Fuel Price (PKR)"
-                    value={shuttleSettings.fuelBasePrice}
-                    onChange={(v: string) => dispatch(setShuttleSettings({ fuelBasePrice: v }))}
-                    disabled={!canUpdate}
-                  />
-                  <Input
-                    label="Base Diesel Price (PKR)"
-                    value={shuttleSettings.dieselBasePrice}
-                    onChange={(v: string) => dispatch(setShuttleSettings({ dieselBasePrice: v }))}
-                    placeholder="0"
-                    helperText="Required for any route rows marked as Diesel"
-                    disabled={!canUpdate}
-                  />
-                  <Input
-                    label="Revision Threshold (%)"
-                    value={shuttleSettings.revisionPercentage}
-                    onChange={(v: string) => dispatch(setShuttleSettings({ revisionPercentage: v }))}
-                    helperText="Recommended: 10–20. Leave empty to always adjust fuel cost with fuel price changes."
-                    disabled={!canUpdate}
-                    min={0}
-                    max={100}
-                  />
-                  <Input
-                    label="S.S.T (%)"
-                    value={shuttleSettings.sstPercentage}
-                    onChange={(v: string) => dispatch(setShuttleSettings({ sstPercentage: v }))}
-                    placeholder="10"
-                    disabled={!canUpdate}
-                  />
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Contract Duration</span>
-                    <select
-                      value={shuttleSettings.contractDuration}
-                      onChange={(e) => dispatch(setShuttleSettings({ contractDuration: e.target.value }))}
-                      disabled={!canUpdate}
-                      className="h-10 rounded-lg border border-[var(--border-default)] px-3 text-sm outline-none focus:border-[#f47f00] focus:ring-1 focus:ring-[#f47f00] transition-all bg-[var(--bg-card)] disabled:cursor-not-allowed disabled:bg-[var(--bg-subtle)] disabled:opacity-70"
-                    >
-                      <option value="">Select Duration</option>
-                      <option value="6 Months">6 Months</option>
-                      <option value="1 Year">1 Year</option>
-                      <option value="2 Years">2 Years</option>
-                      <option value="3 Years">3 Years</option>
-                      <option value="5 Years">5 Years</option>
-                    </select>
-                  </label>
-                  <Input
-                    label="Contract Date"
-                    value={shuttleSettings.contractDate}
-                    onChange={(v: string) => dispatch(setShuttleSettings({ contractDate: v }))}
-                    type="date"
-                    disabled={!canUpdate}
-                  />
-                </div>
-              </div>
-
-              {/* Shuttle Route Rates */}
-              <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] shadow-sm overflow-hidden">
-                <div className="border-b border-[var(--border-default)] bg-[var(--bg-subtle)]/50 px-6 py-4 flex justify-between items-center">
-                  <div>
-                    <h2 className="text-base font-bold text-[var(--text-primary)]">Shuttle Route Rates</h2>
-                    <p className="text-xs text-[var(--text-muted)] mt-1">
-                      Fixed monthly service & fuel cost per vehicle for each shuttle leg.
-                    </p>
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => dispatch(addShuttleRouteRow())}
-                      disabled={!canAddRows}
-                      className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-[var(--bg-card)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] disabled:opacity-50 disabled:pointer-events-none"
-                    >
-                      + Add Shuttle Route
-                    </button>
-                    <button
-                      onClick={handleShuttleSave}
-                      disabled={!canUpdate || isSaving}
-                      className="inline-flex items-center justify-center rounded-lg bg-[#f47f00] px-6 py-2.5 text-sm font-bold text-white shadow-md hover:bg-[#d97000] disabled:opacity-70 transition-all"
-                    >
-                      {isSaving ? "Saving..." : "Save Shuttle Contract"}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-[var(--bg-subtle)] text-xs uppercase font-semibold text-[var(--text-muted)]">
-                      <tr>
-                        <th className="px-6 py-4 min-w-[220px]">Particulars</th>
-                        <th className="px-4 py-4 min-w-[120px]">Vehicle Type</th>
-                        <th className="px-4 py-4 min-w-[110px]">Fuel Type</th>
-                        <th className="px-4 py-4 min-w-[140px]">Fixed Cost / Vehicle</th>
-                        <th className="px-4 py-4 min-w-[140px]">Fuel Cost / Vehicle</th>
-                        <th className="px-4 py-4 min-w-[130px]">Billing Type</th>
-                        <th className="px-4 py-4 min-w-[120px]">Sched. Days</th>
-                        <th className="px-4 py-4 min-w-[80px] text-center">Qty</th>
-                        <th className="px-4 py-4 w-[50px]"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {shuttleRouteRows.length === 0 ? (
-                        <tr>
-                          <td colSpan={9} className="px-6 py-12 text-center text-[var(--text-muted)]">
-                            No shuttle routes configured. Click &quot;Add Shuttle Route&quot; to start.
-                          </td>
-                        </tr>
-                      ) : (
-                        shuttleRouteRows.map((row, idx) => (
-                          <tr key={row.id || row.tempId} className="hover:bg-[var(--bg-subtle)]/50">
-                            <td className="px-6 py-3">
-                              <input
-                                disabled={!canUpdate}
-                                className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm focus:border-blue-500 focus:outline-none placeholder:text-slate-300"
-                                value={row.particulars || ""}
-                                onChange={(e) =>
-                                  dispatch(
-                                    updateShuttleRouteRow({
-                                      index: idx,
-                                      field: "particulars",
-                                      value: e.target.value,
-                                    }),
-                                  )
-                                }
-                                placeholder="e.g. Karachi to DFML - BUS"
-                              />
-                            </td>
-                            <td className="px-4 py-3">
-                              <input
-                                className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm"
-                                value={row.vehicle_type || ""}
-                                onChange={(e) =>
-                                  dispatch(
-                                    updateShuttleRouteRow({
-                                      index: idx,
-                                      field: "vehicle_type",
-                                      value: e.target.value,
-                                    }),
-                                  )
-                                }
-                                placeholder="e.g. BUS, COASTER"
-                              />
-                            </td>
-                            <td className="px-4 py-3">
-                              <select
-                                disabled={!canUpdate}
-                                className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm bg-[var(--bg-card)] focus:border-[#f47f00] focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed"
-                                value={row.fuel_type || "PETROL"}
-                                onChange={(e) =>
-                                  dispatch(
-                                    updateShuttleRouteRow({
-                                      index: idx,
-                                      field: "fuel_type",
-                                      value: e.target.value,
-                                    }),
-                                  )
-                                }
-                              >
-                                <option value="PETROL">Petrol</option>
-                                <option value="DIESEL">Diesel</option>
-                              </select>
-                              {row.fuel_type === "DIESEL" && (
-                                <span className="text-[10px] text-amber-600 mt-1 block">Uses global diesel rate</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              <input
-                                className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm"
-                                value={row.fixed_cost_per_vehicle || ""}
-                                onChange={(e) =>
-                                  dispatch(
-                                    updateShuttleRouteRow({
-                                      index: idx,
-                                      field: "fixed_cost_per_vehicle",
-                                      value: e.target.value,
-                                    }),
-                                  )
-                                }
-                                placeholder="30000"
-                              />
-                            </td>
-                            <td className="px-4 py-3">
-                              <input
-                                className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm"
-                                value={row.fuel_cost_per_vehicle || ""}
-                                onChange={(e) =>
-                                  dispatch(
-                                    updateShuttleRouteRow({
-                                      index: idx,
-                                      field: "fuel_cost_per_vehicle",
-                                      value: e.target.value,
-                                    }),
-                                  )
-                                }
-                                placeholder="20000"
-                              />
-                            </td>
-                            <td className="px-4 py-3">
-                              <select
-                                disabled={!canUpdate}
-                                className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm bg-[var(--bg-card)] focus:border-[#f47f00] focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed"
-                                value={row.billing_type || "MONTHLY"}
-                                onChange={(e) =>
-                                  dispatch(
-                                    updateShuttleRouteRow({
-                                      index: idx,
-                                      field: "billing_type",
-                                      value: e.target.value,
-                                    }),
-                                  )
-                                }
-                              >
-                                <option value="MONTHLY">Monthly</option>
-                                <option value="PER_TRIP">Per Trip</option>
-                              </select>
-                              {row.billing_type === "PER_TRIP" && (
-                                <span className="text-[10px] text-amber-600 mt-1 block">Cost × trips run at invoice time</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              <input
-                                disabled={!canUpdate}
-                                className="w-full h-9 rounded border border-[var(--border-default)] px-2 text-sm placeholder:text-slate-300 disabled:opacity-70"
-                                value={row.scheduled_days || ""}
-                                onChange={(e) =>
-                                  dispatch(
-                                    updateShuttleRouteRow({
-                                      index: idx,
-                                      field: "scheduled_days",
-                                      value: e.target.value,
-                                    }),
-                                  )
-                                }
-                                placeholder="e.g. MON, FRI/SAT"
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <input
-                                type="number"
-                                disabled={!canUpdate}
-                                className="w-20 h-9 rounded border border-[var(--border-default)] px-2 text-sm text-center"
-                                value={row.quantity ?? 0}
-                                onChange={(e) =>
-                                  dispatch(
-                                    updateShuttleRouteRow({
-                                      index: idx,
-                                      field: "quantity",
-                                      value: e.target.value,
-                                    }),
-                                  )
-                                }
-                                min={0}
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <button
-                                type="button"
-                                onClick={() => dispatch(removeShuttleRouteRow(idx))}
-                                disabled={!canDelete}
-                                className="text-red-400 hover:text-red-600 p-1 disabled:opacity-30 disabled:pointer-events-none"
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="16"
-                                  height="16"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <path d="M3 6h18" />
-                                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                </svg>
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-        </>
+          </Card>
+        </div>
       )}
     </div>
   );

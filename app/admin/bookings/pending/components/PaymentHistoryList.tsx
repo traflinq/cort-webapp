@@ -2,58 +2,34 @@
 
 import { memo } from "react";
 import { PaymentTransaction } from "../../../../lib/services/api-client";
+import { Badge } from "../../../ui";
+import { formatCurrency, formatDateTime, humanize } from "../../../lib/format";
 
 export const PaymentHistoryList = memo(function PaymentHistoryList({ payments }: { payments: PaymentTransaction[] }) {
-    if (!payments || payments.length === 0) {
-        return (
-            <div className="text-center py-6 text-sm text-muted">
-                No payments recorded yet
-            </div>
-        );
-    }
+  if (!payments || payments.length === 0) {
+    return <p className="py-2 text-sm text-fg-muted">No payments recorded yet.</p>;
+  }
 
-    return (
-        <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
-                Payment History ({payments.length})
-            </h4>
-            <div className="max-h-64 overflow-y-auto space-y-2">
-                {payments.map((payment) => (
-                    <div
-                        key={payment.id}
-                        className="flex items-center justify-between bg-surface/30 p-3 rounded-md border border-border"
-                    >
-                        <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                                <span className="font-bold text-ink">
-                                    PKR {parseFloat(payment.amount).toLocaleString()}
-                                </span>
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue/10 text-blue font-medium">
-                                    {payment.payment_method || "N/A"}
-                                </span>
-                            </div>
-                            <div className="text-[11px] text-muted mt-0.5">
-                                {new Date(payment.payment_date).toLocaleString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric',
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    hour12: true
-                                })}
-                                {payment.users_received_by && (
-                                    <span> • By: {payment.users_received_by.full_name}</span>
-                                )}
-                            </div>
-                            {payment.notes && (
-                                <div className="text-xs text-muted italic mt-1">
-                                    {payment.notes}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ))}
+  return (
+    <div className="space-y-2">
+      <h4 className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Payment history ({payments.length})</h4>
+      <ul className="max-h-64 space-y-2 overflow-y-auto">
+        {payments.map((payment) => (
+          <li key={payment.id} className="rounded-lg border border-line bg-subtle p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-sm font-semibold tabular-nums text-fg">{formatCurrency(payment.amount)}</span>
+              <Badge tone="info" size="sm">
+                {payment.payment_method ? humanize(payment.payment_method) : "N/A"}
+              </Badge>
             </div>
-        </div>
-    );
+            <div className="mt-0.5 text-xs text-fg-muted">
+              {formatDateTime(payment.payment_date)}
+              {payment.users_received_by && <span> · by {payment.users_received_by.full_name}</span>}
+            </div>
+            {payment.notes && <p className="mt-1 text-xs text-fg-secondary">{payment.notes}</p>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 });

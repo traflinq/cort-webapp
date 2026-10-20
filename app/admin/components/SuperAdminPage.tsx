@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/contexts/auth-context";
+import { PageSkeleton } from "../ui/Skeleton";
 
 type SuperAdminPageProps = {
   redirectTo?: string;
@@ -20,11 +21,7 @@ export function SuperAdminPage({ redirectTo = "/admin", children }: SuperAdminPa
   }, [loading, isAuthenticated, isSuperAdmin, router, redirectTo]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-navy border-t-transparent" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (!isSuperAdmin) {

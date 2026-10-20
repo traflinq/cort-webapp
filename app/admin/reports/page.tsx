@@ -1,543 +1,440 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
-import { apiClient, ChauffeurReport, ShuttleReport } from "../../lib/services/api-client";
-import Pagination from "../../components/ui/Pagination";
+import * as React from "react";
+import { Moon, Sun } from "lucide-react";
+import { apiClient, type ChauffeurReport, type ShuttleReport } from "../../lib/services/api-client";
 import { PermissionGate } from "../components/PermissionGate";
 import { AdminCan } from "../../lib/abilities/AdminAbilityProvider";
+import {
+  Badge,
+  Card,
+  CardContent,
+  DataTable,
+  DateRangePicker,
+  FilterBar,
+  FilterField,
+  PageHeader,
+  Select,
+  StatusBadge,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  type DataTableColumn,
+  type DateRange,
+  type StatusEntry,
+} from "../ui";
+import { formatCurrency, formatDate, formatDateTime, formatNumber, formatTime, humanize } from "../lib/format";
 
-interface PaginationState {
-    page: number;
-    totalPages: number;
-    total: number;
+const PAGE_SIZE = 15;
+
+type PaginationState = { page: number; totalPages: number; total: number };
+
+type ListState<T> = {
+  key: string;
+  rows: T[];
+  pagination: PaginationState;
+  error: string | null;
+};
+
+type PaginatedLike<T> = { data?: { data?: T[]; pagination?: Record<string, number> } | T[]; pagination?: Record<string, number> };
+
+/** Both report endpoints wrap results slightly differently; normalise once. */
+function unwrap<T>(res: unknown, page: number): { rows: T[]; pagination: PaginationState } {
+  const raw = res as PaginatedLike<T>;
+  const inner = raw?.data;
+  const rows: T[] = Array.isArray(inner) ? inner : (inner?.data ?? []);
+  const meta = (Array.isArray(inner) ? raw?.pagination : inner?.pagination) ?? raw?.pagination ?? {};
+  return {
+    rows,
+    pagination: {
+      page: meta.page ?? page,
+      totalPages: meta.pages ?? meta.totalPages ?? 1,
+      total: meta.total ?? rows.length,
+    },
+  };
 }
 
-type Tab = "chauffeur" | "shuttle";
+const PASSENGER_STATUS: Record<string, StatusEntry> = {
+  BOARDED: { tone: "success" },
+  DROPPED_OFF: { tone: "info", label: "Dropped off" },
+  ABSENT: { tone: "danger" },
+  PENDING: { tone: "neutral" },
+};
 
 export default function AdminReportsPage() {
-    return (
-        <PermissionGate permission="reports">
-            <AdminCan I="read" a="Reports">
-                <AdminReportsContent />
-            </AdminCan>
-        </PermissionGate>
-    );
+  return (
+    <PermissionGate permission="reports">
+      <AdminCan I="read" a="Reports">
+        <AdminReportsContent />
+      </AdminCan>
+    </PermissionGate>
+  );
 }
 
 function AdminReportsContent() {
-    const [activeTab, setActiveTab] = useState<Tab>("chauffeur");
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
+  const [range, setRange] = React.useState<DateRange | null>(null);
 
-    return (
-        <div className="flex flex-col gap-6 p-6">
-            {/* Header */}
-            <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <div className="text-sm font-medium text-muted">Admin Portal</div>
-                    <h1 className="mt-1 text-2xl font-semibold tracking-tight text-navy">
-                        All Company Reports
-                    </h1>
-                </div>
-                <div className="flex flex-wrap items-end gap-3">
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            className="h-10 rounded-md border border-border px-3 text-sm"
-                        />
-                        <span className="text-muted">-</span>
-                        <input
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            className="h-10 rounded-md border border-border px-3 text-sm"
-                        />
-                    </div>
-                </div>
-            </div>
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Reports"
+        description="Completed chauffeur trips and shuttle logs across every company."
+        actions={<DateRangePicker value={range} onChange={setRange} allowClear label="Report period" />}
+      />
 
-            {/* Tabs */}
-            <div className="flex gap-1 border-b border-border">
-                {(["chauffeur", "shuttle"] as Tab[]).map((tab) => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                            activeTab === tab
-                                ? "border-emerald-500 text-emerald-600"
-                                : "border-transparent text-muted hover:text-navy"
-                        }`}
-                    >
-                        {tab === "chauffeur" ? "Chauffeur Reports" : "Shuttle Logs"}
-                    </button>
-                ))}
-            </div>
-
-            {activeTab === "chauffeur" ? (
-                <ChauffeurReportsTab startDate={startDate} endDate={endDate} />
-            ) : (
-                <ShuttleLogsTab startDate={startDate} endDate={endDate} />
-            )}
-        </div>
-    );
+      <Tabs defaultValue="chauffeur">
+        <TabsList>
+          <TabsTrigger value="chauffeur">Chauffeur reports</TabsTrigger>
+          <TabsTrigger value="shuttle">Shuttle logs</TabsTrigger>
+        </TabsList>
+        <TabsContent value="chauffeur">
+          <ChauffeurReportsTab range={range} />
+        </TabsContent>
+        <TabsContent value="shuttle">
+          <ShuttleLogsTab range={range} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
 }
 
-// ── Chauffeur Reports Tab ──────────────────────────────────────────────────────
+/**
+ * Fetches one page of a report. `loading` is derived from the request key so no state is set
+ * synchronously inside the effect, and stale responses are ignored.
+ */
+function usePagedReport<T>(fetcher: (page: number, start?: string, end?: string) => Promise<unknown>, range: DateRange | null) {
+  const [page, setPage] = React.useState(1);
+  const start = range?.start || undefined;
+  const end = range?.end || undefined;
+  const key = `${page}|${start ?? ""}|${end ?? ""}`;
+  const [state, setState] = React.useState<ListState<T>>({ key: "", rows: [], pagination: { page: 1, totalPages: 1, total: 0 }, error: null });
+  const [retryTick, setRetryTick] = React.useState(0);
 
-function ChauffeurReportsTab({ startDate, endDate }: { startDate: string; endDate: string }) {
-    const [reports, setReports] = useState<ChauffeurReport[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [pagination, setPagination] = useState<PaginationState>({ page: 1, totalPages: 1, total: 0 });
-    const [currentPage, setCurrentPage] = useState(1);
+  // Changing the period goes back to page 1 (render-time adjustment).
+  const [prevRange, setPrevRange] = React.useState(range);
+  if (prevRange !== range) {
+    setPrevRange(range);
+    setPage(1);
+  }
 
-    const fetchReports = useCallback(async (page: number, start: string, end: string) => {
-        setLoading(true);
-        setError(null);
-        try {
-            const res = await apiClient.getAllChauffeurReports({
-                page,
-                limit: 15,
-                startDate: start || undefined,
-                endDate: end || undefined,
-            });
-            const raw = res as any;
-            const data: ChauffeurReport[] = raw?.data?.data ?? raw?.data ?? [];
-            const meta = raw?.data?.pagination ?? raw?.pagination ?? {};
-            setReports(data);
-            setPagination({
-                page: meta.page ?? page,
-                totalPages: meta.pages ?? meta.totalPages ?? 1,
-                total: meta.total ?? data.length,
-            });
-        } catch (e: any) {
-            setError(e.message || "Failed to load reports");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetcher(page, start, end);
+        if (cancelled) return;
+        const { rows, pagination } = unwrap<T>(res, page);
+        setState({ key, rows, pagination, error: null });
+      } catch (e) {
+        if (cancelled) return;
+        setState((s) => ({ key, rows: [], pagination: s.pagination, error: e instanceof Error ? e.message : "Failed to load reports" }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fetcher, page, start, end, key, retryTick]);
 
-    useEffect(() => {
-        const timer = setTimeout(() => { setCurrentPage(1); fetchReports(1, startDate, endDate); }, 400);
-        return () => clearTimeout(timer);
-    }, [startDate, endDate, fetchReports]);
-
-    useEffect(() => { fetchReports(currentPage, startDate, endDate); }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    return (
-        <div className="rounded-xl border border-border bg-white overflow-hidden shadow-sm">
-            <div className="border-b border-border bg-zinc-50/50 p-4">
-                <div className="text-xs font-semibold tracking-wider text-muted">GLOBAL CHAUFFEUR REPORTS</div>
-                <div className="mt-1 text-sm text-muted">Consolidated view of all chauffeur trips across all companies.</div>
-            </div>
-            <div className="overflow-x-auto">
-                <table className="w-full min-w-max text-left text-sm">
-                    <thead className="bg-zinc-50 text-xs font-medium uppercase text-muted">
-                        <tr>
-                            <th className="px-4 py-3">Date</th>
-                            <th className="px-4 py-3">City</th>
-                            <th className="px-4 py-3">Company</th>
-                            <th className="px-4 py-3">Passenger</th>
-                            <th className="px-4 py-3">Vehicle</th>
-                            <th className="px-4 py-3">Route</th>
-                            <th className="px-4 py-3 text-right">Dur (min)</th>
-                            <th className="px-4 py-3 text-right">Dist (km)</th>
-                            <th className="px-4 py-3 text-right">Total (PKR)</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {loading ? (
-                            <tr><td colSpan={9} className="px-4 py-8 text-center text-muted">Loading reports...</td></tr>
-                        ) : error ? (
-                            <tr><td colSpan={9} className="px-4 py-8 text-center text-red-500">{error}</td></tr>
-                        ) : reports.length === 0 ? (
-                            <tr><td colSpan={9} className="px-4 py-8 text-center text-muted">No reports found for the selected period.</td></tr>
-                        ) : (
-                            reports.map((report) => (
-                                <tr key={report.id} className="hover:bg-zinc-50/50">
-                                    <td className="px-4 py-3 whitespace-nowrap">
-                                        {report.completed_at
-                                            ? new Date(report.completed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
-                                            : "-"}
-                                    </td>
-                                    <td className="px-4 py-3 text-navy">{report.city || "—"}</td>
-                                    <td className="px-4 py-3 font-medium text-navy">{report.company?.name || "Unknown"}</td>
-                                    <td className="px-4 py-3">
-                                        <div className="font-medium text-navy">{report.passenger?.full_name || "Guest"}</div>
-                                        <div className="text-xs text-muted">{report.passenger?.email || "-"}</div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="text-navy">{report.vehicle?.make} {report.vehicle?.model}</div>
-                                        <div className="text-xs text-muted">{report.vehicle?.plate_number}</div>
-                                    </td>
-                                    <td className="px-4 py-3 max-w-xs truncate">
-                                        <div title={report.route.pickup} className="truncate text-navy">{report.route.pickup || "-"}</div>
-                                        <div title={report.route.dropoff} className="truncate text-muted text-xs">To: {report.route.dropoff || "-"}</div>
-                                    </td>
-                                    <td className="px-4 py-3 text-right text-navy">{report.total_duration_minutes}</td>
-                                    <td className="px-4 py-3 text-right text-navy">{report.total_distance_km}</td>
-                                    <td className="px-4 py-3 text-right font-medium text-navy">{Number(report.total_cost).toLocaleString()}</td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-            <div className="border-t border-border">
-                <Pagination currentPage={pagination.page} totalPages={pagination.totalPages} onPageChange={setCurrentPage} />
-            </div>
-        </div>
-    );
+  const loading = state.key !== key;
+  return { ...state, loading, page, setPage, retry: () => setRetryTick((t) => t + 1) };
 }
 
-// ── Shuttle Logs Tab ───────────────────────────────────────────────────────────
+/* ── Chauffeur ─────────────────────────────────────────────────────────── */
+
+const fetchChauffeur = (page: number, startDate?: string, endDate?: string) => apiClient.getAllChauffeurReports({ page, limit: PAGE_SIZE, startDate, endDate });
+
+const chauffeurColumns: DataTableColumn<ChauffeurReport>[] = [
+  { key: "completed_at", header: "Completed", width: "11rem", cell: (r) => <span className="whitespace-nowrap text-fg-secondary">{formatDateTime(r.completed_at)}</span> },
+  { key: "company", header: "Company", cell: (r) => <span className="font-medium text-fg">{r.company?.name || "Unknown"}</span> },
+  {
+    key: "passenger",
+    header: "Passenger",
+    cell: (r) => (
+      <div className="min-w-0">
+        <div className="font-medium text-fg">{r.passenger?.full_name || "Guest"}</div>
+        <div className="truncate text-xs text-fg-muted">{r.passenger?.email || "—"}</div>
+      </div>
+    ),
+  },
+  {
+    key: "vehicle",
+    header: "Vehicle",
+    hideBelow: "md",
+    cell: (r) =>
+      r.vehicle ? (
+        <div className="min-w-0">
+          <div className="text-fg">
+            {r.vehicle.make} {r.vehicle.model}
+          </div>
+          <div className="font-mono text-xs text-fg-muted">{r.vehicle.plate_number}</div>
+        </div>
+      ) : (
+        <span className="text-fg-muted">—</span>
+      ),
+  },
+  {
+    key: "route",
+    header: "Route",
+    hideBelow: "lg",
+    cell: (r) => (
+      <div className="max-w-xs min-w-0">
+        <div className="truncate text-fg" title={r.route.pickup}>
+          {r.route.pickup || "—"}
+        </div>
+        <div className="truncate text-xs text-fg-muted" title={r.route.dropoff}>
+          → {r.route.dropoff || "—"}
+        </div>
+      </div>
+    ),
+  },
+  { key: "city", header: "City", hideBelow: "xl", cell: (r) => r.city || <span className="text-fg-muted">—</span> },
+  { key: "total_duration_minutes", header: "Duration", align: "right", mono: true, hideBelow: "sm", cell: (r) => `${formatNumber(r.total_duration_minutes)} min` },
+  { key: "total_distance_km", header: "Distance", align: "right", mono: true, hideBelow: "sm", cell: (r) => `${formatNumber(r.total_distance_km, { digits: 1 })} km` },
+  { key: "total_cost", header: "Total", align: "right", mono: true, cell: (r) => <span className="font-medium">{formatCurrency(r.total_cost)}</span> },
+];
+
+function ChauffeurReportsTab({ range }: { range: DateRange | null }) {
+  const { rows, pagination, loading, error, page, setPage, retry } = usePagedReport<ChauffeurReport>(fetchChauffeur, range);
+  return (
+    <Card>
+      <DataTable<ChauffeurReport>
+        caption="Chauffeur reports"
+        rows={rows}
+        rowKey={(r) => r.id}
+        columns={chauffeurColumns}
+        loading={loading}
+        error={error}
+        onRetry={retry}
+        empty={{ title: "No chauffeur reports", description: range ? "No completed trips in the selected period." : "Completed chauffeur trips will appear here." }}
+        pagination={{ page, totalPages: pagination.totalPages, total: pagination.total, pageSize: PAGE_SIZE, onPageChange: setPage }}
+      />
+    </Card>
+  );
+}
+
+/* ── Shuttle ───────────────────────────────────────────────────────────── */
+
+const fetchShuttle = (page: number, startDate?: string, endDate?: string) => apiClient.getAllShuttleReports({ page, limit: PAGE_SIZE, startDate, endDate });
 
 function DirectionBadge({ direction }: { direction: string }) {
-    const isEvening = direction === "EVENING";
-    return (
-        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${isEvening ? "bg-indigo-100 text-indigo-700" : "bg-amber-100 text-amber-700"}`}>
-            {isEvening ? "🌙" : "☀️"} {direction}
-        </span>
-    );
+  const evening = direction === "EVENING";
+  return (
+    <Badge tone={evening ? "purple" : "warning"} icon={evening ? <Moon aria-hidden="true" /> : <Sun aria-hidden="true" />}>
+      {humanize(direction)}
+    </Badge>
+  );
 }
 
-function StatusBadge({ status }: { status: string }) {
-    const colors: Record<string, string> = {
-        COMPLETED: "bg-emerald-100 text-emerald-700",
-        STARTED: "bg-blue-100 text-blue-700",
-        SCHEDULED: "bg-zinc-100 text-zinc-600",
-        CANCELLED: "bg-red-100 text-red-600",
-    };
-    return (
-        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${colors[status] ?? "bg-zinc-100 text-zinc-600"}`}>
-            {status}
-        </span>
-    );
-}
+function ShuttleLogsTab({ range }: { range: DateRange | null }) {
+  const { rows, pagination, loading, error, page, setPage, retry } = usePagedReport<ShuttleReport>(fetchShuttle, range);
+  const [statusFilter, setStatusFilter] = React.useState("");
+  const [directionFilter, setDirectionFilter] = React.useState("");
+  const [expanded, setExpanded] = React.useState<Set<number>>(new Set());
 
-function ShuttleLogsTab({ startDate, endDate }: { startDate: string; endDate: string }) {
-    const [logs, setLogs] = useState<ShuttleReport[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [pagination, setPagination] = useState<PaginationState>({ page: 1, totalPages: 1, total: 0 });
-    const [currentPage, setCurrentPage] = useState(1);
-    const [expandedId, setExpandedId] = useState<number | null>(null);
-    const [statusFilter, setStatusFilter] = useState("");
-    const [directionFilter, setDirectionFilter] = useState("");
+  // The endpoint has no status/direction parameters, so these filters apply to the loaded page only.
+  const filtered = rows.filter((l) => (!statusFilter || l.status === statusFilter) && (!directionFilter || l.direction === directionFilter));
+  const activeFilters = (statusFilter ? 1 : 0) + (directionFilter ? 1 : 0);
 
-    const fetchLogs = useCallback(async (page: number, start: string, end: string) => {
-        setLoading(true);
-        setError(null);
-        try {
-            const res = await apiClient.getAllShuttleReports({
-                page,
-                limit: 15,
-                startDate: start || undefined,
-                endDate: end || undefined,
-            }) as any;
-            const raw = res?.data ?? res;
-            const data: ShuttleReport[] = raw?.data ?? raw ?? [];
-            const meta = raw?.pagination ?? {};
-            setLogs(data);
-            setPagination({
-                page: meta.page ?? page,
-                totalPages: meta.pages ?? meta.totalPages ?? 1,
-                total: meta.total ?? data.length,
-            });
-        } catch (e: any) {
-            setError(e.message || "Failed to load shuttle logs");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        const timer = setTimeout(() => { setCurrentPage(1); fetchLogs(1, startDate, endDate); }, 400);
-        return () => clearTimeout(timer);
-    }, [startDate, endDate, fetchLogs]);
-
-    useEffect(() => { fetchLogs(currentPage, startDate, endDate); }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const filtered = logs.filter((l) => {
-        if (statusFilter && l.status !== statusFilter) return false;
-        if (directionFilter && l.direction !== directionFilter) return false;
-        return true;
-    });
-
-    return (
-        <div className="rounded-xl border border-border bg-white overflow-hidden shadow-sm">
-            <div className="border-b border-border bg-zinc-50/50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <div className="text-xs font-semibold tracking-wider text-muted">GLOBAL SHUTTLE LOGS</div>
-                    <div className="mt-0.5 text-sm text-muted">All shuttle trips across all companies — boarding, route, driver and stop details.</div>
-                </div>
-                <div className="flex items-center gap-2">
-                    <select
-                        value={directionFilter}
-                        onChange={(e) => setDirectionFilter(e.target.value)}
-                        className="h-8 rounded-md border border-border px-2 text-xs bg-white"
-                    >
-                        <option value="">All directions</option>
-                        <option value="MORNING">Morning</option>
-                        <option value="EVENING">Evening</option>
-                    </select>
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="h-8 rounded-md border border-border px-2 text-xs bg-white"
-                    >
-                        <option value="">All statuses</option>
-                        <option value="COMPLETED">Completed</option>
-                        <option value="STARTED">Started</option>
-                        <option value="SCHEDULED">Scheduled</option>
-                        <option value="CANCELLED">Cancelled</option>
-                    </select>
-                    <span className="text-xs text-muted">{pagination.total.toLocaleString()} total</span>
-                </div>
-            </div>
-
-            <div className="overflow-x-auto">
-                <table className="w-full min-w-max text-left text-sm">
-                    <thead className="bg-zinc-50 text-xs font-medium uppercase text-muted">
-                        <tr>
-                            <th className="px-4 py-3">Trip Date</th>
-                            <th className="px-4 py-3">Direction</th>
-                            <th className="px-4 py-3">Status</th>
-                            <th className="px-4 py-3">Company</th>
-                            <th className="px-4 py-3">Route</th>
-                            <th className="px-4 py-3">Driver</th>
-                            <th className="px-4 py-3">Vehicle</th>
-                            <th className="px-4 py-3 text-right">Boarded</th>
-                            <th className="px-4 py-3 text-right">Absent</th>
-                            <th className="px-4 py-3 text-right">Assigned</th>
-                            <th className="px-4 py-3">Started At</th>
-                            <th className="px-4 py-3">Completed At</th>
-                            <th className="px-4 py-3"></th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {loading ? (
-                            <tr><td colSpan={13} className="px-4 py-8 text-center text-muted">Loading shuttle logs...</td></tr>
-                        ) : error ? (
-                            <tr><td colSpan={13} className="px-4 py-8 text-center text-red-500">{error}</td></tr>
-                        ) : filtered.length === 0 ? (
-                            <tr><td colSpan={13} className="px-4 py-8 text-center text-muted">No shuttle logs found for the selected filters.</td></tr>
-                        ) : (
-                            filtered.map((log) => (
-                                <React.Fragment key={log.id}>
-                                    <tr
-                                        className={`hover:bg-zinc-50/50 ${expandedId === log.id ? "bg-zinc-50" : ""}`}
-                                    >
-                                        <td className="px-4 py-3 whitespace-nowrap font-medium text-navy">
-                                            {log.trip_date
-                                                ? new Date(log.trip_date).toLocaleDateString('en-PK', { timeZone: 'Asia/Karachi', day: 'numeric', month: 'short', year: 'numeric' })
-                                                : "—"}
-                                        </td>
-                                        <td className="px-4 py-3"><DirectionBadge direction={log.direction} /></td>
-                                        <td className="px-4 py-3"><StatusBadge status={log.status} /></td>
-                                        <td className="px-4 py-3 font-medium text-navy">{log.company?.name || "—"}</td>
-                                        <td className="px-4 py-3">
-                                            <div className="font-medium text-navy">{log.route?.name || "—"}</div>
-                                            {log.route?.stops && log.route.stops.length > 0 && (
-                                                <div className="text-xs text-muted">{log.route.stops.length} stops</div>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 text-navy">{log.driver?.full_name || "—"}</td>
-                                        <td className="px-4 py-3">
-                                            {log.vehicle ? (
-                                                <>
-                                                    <div className="text-navy">{log.vehicle.make} {log.vehicle.model}</div>
-                                                    <div className="text-xs text-muted">{log.vehicle.plate_number}</div>
-                                                </>
-                                            ) : "—"}
-                                        </td>
-                                        <td className="px-4 py-3 text-right font-medium text-emerald-600">{log.passengers.boarded}</td>
-                                        <td className="px-4 py-3 text-right text-red-500">{log.passengers.absent}</td>
-                                        <td className="px-4 py-3 text-right text-muted">{log.passengers.total}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-muted text-xs">
-                                            {log.started_at
-                                                ? new Date(log.started_at).toLocaleString('en-PK', { timeZone: 'Asia/Karachi', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
-                                                : "—"}
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-muted text-xs">
-                                            {log.completed_at
-                                                ? new Date(log.completed_at).toLocaleString('en-PK', { timeZone: 'Asia/Karachi', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
-                                                : "—"}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {(log.passengers.details?.length > 0 || (log.stop_logs && log.stop_logs.length > 0)) && (
-                                                <button
-                                                    onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
-                                                    className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
-                                                >
-                                                    {expandedId === log.id ? "Hide" : "Details"}
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-
-                                    {/* Expanded detail row */}
-                                    {expandedId === log.id && (
-                                        <tr key={`${log.id}-detail`} className="bg-zinc-50">
-                                            <td colSpan={13} className="px-6 py-4">
-                                                <div className="flex flex-wrap gap-8">
-                                                    {/* Passenger manifest */}
-                                                    {log.passengers.details?.length > 0 && (
-                                                        <div className="flex-1 min-w-[280px]">
-                                                            <div className="text-xs font-semibold text-muted uppercase mb-2">Passenger Manifest</div>
-                                                            <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
-                                                                {log.passengers.details.map((p, idx) => {
-                                                                    // scanned_at is set on ABSENT logs too (it doubles as "marked at"), so
-                                                                    // only treat it as a boarding time for passengers who actually boarded.
-                                                                    const boardedAt = (p.status === "BOARDED" || p.status === "DROPPED_OFF") && p.scanned_at
-                                                                        ? new Date(p.scanned_at).toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: true })
-                                                                        : null;
-                                                                    const dropOffAt = p.drop_off_at
-                                                                        ? new Date(p.drop_off_at).toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: true })
-                                                                        : null;
-                                                                    return (
-                                                                    <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2 bg-white text-xs">
-                                                                        <div className="min-w-0">
-                                                                            <div className="font-medium text-navy">{p.employee?.full_name || "Unknown"}</div>
-                                                                            <div className="text-muted">{p.employee?.department || p.employee?.email || "-"}</div>
-                                                                            {boardedAt && (
-                                                                                <div className="mt-0.5 font-mono text-emerald-600/80">Boarded {boardedAt}</div>
-                                                                            )}
-                                                                            {dropOffAt && (
-                                                                                <div className="mt-0.5 font-mono text-sky-600">Dropoff {dropOffAt}</div>
-                                                                            )}
-                                                                        </div>
-                                                                        <span className={`shrink-0 rounded-full px-2 py-0.5 font-semibold ${
-                                                                            p.status === "BOARDED" ? "bg-emerald-100 text-emerald-700"
-                                                                            : p.status === "DROPPED_OFF" ? "bg-sky-100 text-sky-700"
-                                                                            : p.status === "ABSENT" ? "bg-red-100 text-red-600"
-                                                                            : "bg-zinc-100 text-zinc-600"
-                                                                        }`}>
-                                                                            {p.status}
-                                                                        </span>
-                                                                    </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Stop logs */}
-                                                    {log.stop_logs && log.stop_logs.length > 0 && (
-                                                        <div className="flex-1 min-w-[280px]">
-                                                            <div className="text-xs font-semibold text-muted uppercase mb-2">Stop Timeline</div>
-                                                            <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
-                                                                {/* Started At */}
-                                                                <div className="flex items-center justify-between gap-4 px-3 py-2 bg-emerald-50 text-xs">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
-                                                                        <div>
-                                                                            <div className="font-semibold text-emerald-700">Trip Started</div>
-                                                                            <div className="text-emerald-600/70">
-                                                                                {log.started_at
-                                                                                    ? new Date(log.started_at).toLocaleDateString('en-PK', { timeZone: 'Asia/Karachi', month: 'short', day: 'numeric' })
-                                                                                    : '—'}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="font-mono font-semibold text-emerald-700">
-                                                                        {log.started_at
-                                                                            ? new Date(log.started_at).toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: true })
-                                                                            : '—'}
-                                                                    </div>
-                                                                </div>
-
-                                                                {log.stop_logs
-                                                                    .slice()
-                                                                    .sort((a, b) => {
-                                                                        const aSeq = log.direction === 'EVENING'
-                                                                            ? (a.evening_sequence ?? a.morning_sequence ?? 0)
-                                                                            : (a.morning_sequence ?? a.evening_sequence ?? 0);
-                                                                        const bSeq = log.direction === 'EVENING'
-                                                                            ? (b.evening_sequence ?? b.morning_sequence ?? 0)
-                                                                            : (b.morning_sequence ?? b.evening_sequence ?? 0);
-                                                                        return aSeq - bSeq;
-                                                                    })
-                                                                    .map((s, idx) => {
-                                                                        const isEvening = log.direction === 'EVENING';
-                                                                        const arrivedAt = s.arrived_at
-                                                                            ? new Date(s.arrived_at).toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: true })
-                                                                            : null;
-                                                                        const boardedAt = s.boarded_at
-                                                                            ? new Date(s.boarded_at).toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: true })
-                                                                            : null;
-                                                                        const dropOffAt = s.drop_off_at
-                                                                            ? new Date(s.drop_off_at).toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: true })
-                                                                            : null;
-                                                                        return (
-                                                                        <div key={idx} className="flex items-start justify-between gap-4 px-3 py-2 bg-white text-xs">
-                                                                            <div>
-                                                                                <div className="font-medium text-navy">{s.stop_name || `Stop ${s.stop_id}`}</div>
-                                                                                <div className="text-muted">
-                                                                                    {isEvening ? 'Evening dropoff stop' : 'Morning pickup stop'}
-                                                                                </div>
-                                                                            </div>
-                                                                            <div className="text-right space-y-1 font-mono text-navy">
-                                                                                {isEvening ? (
-                                                                                    <div>
-                                                                                        <div className="text-[10px] text-muted font-sans">Dropoff time</div>
-                                                                                        <div>{dropOffAt || '—'}</div>
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <>
-                                                                                        <div>
-                                                                                            <div className="text-[10px] text-muted font-sans">Arrived</div>
-                                                                                            <div>{arrivedAt || '—'}</div>
-                                                                                        </div>
-                                                                                        <div>
-                                                                                            <div className="text-[10px] text-muted font-sans">Boarded</div>
-                                                                                            <div>{boardedAt || '—'}</div>
-                                                                                        </div>
-                                                                                    </>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                        );
-                                                                    })}
-
-                                                                {/* Completed At */}
-                                                                <div className="flex items-center justify-between gap-4 px-3 py-2 bg-zinc-50 text-xs">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="h-2 w-2 rounded-full bg-zinc-400 shrink-0" />
-                                                                        <div>
-                                                                            <div className="font-semibold text-zinc-600">Trip Completed</div>
-                                                                            <div className="text-zinc-400">
-                                                                                {log.completed_at
-                                                                                    ? new Date(log.completed_at).toLocaleDateString('en-PK', { timeZone: 'Asia/Karachi', month: 'short', day: 'numeric' })
-                                                                                    : '—'}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="font-mono font-semibold text-zinc-600">
-                                                                        {log.completed_at
-                                                                            ? new Date(log.completed_at).toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: true })
-                                                                            : '—'}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </React.Fragment>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            <div className="border-t border-border">
-                <Pagination currentPage={pagination.page} totalPages={pagination.totalPages} onPageChange={setCurrentPage} />
-            </div>
+  const columns: DataTableColumn<ShuttleReport>[] = [
+    { key: "trip_date", header: "Trip date", width: "8rem", cell: (l) => <span className="whitespace-nowrap font-medium text-fg">{formatDate(l.trip_date)}</span> },
+    { key: "direction", header: "Direction", cell: (l) => <DirectionBadge direction={l.direction} /> },
+    { key: "status", header: "Status", cell: (l) => <StatusBadge status={l.status} /> },
+    { key: "company", header: "Company", hideBelow: "md", cell: (l) => <span className="font-medium text-fg">{l.company?.name || "—"}</span> },
+    {
+      key: "route",
+      header: "Route",
+      cell: (l) => (
+        <div className="min-w-0">
+          <div className="font-medium text-fg">{l.route?.name || "—"}</div>
+          {l.route?.stops && l.route.stops.length > 0 && <div className="text-xs text-fg-muted">{l.route.stops.length} stops</div>}
         </div>
-    );
+      ),
+    },
+    { key: "driver", header: "Driver", hideBelow: "lg", cell: (l) => l.driver?.full_name || <span className="text-fg-muted">—</span> },
+    {
+      key: "vehicle",
+      header: "Vehicle",
+      hideBelow: "lg",
+      cell: (l) =>
+        l.vehicle ? (
+          <div className="min-w-0">
+            <div className="text-fg">
+              {l.vehicle.make} {l.vehicle.model}
+            </div>
+            <div className="font-mono text-xs text-fg-muted">{l.vehicle.plate_number}</div>
+          </div>
+        ) : (
+          <span className="text-fg-muted">—</span>
+        ),
+    },
+    {
+      key: "passengers",
+      header: "Boarded / absent",
+      align: "right",
+      mono: true,
+      cell: (l) => (
+        <span className="whitespace-nowrap">
+          <span className="text-success-ink">{l.passengers.boarded}</span>
+          <span className="text-fg-muted"> / </span>
+          <span className="text-danger-ink">{l.passengers.absent}</span>
+          <span className="text-fg-muted"> of {l.passengers.total}</span>
+        </span>
+      ),
+    },
+    { key: "started_at", header: "Started", hideBelow: "xl", cell: (l) => <span className="whitespace-nowrap text-xs text-fg-secondary">{l.started_at ? formatDateTime(l.started_at) : "—"}</span> },
+    { key: "completed_at", header: "Completed", hideBelow: "xl", cell: (l) => <span className="whitespace-nowrap text-xs text-fg-secondary">{l.completed_at ? formatDateTime(l.completed_at) : "—"}</span> },
+  ];
+
+  return (
+    <Card>
+      <CardContent className="border-b border-line py-3">
+        <FilterBar
+          activeCount={activeFilters}
+          onClear={() => {
+            setStatusFilter("");
+            setDirectionFilter("");
+          }}
+          actions={
+            <span className="text-xs text-fg-muted">
+              {activeFilters > 0 ? `${filtered.length} of ${rows.length} on this page · ` : ""}
+              {formatNumber(pagination.total)} total
+            </span>
+          }
+        >
+          <FilterField label="Direction">
+            <Select value={directionFilter} onChange={(e) => setDirectionFilter(e.target.value)} placeholder="All" className="h-8 text-xs">
+              <option value="MORNING">Morning</option>
+              <option value="EVENING">Evening</option>
+            </Select>
+          </FilterField>
+          <FilterField label="Status">
+            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} placeholder="All" className="h-8 text-xs">
+              <option value="COMPLETED">Completed</option>
+              <option value="STARTED">Started</option>
+              <option value="SCHEDULED">Scheduled</option>
+              <option value="CANCELLED">Cancelled</option>
+            </Select>
+          </FilterField>
+          {activeFilters > 0 && <span className="text-xs text-fg-muted">Filters apply to the current page</span>}
+        </FilterBar>
+      </CardContent>
+      <DataTable<ShuttleReport>
+        caption="Shuttle logs"
+        rows={filtered}
+        rowKey={(l) => l.id}
+        columns={columns}
+        loading={loading}
+        error={error}
+        onRetry={retry}
+        empty={{ title: activeFilters > 0 ? "No logs match these filters on this page" : "No shuttle logs", description: range ? "No shuttle trips in the selected period." : "Shuttle trips will appear here." }}
+        expandable={{
+          isExpanded: (l) => expanded.has(l.id),
+          onToggle: (l) =>
+            setExpanded((s) => {
+              const n = new Set(s);
+              if (n.has(l.id)) n.delete(l.id);
+              else n.add(l.id);
+              return n;
+            }),
+          render: (l) => <ShuttleLogDetails log={l} />,
+        }}
+        pagination={{ page, totalPages: pagination.totalPages, total: pagination.total, pageSize: PAGE_SIZE, onPageChange: setPage }}
+      />
+    </Card>
+  );
+}
+
+function ShuttleLogDetails({ log }: { log: ShuttleReport }) {
+  const isEvening = log.direction === "EVENING";
+  const stops = (log.stop_logs ?? [])
+    .slice()
+    .sort((a, b) => {
+      const seq = (s: NonNullable<ShuttleReport["stop_logs"]>[number]) =>
+        isEvening ? (s.evening_sequence ?? s.morning_sequence ?? 0) : (s.morning_sequence ?? s.evening_sequence ?? 0);
+      return seq(a) - seq(b);
+    });
+  const passengers = log.passengers.details ?? [];
+
+  if (passengers.length === 0 && stops.length === 0) {
+    return <p className="px-6 py-3 text-xs text-fg-muted">No passenger or stop details recorded for this trip.</p>;
+  }
+
+  return (
+    <div className="grid gap-6 px-6 py-4 lg:grid-cols-2">
+      {passengers.length > 0 && (
+        <section>
+          <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Passenger manifest</h4>
+          <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-card">
+            {passengers.map((p, idx) => {
+              // scanned_at is also set on ABSENT logs (it doubles as "marked at"), so only treat it as boarding time for boarded passengers.
+              const boardedAt = (p.status === "BOARDED" || p.status === "DROPPED_OFF") && p.scanned_at ? formatTime(p.scanned_at) : null;
+              const dropOffAt = p.drop_off_at ? formatTime(p.drop_off_at) : null;
+              return (
+                <li key={idx} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+                  <div className="min-w-0">
+                    <div className="font-medium text-fg">{p.employee?.full_name || "Unknown"}</div>
+                    <div className="truncate text-fg-muted">{p.employee?.department || p.employee?.email || "—"}</div>
+                    {(boardedAt || dropOffAt) && (
+                      <div className="mt-0.5 font-mono text-[11px] text-fg-secondary">
+                        {boardedAt && <span>Boarded {boardedAt}</span>}
+                        {boardedAt && dropOffAt && <span> · </span>}
+                        {dropOffAt && <span>Drop-off {dropOffAt}</span>}
+                      </div>
+                    )}
+                  </div>
+                  <StatusBadge status={p.status} size="sm" overrides={PASSENGER_STATUS} />
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {stops.length > 0 && (
+        <section>
+          <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Stop timeline</h4>
+          <ol className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-card text-xs">
+            <li className="flex items-center justify-between gap-4 bg-success-soft px-3 py-2">
+              <span className="flex items-center gap-2 font-medium text-success-ink">
+                <span aria-hidden="true" className="size-2 rounded-full bg-success" />
+                Trip started
+              </span>
+              <span className="font-mono text-success-ink">{log.started_at ? formatTime(log.started_at) : "—"}</span>
+            </li>
+            {stops.map((s, idx) => (
+              <li key={idx} className="flex items-start justify-between gap-4 px-3 py-2">
+                <div>
+                  <div className="font-medium text-fg">{s.stop_name || `Stop ${s.stop_id}`}</div>
+                  <div className="text-fg-muted">{isEvening ? "Evening drop-off stop" : "Morning pickup stop"}</div>
+                </div>
+                <dl className="grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5 text-right font-mono text-fg">
+                  {isEvening ? (
+                    <>
+                      <dt className="font-sans text-[10px] text-fg-muted">Drop-off</dt>
+                      <dd>{s.drop_off_at ? formatTime(s.drop_off_at) : "—"}</dd>
+                    </>
+                  ) : (
+                    <>
+                      <dt className="font-sans text-[10px] text-fg-muted">Arrived</dt>
+                      <dd>{s.arrived_at ? formatTime(s.arrived_at) : "—"}</dd>
+                      <dt className="font-sans text-[10px] text-fg-muted">Boarded</dt>
+                      <dd>{s.boarded_at ? formatTime(s.boarded_at) : "—"}</dd>
+                    </>
+                  )}
+                </dl>
+              </li>
+            ))}
+            <li className="flex items-center justify-between gap-4 bg-subtle px-3 py-2">
+              <span className="flex items-center gap-2 font-medium text-fg-secondary">
+                <span aria-hidden="true" className="size-2 rounded-full bg-fg-muted" />
+                Trip completed
+              </span>
+              <span className="font-mono text-fg-secondary">{log.completed_at ? formatTime(log.completed_at) : "—"}</span>
+            </li>
+          </ol>
+        </section>
+      )}
+    </div>
+  );
 }

@@ -1,10 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { Pencil, Plus, Power, PowerOff, Trash2, Wallet } from "lucide-react";
+import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import { PermissionGate } from "../components/PermissionGate";
 import { AdminCan, useAdminAbility } from "../../lib/abilities/AdminAbilityProvider";
 import { ADMIN_SUBJECTS } from "../../lib/abilities/admin-subjects";
+import { useConfirm } from "../../lib/hooks/useConfirm";
 import {
   fetchFixedTermContracts,
   createFixedTermContractAsync,
@@ -13,18 +16,53 @@ import {
   selectAdminPricingState,
   resetActionStatus,
 } from "../../lib/store/slices/adminPricingSlice";
-import { apiClient, FixedTermContract } from "../../lib/services/api-client";
-import { Plus, Trash2, Save, Car, User, DollarSign, Power, PowerOff, Pencil, X } from "lucide-react";
+import { apiClient, type FixedTermContract } from "../../lib/services/api-client";
+import {
+  Button,
+  Card,
+  DataTable,
+  Dialog,
+  DialogContent,
+  Field,
+  FormGrid,
+  Input,
+  PageHeader,
+  PageSkeleton,
+  Select,
+  StatusBadge,
+  Textarea,
+  type ActionMenuItem,
+  type DataTableColumn,
+  type StatusEntry,
+} from "../ui";
+import { formatCurrency } from "../lib/format";
+import { todayYmd } from "../lib/dates";
+
+const PAYMENT_STATUS: Record<string, StatusEntry> = {
+  FULLY_PAID: { tone: "success", label: "Fully paid" },
+  PARTIALLY_PAID: { tone: "warning", label: "Partially paid" },
+  UNPAID: { tone: "danger", label: "Unpaid" },
+};
+
+type FormState = { carDescription: string; ownerName: string; monthlyAmount: string; category: "CHAUFFEUR" | "SHUTTLE" };
+const EMPTY_FORM: FormState = { carDescription: "", ownerName: "", monthlyAmount: "", category: "CHAUFFEUR" };
+
+type SettlementState = { amount: string; billingMonth: string; paymentMethod: string; notes: string };
+const EMPTY_SETTLEMENT: SettlementState = { amount: "", billingMonth: "", paymentMethod: "", notes: "" };
+
+// Helpers to avoid timezone month shifts when displaying month-start dates (backend works with UTC month starts).
+const toUtcMonthValue = (value: string | Date) => {
+  const d = value instanceof Date ? value : new Date(value);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+};
+const formatUtcMonthLabel = (value: string | Date) => {
+  const d = value instanceof Date ? value : new Date(value);
+  return d.toLocaleDateString("en-GB", { timeZone: "UTC", year: "numeric", month: "short" });
+};
 
 export default function FixedTermContractsPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center py-24">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0c225e] border-t-transparent" />
-        </div>
-      }
-    >
+    <Suspense fallback={<PageSkeleton />}>
       <PermissionGate permission="fixed_contracts">
         <AdminCan I="read" a="FixedContracts">
           <FixedTermContractsContent />
@@ -36,497 +74,349 @@ export default function FixedTermContractsPage() {
 
 function FixedTermContractsContent() {
   const dispatch = useAppDispatch();
+  const confirm = useConfirm();
   const { fixedTermContracts, status, actionStatus, error } = useAppSelector(selectAdminPricingState);
   const ability = useAdminAbility();
-  const canUpdate = ability.can("update", ADMIN_SUBJECTS.pricing);
-  const canDelete = ability.can("delete", ADMIN_SUBJECTS.pricing);
+  // The page is gated on FixedContracts, so actions use the same subject (previously checked Pricing by mistake).
+  const canCreate = ability.can("create", ADMIN_SUBJECTS.fixed_contracts);
+  const canUpdate = ability.can("update", ADMIN_SUBJECTS.fixed_contracts);
+  const canDelete = ability.can("delete", ADMIN_SUBJECTS.fixed_contracts);
 
-  // Helpers to avoid timezone month shifts when displaying month-start dates.
-  const toUtcMonthValue = (value: string | Date) => {
-    const d = value instanceof Date ? value : new Date(value);
-    // Backend works with month-start dates.
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
-  };
-
-  const formatUtcMonthLabel = (value: string | Date) => {
-    const d = value instanceof Date ? value : new Date(value);
-    return d.toLocaleDateString(undefined, {
-      timeZone: "UTC",
-      year: "numeric",
-      month: "short",
-    });
-  };
-
-  const [isAdding, setIsAdding] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [formData, setFormData] = useState<FormState>(EMPTY_FORM);
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [togglingId, setTogglingId] = useState<number | null>(null);
-  const [formData, setFormData] = useState({
-    carDescription: "",
-    ownerName: "",
-    monthlyAmount: "",
-    category: "CHAUFFEUR" as "CHAUFFEUR" | "SHUTTLE",
-  });
-  const [settlingContractId, setSettlingContractId] = useState<number | null>(null);
-  const [settlementData, setSettlementData] = useState({
-    amount: "",
-    billingMonth: "",
-    paymentMethod: "",
-    notes: "",
-  });
+  const [settlingContract, setSettlingContract] = useState<FixedTermContract | null>(null);
+  const [settlementData, setSettlementData] = useState<SettlementState>(EMPTY_SETTLEMENT);
+  const [settlementError, setSettlementError] = useState<string | null>(null);
   const [isSubmittingSettlement, setIsSubmittingSettlement] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     dispatch(fetchFixedTermContracts());
   }, [dispatch]);
 
   useEffect(() => {
-    if (actionStatus === "succeeded") {
-      dispatch(resetActionStatus());
-      setIsAdding(false);
-      setEditingId(null);
-      setTogglingId(null);
-      setFormData({ carDescription: "", ownerName: "", monthlyAmount: "", category: "CHAUFFEUR" });
-    } else if (actionStatus === "failed" && error) {
-      alert("Error: " + error);
-      dispatch(resetActionStatus());
-      setTogglingId(null);
-    }
-  }, [actionStatus, error, dispatch]);
+    load();
+  }, [load]);
 
-  const handleCreate = () => {
-    if (!formData.carDescription || !formData.ownerName || !formData.monthlyAmount) {
-      alert("Please fill all fields");
-      return;
-    }
-    dispatch(
-      createFixedTermContractAsync({
-        carDescription: formData.carDescription,
-        ownerName: formData.ownerName,
-        monthlyAmount: Number(formData.monthlyAmount),
-        category: formData.category,
-        startDate: new Date().toISOString().split('T')[0], // Today's date
-      })
-    );
+  const errorMessage = (result: { payload?: unknown; error?: { message?: string } }, fallback: string) =>
+    typeof result.payload === "string" ? result.payload : result.error?.message || fallback;
+
+  const openCreate = () => {
+    setEditingId(null);
+    setFormData(EMPTY_FORM);
+    setFormErrors({});
+    setFormOpen(true);
   };
 
-  const handleUpdate = () => {
-    if (!editingId) return;
-    if (!formData.carDescription || !formData.ownerName || !formData.monthlyAmount) {
-      alert("Please fill all fields");
-      return;
-    }
-    dispatch(
-      updateFixedTermContractAsync({
-        id: editingId,
-        data: {
-          carDescription: formData.carDescription,
-          ownerName: formData.ownerName,
-          monthlyAmount: Number(formData.monthlyAmount),
-          category: formData.category,
-        },
-      })
-    );
-  };
-
-  const handleEditClick = (contract: FixedTermContract) => {
+  const openEdit = (contract: FixedTermContract) => {
     setEditingId(contract.id);
-    setIsAdding(false);
     setFormData({
       carDescription: contract.car_description,
       ownerName: contract.owner_name,
       monthlyAmount: contract.monthly_amount.toString(),
       category: contract.category ?? "CHAUFFEUR",
     });
+    setFormErrors({});
+    setFormOpen(true);
   };
 
-  const handleToggleActive = (contract: FixedTermContract) => {
-    setTogglingId(contract.id); // Track toggle specifically
-    dispatch(
-      updateFixedTermContractAsync({
-        id: contract.id,
-        data: { isActive: !contract.is_active },
-      })
-    );
+  const validateForm = () => {
+    const errors: Partial<Record<keyof FormState, string>> = {};
+    if (!formData.carDescription.trim()) errors.carDescription = "Enter the car description.";
+    if (!formData.ownerName.trim()) errors.ownerName = "Enter the owner's name.";
+    if (!formData.monthlyAmount || Number(formData.monthlyAmount) <= 0) errors.monthlyAmount = "Enter a monthly amount greater than 0.";
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this contract?")) {
-      dispatch(deleteFixedTermContractAsync(id));
+  const handleSubmitForm = async () => {
+    if (!validateForm()) return;
+    const result = editingId
+      ? await dispatch(
+          updateFixedTermContractAsync({
+            id: editingId,
+            data: {
+              carDescription: formData.carDescription,
+              ownerName: formData.ownerName,
+              monthlyAmount: Number(formData.monthlyAmount),
+              category: formData.category,
+            },
+          }),
+        )
+      : await dispatch(
+          createFixedTermContractAsync({
+            carDescription: formData.carDescription,
+            ownerName: formData.ownerName,
+            monthlyAmount: Number(formData.monthlyAmount),
+            category: formData.category,
+            startDate: todayYmd(),
+          }),
+        );
+    if (updateFixedTermContractAsync.fulfilled.match(result) || createFixedTermContractAsync.fulfilled.match(result)) {
+      toast.success(editingId ? "Contract updated" : "Contract created");
+      setFormOpen(false);
+      setEditingId(null);
+      setFormData(EMPTY_FORM);
+    } else {
+      toast.error(errorMessage(result, "Failed to save contract"));
     }
+    dispatch(resetActionStatus());
   };
 
-  const handleOpenSettlement = (contract: FixedTermContract) => {
-    setSettlingContractId(contract.id);
+  const handleToggleActive = async (contract: FixedTermContract) => {
+    if (contract.is_active) {
+      const ok = await confirm({
+        title: `Deactivate ${contract.car_description}?`,
+        message: "The contract stays on record but stops accruing.",
+        consequences: ["Its monthly amount is no longer included in monthly payables", "Existing dues and payments are kept"],
+        destructive: true,
+        confirmLabel: "Deactivate",
+      });
+      if (!ok) return;
+    }
+    setTogglingId(contract.id);
+    const result = await dispatch(updateFixedTermContractAsync({ id: contract.id, data: { isActive: !contract.is_active } }));
+    setTogglingId(null);
+    if (updateFixedTermContractAsync.fulfilled.match(result)) {
+      toast.success(contract.is_active ? "Contract deactivated" : "Contract activated");
+    } else {
+      toast.error(errorMessage(result, "Failed to update contract"));
+    }
+    dispatch(resetActionStatus());
+  };
+
+  const handleDelete = async (contract: FixedTermContract) => {
+    const ok = await confirm({
+      title: `Delete ${contract.car_description}?`,
+      message: `This permanently deletes the fixed-term contract with ${contract.owner_name}.`,
+      consequences: ["Its monthly dues and payment history are deleted", "It is removed from monthly payables immediately", "This cannot be undone"],
+      destructive: true,
+      confirmLabel: "Delete contract",
+    });
+    if (!ok) return;
+    const result = await dispatch(deleteFixedTermContractAsync(contract.id));
+    if (deleteFixedTermContractAsync.fulfilled.match(result)) {
+      toast.success("Contract deleted");
+    } else {
+      toast.error(errorMessage(result, "Failed to delete contract"));
+    }
+    dispatch(resetActionStatus());
+  };
+
+  const openSettlement = (contract: FixedTermContract) => {
+    setSettlingContract(contract);
+    setSettlementError(null);
     setSettlementData({
       amount: Number(contract.current_month_due?.amount_remaining ?? contract.monthly_amount).toString(),
-      billingMonth: contract.current_month_due?.billing_month
-        ? toUtcMonthValue(contract.current_month_due.billing_month)
-        : "",
+      billingMonth: contract.current_month_due?.billing_month ? toUtcMonthValue(contract.current_month_due.billing_month) : "",
       paymentMethod: "",
       notes: "",
     });
   };
 
   const handleSubmitSettlement = async () => {
-    if (!settlingContractId) return;
+    if (!settlingContract) return;
     if (!settlementData.amount || Number(settlementData.amount) <= 0) {
-      alert("Please enter a valid payment amount");
+      setSettlementError("Enter a payment amount greater than 0.");
       return;
     }
-
+    setSettlementError(null);
     try {
       setIsSubmittingSettlement(true);
-      await apiClient.settleFixedTermContract(settlingContractId, {
+      await apiClient.settleFixedTermContract(settlingContract.id, {
         amount: Number(settlementData.amount),
         billingMonth: settlementData.billingMonth || undefined,
         paymentMethod: settlementData.paymentMethod || undefined,
         notes: settlementData.notes || undefined,
       });
       await dispatch(fetchFixedTermContracts());
-      setSettlingContractId(null);
-      setSettlementData({ amount: "", billingMonth: "", paymentMethod: "", notes: "" });
+      toast.success("Payment recorded");
+      setSettlingContract(null);
+      setSettlementData(EMPTY_SETTLEMENT);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to record payment";
-      alert(message);
+      setSettlementError(err instanceof Error ? err.message : "Failed to record payment");
     } finally {
       setIsSubmittingSettlement(false);
     }
   };
 
   const isLoading = status === "loading";
+  const isSaving = actionStatus === "loading";
+  const active = fixedTermContracts.filter((c) => c.is_active);
+  const totals = {
+    monthly: active.reduce((sum, c) => sum + Number(c.monthly_amount), 0),
+    paid: active.reduce((sum, c) => sum + Number(c.current_month_due?.amount_paid ?? 0), 0),
+    remaining: active.reduce((sum, c) => sum + Number(c.current_month_due?.amount_remaining ?? c.monthly_amount), 0),
+  };
+
+  const columns: DataTableColumn<FixedTermContract>[] = [
+    { key: "status", header: "Status", width: "1%", cell: (c) => <StatusBadge status={c.is_active ? "ACTIVE" : "INACTIVE"} /> },
+    { key: "category", header: "Category", width: "1%", hideBelow: "sm", cell: (c) => <StatusBadge status={c.category ?? "CHAUFFEUR"} dot={false} /> },
+    {
+      key: "car",
+      header: "Car",
+      cell: (c) => (
+        <div className="min-w-0">
+          <div className="font-medium text-fg">{c.car_description}</div>
+          <div className="text-xs text-fg-muted">{c.owner_name}</div>
+        </div>
+      ),
+    },
+    { key: "monthly_amount", header: "Monthly", align: "right", mono: true, cell: (c) => formatCurrency(c.monthly_amount) },
+    { key: "paid", header: "Paid this month", align: "right", mono: true, hideBelow: "md", cell: (c) => <span className="text-fg-secondary">{formatCurrency(c.current_month_due?.amount_paid ?? 0)}</span> },
+    {
+      key: "remaining",
+      header: "Remaining",
+      align: "right",
+      mono: true,
+      cell: (c) => (
+        <div>
+          <div className="font-semibold text-fg">{formatCurrency(c.current_month_due?.amount_remaining ?? c.monthly_amount)}</div>
+          {Number(c.overdue_amount ?? 0) > 0 && <div className="text-xs text-danger-ink">Overdue {formatCurrency(c.overdue_amount)}</div>}
+        </div>
+      ),
+    },
+    { key: "payment_status", header: "Payment", width: "1%", cell: (c) => <StatusBadge status={c.payment_status ?? "UNPAID"} overrides={PAYMENT_STATUS} /> },
+  ];
+
+  const rowActions = (c: FixedTermContract): ActionMenuItem[] => [
+    { label: "Record payment", icon: <Wallet />, onSelect: () => openSettlement(c), disabled: !canUpdate || isSaving },
+    { label: "Edit", icon: <Pencil />, onSelect: () => openEdit(c), disabled: !canUpdate || isSaving },
+    {
+      label: c.is_active ? "Deactivate" : "Activate",
+      icon: c.is_active ? <PowerOff /> : <Power />,
+      onSelect: () => handleToggleActive(c),
+      disabled: !canUpdate || isSaving || togglingId === c.id,
+    },
+    { label: "Delete", icon: <Trash2 />, destructive: true, separatorBefore: true, onSelect: () => handleDelete(c), disabled: !canDelete || isSaving },
+  ];
+
+  const selectedForSettlement = settlingContract ? fixedTermContracts.find((c) => c.id === settlingContract.id) ?? settlingContract : null;
 
   return (
-    <div className="flex flex-col gap-8 mx-auto p-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Fixed-Term Monthly Contracts</h1>
-          <p className="mt-2 text-[var(--text-muted)]">Manage monthly vendor-independent car contracts. These amounts are automatically included in monthly payables.</p>
-        </div>
-        <button
-          onClick={() => {
-            setIsAdding(true);
-            setEditingId(null);
-            setFormData({ carDescription: "", ownerName: "", monthlyAmount: "", category: "CHAUFFEUR" });
-          }}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#f47f00] px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-[#d97000] transition-all"
-        >
-          <Plus size={18} />
-          Add New Contract
-        </button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Fixed-Term Cars"
+        description="Monthly vendor-independent car contracts. Active amounts are included in monthly payables automatically."
+        actions={
+          <Button leftIcon={<Plus />} onClick={openCreate} disabled={!canCreate}>
+            Add contract
+          </Button>
+        }
+      />
 
-      {(isAdding || editingId) && (
-        <div className="rounded-2xl border-2 border-[#f47f00]/20 bg-[var(--bg-card)] p-6 shadow-sm animate-in fade-in slide-in-from-top-4">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-bold text-[var(--text-primary)]">{editingId ? "Edit Monthly Contract" : "New Monthly Contract"}</h3>
-            <button onClick={() => { setIsAdding(false); setEditingId(null); }} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
-              <X size={18} />
-            </button>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Car Description</span>
-              <div className="relative">
-                <Car className="absolute left-3 top-2.5 text-[var(--text-muted)]" size={18} />
-                <input
-                  type="text"
-                  placeholder="e.g. Toyota Corolla (ABC-123)"
-                  value={formData.carDescription}
-                  onChange={e => setFormData({ ...formData, carDescription: e.target.value })}
-                  className="h-10 w-full rounded-lg border border-[var(--border-default)] pl-10 pr-3 text-sm outline-none focus:border-[#f47f00] focus:ring-1 focus:ring-[#f47f00]"
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Owner Name</span>
-              <div className="relative">
-                <User className="absolute left-3 top-2.5 text-[var(--text-muted)]" size={18} />
-                <input
-                  type="text"
-                  placeholder="e.g. John Doe"
-                  value={formData.ownerName}
-                  onChange={e => setFormData({ ...formData, ownerName: e.target.value })}
-                  className="h-10 w-full rounded-lg border border-[var(--border-default)] pl-10 pr-3 text-sm outline-none focus:border-[#f47f00] focus:ring-1 focus:ring-[#f47f00]"
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Monthly Amount (PKR)</span>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-2.5 text-[var(--text-muted)]" size={18} />
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={formData.monthlyAmount}
-                  onChange={e => setFormData({ ...formData, monthlyAmount: e.target.value })}
-                  className="h-10 w-full rounded-lg border border-[var(--border-default)] pl-10 pr-3 text-sm outline-none focus:border-[#f47f00] focus:ring-1 focus:ring-[#f47f00]"
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Category</span>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value as "CHAUFFEUR" | "SHUTTLE" })}
-                className="h-10 w-full rounded-lg border border-[var(--border-default)] px-3 text-sm outline-none focus:border-[#f47f00] focus:ring-1 focus:ring-[#f47f00]"
-              >
+      <Card>
+        <DataTable<FixedTermContract>
+          caption="Fixed-term contracts"
+          rows={fixedTermContracts}
+          rowKey={(c) => c.id}
+          columns={columns}
+          loading={isLoading}
+          error={status === "failed" ? error : null}
+          onRetry={load}
+          empty={{
+            title: "No fixed-term contracts",
+            description: "Add a contract to include its monthly amount in payables.",
+            action: canCreate ? (
+              <Button size="sm" leftIcon={<Plus />} onClick={openCreate}>
+                Add contract
+              </Button>
+            ) : undefined,
+          }}
+          rowActions={rowActions}
+          footer={
+            fixedTermContracts.length > 0 ? (
+              <tr>
+                <td colSpan={3} className="px-4 py-3 text-right text-xs uppercase tracking-wider text-fg-muted">
+                  Active totals
+                </td>
+                <td className="px-4 py-3 text-right font-mono tabular-nums text-fg">{formatCurrency(totals.monthly)}</td>
+                <td className="hidden px-4 py-3 text-right font-mono tabular-nums text-success-ink md:table-cell">{formatCurrency(totals.paid)}</td>
+                <td className="px-4 py-3 text-right font-mono tabular-nums text-warning-ink">{formatCurrency(totals.remaining)}</td>
+                <td colSpan={2} />
+              </tr>
+            ) : undefined
+          }
+        />
+      </Card>
+
+      <Dialog open={formOpen} onOpenChange={(o) => !o && setFormOpen(false)}>
+        <DialogContent
+          title={editingId ? "Edit contract" : "New contract"}
+          description={editingId ? undefined : "The contract starts today and accrues monthly."}
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setFormOpen(false)} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button onClick={handleSubmitForm} loading={isSaving}>
+                {editingId ? "Save changes" : "Create contract"}
+              </Button>
+            </>
+          }
+        >
+          <FormGrid cols={2}>
+            <Field label="Car description" required error={formErrors.carDescription} className="sm:col-span-2">
+              <Input value={formData.carDescription} onChange={(e) => setFormData({ ...formData, carDescription: e.target.value })} placeholder="e.g. Toyota Corolla (ABC-123)" />
+            </Field>
+            <Field label="Owner name" required error={formErrors.ownerName}>
+              <Input value={formData.ownerName} onChange={(e) => setFormData({ ...formData, ownerName: e.target.value })} placeholder="e.g. John Doe" />
+            </Field>
+            <Field label="Monthly amount (PKR)" required error={formErrors.monthlyAmount}>
+              <Input type="number" min={0} mono value={formData.monthlyAmount} onChange={(e) => setFormData({ ...formData, monthlyAmount: e.target.value })} placeholder="0" />
+            </Field>
+            <Field label="Category">
+              <Select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value as FormState["category"] })}>
                 <option value="CHAUFFEUR">Chauffeur</option>
                 <option value="SHUTTLE">Shuttle</option>
-              </select>
-            </div>
-          </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <button
-              onClick={() => { setIsAdding(false); setEditingId(null); }}
-              className="px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={editingId ? handleUpdate : handleCreate}
-              disabled={actionStatus === "loading"}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#0c225e] px-6 py-2 text-sm font-bold text-white hover:bg-[#0a1a4a] transition-all disabled:opacity-50"
-            >
-              <Save size={18} />
-              {actionStatus === "loading" ? "Saving..." : editingId ? "Update Contract" : "Save Contract"}
-            </button>
-          </div>
-        </div>
-      )}
+              </Select>
+            </Field>
+          </FormGrid>
+        </DialogContent>
+      </Dialog>
 
-      <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[var(--bg-subtle)] text-xs uppercase font-semibold text-[var(--text-muted)]">
-              <tr>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Category</th>
-                <th className="px-6 py-4">Car Description</th>
-                <th className="px-6 py-4">Owner Name</th>
-                <th className="px-6 py-4 text-right">Monthly Amount</th>
-                <th className="px-6 py-4 text-right">This Month Paid</th>
-                <th className="px-6 py-4 text-right">This Month Remaining</th>
-                <th className="px-6 py-4">Payment</th>
-                <th className="px-6 py-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-[var(--text-muted)]">
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#0c225e] border-t-transparent" />
-                      <span>Loading contracts...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : fixedTermContracts.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-[var(--text-muted)]">
-                    No fixed-term contracts found.
-                  </td>
-                </tr>
-              ) : (
-                fixedTermContracts.map((contract) => (
-                  <tr key={contract.id} className="hover:bg-[var(--bg-subtle)]/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                        contract.is_active ? "bg-green-100 text-green-700" : "bg-slate-100 text-[var(--text-muted)]"
-                      }`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${contract.is_active ? "bg-green-600" : "bg-slate-400"}`} />
-                        {contract.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                        (contract.category ?? "CHAUFFEUR") === "SHUTTLE"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-indigo-100 text-indigo-700"
-                      }`}>
-                        {(contract.category ?? "CHAUFFEUR") === "SHUTTLE" ? "Shuttle" : "Chauffeur"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-[var(--text-primary)]">{contract.car_description}</td>
-                    <td className="px-6 py-4 text-[var(--text-secondary)]">{contract.owner_name}</td>
-                    <td className="px-6 py-4 text-right font-bold text-[var(--text-primary)]">
-                      PKR {Number(contract.monthly_amount).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-right text-[var(--text-secondary)]">
-                      PKR {Number(contract.current_month_due?.amount_paid ?? 0).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-right font-semibold text-[var(--text-primary)]">
-                      <div>PKR {Number(contract.current_month_due?.amount_remaining ?? contract.monthly_amount).toLocaleString()}</div>
-                      <div className="text-xs font-normal text-amber-700">
-                        Overdue: PKR {Number(contract.overdue_amount ?? 0).toLocaleString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                        contract.payment_status === "FULLY_PAID"
-                          ? "bg-green-100 text-green-700"
-                          : contract.payment_status === "PARTIALLY_PAID"
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-red-100 text-red-700"
-                      }`}>
-                        {contract.payment_status === "FULLY_PAID"
-                          ? "Fully Paid"
-                          : contract.payment_status === "PARTIALLY_PAID"
-                            ? "Partially Paid"
-                            : "Unpaid"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleOpenSettlement(contract)}
-                          disabled={!canUpdate || actionStatus === "loading"}
-                          title="Record Payment"
-                          className="rounded-lg border border-emerald-200 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
-                        >
-                          Settle
-                        </button>
-                        <button
-                          onClick={() => handleEditClick(contract)}
-                          disabled={!canUpdate || actionStatus === "loading"}
-                          title="Edit Contract"
-                          className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
-                        >
-                          <Pencil size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleToggleActive(contract)}
-                          disabled={!canUpdate || actionStatus === "loading"}
-                          title={contract.is_active ? "Disable Contract" : "Enable Contract"}
-                          className={`p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                            contract.is_active 
-                              ? "text-orange-600 hover:bg-orange-50" 
-                              : "text-green-600 hover:bg-green-50"
-                          }`}
-                        >
-                          {actionStatus === "loading" && togglingId === contract.id ? (
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                          ) : contract.is_active ? (
-                            <PowerOff size={18} />
-                          ) : (
-                            <Power size={18} />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(contract.id)}
-                          disabled={!canDelete || actionStatus === "loading"}
-                          title="Delete Contract"
-                          className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            {!isLoading && fixedTermContracts.length > 0 && (
-              <tfoot className="bg-[var(--bg-subtle)]/50 font-bold">
-                <tr>
-                  <td colSpan={4} className="px-6 py-4 text-right text-[var(--text-muted)]">Total Monthly Payable (Active):</td>
-                  <td className="px-6 py-4 text-right text-[var(--text-primary)]">
-                    PKR {fixedTermContracts
-                      .filter(c => c.is_active)
-                      .reduce((sum, c) => sum + Number(c.monthly_amount), 0)
-                      .toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 text-right text-emerald-700">
-                    PKR {fixedTermContracts
-                      .filter(c => c.is_active)
-                      .reduce((sum, c) => sum + Number(c.current_month_due?.amount_paid ?? 0), 0)
-                      .toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 text-right text-amber-700">
-                    PKR {fixedTermContracts
-                      .filter(c => c.is_active)
-                      .reduce((sum, c) => sum + Number(c.current_month_due?.amount_remaining ?? c.monthly_amount), 0)
-                      .toLocaleString()}
-                  </td>
-                  <td></td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      </div>
-
-      {settlingContractId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-[var(--bg-card)] p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-[var(--text-primary)]">Record Fixed-Contract Payment</h3>
-              <button
-                onClick={() => setSettlingContractId(null)}
-                className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="grid gap-4">
-              <input
-                type="number"
-                placeholder="Amount"
-                value={settlementData.amount}
-                onChange={(e) => setSettlementData((prev) => ({ ...prev, amount: e.target.value }))}
-                className="h-10 w-full rounded-lg border border-[var(--border-default)] px-3 text-sm outline-none focus:border-[#f47f00]"
-              />
-              <select
-                value={settlementData.billingMonth}
-                onChange={(e) => setSettlementData((prev) => ({ ...prev, billingMonth: e.target.value }))}
-                className="h-10 w-full rounded-lg border border-[var(--border-default)] px-3 text-sm outline-none focus:border-[#f47f00]"
-              >
-                <option value="">Oldest unpaid month</option>
-                {(fixedTermContracts.find((c) => c.id === settlingContractId)?.monthly_dues ?? [])
-                  .filter((due) => Number(String(due.amount_remaining ?? 0).trim()) > 0)
-                  .map((due) => {
-                    const monthLabel = formatUtcMonthLabel(due.billing_month);
-                    const monthValue = toUtcMonthValue(due.billing_month);
-                    return (
-                      <option key={due.id} value={monthValue}>
-                        {monthLabel} - Remaining PKR {Number(due.amount_remaining).toLocaleString()}
-                      </option>
-                    );
-                  })}
-              </select>
-              <input
-                type="text"
-                placeholder="Payment Method (optional)"
-                value={settlementData.paymentMethod}
-                onChange={(e) => setSettlementData((prev) => ({ ...prev, paymentMethod: e.target.value }))}
-                className="h-10 w-full rounded-lg border border-[var(--border-default)] px-3 text-sm outline-none focus:border-[#f47f00]"
-              />
-              <textarea
-                placeholder="Notes (optional)"
-                value={settlementData.notes}
-                onChange={(e) => setSettlementData((prev) => ({ ...prev, notes: e.target.value }))}
-                rows={3}
-                className="w-full rounded-lg border border-[var(--border-default)] px-3 py-2 text-sm outline-none focus:border-[#f47f00]"
-              />
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setSettlingContractId(null)}
-                className="px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              >
+      <Dialog open={!!settlingContract} onOpenChange={(o) => !o && !isSubmittingSettlement && setSettlingContract(null)}>
+        <DialogContent
+          title="Record payment"
+          description={settlingContract ? `${settlingContract.car_description} · ${settlingContract.owner_name}` : undefined}
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setSettlingContract(null)} disabled={isSubmittingSettlement}>
                 Cancel
-              </button>
-              <button
-                onClick={handleSubmitSettlement}
-                disabled={isSubmittingSettlement}
-                className="rounded-lg bg-[#0c225e] px-5 py-2 text-sm font-bold text-white hover:bg-[#0a1a4a] disabled:opacity-50"
-              >
-                {isSubmittingSettlement ? "Saving..." : "Save Payment"}
-              </button>
-            </div>
+              </Button>
+              <Button onClick={handleSubmitSettlement} loading={isSubmittingSettlement}>
+                Save payment
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <Field label="Amount (PKR)" required error={settlementError ?? undefined}>
+              <Input type="number" min={0} mono value={settlementData.amount} onChange={(e) => setSettlementData((prev) => ({ ...prev, amount: e.target.value }))} />
+            </Field>
+            <Field label="Billing month" hint="Leave as 'Oldest unpaid month' to settle dues in order.">
+              <Select value={settlementData.billingMonth} onChange={(e) => setSettlementData((prev) => ({ ...prev, billingMonth: e.target.value }))}>
+                <option value="">Oldest unpaid month</option>
+                {(selectedForSettlement?.monthly_dues ?? [])
+                  .filter((due) => Number(String(due.amount_remaining ?? 0).trim()) > 0)
+                  .map((due) => (
+                    <option key={due.id} value={toUtcMonthValue(due.billing_month)}>
+                      {formatUtcMonthLabel(due.billing_month)} — remaining {formatCurrency(due.amount_remaining)}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+            <Field label="Payment method" hint="Optional">
+              <Input value={settlementData.paymentMethod} onChange={(e) => setSettlementData((prev) => ({ ...prev, paymentMethod: e.target.value }))} placeholder="e.g. Bank transfer" />
+            </Field>
+            <Field label="Notes" hint="Optional">
+              <Textarea rows={3} value={settlementData.notes} onChange={(e) => setSettlementData((prev) => ({ ...prev, notes: e.target.value }))} />
+            </Field>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

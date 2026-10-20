@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../lib/contexts/auth-context";
+import { PageSkeleton } from "../ui/Skeleton";
 import { CrudAction, PermissionKey } from "../../lib/types/auth-types";
 
 interface PermissionGateProps {
@@ -49,11 +50,7 @@ export function PermissionGate({
   }, [loading, isAuthenticated, allowed, router, redirectTo]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-navy border-t-transparent" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (!allowed) {

@@ -1,9 +1,8 @@
 "use client";
 
-type CompanyOption = {
-  id: number;
-  name: string;
-};
+import { DateRangePicker, FilterBar, FilterField, Select, type DateRange } from "../../../ui";
+import { BOOKING_STATUS_OPTIONS } from "./booking-status";
+import type { CompanyOption } from "../hooks/usePendingBookings";
 
 type BookingFiltersBarProps = {
   searchQuery: string;
@@ -12,11 +11,11 @@ type BookingFiltersBarProps = {
   onStatusChange: (value: string) => void;
   companyFilter: string;
   onCompanyChange: (value: string) => void;
-  startDate: string;
-  onStartDateChange: (value: string) => void;
-  endDate: string;
-  onEndDateChange: (value: string) => void;
+  dateRange: DateRange | null;
+  onDateRangeChange: (range: DateRange | null) => void;
   companies: CompanyOption[];
+  activeCount: number;
+  onClear: () => void;
 };
 
 export function BookingFiltersBar({
@@ -26,72 +25,39 @@ export function BookingFiltersBar({
   onStatusChange,
   companyFilter,
   onCompanyChange,
-  startDate,
-  onStartDateChange,
-  endDate,
-  onEndDateChange,
+  dateRange,
+  onDateRangeChange,
   companies,
+  activeCount,
+  onClear,
 }: BookingFiltersBarProps) {
   return (
-    <div className="flex flex-wrap gap-4 bg-white p-4 rounded-xl border border-border shadow-sm">
-      <div className="flex-1 min-w-[200px]">
-        <label className="text-xs font-semibold text-muted uppercase mb-1 block">Search</label>
-        <input
-          type="text"
-          placeholder="Search passenger, company, vehicle..."
-          className="w-full h-10 px-3 rounded-md border border-border bg-surface/50 text-sm focus:outline-none focus:ring-2 focus:ring-blue/20"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-        />
-      </div>
-      <div className="w-[200px]">
-        <label className="text-xs font-semibold text-muted uppercase mb-1 block">Company</label>
-        <select
-          className="w-full h-10 px-3 rounded-md border border-border bg-surface/50 text-sm focus:outline-none focus:ring-2 focus:ring-blue/20"
-          value={companyFilter}
-          onChange={(e) => onCompanyChange(e.target.value)}
-        >
-          <option value="">All Companies</option>
+    <FilterBar
+      search={{ value: searchQuery, onChange: onSearchChange, placeholder: "Search passenger, company, vehicle…" }}
+      activeCount={activeCount}
+      onClear={onClear}
+    >
+      <FilterField label="Company">
+        <Select value={companyFilter} onChange={(e) => onCompanyChange(e.target.value)} placeholder="All companies" className="h-8 text-xs">
           {companies.map((company) => (
-            <option key={company.id} value={company.id}>{company.name}</option>
+            <option key={company.id} value={company.id}>
+              {company.name}
+            </option>
           ))}
-        </select>
-      </div>
-      <div className="w-[160px]">
-        <label className="text-xs font-semibold text-muted uppercase mb-1 block">From Date</label>
-        <input
-          type="date"
-          className="w-full h-10 px-3 rounded-md border border-border bg-surface/50 text-sm focus:outline-none focus:ring-2 focus:ring-blue/20"
-          value={startDate}
-          onChange={(e) => onStartDateChange(e.target.value)}
-        />
-      </div>
-      <div className="w-[160px]">
-        <label className="text-xs font-semibold text-muted uppercase mb-1 block">To Date</label>
-        <input
-          type="date"
-          className="w-full h-10 px-3 rounded-md border border-border bg-surface/50 text-sm focus:outline-none focus:ring-2 focus:ring-blue/20"
-          value={endDate}
-          onChange={(e) => onEndDateChange(e.target.value)}
-        />
-      </div>
-      <div className="w-[200px]">
-        <label className="text-xs font-semibold text-muted uppercase mb-1 block">Status</label>
-        <select
-          className="w-full h-10 px-3 rounded-md border border-border bg-surface/50 text-sm focus:outline-none focus:ring-2 focus:ring-blue/20"
-          value={statusFilter}
-          onChange={(e) => onStatusChange(e.target.value)}
-        >
-          <option value="">All Statuses</option>
-          <option value="PENDING">Pending</option>
-          <option value="ASSIGNED">Assigned</option>
-          <option value="ARRIVED">Arrived</option>
-          <option value="IN_PROGRESS">In Progress</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="ENDED">Ended</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
-      </div>
-    </div>
+        </Select>
+      </FilterField>
+      <FilterField label="Status">
+        <Select value={statusFilter} onChange={(e) => onStatusChange(e.target.value)} placeholder="All statuses" className="h-8 text-xs">
+          {BOOKING_STATUS_OPTIONS.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </Select>
+      </FilterField>
+      <FilterField label="Scheduled">
+        <DateRangePicker value={dateRange} onChange={onDateRangeChange} size="sm" allowClear label="Scheduled period" />
+      </FilterField>
+    </FilterBar>
   );
 }

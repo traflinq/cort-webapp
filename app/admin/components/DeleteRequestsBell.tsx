@@ -8,6 +8,7 @@ import { apiClient } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";
 import { DeleteRequestsModal } from "./DeleteRequestsModal";
 import { cx } from "./ui/cx";
+import { IconButton } from "../ui/IconButton";
 
 type DeleteRequestSocketAlert = {
   id: number;
@@ -24,15 +25,17 @@ const ENTITY_LABEL: Record<DeleteRequestSocketAlert["entity_type"], string> = {
 };
 
 interface DeleteRequestsBellProps {
-  /** Match the collapsed/expanded state of the surrounding sidebar nav. */
+  /** Match the collapsed/expanded state of the surrounding sidebar nav (nav variant). */
   collapsed?: boolean;
+  /** "nav": sidebar row (legacy). "icon": labelled icon button with a count badge for the top bar. */
+  variant?: "nav" | "icon";
 }
 
 /**
  * Super-admin-only nav entry that surfaces pending fuel/expense/maintenance
  * delete requests — badge count updates live via socket, click opens the review modal.
  */
-export function DeleteRequestsBell({ collapsed = false }: DeleteRequestsBellProps) {
+export function DeleteRequestsBell({ collapsed = false, variant = "nav" }: DeleteRequestsBellProps) {
   const { isSuperAdmin } = useAuth();
   const socketRef = useRef<Socket | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
@@ -52,7 +55,7 @@ export function DeleteRequestsBell({ collapsed = false }: DeleteRequestsBellProp
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
     if (!token) return;
 
-    fetchPendingCount();
+    const countTimer = window.setTimeout(() => void fetchPendingCount(), 0);
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
     const socket = io(`${apiUrl}/rides`, {
@@ -75,12 +78,33 @@ export function DeleteRequestsBell({ collapsed = false }: DeleteRequestsBellProp
     });
 
     return () => {
+      window.clearTimeout(countTimer);
       socket.disconnect();
       socketRef.current = null;
     };
   }, [isSuperAdmin, fetchPendingCount]);
 
   if (!isSuperAdmin) return null;
+
+  if (variant === "icon") {
+    const label = pendingCount > 0 ? `Delete requests, ${pendingCount} pending` : "Delete requests";
+    return (
+      <>
+        <IconButton label={label} onClick={() => setIsModalOpen(true)} className="relative">
+          <Bell />
+          {pendingCount > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold leading-none text-white"
+            >
+              {pendingCount > 99 ? "99+" : pendingCount}
+            </span>
+          )}
+        </IconButton>
+        <DeleteRequestsModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onChanged={fetchPendingCount} />
+      </>
+    );
+  }
 
   return (
     <>

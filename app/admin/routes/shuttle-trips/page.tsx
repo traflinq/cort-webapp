@@ -2,13 +2,32 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowLeftRight, Ban, Bus, Pencil, RefreshCw, Square, Trash2, X } from 'lucide-react';
+import { ArrowLeftRight, Ban, Bus, Pencil, RefreshCw, Square, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { PermissionGate } from '@/app/admin/components/PermissionGate';
 import { AdminCan } from '@/app/lib/abilities/AdminAbilityProvider';
-import { Card } from '@/app/admin/ui/Card';
-import { Button } from '@/app/admin/ui/Button';
+import {
+    Button,
+    Card,
+    CardContent,
+    CardHeader,
+    DataTable,
+    Dialog,
+    DialogContent,
+    Field,
+    FilterBar,
+    FilterField,
+    FormGrid,
+    Input,
+    PageHeader,
+    Select,
+    StatusBadge,
+    type DataTableColumn,
+    type RowKey,
+} from '@/app/admin/ui';
 import { apiClient } from '@/app/lib/services/api-client';
 import { useAuth } from '@/app/lib/contexts/auth-context';
+import { useConfirm } from '@/app/lib/hooks/useConfirm';
 import { useAppDispatch, useAppSelector } from '@/app/lib/store/hooks';
 import {
     fetchAdminCompanies,
@@ -18,6 +37,15 @@ import {
 import { fetchAdminDrivers, selectAdminDrivers } from '@/app/lib/store/slices/adminDriversSlice';
 import { fetchAdminVehicles, selectAdminVehicles } from '@/app/lib/store/slices/adminVehiclesSlice';
 import { DriverType } from '@/app/lib/services/types/drivers';
+import {
+    businessTodayYmd,
+    formatTripDate,
+    tripVehicle,
+    tripVehicleId,
+    TRIP_STATUS_OVERRIDES,
+    useLoader,
+    type ScheduledTripRow,
+} from '../daily-overrides/plan-types';
 
 type GenerationRoute = {
     id: number;
@@ -26,44 +54,12 @@ type GenerationRoute = {
     companies: { id: number; name: string } | null;
 };
 
-type TripVehicle = { id: number; plate_number: string; model: string | null };
-
-type ScheduledTripRow = {
-    id: number;
-    driver_id: string | null;
-    vehicle_id: number | null;
-    trip_date: string | null;
-    direction: string;
-    status: string;
-    vehicles: TripVehicle | null;
-    routes: {
-        id: number;
-        name: string;
-        company_id: number | null;
-        assigned_vehicle_id: number | null;
-        assigned_driver_id: string | null;
-        companies: { id: number; name: string } | null;
-        vehicles: TripVehicle | null;
-    } | null;
-    users: { id: string; full_name: string } | null;
-};
-
 type Paginated<T> = {
     data: T[];
     pagination: { page: number; limit: number; total: number; pages: number; hasNext: boolean; hasPrev: boolean };
 };
 
-function utcTodayYmd(): string {
-    const n = new Date();
-    return `${n.getUTCFullYear()}-${String(n.getUTCMonth() + 1).padStart(2, '0')}-${String(n.getUTCDate()).padStart(2, '0')}`;
-}
-
-function formatTripDate(isoOrDate: string | null): string {
-    if (!isoOrDate) return '—';
-    const d = new Date(isoOrDate);
-    if (Number.isNaN(d.getTime())) return isoOrDate.slice(0, 10);
-    return d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
-}
+const PAGE_SIZE = 50;
 
 function canEditAssignment(status: string): boolean {
     return status === 'SCHEDULED' || status === 'STARTED' || status === 'IN_PROGRESS';
@@ -81,24 +77,13 @@ function statusSelectOptions(status: string): Array<'SCHEDULED' | 'STARTED' | 'I
     return [status as 'COMPLETED'];
 }
 
-function statusBadgeClass(status: string): string {
-    const map: Record<string, string> = {
-        SCHEDULED: 'bg-gray-100 text-gray-700',
-        STARTED: 'bg-blue-100 text-blue-700',
-        IN_PROGRESS: 'bg-orange-100 text-orange-700',
-        COMPLETED: 'bg-green-100 text-green-700',
-        CANCELLED: 'bg-red-100 text-red-700',
-    };
-    return map[status] ?? 'bg-gray-100 text-gray-700';
-}
-
-function tripVehicle(trip: ScheduledTripRow): TripVehicle | null {
-    return trip.vehicles ?? trip.routes?.vehicles ?? null;
-}
-
-function tripVehicleId(trip: ScheduledTripRow): number | null {
-    return trip.vehicle_id ?? trip.vehicles?.id ?? trip.routes?.assigned_vehicle_id ?? trip.routes?.vehicles?.id ?? null;
-}
+const STATUS_LABEL: Record<string, string> = {
+    SCHEDULED: 'Scheduled',
+    STARTED: 'Started',
+    IN_PROGRESS: 'In progress',
+    COMPLETED: 'Completed',
+    CANCELLED: 'Cancelled',
+};
 
 export default function ShuttleTripsSchedulingPage() {
     return (
@@ -112,6 +97,7 @@ export default function ShuttleTripsSchedulingPage() {
 
 function ShuttleTripsSchedulingContent() {
     const dispatch = useAppDispatch();
+    const confirm = useConfirm();
     const { hasCrud } = useAuth();
     const canMutate = hasCrud('ops_shuttle', 'update');
     const companies = useAppSelector(selectAdminCompanies);
@@ -120,7 +106,7 @@ function ShuttleTripsSchedulingContent() {
     const vehicles = useAppSelector(selectAdminVehicles);
 
     const [generationRoutes, setGenerationRoutes] = useState<GenerationRoute[]>([]);
-    const [fromDate, setFromDate] = useState(utcTodayYmd);
+    const [fromDate, setFromDate] = useState(businessTodayYmd);
     const [filterCompanyId, setFilterCompanyId] = useState<number | ''>('');
     const [filterRouteId, setFilterRouteId] = useState<number | ''>('');
     const [filterStatus, setFilterStatus] = useState<string>('');
@@ -131,19 +117,19 @@ function ShuttleTripsSchedulingContent() {
     const [pagination, setPagination] = useState<Paginated<ScheduledTripRow>['pagination'] | null>(null);
 
     const [selectedRouteId, setSelectedRouteId] = useState<number | ''>('');
-    const [generateDate, setGenerateDate] = useState(utcTodayYmd);
+    const [generateDate, setGenerateDate] = useState(businessTodayYmd);
     const [generateDirection, setGenerateDirection] = useState<'BOTH' | 'MORNING' | 'EVENING'>('BOTH');
     const [generateBusy, setGenerateBusy] = useState(false);
     const [dailyAllBusy, setDailyAllBusy] = useState(false);
     const [regenerateBusy, setRegenerateBusy] = useState(false);
     const [endingTripId, setEndingTripId] = useState<number | null>(null);
     const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
-    const [selectedTripIds, setSelectedTripIds] = useState<number[]>([]);
+    const [selectedTripIds, setSelectedTripIds] = useState<RowKey[]>([]);
     const [bulkCancelling, setBulkCancelling] = useState(false);
-    const [banner, setBanner] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
     const [editingTrip, setEditingTrip] = useState<ScheduledTripRow | null>(null);
     const [editDriverId, setEditDriverId] = useState('');
     const [editVehicleId, setEditVehicleId] = useState('');
+    const [editError, setEditError] = useState<string | null>(null);
     const [assignmentSaving, setAssignmentSaving] = useState(false);
     const [extraVehicle, setExtraVehicle] = useState<{ id: number; plate_number: string; model?: string | null } | null>(null);
 
@@ -161,7 +147,7 @@ function ShuttleTripsSchedulingContent() {
         try {
             setListLoading(true);
             setListError(null);
-            const params = new URLSearchParams({ from_date: fromDate, page: String(page), limit: '50' });
+            const params = new URLSearchParams({ from_date: fromDate, page: String(page), limit: String(PAGE_SIZE) });
             if (filterCompanyId !== '') params.set('company_id', String(filterCompanyId));
             if (filterRouteId !== '') params.set('route_id', String(filterRouteId));
             if (filterStatus) params.set('status', filterStatus);
@@ -189,13 +175,12 @@ function ShuttleTripsSchedulingContent() {
         dispatch(fetchAdminVehicles({ limit: 200 }));
     }, [dispatch]);
 
-    useEffect(() => {
-        loadGenerationRoutes(filterCompanyId === '' ? undefined : filterCompanyId).catch(() => setGenerationRoutes([]));
-    }, [loadGenerationRoutes, filterCompanyId]);
-
-    useEffect(() => {
-        loadTrips();
-    }, [loadTrips]);
+    const loadRoutesForFilter = useCallback(
+        () => loadGenerationRoutes(filterCompanyId === '' ? undefined : filterCompanyId).catch(() => setGenerationRoutes([])),
+        [loadGenerationRoutes, filterCompanyId],
+    );
+    useLoader(loadRoutesForFilter);
+    useLoader(loadTrips);
 
     const routeOptions = useMemo(() => {
         if (filterCompanyId === '') return generationRoutes;
@@ -223,6 +208,7 @@ function ShuttleTripsSchedulingContent() {
 
     const openEditAssignment = async (trip: ScheduledTripRow) => {
         setEditingTrip(trip);
+        setEditError(null);
         setEditDriverId(trip.driver_id ?? trip.users?.id ?? '');
         setEditVehicleId(String(tripVehicleId(trip) ?? ''));
         setExtraVehicle(null);
@@ -244,17 +230,18 @@ function ShuttleTripsSchedulingContent() {
         setEditingTrip(null);
         setEditDriverId('');
         setEditVehicleId('');
+        setEditError(null);
         setExtraVehicle(null);
     };
 
     const handleSaveAssignment = async () => {
         if (!canMutate || !editingTrip) return;
         if (!editDriverId && !editVehicleId) {
-            setBanner({ type: 'err', text: 'Select a driver and/or vehicle.' });
+            setEditError('Select a driver and/or vehicle.');
             return;
         }
         setAssignmentSaving(true);
-        setBanner(null);
+        setEditError(null);
         try {
             const payload: { driver_id?: string; vehicle_id?: number } = {};
             const currentDriverId = editingTrip.driver_id ?? editingTrip.users?.id ?? '';
@@ -267,15 +254,15 @@ function ShuttleTripsSchedulingContent() {
                 payload.vehicle_id = nextVehicleId;
             }
             if (!payload.driver_id && payload.vehicle_id == null) {
-                setBanner({ type: 'err', text: 'No changes to save.' });
+                setEditError('No changes to save.');
                 return;
             }
             await apiClient.setShuttleTripResourceOverride(editingTrip.id, payload);
-            setBanner({ type: 'ok', text: `Saved for this trip only. The route's usual driver and vehicle are unchanged.` });
+            toast.success('Saved for this trip only', { description: "The route's usual driver and vehicle are unchanged." });
             closeEditAssignment();
             await loadTrips();
         } catch (e) {
-            setBanner({ type: 'err', text: e instanceof Error ? e.message : 'Failed to update assignment' });
+            setEditError(e instanceof Error ? e.message : 'Failed to update assignment');
         } finally {
             setAssignmentSaving(false);
         }
@@ -283,15 +270,14 @@ function ShuttleTripsSchedulingContent() {
 
     const handleGenerateForDate = async () => {
         if (!canMutate || selectedRouteId === '') {
-            setBanner({ type: 'err', text: 'Select a route and ensure you have permission to update shuttle ops.' });
+            toast.error('Select a route and ensure you have permission to update shuttle ops.');
             return;
         }
         if (!/^\d{4}-\d{2}-\d{2}$/.test(generateDate)) {
-            setBanner({ type: 'err', text: 'Pick a valid date.' });
+            toast.error('Pick a valid date.');
             return;
         }
         setGenerateBusy(true);
-        setBanner(null);
         try {
             const directions =
                 generateDirection === 'BOTH' ? ['MORNING', 'EVENING'] : [generateDirection];
@@ -302,10 +288,10 @@ function ShuttleTripsSchedulingContent() {
                     body: JSON.stringify({ route_id: selectedRouteId, dates: [generateDate], directions }),
                 },
             );
-            setBanner({ type: 'ok', text: result.message });
+            toast.success(result.message);
             await loadTrips();
         } catch (e) {
-            setBanner({ type: 'err', text: e instanceof Error ? e.message : 'Generation failed' });
+            toast.error(e instanceof Error ? e.message : 'Generation failed');
         } finally {
             setGenerateBusy(false);
         }
@@ -314,16 +300,15 @@ function ShuttleTripsSchedulingContent() {
     const handleDailyAllRoutes = async () => {
         if (!canMutate) return;
         setDailyAllBusy(true);
-        setBanner(null);
         try {
             const result = await apiClient.request<{ message: string; createdCount: number }>(
                 '/shuttle-trips/trigger-daily-generation',
                 { method: 'POST' },
             );
-            setBanner({ type: 'ok', text: result.message });
+            toast.success(result.message);
             await loadTrips();
         } catch (e) {
-            setBanner({ type: 'err', text: e instanceof Error ? e.message : 'Failed to generate trips for today' });
+            toast.error(e instanceof Error ? e.message : 'Failed to generate trips for today');
         } finally {
             setDailyAllBusy(false);
         }
@@ -331,48 +316,57 @@ function ShuttleTripsSchedulingContent() {
 
     const handleRegenerateToday = async () => {
         if (!canMutate) return;
-        if (!window.confirm('This will delete all SCHEDULED trips for today and regenerate them. Continue?')) return;
+        const ok = await confirm({
+            title: "Regenerate today's trips?",
+            message: "Every SCHEDULED trip for today (UTC) is deleted and generated again from the routes' usual crews.",
+            consequences: [
+                'Driver or vehicle overrides set on today\'s scheduled trips are lost',
+                'Trips that have already started or finished are not touched',
+            ],
+            destructive: true,
+            confirmLabel: 'Regenerate',
+        });
+        if (!ok) return;
         setRegenerateBusy(true);
-        setBanner(null);
         try {
             const result = await apiClient.request<{ message: string; deletedCount: number; createdCount: number }>(
                 '/shuttle-trips/regenerate-daily',
                 { method: 'POST' },
             );
-            setBanner({ type: 'ok', text: result.message });
+            toast.success(result.message);
             await loadTrips();
         } catch (e) {
-            setBanner({ type: 'err', text: e instanceof Error ? e.message : 'Failed to regenerate trips' });
+            toast.error(e instanceof Error ? e.message : 'Failed to regenerate trips');
         } finally {
             setRegenerateBusy(false);
         }
     };
 
+    const tripLabel = (trip: ScheduledTripRow) =>
+        `${trip.direction === 'MORNING' ? 'morning' : 'evening'} trip #${trip.id} (${trip.routes?.name ?? 'route'}) on ${formatTripDate(trip.trip_date)}`;
+
     const handleStatusChange = async (trip: ScheduledTripRow, nextStatus: string) => {
         if (!canMutate || nextStatus === trip.status) return;
         if (nextStatus !== 'SCHEDULED' && nextStatus !== 'CANCELLED') return;
-        const action = nextStatus === 'CANCELLED' ? 'Cancel' : 'Restore';
-        if (
-            !window.confirm(
-                `${action} ${trip.direction} trip #${trip.id} (${trip.routes?.name ?? 'route'}) on ${formatTripDate(trip.trip_date)}?`,
-            )
-        ) {
-            return;
-        }
+        const cancelling = nextStatus === 'CANCELLED';
+        const ok = await confirm({
+            title: cancelling ? 'Cancel this trip?' : 'Restore this trip?',
+            message: `${cancelling ? 'Cancel' : 'Restore'} the ${tripLabel(trip)}.`,
+            consequences: cancelling
+                ? ['The driver no longer sees it as scheduled', 'Passengers on this trip are not notified automatically']
+                : ['The trip becomes SCHEDULED again and the driver will see it'],
+            destructive: cancelling,
+            confirmLabel: cancelling ? 'Cancel trip' : 'Restore trip',
+            cancelLabel: 'Keep as is',
+        });
+        if (!ok) return;
         try {
             setStatusUpdatingId(trip.id);
-            setBanner(null);
             await apiClient.updateShuttleTripStatus(trip.id, nextStatus);
-            setBanner({
-                type: 'ok',
-                text:
-                    nextStatus === 'CANCELLED'
-                        ? `${trip.direction} trip #${trip.id} cancelled.`
-                        : `${trip.direction} trip #${trip.id} restored to scheduled.`,
-            });
+            toast.success(cancelling ? `Trip #${trip.id} cancelled` : `Trip #${trip.id} restored to scheduled`);
             await loadTrips();
         } catch (e) {
-            setBanner({ type: 'err', text: e instanceof Error ? e.message : 'Failed to update status' });
+            toast.error(e instanceof Error ? e.message : 'Failed to update status');
         } finally {
             setStatusUpdatingId(null);
         }
@@ -385,522 +379,352 @@ function ShuttleTripsSchedulingContent() {
 
     const handleBulkCancel = async () => {
         if (!canMutate || cancellableSelected.length === 0) return;
-        if (
-            !window.confirm(
-                `Cancel ${cancellableSelected.length} trip${cancellableSelected.length === 1 ? '' : 's'}? Drivers will no longer see them as scheduled.`,
-            )
-        ) {
-            return;
-        }
+        const n = cancellableSelected.length;
+        const ok = await confirm({
+            title: `Cancel ${n} trip${n === 1 ? '' : 's'}?`,
+            message: 'Each selected trip is cancelled one by one.',
+            consequences: ['Drivers no longer see them as scheduled', 'Trips that already finished are skipped'],
+            destructive: true,
+            confirmLabel: `Cancel ${n} trip${n === 1 ? '' : 's'}`,
+            cancelLabel: 'Keep them',
+        });
+        if (!ok) return;
         setBulkCancelling(true);
-        setBanner(null);
-        let ok = 0;
+        let okCount = 0;
         const errors: string[] = [];
         try {
             for (const trip of cancellableSelected) {
                 try {
                     await apiClient.updateShuttleTripStatus(trip.id, 'CANCELLED');
-                    ok += 1;
+                    okCount += 1;
                 } catch (e) {
                     errors.push(`#${trip.id}: ${e instanceof Error ? e.message : 'failed'}`);
                 }
             }
-            setBanner({
-                type: errors.length ? 'err' : 'ok',
-                text: errors.length
-                    ? `Cancelled ${ok} trip(s). Failed: ${errors.join('; ')}`
-                    : `Cancelled ${ok} trip(s).`,
-            });
+            if (errors.length) {
+                toast.error(`Cancelled ${okCount} trip(s); ${errors.length} failed`, { description: errors.join('; ') });
+            } else {
+                toast.success(`Cancelled ${okCount} trip${okCount === 1 ? '' : 's'}`);
+            }
             await loadTrips();
         } finally {
             setBulkCancelling(false);
         }
     };
 
-    const toggleSelectTrip = (tripId: number, checked: boolean) => {
-        setSelectedTripIds((prev) => (checked ? [...prev, tripId] : prev.filter((id) => id !== tripId)));
-    };
-
-    const selectableOnPage = rows.filter((t) => canEditAssignment(t.status));
-    const allSelectableChecked =
-        selectableOnPage.length > 0 && selectableOnPage.every((t) => selectedTripIds.includes(t.id));
-
-    const toggleSelectAllOnPage = (checked: boolean) => {
-        if (checked) {
-            setSelectedTripIds((prev) => [...new Set([...prev, ...selectableOnPage.map((t) => t.id)])]);
-        } else {
-            const pageIds = new Set(selectableOnPage.map((t) => t.id));
-            setSelectedTripIds((prev) => prev.filter((id) => !pageIds.has(id)));
-        }
-    };
-
     const handleDelete = async (trip: ScheduledTripRow) => {
         if (!canMutate || trip.status !== 'SCHEDULED') return;
-        if (!window.confirm(`Delete ${trip.direction} trip #${trip.id} on ${formatTripDate(trip.trip_date)}?`)) return;
+        const ok = await confirm({
+            title: 'Delete this trip?',
+            message: `Delete the ${tripLabel(trip)}.`,
+            consequences: ['The trip disappears for the driver and from reports', 'This cannot be undone; generate it again if needed'],
+            destructive: true,
+            confirmLabel: 'Delete trip',
+        });
+        if (!ok) return;
         try {
             await apiClient.request(`/shuttle-trips/${trip.id}`, { method: 'DELETE' });
-            setBanner({ type: 'ok', text: 'Trip deleted.' });
+            toast.success('Trip deleted');
             await loadTrips();
         } catch (e) {
-            setBanner({ type: 'err', text: e instanceof Error ? e.message : 'Delete failed' });
+            toast.error(e instanceof Error ? e.message : 'Delete failed');
         }
     };
 
     const handleForceEnd = async (trip: ScheduledTripRow) => {
         if (!canMutate || (trip.status !== 'STARTED' && trip.status !== 'IN_PROGRESS')) return;
-        if (
-            !window.confirm(
-                `Force end ${trip.direction} trip #${trip.id} (${trip.routes?.name ?? 'route'})? Use this when the driver forgot to end the ride.`,
-            )
-        ) {
-            return;
-        }
+        const ok = await confirm({
+            title: 'Force end this trip?',
+            message: `End the ${tripLabel(trip)} on the driver's behalf. Use this when the driver forgot to end the ride.`,
+            consequences: ['The trip is marked COMPLETED now', 'Remaining stops are closed without attendance'],
+            destructive: true,
+            confirmLabel: 'Force end',
+        });
+        if (!ok) return;
         try {
             setEndingTripId(trip.id);
             await apiClient.completeShuttleTrip(trip.id);
-            setBanner({ type: 'ok', text: `${trip.direction} trip #${trip.id} marked as completed.` });
+            toast.success(`Trip #${trip.id} marked as completed`);
             await loadTrips();
         } catch (e) {
-            setBanner({ type: 'err', text: e instanceof Error ? e.message : 'Failed to end trip' });
+            toast.error(e instanceof Error ? e.message : 'Failed to end trip');
         } finally {
             setEndingTripId(null);
         }
     };
 
+    const activeFilters = (filterCompanyId !== '' ? 1 : 0) + (filterRouteId !== '' ? 1 : 0) + (filterStatus ? 1 : 0);
+
+    const columns: DataTableColumn<ScheduledTripRow>[] = [
+        { key: 'date', header: 'Date', cell: (t) => <span className="whitespace-nowrap">{formatTripDate(t.trip_date)}</span> },
+        { key: 'company', header: 'Company', hideBelow: 'lg', cell: (t) => t.routes?.companies?.name ?? '—' },
+        { key: 'route', header: 'Route', cell: (t) => <span className="font-medium text-fg">{t.routes?.name ?? '—'}</span> },
+        { key: 'direction', header: 'Direction', hideBelow: 'sm', cell: (t) => <StatusBadge status={t.direction} dot={false} size="sm" /> },
+        {
+            key: 'status',
+            header: 'Status',
+            cell: (t) => {
+                const locked = !canMutate || !canChangeStatus(t.status);
+                if (locked) return <StatusBadge status={t.status} overrides={TRIP_STATUS_OVERRIDES} />;
+                return (
+                    <Select
+                        width="auto"
+                        aria-label={`Status for trip #${t.id}`}
+                        className="h-8 text-xs"
+                        value={t.status}
+                        disabled={statusUpdatingId === t.id}
+                        onChange={(e) => void handleStatusChange(t, e.target.value)}
+                    >
+                        {statusSelectOptions(t.status).map((s) => (
+                            <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>
+                        ))}
+                    </Select>
+                );
+            },
+        },
+        { key: 'driver', header: 'Driver', hideBelow: 'md', cell: (t) => t.users?.full_name ?? '—' },
+        {
+            key: 'vehicle',
+            header: 'Vehicle',
+            hideBelow: 'md',
+            mono: true,
+            cell: (t) => {
+                const v = tripVehicle(t);
+                return v ? `${v.plate_number}${v.model ? ` · ${v.model}` : ''}` : '—';
+            },
+        },
+    ];
+
     return (
         <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <div className="text-sm font-medium text-gray-400">Routes</div>
-                    <h1 className="mt-1 text-2xl font-bold text-gray-900">Shuttle trip scheduling</h1>
-                    <p className="mt-1 text-sm text-gray-500">
-                        View upcoming trips, change status (cancel or restore), remove mistaken SCHEDULED trips, and generate trips for one route and one day at a time.
-                    </p>
-                </div>
-                <div className="flex gap-2">
-                    <Link href="/admin/routes/daily-overrides">
-                        <Button variant="outline">
-                            <ArrowLeftRight className="mr-2 h-4 w-4" />
-                            Daily plan
+            <PageHeader
+                title="Trip scheduling"
+                description="View upcoming trips, cancel or restore them, remove mistaken scheduled trips, and generate trips for one route and one day at a time."
+                back={{ href: '/admin/routes', label: 'Back to routes' }}
+                actions={
+                    <Button variant="outline" asChild>
+                        <Link href="/admin/routes/daily-overrides">
+                            <ArrowLeftRight />
+                            Today&apos;s plan
+                        </Link>
+                    </Button>
+                }
+            />
+
+            <div className="grid gap-4 lg:grid-cols-2">
+                <Card>
+                    <CardHeader title="Quick actions" description="Morning and evening trips for today (UTC) on every eligible route: driver + vehicle + shuttle-enabled company." />
+                    <CardContent className="flex flex-wrap gap-2">
+                        <Button variant="outline" onClick={handleDailyAllRoutes} disabled={!canMutate} loading={dailyAllBusy} leftIcon={<Bus />}>
+                            Generate today&apos;s trips
                         </Button>
-                    </Link>
-                    <Link href="/admin/routes">
-                        <Button variant="outline">
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to routes
+                        <Button variant="danger-outline" onClick={handleRegenerateToday} disabled={!canMutate} loading={regenerateBusy} leftIcon={<RefreshCw />}>
+                            Regenerate today&apos;s trips
                         </Button>
-                    </Link>
-                </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader title="Generate by route and date" description="Creates SCHEDULED trips for one calendar day. A direction that already exists for that day is skipped." />
+                    <CardContent>
+                        <FormGrid cols={3}>
+                            <Field label="Route" className="sm:col-span-2 lg:col-span-1">
+                                <Select
+                                    value={selectedRouteId === '' ? '' : String(selectedRouteId)}
+                                    placeholder="Select route…"
+                                    onChange={(e) => setSelectedRouteId(e.target.value ? Number(e.target.value) : '')}
+                                >
+                                    {routeOptions.map((r) => (
+                                        <option key={r.id} value={r.id}>
+                                            {r.companies?.name ? `${r.companies.name} · ` : ''}{r.name}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </Field>
+                            <Field label="Date">
+                                <Input type="date" value={generateDate} onChange={(e) => setGenerateDate(e.target.value)} />
+                            </Field>
+                            <Field label="Direction">
+                                <Select value={generateDirection} onChange={(e) => setGenerateDirection(e.target.value as 'BOTH' | 'MORNING' | 'EVENING')}>
+                                    <option value="BOTH">Both</option>
+                                    <option value="MORNING">Morning</option>
+                                    <option value="EVENING">Evening</option>
+                                </Select>
+                            </Field>
+                        </FormGrid>
+                        <div className="mt-4 flex justify-end">
+                            <Button onClick={handleGenerateForDate} disabled={!canMutate || selectedRouteId === ''} loading={generateBusy}>
+                                Generate trips
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
-            {banner && (
-                <div
-                    className={`rounded-lg border p-4 text-sm ${
-                        banner.type === 'ok'
-                            ? 'border-green-200 bg-green-50 text-green-800'
-                            : 'border-red-200 bg-red-50 text-red-700'
-                    }`}
-                >
-                    {banner.text}
-                </div>
-            )}
-
-            <Card className="p-6 space-y-4">
-                <h2 className="text-lg font-semibold text-gray-900">Quick actions</h2>
-                <p className="text-sm text-gray-500">
-                    Generate morning and evening trips for <strong>today (UTC)</strong> on every eligible route (driver + vehicle + shuttle-enabled company).
-                </p>
-                <div className="flex flex-wrap gap-3">
-                    <Button variant="outline" onClick={handleDailyAllRoutes} disabled={!canMutate || dailyAllBusy}>
-                        {dailyAllBusy ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Bus className="mr-2 h-4 w-4" />}
-                        Generate today&apos;s trips (all routes)
-                    </Button>
-                    <Button variant="outline" onClick={handleRegenerateToday} disabled={!canMutate || regenerateBusy}>
-                        {regenerateBusy ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                        Regenerate today&apos;s trips
-                    </Button>
-                </div>
-            </Card>
-
-            <Card className="p-6 space-y-4">
-                <h2 className="text-lg font-semibold text-gray-900">Generate by route and date</h2>
-                <p className="text-sm text-gray-500">
-                    Creates SCHEDULED trips for that single calendar day (UTC) for the selected direction(s). Any direction that already exists for that day is skipped.
-                </p>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium text-gray-700">Route</span>
-                        <select
-                            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0C225E]/30"
-                            value={selectedRouteId === '' ? '' : String(selectedRouteId)}
-                            onChange={(e) => setSelectedRouteId(e.target.value ? Number(e.target.value) : '')}
-                        >
-                            <option value="">Select route…</option>
-                            {routeOptions.map((r) => (
-                                <option key={r.id} value={r.id}>
-                                    {r.companies?.name ? `${r.companies.name} · ` : ''}
-                                    {r.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium text-gray-700">Date (UTC)</span>
-                        <input
-                            type="date"
-                            className="rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0C225E]/30"
-                            value={generateDate}
-                            onChange={(e) => setGenerateDate(e.target.value)}
-                        />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium text-gray-700">Direction</span>
-                        <select
-                            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0C225E]/30"
-                            value={generateDirection}
-                            onChange={(e) => setGenerateDirection(e.target.value as 'BOTH' | 'MORNING' | 'EVENING')}
-                        >
-                            <option value="BOTH">Both</option>
-                            <option value="MORNING">Morning</option>
-                            <option value="EVENING">Evening</option>
-                        </select>
-                    </label>
-                    <div className="flex items-end">
-                        <Button onClick={handleGenerateForDate} disabled={!canMutate || generateBusy || selectedRouteId === ''}>
-                            {generateBusy ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Generate trips
-                        </Button>
-                    </div>
-                </div>
-            </Card>
-
-            <Card className="p-6 space-y-4">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                        <h2 className="text-lg font-semibold text-gray-900">Scheduled trips</h2>
-                        <p className="mt-1 text-sm text-gray-500">
-                            Change status in the table to cancel a trip (or restore a cancelled one). Select multiple rows to cancel them at once.
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        {canMutate && cancellableSelected.length > 0 && (
-                            <Button variant="outline" size="sm" onClick={handleBulkCancel} disabled={bulkCancelling}>
-                                {bulkCancelling ? (
-                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Ban className="mr-2 h-4 w-4" />
-                                )}
-                                Cancel selected ({cancellableSelected.length})
-                            </Button>
-                        )}
-                        <Button variant="outline" size="sm" onClick={() => loadTrips()} disabled={listLoading}>
-                            <RefreshCw className={`mr-2 h-4 w-4 ${listLoading ? 'animate-spin' : ''}`} />
+            <Card>
+                <CardHeader
+                    title="Scheduled trips"
+                    description="Change status in the table to cancel a trip or restore a cancelled one. Select rows to cancel several at once."
+                    actions={
+                        <Button variant="outline" size="sm" onClick={() => void loadTrips()} loading={listLoading} leftIcon={<RefreshCw />}>
                             Refresh
                         </Button>
-                    </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium text-gray-700">From date (UTC)</span>
-                        <input
-                            type="date"
-                            className="rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0C225E]/30"
-                            value={fromDate}
-                            onChange={(e) => {
-                                setFromDate(e.target.value);
-                                setPage(1);
-                            }}
-                        />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium text-gray-700">Company</span>
-                        <select
-                            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0C225E]/30"
-                            value={filterCompanyId === '' ? '' : String(filterCompanyId)}
-                            onChange={(e) => {
-                                setFilterCompanyId(e.target.value ? Number(e.target.value) : '');
-                                setFilterRouteId('');
-                                setPage(1);
-                            }}
-                        >
-                            <option value="">All companies</option>
-                            {companies.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                    {c.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium text-gray-700">Route</span>
-                        <select
-                            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0C225E]/30"
-                            value={filterRouteId === '' ? '' : String(filterRouteId)}
-                            onChange={(e) => {
-                                setFilterRouteId(e.target.value ? Number(e.target.value) : '');
-                                setPage(1);
-                            }}
-                        >
-                            <option value="">All routes</option>
-                            {routeOptions.map((r) => (
-                                <option key={r.id} value={r.id}>
-                                    {r.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium text-gray-700">Status</span>
-                        <select
-                            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0C225E]/30"
-                            value={filterStatus}
-                            onChange={(e) => {
-                                setFilterStatus(e.target.value);
-                                setPage(1);
-                            }}
-                        >
-                            <option value="">All statuses</option>
-                            <option value="SCHEDULED">Scheduled</option>
-                            <option value="STARTED">Started</option>
-                            <option value="IN_PROGRESS">In progress</option>
-                            <option value="COMPLETED">Completed</option>
-                            <option value="CANCELLED">Cancelled</option>
-                        </select>
-                    </label>
-                </div>
-
-                {listError && (
-                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{listError}</div>
-                )}
-
-                <div className="overflow-x-auto rounded-lg border border-gray-200">
-                    <table className="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="w-8 px-3 py-2 text-left">
-                                    {canMutate ? (
-                                        <input
-                                            type="checkbox"
-                                            className="h-4 w-4 rounded border-gray-300"
-                                            checked={allSelectableChecked}
-                                            disabled={selectableOnPage.length === 0}
-                                            onChange={(e) => toggleSelectAllOnPage(e.target.checked)}
-                                            aria-label="Select all cancellable trips on this page"
-                                        />
-                                    ) : null}
-                                </th>
-                                <th className="px-3 py-2 text-left font-medium text-gray-600">Date (UTC)</th>
-                                <th className="px-3 py-2 text-left font-medium text-gray-600">Company</th>
-                                <th className="px-3 py-2 text-left font-medium text-gray-600">Route</th>
-                                <th className="px-3 py-2 text-left font-medium text-gray-600">Direction</th>
-                                <th className="px-3 py-2 text-left font-medium text-gray-600">Status</th>
-                                <th className="px-3 py-2 text-left font-medium text-gray-600">Driver</th>
-                                <th className="px-3 py-2 text-left font-medium text-gray-600">Vehicle</th>
-                                <th className="px-3 py-2 text-right font-medium text-gray-600">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 bg-white">
-                            {listLoading && (
-                                <tr>
-                                    <td colSpan={9} className="px-3 py-8 text-center text-gray-400">
-                                        Loading…
-                                    </td>
-                                </tr>
-                            )}
-                            {!listLoading && rows.length === 0 && (
-                                <tr>
-                                    <td colSpan={9} className="px-3 py-8 text-center text-gray-400">
-                                        No trips in this range.
-                                    </td>
-                                </tr>
-                            )}
-                            {!listLoading &&
-                                rows.map((trip) => {
-                                    const vehicle = tripVehicle(trip);
-                                    const statusOptions = statusSelectOptions(trip.status);
-                                    const statusLocked = !canMutate || !canChangeStatus(trip.status);
-                                    return (
-                                    <tr key={trip.id} className="hover:bg-gray-50/80">
-                                        <td className="px-3 py-2">
-                                            {canMutate && canEditAssignment(trip.status) ? (
-                                                <input
-                                                    type="checkbox"
-                                                    className="h-4 w-4 rounded border-gray-300"
-                                                    checked={selectedTripIds.includes(trip.id)}
-                                                    onChange={(e) => toggleSelectTrip(trip.id, e.target.checked)}
-                                                    aria-label={`Select trip #${trip.id}`}
-                                                />
-                                            ) : null}
-                                        </td>
-                                        <td className="whitespace-nowrap px-3 py-2 text-gray-900">{formatTripDate(trip.trip_date)}</td>
-                                        <td className="px-3 py-2 text-gray-700">{trip.routes?.companies?.name ?? '—'}</td>
-                                        <td className="px-3 py-2 text-gray-900">{trip.routes?.name ?? '—'}</td>
-                                        <td className="px-3 py-2 text-gray-700">{trip.direction}</td>
-                                        <td className="px-3 py-2">
-                                            <select
-                                                className={`rounded-full border-0 px-2 py-0.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0C225E]/30 ${statusBadgeClass(trip.status)} ${statusLocked ? 'cursor-default appearance-none pr-2' : 'cursor-pointer'}`}
-                                                value={trip.status}
-                                                disabled={statusLocked || statusUpdatingId === trip.id}
-                                                onChange={(e) => handleStatusChange(trip, e.target.value)}
-                                                aria-label={`Status for trip #${trip.id}`}
-                                            >
-                                                {statusOptions.map((s) => (
-                                                    <option key={s} value={s}>
-                                                        {s}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </td>
-                                        <td className="px-3 py-2 text-gray-700">{trip.users?.full_name ?? '—'}</td>
-                                        <td className="whitespace-nowrap px-3 py-2 text-gray-600">
-                                            {vehicle
-                                                ? `${vehicle.model ?? ''} ${vehicle.plate_number}`.trim()
-                                                : '—'}
-                                        </td>
-                                        <td className="px-3 py-2 text-right">
-                                            <div className="flex flex-wrap items-center justify-end gap-1">
-                                                {canEditAssignment(trip.status) && canMutate && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => openEditAssignment(trip)}
-                                                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                                                    >
-                                                        <Pencil className="h-3.5 w-3.5" />
-                                                        Driver / vehicle
-                                                    </button>
-                                                )}
-                                                {trip.status === 'SCHEDULED' && canMutate ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDelete(trip)}
-                                                        className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
-                                                    >
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                        Delete
-                                                    </button>
-                                                ) : (trip.status === 'STARTED' || trip.status === 'IN_PROGRESS') && canMutate ? (
-                                                    <button
-                                                        type="button"
-                                                        disabled={endingTripId === trip.id}
-                                                        onClick={() => handleForceEnd(trip)}
-                                                        className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-                                                    >
-                                                        {endingTripId === trip.id ? (
-                                                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                                                        ) : (
-                                                            <Square className="h-3.5 w-3.5" />
-                                                        )}
-                                                        {endingTripId === trip.id ? 'Ending…' : 'Force End'}
-                                                    </button>
-                                                ) : !canEditAssignment(trip.status) ? (
-                                                    <span className="text-xs text-gray-400">—</span>
-                                                ) : null}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    );
-                                })}
-                        </tbody>
-                    </table>
-                </div>
-
-                {pagination && pagination.pages > 1 && (
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-600">
-                        <span>
-                            Page {pagination.page} of {pagination.pages} ({pagination.total} total)
-                        </span>
-                        <div className="flex gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={!pagination.hasPrev || listLoading}
-                                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    }
+                />
+                <CardContent className="border-b border-line py-3">
+                    <FilterBar
+                        activeCount={activeFilters}
+                        onClear={() => {
+                            setFilterCompanyId('');
+                            setFilterRouteId('');
+                            setFilterStatus('');
+                            setPage(1);
+                        }}
+                    >
+                        <FilterField label="From">
+                            <Input
+                                type="date"
+                                className="h-8 text-xs"
+                                value={fromDate}
+                                onChange={(e) => {
+                                    setFromDate(e.target.value);
+                                    setPage(1);
+                                }}
+                            />
+                        </FilterField>
+                        <FilterField label="Company">
+                            <Select
+                                width="auto"
+                                className="h-8 text-xs"
+                                value={filterCompanyId === '' ? '' : String(filterCompanyId)}
+                                placeholder="All companies"
+                                onChange={(e) => {
+                                    setFilterCompanyId(e.target.value ? Number(e.target.value) : '');
+                                    setFilterRouteId('');
+                                    setPage(1);
+                                }}
                             >
-                                Previous
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={!pagination.hasNext || listLoading}
-                                onClick={() => setPage((p) => p + 1)}
+                                {companies.map((c) => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </Select>
+                        </FilterField>
+                        <FilterField label="Route">
+                            <Select
+                                width="auto"
+                                className="h-8 text-xs"
+                                value={filterRouteId === '' ? '' : String(filterRouteId)}
+                                placeholder="All routes"
+                                onChange={(e) => {
+                                    setFilterRouteId(e.target.value ? Number(e.target.value) : '');
+                                    setPage(1);
+                                }}
                             >
-                                Next
-                            </Button>
-                        </div>
-                    </div>
-                )}
+                                {routeOptions.map((r) => (
+                                    <option key={r.id} value={r.id}>{r.name}</option>
+                                ))}
+                            </Select>
+                        </FilterField>
+                        <FilterField label="Status">
+                            <Select
+                                width="auto"
+                                className="h-8 text-xs"
+                                value={filterStatus}
+                                placeholder="All statuses"
+                                onChange={(e) => {
+                                    setFilterStatus(e.target.value);
+                                    setPage(1);
+                                }}
+                            >
+                                {Object.entries(STATUS_LABEL).map(([value, label]) => (
+                                    <option key={value} value={value}>{label}</option>
+                                ))}
+                            </Select>
+                        </FilterField>
+                    </FilterBar>
+                </CardContent>
+
+                <DataTable<ScheduledTripRow>
+                    caption="Scheduled shuttle trips"
+                    columns={columns}
+                    rows={rows}
+                    rowKey={(t) => t.id}
+                    loading={listLoading}
+                    error={listError}
+                    onRetry={() => void loadTrips()}
+                    empty={{ title: 'No trips in this range', description: 'Try an earlier from-date or clear the filters.' }}
+                    selectable={canMutate}
+                    selectedKeys={selectedTripIds}
+                    onSelectedKeysChange={setSelectedTripIds}
+                    isRowSelectable={(t) => canEditAssignment(t.status)}
+                    bulkActions={() => (
+                        <Button variant="danger-outline" size="sm" onClick={handleBulkCancel} loading={bulkCancelling} disabled={cancellableSelected.length === 0} leftIcon={<Ban />}>
+                            Cancel selected ({cancellableSelected.length})
+                        </Button>
+                    )}
+                    rowActions={(t) => [
+                        { label: 'Driver / vehicle', icon: <Pencil />, hidden: !canMutate || !canEditAssignment(t.status), onSelect: () => void openEditAssignment(t) },
+                        { label: 'Delete trip', icon: <Trash2 />, destructive: true, hidden: !canMutate || t.status !== 'SCHEDULED', onSelect: () => void handleDelete(t) },
+                        {
+                            label: endingTripId === t.id ? 'Ending…' : 'Force end',
+                            icon: <Square />,
+                            destructive: true,
+                            hidden: !canMutate || (t.status !== 'STARTED' && t.status !== 'IN_PROGRESS'),
+                            disabled: endingTripId === t.id,
+                            onSelect: () => void handleForceEnd(t),
+                        },
+                    ]}
+                    pagination={
+                        pagination
+                            ? { page: pagination.page, totalPages: pagination.pages, total: pagination.total, pageSize: PAGE_SIZE, onPageChange: setPage }
+                            : undefined
+                    }
+                />
             </Card>
 
-            {editingTrip && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-xl">
-                        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-900">Change driver or vehicle for this trip</h3>
-                                <p className="mt-0.5 text-sm text-gray-500">
-                                    {editingTrip.direction === 'MORNING' ? 'Morning' : 'Evening'} · {formatTripDate(editingTrip.trip_date)} — this trip only
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={closeEditAssignment}
-                                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                                aria-label="Close"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-                        <div className="space-y-4 px-5 py-4">
-                            <p className="text-sm text-gray-600">
-                                <span className="font-medium text-gray-800">{editingTrip.routes?.name ?? 'Route'}</span>
+            <Dialog open={!!editingTrip} onOpenChange={(open) => !open && !assignmentSaving && closeEditAssignment()}>
+                {editingTrip && (
+                    <DialogContent
+                        title="Change driver or vehicle for this trip"
+                        description={`${editingTrip.direction === 'MORNING' ? 'Morning' : 'Evening'} · ${formatTripDate(editingTrip.trip_date)} — this trip only`}
+                        footer={
+                            <>
+                                <Button variant="outline" onClick={closeEditAssignment} disabled={assignmentSaving}>
+                                    Cancel
+                                </Button>
+                                <Button onClick={handleSaveAssignment} loading={assignmentSaving}>
+                                    Save changes
+                                </Button>
+                            </>
+                        }
+                    >
+                        <div className="space-y-4">
+                            <p className="text-sm text-fg-secondary">
+                                <span className="font-medium text-fg">{editingTrip.routes?.name ?? 'Route'}</span>
                                 {editingTrip.routes?.companies?.name ? ` · ${editingTrip.routes.companies.name}` : ''}
                             </p>
-                            <label className="flex flex-col gap-1 text-sm">
-                                <span className="font-medium text-gray-700">Driver</span>
-                                <select
-                                    className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0C225E]/30"
-                                    value={editDriverId}
-                                    onChange={(e) => setEditDriverId(e.target.value)}
-                                >
-                                    <option value="">Select driver…</option>
+                            <Field label="Driver">
+                                <Select value={editDriverId} placeholder="Select driver…" onChange={(e) => setEditDriverId(e.target.value)}>
                                     {driversForEdit.map((d) => (
-                                        <option key={d.id} value={d.id}>
-                                            {d.full_name}
-                                        </option>
+                                        <option key={d.id} value={d.id}>{d.full_name}</option>
                                     ))}
-                                </select>
-                            </label>
-                            <label className="flex flex-col gap-1 text-sm">
-                                <span className="font-medium text-gray-700">Vehicle</span>
-                                <select
-                                    className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0C225E]/30"
-                                    value={editVehicleId}
-                                    onChange={(e) => setEditVehicleId(e.target.value)}
-                                >
-                                    <option value="">Select vehicle…</option>
+                                </Select>
+                            </Field>
+                            <Field
+                                label="Vehicle"
+                                hint="Everyday swaps belong on Today's plan. This applies to this trip only, not the route default."
+                                error={editError}
+                            >
+                                <Select value={editVehicleId} placeholder="Select vehicle…" onChange={(e) => setEditVehicleId(e.target.value)}>
                                     {vehiclesForEdit.map((v) => (
-                                        <option key={v.id} value={v.id}>
-                                            {[v.model, v.plate_number].filter(Boolean).join(' · ')}
-                                        </option>
+                                        <option key={v.id} value={v.id}>{[v.model, v.plate_number].filter(Boolean).join(' · ')}</option>
                                     ))}
-                                </select>
-                                <span className="text-xs text-gray-500">
-                                    Everyday swaps belong on Today&apos;s shuttle plan. This still applies to this trip only, not the route default.
-                                </span>
-                            </label>
+                                </Select>
+                            </Field>
                         </div>
-                        <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4">
-                            <Button variant="outline" onClick={closeEditAssignment} disabled={assignmentSaving}>
-                                Cancel
-                            </Button>
-                            <Button onClick={handleSaveAssignment} disabled={assignmentSaving}>
-                                {assignmentSaving ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                Save changes
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                    </DialogContent>
+                )}
+            </Dialog>
         </div>
     );
 }

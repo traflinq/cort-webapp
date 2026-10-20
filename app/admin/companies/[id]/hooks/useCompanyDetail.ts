@@ -2,26 +2,40 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { toast } from "sonner";
-import { apiClient, Company, Employee } from "../../../../lib/services/api-client";
+import { apiClient, Company, CreateEmployeeRequest, Employee } from "../../../../lib/services/api-client";
 import { CompanyFeature, CompanyVendorLink, ExternalVendor } from "../../../../lib/services/types/multi-mode";
 import { useAdminAbility } from "../../../../lib/abilities/AdminAbilityProvider";
 import { ADMIN_SUBJECTS } from "../../../../lib/abilities/admin-subjects";
 import { useAuth } from "../../../../lib/contexts/auth-context";
 import { useConfirm } from "../../../../lib/hooks/useConfirm";
+import { useDebounce } from "../../../../lib/hooks/useDebounce";
 import { getPhoneValidationError } from "../../../../lib/utils/phone";
 
+export const EMPLOYEES_PAGE_SIZE = 25;
+
+type EmployeePagination = { page: number; pages: number; total: number };
+type CsvRow = Record<string, string | number>;
+
 export function useCompanyDetail(id: string) {
-  const confirm = useConfirm();
-  const ability = useAdminAbility();
-  const { hasCrud } = useAuth();
+    const confirm = useConfirm();
+    const ability = useAdminAbility();
+    const { hasCrud } = useAuth();
     const canCreate = ability.can("create", ADMIN_SUBJECTS.companies);
     const canUpdate = ability.can("update", ADMIN_SUBJECTS.companies);
     const canViewPricing = hasCrud("pricing", "read");
 
     const [company, setCompany] = useState<Company | null>(null);
-    const [employees, setEmployees] = useState<Employee[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Employees (server-paginated + searched)
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [employeesLoading, setEmployeesLoading] = useState(true);
+    const [employeesError, setEmployeesError] = useState<string | null>(null);
+    const [empPage, setEmpPage] = useState(1);
+    const [empSearch, setEmpSearch] = useState("");
+    const empSearchDebounced = useDebounce(empSearch.trim(), 400);
+    const [empPagination, setEmpPagination] = useState<EmployeePagination>({ page: 1, pages: 1, total: 0 });
 
     const [activeTab, setActiveTab] = useState<"employees" | "services">("employees");
     const [linkContext, setLinkContext] = useState<'chauffeur' | 'shuttle' | 'general'>('general');
@@ -55,13 +69,14 @@ export function useCompanyDetail(id: string) {
     const [newEmpDepartment, setNewEmpDepartment] = useState("");
     const [isCreatingEmp, setIsCreatingEmp] = useState(false);
     const [isUploadingCsv, setIsUploadingCsv] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
     // CSV bulk upload modal state
     const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
     const [csvFile, setCsvFile] = useState<File | null>(null);
     const [csvRawText, setCsvRawText] = useState<string>("");
     const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
-    const [csvPreviewRows, setCsvPreviewRows] = useState<any[]>([]);
+    const [csvPreviewRows, setCsvPreviewRows] = useState<CsvRow[]>([]);
     const [csvSkippedRows, setCsvSkippedRows] = useState<Array<{ row: number; missing: string[] }>>([]);
     const [csvMissingHeaders, setCsvMissingHeaders] = useState<string[]>([]);
     const [csvHasPreview, setCsvHasPreview] = useState(false);
@@ -159,7 +174,7 @@ export function useCompanyDetail(id: string) {
                 (h) => !rawHeaders.some((rh) => (headerAliases[rh] || rh) === h),
             );
 
-            const previewRows: any[] = [];
+            const previewRows: CsvRow[] = [];
             const skipped: Array<{ row: number; missing: string[] }> = [];
 
             for (let i = 1; i < lines.length; i++) {
@@ -167,7 +182,7 @@ export function useCompanyDetail(id: string) {
                 if (!line) continue;
 
                 const values = parseCsvLine(line);
-                const emp: any = { company_id: company.id };
+                const emp: CsvRow = { company_id: company.id };
 
                 rawHeaders.forEach((rawHeader, index) => {
                     const field = headerAliases[rawHeader];
@@ -227,26 +242,71 @@ export function useCompanyDetail(id: string) {
         };
     }, [csvHasPreview, csvMissingHeaders.length, csvPreviewRows.length, csvSkippedRows.length]);
 
-    const fetchCompanyData = async () => {
+    const fetchCompany = useCallback(async () => {
         try {
-            setIsLoading(true);
             const companyRes = await apiClient.getCompany(id);
             setCompany(companyRes.data);
-
-            const employeesRes = await apiClient.getEmployees({ company_id: Number(id), limit: 100 });
-            setEmployees(employeesRes.data.data);
             setError(null);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Failed to load company data:", err);
             setError("Failed to load company details. Please try again.");
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [id]);
+
+    const fetchEmployees = useCallback(async (page: number, search: string) => {
+        try {
+            const employeesRes = await apiClient.getEmployees({
+                company_id: Number(id),
+                page,
+                limit: EMPLOYEES_PAGE_SIZE,
+                search: search || undefined,
+            });
+            setEmployees(employeesRes.data.data);
+            const p = employeesRes.data.pagination;
+            setEmpPagination({ page: Number(p?.page) || page, pages: Number(p?.pages) || 1, total: Number(p?.total) || employeesRes.data.data.length });
+            setEmployeesError(null);
+        } catch (err: unknown) {
+            console.error("Failed to load employees:", err);
+            setEmployeesError(err instanceof Error ? err.message : "Failed to load employees.");
+        } finally {
+            setEmployeesLoading(false);
+        }
+    }, [id]);
+
+    /** Reloads the company and the current employees page (used after create / bulk upload). */
+    const fetchCompanyData = useCallback(async () => {
+        await Promise.all([fetchCompany(), fetchEmployees(empPage, empSearchDebounced)]);
+    }, [fetchCompany, fetchEmployees, empPage, empSearchDebounced]);
 
     useEffect(() => {
-        fetchCompanyData();
-    }, [id]);
+        let cancelled = false;
+        // Deferred so the effect body itself stays free of synchronous state updates.
+        Promise.resolve().then(() => {
+            if (!cancelled) void fetchCompany();
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [fetchCompany]);
+
+    useEffect(() => {
+        let cancelled = false;
+        Promise.resolve().then(() => {
+            if (cancelled) return;
+            setEmployeesLoading(true);
+            void fetchEmployees(empPage, empSearchDebounced);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [fetchEmployees, empPage, empSearchDebounced]);
+
+    const setEmployeeSearch = useCallback((value: string) => {
+        setEmpSearch(value);
+        setEmpPage(1);
+    }, []);
 
     const fetchFeatures = useCallback(async () => {
         setFeaturesLoading(true);
@@ -256,7 +316,7 @@ export function useCompanyDetail(id: string) {
             // Also fetch the saved tracker config to pre-fill the credential form
             try {
                 const cfgRes = await apiClient.getTrackerConfig(Number(id));
-                const cfg = (cfgRes as any)?.data?.config ?? {};
+                const cfg = (cfgRes as { data?: { config?: Record<string, string> } })?.data?.config ?? {};
                 if (cfg.user_id || cfg.phone) {
                     setTrackerForm({
                         user_id: (cfg.user_id as string) ?? '',
@@ -268,8 +328,8 @@ export function useCompanyDetail(id: string) {
             } catch {
                 // silently ignore — config may not exist yet
             }
-        } catch {
-            // silently ignore
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to load company features");
         } finally {
             setFeaturesLoading(false);
         }
@@ -280,18 +340,24 @@ export function useCompanyDetail(id: string) {
         try {
             const res = await apiClient.getCompanyExternalVendors(Number(id));
             setCompanyVendorLinks(res.data);
-        } catch {
-            // silently ignore
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to load linked vendors");
         } finally {
             setVendorsLoading(false);
         }
     }, [id]);
 
     useEffect(() => {
-        if (activeTab === "services") {
-            fetchFeatures();
-            fetchCompanyVendors();
-        }
+        if (activeTab !== "services") return;
+        let cancelled = false;
+        Promise.resolve().then(() => {
+            if (cancelled) return;
+            void fetchFeatures();
+            void fetchCompanyVendors();
+        });
+        return () => {
+            cancelled = true;
+        };
     }, [activeTab, fetchFeatures, fetchCompanyVendors]);
 
     const isTogglePending = (key: string) => pendingToggleKeys.includes(key);
@@ -343,10 +409,10 @@ export function useCompanyDetail(id: string) {
         setTrackerTestResult(null);
         try {
             const res = await apiClient.getActiveTrackerVehicles(Number(id));
-            const vehicles = (res as any)?.data ?? [];
+            const vehicles = (res as { data?: unknown })?.data ?? [];
             const count = Array.isArray(vehicles) ? vehicles.length : 0;
-            const plates = Array.isArray(vehicles)
-                ? vehicles.slice(0, 5).map((v: any) => v.RegNo ?? '?')
+            const plates: string[] = Array.isArray(vehicles)
+                ? (vehicles as Array<{ RegNo?: string }>).slice(0, 5).map((v) => v.RegNo ?? '?')
                 : [];
             setTrackerTestResult({ count, vehicles: plates });
             toast.success(`Connection successful — ${count} vehicle(s) found`);
@@ -377,9 +443,20 @@ export function useCompanyDetail(id: string) {
         }
     };
 
-    const updateLink = async (linkId: number, dto: { serves_chauffeur?: boolean; serves_shuttle?: boolean; is_active?: boolean }) => {
+    const vendorLinkName = (link: CompanyVendorLink) => link.external_vendors?.name ?? `Vendor #${link.vendor_id}`;
+
+    const updateLink = async (link: CompanyVendorLink, dto: { serves_chauffeur?: boolean; serves_shuttle?: boolean; is_active?: boolean }) => {
+        if (dto.is_active === false) {
+            const ok = await confirm({
+                title: `Deactivate ${vendorLinkName(link)} for this company?`,
+                message: "The vendor stays linked but stops receiving work for this company.",
+                consequences: ["New bookings and routes are no longer sent to this vendor", "You can reactivate the link at any time"],
+                confirmLabel: "Deactivate",
+            });
+            if (!ok) return;
+        }
         try {
-            await apiClient.updateVendorLink(linkId, dto);
+            await apiClient.updateVendorLink(link.id, dto);
             fetchCompanyVendors();
             toast.success("Link updated");
         } catch (err) {
@@ -387,11 +464,17 @@ export function useCompanyDetail(id: string) {
         }
     };
 
-    const removeLink = async (linkId: number) => {
-        const ok = await confirm({ message: "Remove this vendor link?", destructive: true, confirmLabel: "Remove" });
+    const removeLink = async (link: CompanyVendorLink) => {
+        const ok = await confirm({
+            title: `Remove ${vendorLinkName(link)} from this company?`,
+            message: "The vendor is unlinked from this company.",
+            consequences: ["The vendor no longer sees this company's work in its dashboard", "Link it again later if needed"],
+            destructive: true,
+            confirmLabel: "Remove link",
+        });
         if (!ok) return;
         try {
-            await apiClient.removeVendorLink(linkId);
+            await apiClient.removeVendorLink(link.id);
             fetchCompanyVendors();
             toast.success("Link removed");
         } catch (err) {
@@ -439,13 +522,13 @@ export function useCompanyDetail(id: string) {
             setNewEmpEmail("");
             setNewEmpPhone("");
             setNewEmpPassword("");
-            setNewEmpPassword("");
             setNewEmpId("");
             setNewEmpDepartment("");
             setNewEmpHomeAddress("");
             setIsEmpModalOpen(false);
-        } catch (err: any) {
-            toast.error(err.message || "Failed to create employee");
+            toast.success("Employee added");
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Failed to create employee");
         } finally {
             setIsCreatingEmp(false);
         }
@@ -476,7 +559,7 @@ export function useCompanyDetail(id: string) {
 
         setIsUploadingCsv(true);
         try {
-            const result = await apiClient.bulkCreateEmployees(rowsToUpload);
+            const result = await apiClient.bulkCreateEmployees(rowsToUpload as unknown as CreateEmployeeRequest[]);
             const { successful, failed } = result.data;
 
             const passwordsByEmail = new Map<string, string>();
@@ -557,8 +640,8 @@ export function useCompanyDetail(id: string) {
 
             await fetchCompanyData();
             closeCsvModal();
-        } catch (err: any) {
-            toast.error("Failed to upload CSV: " + (err?.message || "Unknown error"));
+        } catch (err: unknown) {
+            toast.error("Failed to upload CSV: " + (err instanceof Error ? err.message : "Unknown error"));
         } finally {
             setIsUploadingCsv(false);
         }
@@ -567,7 +650,6 @@ export function useCompanyDetail(id: string) {
         company,
         csvFile,
         csvHasPreview,
-        csvMissingHeaders.length,
         csvMissingHeaders,
         csvPreviewRows,
         csvRequiredHeaders,
@@ -576,55 +658,102 @@ export function useCompanyDetail(id: string) {
     ]);
 
     const handleToggleStatus = async (emp: Employee) => {
+        const deactivating = emp.status === 'ACTIVE';
+        if (deactivating) {
+            const ok = await confirm({
+                title: `Deactivate ${emp.full_name}?`,
+                message: "The employee keeps their record but loses access.",
+                consequences: ["They can no longer sign in to the app or book rides", "They are removed from active shuttle rosters until reactivated"],
+                confirmLabel: "Deactivate",
+                destructive: true,
+            });
+            if (!ok) return;
+        }
+        const nextStatus = deactivating ? 'INACTIVE' : 'ACTIVE';
+        // Optimistic update
+        setEmployees((prev) => prev.map(e => e.id === emp.id ? { ...e, status: nextStatus } : e));
         try {
-            const nextStatus = emp.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-            // Optimistic update
-            setEmployees(employees.map(e => e.id === emp.id ? { ...e, status: nextStatus } : e));
             await apiClient.updateEmployee(emp.id, { status: nextStatus });
-        } catch (err: any) {
+            toast.success(`${emp.full_name} ${deactivating ? "deactivated" : "activated"}`);
+        } catch (err: unknown) {
             console.error("Failed to update status:", err);
             // Revert on error
-            setEmployees(employees.map(e => e.id === emp.id ? { ...e, status: emp.status } : e));
+            setEmployees((prev) => prev.map(e => e.id === emp.id ? { ...e, status: emp.status } : e));
             toast.error(err instanceof Error ? err.message : "Failed to update status");
         }
     };
 
-    const handleExportCredentials = () => {
+    const handleExportCredentials = async () => {
         if (!company) return;
         // Roster export only — plaintext passwords are not stored. Use the
         // credentials CSV downloaded automatically after a successful bulk upload.
-        const escapeCsv = (value: string) => {
-            const s = String(value ?? "");
-            if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-            return s;
-        };
-        const lines = [
-            "employee_id,full_name,email,phone,department,status",
-            ...employees.map((e) =>
-                [
-                    escapeCsv(e.employee_id || ""),
-                    escapeCsv(e.full_name),
-                    escapeCsv(e.email),
-                    escapeCsv(e.phone || ""),
-                    escapeCsv(e.department || ""),
-                    escapeCsv(e.status),
-                ].join(","),
-            ),
-        ];
+        setIsExporting(true);
+        try {
+            // Walk every page so the export is the full roster, not just the visible page.
+            const all: Employee[] = [];
+            let page = 1;
+            for (;;) {
+                const res = await apiClient.getEmployees({ company_id: company.id, page, limit: 100 });
+                all.push(...res.data.data);
+                if (!res.data.pagination?.hasNext || page >= 100) break;
+                page += 1;
+            }
 
-        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `cort-${company.name}-employees.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
+            const escapeCsv = (value: string) => {
+                const s = String(value ?? "");
+                if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+                return s;
+            };
+            const lines = [
+                "employee_id,full_name,email,phone,department,status",
+                ...all.map((e) =>
+                    [
+                        escapeCsv(e.employee_id || ""),
+                        escapeCsv(e.full_name),
+                        escapeCsv(e.email),
+                        escapeCsv(e.phone || ""),
+                        escapeCsv(e.department || ""),
+                        escapeCsv(e.status),
+                    ].join(","),
+                ),
+            ];
+
+            const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `cort-${company.name}-employees.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            toast.success(`Exported ${all.length} employee${all.length === 1 ? "" : "s"}`);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to export employees");
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     const toggleService = async (service: 'shuttle' | 'chauffeur') => {
         if (!company) return;
         const key = service === 'shuttle' ? 'is_shuttle_enabled' : 'is_chauffeur_enabled';
         const newVal = !company[key];
+        const label = service === 'shuttle' ? 'Shuttle' : 'Chauffeur';
+
+        if (!newVal) {
+            const ok = await confirm({
+                title: `Turn off ${label} service for ${company.name}?`,
+                message: `The company loses access to ${label.toLowerCase()} features until it is turned back on.`,
+                consequences: [
+                    service === 'shuttle'
+                        ? "Employees can no longer see routes or board shuttles in the app"
+                        : "Employees can no longer request chauffeur bookings",
+                    "Fulfilment settings below are kept and hidden",
+                ],
+                confirmLabel: `Turn off ${label}`,
+                destructive: true,
+            });
+            if (!ok) return;
+        }
 
         // Optimistic
         setCompany({ ...company, [key]: newVal });
@@ -632,6 +761,7 @@ export function useCompanyDetail(id: string) {
         await runWithTogglePending(`service:${key}`, async () => {
             try {
                 await apiClient.updateCompany(company.id, { [key]: newVal });
+                toast.success(`${label} service ${newVal ? "enabled" : "disabled"}`);
             } catch (err) {
                 setCompany({ ...company, [key]: !newVal }); // Revert
                 toast.error(err instanceof Error ? err.message : "Failed to update settings");
@@ -678,31 +808,35 @@ export function useCompanyDetail(id: string) {
         }
     };
 
-  return {
-    company, employees, isLoading, error, canCreate, canUpdate, canViewPricing,
-    activeTab, setActiveTab, linkContext, setLinkContext,
-    features, featuresLoading, trackerForm, setTrackerForm, trackerSaving, trackerTesting, trackerTestResult, pendingToggleKeys,
-    companyVendorLinks, vendorsLoading, allVendors, showLinkModal, setShowLinkModal, linkSaving, linkForm, setLinkForm,
-    isEmpModalOpen, setIsEmpModalOpen, newEmpName, setNewEmpName, newEmpEmail, setNewEmpEmail, newEmpPhone, setNewEmpPhone,
-    newEmpPassword, setNewEmpPassword, newEmpId, setNewEmpId,
-    newEmpDepartment, setNewEmpDepartment, newEmpHomeAddress, setNewEmpHomeAddress, isCreatingEmp, isUploadingCsv,
-    toggleFeature, saveTrackerConfig, testTrackerConnection, updateLink,
-    handleCreateEmployee,
-    openCsvModal,
-    closeCsvModal,
-    isCsvModalOpen,
-    handleCsvFileSelected,
-    csvRequiredHeaders,
-    csvOptionalHeaders,
-    csvAllKnownHeaders,
-    csvHeaders,
-    csvMissingHeaders,
-    csvSkippedRows,
-    csvPreviewRows,
-    csvPreviewSummary,
-    uploadCsvFromPreview,
-    handleExportCredentials,
-    handleChauffeurCortManagedToggle, handleShuttleCortManagedToggle,
-    toggleService, openLinkModal, handleLinkVendor, removeLink, handleToggleStatus, isTogglePending,
-  };
+    return {
+        company, isLoading, error, canCreate, canUpdate, canViewPricing,
+        refetchCompany: fetchCompany,
+        employees, employeesLoading, employeesError, empPage, setEmpPage, empSearch, setEmployeeSearch, empPagination,
+        refetchEmployees: () => fetchEmployees(empPage, empSearchDebounced),
+        activeTab, setActiveTab, linkContext, setLinkContext,
+        features, featuresLoading, trackerForm, setTrackerForm, trackerSaving, trackerTesting, trackerTestResult, pendingToggleKeys,
+        companyVendorLinks, vendorsLoading, allVendors, showLinkModal, setShowLinkModal, linkSaving, linkForm, setLinkForm,
+        isEmpModalOpen, setIsEmpModalOpen, newEmpName, setNewEmpName, newEmpEmail, setNewEmpEmail, newEmpPhone, setNewEmpPhone,
+        newEmpPassword, setNewEmpPassword, newEmpId, setNewEmpId,
+        newEmpDepartment, setNewEmpDepartment, newEmpHomeAddress, setNewEmpHomeAddress, isCreatingEmp, isUploadingCsv, isExporting,
+        toggleFeature, saveTrackerConfig, testTrackerConnection, updateLink, updateCompanyField,
+        handleCreateEmployee,
+        openCsvModal,
+        closeCsvModal,
+        isCsvModalOpen,
+        handleCsvFileSelected,
+        csvRequiredHeaders,
+        csvOptionalHeaders,
+        csvAllKnownHeaders,
+        csvHeaders,
+        csvRawText,
+        csvMissingHeaders,
+        csvSkippedRows,
+        csvPreviewRows,
+        csvPreviewSummary,
+        uploadCsvFromPreview,
+        handleExportCredentials,
+        handleChauffeurCortManagedToggle, handleShuttleCortManagedToggle,
+        toggleService, openLinkModal, handleLinkVendor, removeLink, handleToggleStatus, isTogglePending,
+    };
 }

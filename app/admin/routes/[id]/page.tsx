@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, use } from 'react';
+import { useCallback, useEffect, useRef, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/app/lib/store/hooks';
 import {
@@ -21,18 +21,40 @@ import { fetchAdminVehicles, selectAdminVehicles } from '@/app/lib/store/slices/
 import StopAddressSearch from '@/app/admin/ui/StopAddressSearch';
 import RosteringTab from './components/RosteringTab';
 import ManageStopsTab from './components/ManageStopsTab';
-import { ChevronLeft, Info, Plus, Save, Trash, Users, X, ListOrdered, Sparkles, Building2, Sun, Sunset, Pencil } from 'lucide-react';
+import { Info, Plus, Save, Trash2, Users, X, ListOrdered, Sparkles, Building2, Sun, Sunset, Pencil, MapPin, Route as RouteIcon } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { apiClient } from '@/app/lib/services/api-client';
 import { DriverType } from '@/app/lib/services/types/drivers';
 import type { MapMarker, MapPolyline, MapPolygon } from '@/app/admin/ui/Map';
 import { useAuth } from '@/app/lib/contexts/auth-context';
+import { useConfirm } from '@/app/lib/hooks/useConfirm';
 import { PermissionGate } from '@/app/admin/components/PermissionGate';
-import { Badge } from '@/app/admin/components/ui/Badge';
-import { adminBtnDestructive, adminBtnOutline, adminBtnPrimary, adminInput, adminSelect } from '@/app/admin/components/ui/admin-styles';
-import { cx } from '@/app/admin/components/ui/cx';
-import { RouteCommandBar, RoutePill, format12h } from '../RouteCommandBar';
+import {
+    Badge,
+    Button,
+    Card,
+    CardContent,
+    CardHeader,
+    CardSkeleton,
+    EmptyState,
+    Field,
+    FormGrid,
+    IconButton,
+    Input,
+    Label,
+    PageHeader,
+    Select,
+    StatusBadge,
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+    Tooltip,
+    usePageBreadcrumbs,
+} from '@/app/admin/ui';
+import { MAP_COLORS, format12h, toClockHHmm } from '../RouteCommandBar';
 import { getOfficeStops } from '@/app/lib/utils/routeStops';
 import {
     hasValidOfficeGeofence,
@@ -43,27 +65,25 @@ import {
 
 const Map = dynamic(() => import('@/app/admin/ui/Map'), { ssr: false });
 
-/** Helper to format ISO time strings or Date objects to HH:mm */
-function formatTime(timeStr: string | null | undefined): string {
-    if (!timeStr) return '';
-    // If it's already HH:mm, return as is
-    if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
-    // If it's a full ISO string or Date, extract HH:mm
-    try {
-        const date = new Date(timeStr.includes('T') ? timeStr : `1970-01-01T${timeStr}Z`);
-        if (isNaN(date.getTime())) return timeStr;
-        return date.toISOString().substring(11, 16);
-    } catch {
-        return timeStr;
-    }
-}
-
 type PolylineResponse = { points: { lat: number; lng: number }[] };
+type DetailTab = 'overview' | 'stops' | 'rostering';
+type VehicleOption = { id: number; plate_number?: string; model?: string };
+
+function DetailField({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+    return (
+        <div>
+            <dt className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">{label}</dt>
+            <dd className="mt-1 text-sm font-medium text-fg">{value}</dd>
+            {hint && <dd className="mt-0.5 text-xs text-fg-muted">{hint}</dd>}
+        </div>
+    );
+}
 
 export default function RouteDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const router = useRouter();
     const dispatch = useAppDispatch();
+    const confirm = useConfirm();
     const route = useAppSelector(selectCurrentRoute);
     const officeStopIds = new Set(getOfficeStops(route?.route_stops ?? []).map((s) => s.id));
     const hasMultipleOffices = officeStopIds.size > 1;
@@ -78,8 +98,10 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
         hasCrud('routes', 'update') ||
         hasCrud('routes', 'delete');
 
+    usePageBreadcrumbs(route ? [{ label: route.name }] : null);
+
     const [isOptimizing, setIsOptimizing] = useState(false);
-    const [activeTab, setActiveTab] = useState<'overview' | 'stops' | 'rostering'>('overview');
+    const [activeTab, setActiveTab] = useState<DetailTab>('overview');
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState({
         name: '',
@@ -89,8 +111,8 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
         evening_driver_id: '',
         evening_lock_time: '',
     });
-    const [currentAssignedVehicle, setCurrentAssignedVehicle] = useState<any>(null);
-    const [currentEveningVehicle, setCurrentEveningVehicle] = useState<any>(null);
+    const [currentAssignedVehicle, setCurrentAssignedVehicle] = useState<VehicleOption | null>(null);
+    const [currentEveningVehicle, setCurrentEveningVehicle] = useState<VehicleOption | null>(null);
 
     // Direction toggle for the overview map
     const [mapDirection, setMapDirection] = useState<'MORNING' | 'EVENING'>('MORNING');
@@ -119,8 +141,10 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
         return () => { dispatch(clearCurrentRoute()); };
     }, [dispatch, id]);
 
-    // Reset overview stop editor when route changes
-    useEffect(() => {
+    // Reset overview stop editor when the route id changes (render-time state adjustment).
+    const [prevId, setPrevId] = useState(id);
+    if (prevId !== id) {
+        setPrevId(id);
         setEditingStopId(null);
         setIsAddingStop(false);
         setIsEditing(false);
@@ -128,7 +152,17 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
         setGeofenceMode(false);
         setGeofenceCoords([]);
         setActiveTab('overview');
-    }, [id]);
+    }
+
+    const fetchSavedPolyline = async () => {
+        if (!id) return;
+        try {
+            const data = await apiClient.request<PolylineResponse>(`/routes/${id}/polyline?direction=${mapDirection}`);
+            setSavedPolyline(data.points.map((p) => [p.lat, p.lng] as [number, number]));
+        } catch {
+            setSavedPolyline([]);
+        }
+    };
 
     // Load drivers and vehicles for assignment editing
     useEffect(() => {
@@ -137,7 +171,13 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
         dispatch(fetchAdminVehicles({ limit: 100 }));
     }, [dispatch]);
 
-    useEffect(() => {
+    // Hydrate the edit form whenever the route's editable fields change.
+    const routeFieldsKey = route
+        ? [route.id, route.assigned_vehicle_id, route.assigned_driver_id, route.evening_vehicle_id, route.evening_driver_id, route.name, route.evening_lock_time].join('|')
+        : '';
+    const [prevRouteFieldsKey, setPrevRouteFieldsKey] = useState(routeFieldsKey);
+    if (prevRouteFieldsKey !== routeFieldsKey) {
+        setPrevRouteFieldsKey(routeFieldsKey);
         if (route) {
             setEditForm({
                 name: route.name,
@@ -145,13 +185,28 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                 assigned_driver_id: route.assigned_driver_id?.toString() || '',
                 evening_vehicle_id: route.evening_vehicle_id?.toString() || '',
                 evening_driver_id: route.evening_driver_id?.toString() || '',
-                evening_lock_time: formatTime(route.evening_lock_time) || '',
+                evening_lock_time: toClockHHmm(route.evening_lock_time) || '',
             });
-            // Load the road-following polyline for the saved stops
-            fetchSavedPolyline();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [route?.id, route?.assigned_vehicle_id, route?.assigned_driver_id, route?.evening_vehicle_id, route?.evening_driver_id, route?.name, route?.evening_lock_time]);
+    }
+
+    // Load the road-following polyline for the saved stops whenever the route or the
+    // direction toggle changes. State is set only in the promise callbacks.
+    useEffect(() => {
+        if (!routeFieldsKey || !id) return;
+        let cancelled = false;
+        apiClient
+            .request<PolylineResponse>(`/routes/${id}/polyline?direction=${mapDirection}`)
+            .then((data) => {
+                if (!cancelled) setSavedPolyline(data.points.map((p) => [p.lat, p.lng] as [number, number]));
+            })
+            .catch(() => {
+                if (!cancelled) setSavedPolyline([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [routeFieldsKey, mapDirection, id]);
 
     // If the currently-assigned vehicle is excluded from the "available vehicles" list,
     // we still want it to remain selectable/visible in the edit dropdown.
@@ -160,17 +215,14 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
         const ids = [route?.assigned_vehicle_id, route?.evening_vehicle_id].filter(
             (id, i, arr): id is number => id != null && arr.indexOf(id) === i,
         );
-        if (ids.length === 0) {
-            setCurrentAssignedVehicle(null);
-            setCurrentEveningVehicle(null);
-            return;
-        }
+        if (ids.length === 0) return;
         (async () => {
             const results = await Promise.all(
                 ids.map(async (vehicleId) => {
                     try {
-                        const res: any = await apiClient.getVehicle(vehicleId);
-                        return { vehicleId, v: res?.data ?? res };
+                        const res = (await apiClient.getVehicle(vehicleId)) as { data?: VehicleOption } | VehicleOption;
+                        const v = (res as { data?: VehicleOption })?.data ?? (res as VehicleOption);
+                        return { vehicleId, v: v ?? null };
                     } catch {
                         return { vehicleId, v: null };
                     }
@@ -185,12 +237,16 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
         };
     }, [route?.assigned_vehicle_id, route?.evening_vehicle_id]);
 
-    const vehiclesForSelect = useMemo(() => {
-        const extra = [currentAssignedVehicle, currentEveningVehicle].filter(
-            (v): v is NonNullable<typeof v> => Boolean(v?.id),
+    // Only trust the fetched extras while the route still references them.
+    const effectiveAssignedVehicle = route?.assigned_vehicle_id ? currentAssignedVehicle : null;
+    const effectiveEveningVehicle = route?.evening_vehicle_id ? currentEveningVehicle : null;
+
+    const vehiclesForSelect: VehicleOption[] = (() => {
+        const extra = [effectiveAssignedVehicle, effectiveEveningVehicle].filter(
+            (v): v is VehicleOption => Boolean(v?.id),
         );
         const ids = new Set(vehicles.map((v: { id?: number }) => v?.id));
-        const merged = [...vehicles];
+        const merged: VehicleOption[] = [...vehicles];
         for (const v of extra) {
             if (!ids.has(v.id)) {
                 ids.add(v.id);
@@ -198,10 +254,10 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
             }
         }
         return merged;
-    }, [vehicles, currentAssignedVehicle, currentEveningVehicle]);
+    })();
 
     // Keep currently-assigned drivers visible even if filtered out of the shuttle list
-    const driversForSelect = useMemo(() => {
+    const driversForSelect = (() => {
         const extras: Array<{ id: string; full_name?: string; phone?: string }> = [];
         const morningId = route?.assigned_driver_id;
         const eveningId = route?.evening_driver_id;
@@ -212,9 +268,9 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
             extras.push({ id: eveningId, full_name: route.evening_driver.full_name, phone: route.evening_driver.phone });
         }
         return extras.length ? [...drivers, ...(extras as (typeof drivers)[number][])] : drivers;
-    }, [drivers, route?.assigned_driver_id, route?.evening_driver_id, route?.users, route?.evening_driver]);
+    })();
 
-    const hydrateEditFormFromRoute = useCallback(() => {
+    const hydrateEditFormFromRoute = () => {
         if (!route) return;
         setEditForm({
             name: route.name,
@@ -222,39 +278,28 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
             assigned_driver_id: route.assigned_driver_id?.toString() || '',
             evening_vehicle_id: route.evening_vehicle_id?.toString() || '',
             evening_driver_id: route.evening_driver_id?.toString() || '',
-            evening_lock_time: formatTime(route.evening_lock_time) || '',
+            evening_lock_time: toClockHHmm(route.evening_lock_time) || '',
         });
-    }, [route]);
+    };
 
     const handleCancelEdit = () => {
         hydrateEditFormFromRoute();
         setIsEditing(false);
     };
 
-    const fetchSavedPolyline = useCallback(async () => {
-        if (!id) return;
-        try {
-            const data = await apiClient.request<PolylineResponse>(`/routes/${id}/polyline?direction=${mapDirection}`);
-            setSavedPolyline(data.points.map((p) => [p.lat, p.lng] as [number, number]));
-        } catch {
-            setSavedPolyline([]);
-        }
-    }, [id, mapDirection]);
+    // Direction toggle: clear the stale polyline immediately so the fallback renders the
+    // correct direction (the effect above re-fetches the road-following one).
+    const [prevMapDirection, setPrevMapDirection] = useState(mapDirection);
+    if (prevMapDirection !== mapDirection) {
+        setPrevMapDirection(mapDirection);
+        setSavedPolyline([]);
+    }
 
-    // Re-fetch polyline when direction toggle changes or after a stop is saved/deleted
-    useEffect(() => {
-        if (route?.id) {
-            setSavedPolyline([]); // clear stale polyline immediately so fallback renders correct direction
-            fetchSavedPolyline();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [mapDirection]);
-
-    const schedulePolylineRefresh = useCallback(() => {
+    const schedulePolylineRefresh = () => {
         setSavedPolyline([]); // clear stale polyline immediately
         if (polylineDebounceRef.current) clearTimeout(polylineDebounceRef.current);
-        polylineDebounceRef.current = setTimeout(fetchSavedPolyline, 3000);
-    }, [fetchSavedPolyline]);
+        polylineDebounceRef.current = setTimeout(() => void fetchSavedPolyline(), 3000);
+    };
 
     // ---- Stop form helpers -----------------------------------------------
 
@@ -270,7 +315,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
         stopForm.stopType === 'OFFICE' ||
         (editingStopId != null && officeStopIds.has(editingStopId));
 
-    const handleStopEditClick = (stop: any) => {
+    const handleStopEditClick = (stop: { id: number; name: string; lat?: number | null; lng?: number | null; sequence_order?: number | null; completion_geofence_geojson?: unknown }) => {
         setStopForm({
             name: stop.name,
             lat: stop.lat?.toString() || '',
@@ -278,7 +323,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
             sequence_order: stop.sequence_order?.toString() || '0',
             stopType: officeStopIds.has(stop.id) ? 'OFFICE' : 'PICKUP',
         });
-        setGeofenceCoords(parseOfficeGeofenceRing(stop.completion_geofence_geojson));
+        setGeofenceCoords(parseOfficeGeofenceRing(stop.completion_geofence_geojson as Parameters<typeof parseOfficeGeofenceRing>[0]));
         setGeofenceMode(false);
         setEditingStopId(stop.id);
         setIsAddingStop(false);
@@ -369,7 +414,20 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
 
     const handleDeleteRoute = async () => {
         if (!route) return;
-        if (!confirm(`Delete route "${route.name}"? This cannot be undone.`)) return;
+        const ok = await confirm({
+            title: `Delete route "${route.name}"?`,
+            message: 'This permanently deletes the route.',
+            consequences: [
+                `All ${route.route_stops?.length ?? 0} stops on this route are deleted`,
+                'The standing roster for this route is removed',
+                "It disappears from trip scheduling and today's plan",
+                'This cannot be undone',
+            ],
+            destructive: true,
+            confirmLabel: 'Delete route',
+            typeToConfirm: 'DELETE',
+        });
+        if (!ok) return;
         try {
             await dispatch(deleteAdminRoute(route.id)).unwrap();
             toast.success('Route deleted');
@@ -385,8 +443,20 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
             toast.error('Cannot delete the company office stop. Edit its location instead.');
             return;
         }
-        if (!confirm('Delete this stop?')) return;
         if (!route) return;
+        const stop = route.route_stops?.find((s) => s.id === stopId);
+        const ok = await confirm({
+            title: `Delete stop "${stop?.name ?? ''}"?`,
+            message: 'The stop is removed from this route.',
+            consequences: [
+                'It is removed from both the morning and evening order',
+                'Anyone rostered at this pickup must be reassigned',
+                'This cannot be undone',
+            ],
+            destructive: true,
+            confirmLabel: 'Delete stop',
+        });
+        if (!ok) return;
         try {
             await dispatch(deleteRouteStop({ stopId, routeId: route.id })).unwrap();
             toast.success('Stop deleted');
@@ -395,6 +465,22 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
         } catch {
             toast.error('Failed to delete stop');
         }
+    };
+
+    const handleClearGeofence = async () => {
+        const ok = await confirm({
+            title: 'Clear the office geofence?',
+            message: 'All points in this draft polygon are removed.',
+            consequences: [
+                'Takes effect when you save the stop',
+                'Until a new polygon is saved, drivers can complete the morning trip without being inside an office area',
+            ],
+            destructive: true,
+            confirmLabel: 'Clear geofence',
+        });
+        if (!ok) return;
+        setGeofenceCoords([]);
+        setGeofenceMode(false);
     };
 
     const handleMarkerClick = (markerId: string) => {
@@ -432,8 +518,8 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
             await dispatch(optimizeAdminRoute(route.id)).unwrap();
             toast.success('Route optimized — morning pickups reordered, evening reversed');
             schedulePolylineRefresh();
-        } catch (err: any) {
-            toast.error(err || 'Failed to optimize route');
+        } catch (err: unknown) {
+            toast.error(typeof err === 'string' ? err : 'Failed to optimize route');
         } finally {
             setIsOptimizing(false);
         }
@@ -490,7 +576,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                         id: s.id.toString(),
                         position: [parseFloat(stopForm.lat), parseFloat(stopForm.lng)] as [number, number],
                         label: isOffice ? `Office · ${stopForm.name || s.name}` : (stopForm.name || s.name),
-                        color: '#f59e0b',
+                        color: MAP_COLORS.editing,
                     };
                 }
                 return {
@@ -500,8 +586,8 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                         ? `Office · ${s.name}`
                         : `${mapDirection === 'MORNING' ? (s.morning_sequence ?? s.sequence_order) : (s.evening_sequence ?? s.sequence_order)}. ${s.name}`,
                     color: highlightedStopId === s.id
-                        ? '#0c225e'
-                        : isOffice ? '#ef4444' : '#6366f1',
+                        ? MAP_COLORS.highlighted
+                        : isOffice ? MAP_COLORS.office : MAP_COLORS.pickup,
                 };
             });
 
@@ -510,7 +596,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                 id: 'new-temp',
                 position: [parseFloat(stopForm.lat), parseFloat(stopForm.lng)],
                 label: stopForm.name || 'New Stop',
-                color: '#22c55e',
+                color: MAP_COLORS.draft,
             });
         }
         return base;
@@ -518,7 +604,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
 
     // Use road-following polyline; fall back to straight-line for the active direction while it loads
     const mapPolylines: MapPolyline[] = savedPolyline.length >= 2
-        ? [{ positions: savedPolyline, color: '#0C225E' }]
+        ? [{ positions: savedPolyline, color: MAP_COLORS.route }]
         : (() => {
             const dirStops = (route?.route_stops ?? []).filter(
                 (s) => s.lat != null && s.lng != null &&
@@ -529,7 +615,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                     : (a.evening_sequence ?? 0) - (b.evening_sequence ?? 0)
             );
             return dirStops.length > 1
-                ? [{ positions: dirStops.map((s) => [s.lat, s.lng] as [number, number]), color: '#6366f1' }]
+                ? [{ positions: dirStops.map((s) => [s.lat, s.lng] as [number, number]), color: MAP_COLORS.fallback, dashArray: '6 6' }]
                 : [];
         })();
 
@@ -546,8 +632,8 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
             polygons.push({
                 id: `office-geofence-${stop.id}`,
                 positions: ring,
-                fillColor: '#f97316',
-                strokeColor: '#ea580c',
+                fillColor: MAP_COLORS.geofenceSaved,
+                strokeColor: MAP_COLORS.geofenceSaved,
                 fillOpacity: 0.12,
             });
         }
@@ -556,16 +642,16 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
             polygons.push({
                 id: 'office-geofence-editing',
                 positions: geofenceCoords,
-                fillColor: '#2563eb',
-                strokeColor: '#1d4ed8',
+                fillColor: MAP_COLORS.geofence,
+                strokeColor: MAP_COLORS.geofence,
                 fillOpacity: 0.2,
             });
         } else if (isOfficeStopForm && geofenceCoords.length >= 2) {
             polygons.push({
                 id: 'office-geofence-editing-draft',
                 positions: geofenceCoords,
-                fillColor: '#2563eb',
-                strokeColor: '#1d4ed8',
+                fillColor: MAP_COLORS.geofence,
+                strokeColor: MAP_COLORS.geofence,
                 fillOpacity: 0.08,
             });
         }
@@ -579,7 +665,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                 id: `geofence-vertex-${index}`,
                 position: [lat, lng] as [number, number],
                 label: String(index + 1),
-                color: '#2563eb',
+                color: MAP_COLORS.geofence,
             }))
             : [];
 
@@ -587,8 +673,30 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
 
     // ---- Render --------------------------------------------------------------
 
-    if (status === 'loading') return <div className="p-8 text-center text-[var(--text-muted)]">Loading route…</div>;
-    if (!route) return <div className="p-8 text-center text-[var(--text-muted)]">Route not found</div>;
+    if (status === 'loading' || (!route && status === 'idle')) {
+        return (
+            <div className="space-y-6" aria-busy="true">
+                <CardSkeleton lines={1} />
+                <CardSkeleton lines={4} />
+                <div className="grid gap-4 lg:grid-cols-3">
+                    <CardSkeleton lines={6} className="lg:col-span-2" />
+                    <CardSkeleton lines={6} />
+                </div>
+            </div>
+        );
+    }
+    if (!route) {
+        return (
+            <Card>
+                <EmptyState
+                    icon={<RouteIcon aria-hidden="true" />}
+                    title="Route not found"
+                    description="It may have been deleted, or you may not have access to it."
+                    action={<Button variant="outline" onClick={() => router.push('/admin/routes')}>Back to routes</Button>}
+                />
+            </Card>
+        );
+    }
 
     const companyName = route.company?.name ?? route.companies?.name ?? 'Company';
     const formatVehicle = (v?: { plate_number?: string; model?: string } | null) =>
@@ -599,231 +707,168 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
         ?? (route.evening_driver_id ? 'Not set' : 'Same as morning');
     const eveningVehicle = formatVehicle(route.evening_vehicle)
         ?? (route.evening_vehicle_id ? 'Not set' : 'Same as morning');
+    const stopCount = route.route_stops?.length || 0;
+    const stopFormOpen = isAddingStop || editingStopId != null;
+
+    const directionStops = (route.route_stops ?? [])
+        .filter((stop) => (mapDirection === 'MORNING' ? stop.morning_sequence != null : stop.evening_sequence != null))
+        .sort((a, b) =>
+            mapDirection === 'MORNING'
+                ? (a.morning_sequence ?? 0) - (b.morning_sequence ?? 0)
+                : (a.evening_sequence ?? 0) - (b.evening_sequence ?? 0),
+        );
+
+    const driverOptions = driversForSelect.map((d) => (
+        <option key={d.id} value={d.id}>{d.full_name}</option>
+    ));
+    const vehicleOptions = vehiclesForSelect.map((v) => (
+        <option key={v.id} value={v.id}>
+            {v.plate_number}{v.model ? ` · ${v.model}` : ''}
+        </option>
+    ));
 
     return (
         <PermissionGate permission="routes">
-            <div className="space-y-5">
-            <RouteCommandBar
-                title={route.name}
-                subtitle={`${companyName} · ${route.route_stops?.length || 0} stops`}
-                actions={
-                    <>
-                        <button type="button" onClick={() => router.push('/admin/routes')} className={adminBtnOutline}>
-                            <ChevronLeft className="mr-1 h-4 w-4" /> Back
-                        </button>
-                        {isEditing && activeTab !== 'overview' ? (
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as DetailTab)} className="space-y-6">
+                <PageHeader
+                    back={{ href: '/admin/routes', label: 'Back to routes' }}
+                    title={route.name}
+                    description={`${companyName} · ${stopCount} ${stopCount === 1 ? 'stop' : 'stops'}`}
+                    meta={<StatusBadge status={route.status} />}
+                    actions={
+                        canEditRoutes && !isEditing ? (
                             <>
-                                <button type="button" onClick={handleCancelEdit} className={adminBtnOutline}>Cancel</button>
-                                <button type="button" onClick={() => void handleSaveDetails()} disabled={!canEditRoutes} className={adminBtnPrimary}>
-                                    <Save className="mr-2 h-4 w-4" /> Save
-                                </button>
+                                <Tooltip content="Reorders morning pickups from the office outward. Evening is reversed automatically.">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => void handleOptimizeRoute()}
+                                        disabled={stopCount < 3}
+                                        loading={isOptimizing}
+                                        leftIcon={<Sparkles />}
+                                    >
+                                        Optimize order
+                                    </Button>
+                                </Tooltip>
+                                <Button variant="danger-outline" onClick={() => void handleDeleteRoute()} disabled={actionStatus === 'loading'} leftIcon={<Trash2 />}>
+                                    Delete
+                                </Button>
                             </>
-                        ) : !isEditing && canEditRoutes ? (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={() => void handleOptimizeRoute()}
-                                    disabled={isOptimizing || (route.route_stops?.length ?? 0) < 3}
-                                    className={adminBtnOutline}
-                                    title="Optimize pickup order from office. Evening auto-reverses morning."
-                                >
-                                    <Sparkles className="mr-1 h-4 w-4" />
-                                    {isOptimizing ? 'Optimizing…' : 'Optimize order'}
-                                </button>
-                                <button type="button" onClick={() => void handleDeleteRoute()} className={adminBtnDestructive}>
-                                    <Trash className="mr-1 h-4 w-4" /> Delete
-                                </button>
-                            </>
-                        ) : null}
-                    </>
-                }
-                tabs={
-                    <div className="flex rounded-full bg-[var(--bg-subtle)] p-1">
-                        <RoutePill active={activeTab === 'overview'} onClick={() => setActiveTab('overview')}>
-                            <Info className="h-4 w-4" /> Overview
-                        </RoutePill>
-                        <RoutePill active={activeTab === 'stops'} onClick={() => setActiveTab('stops')}>
-                            <ListOrdered className="h-4 w-4" /> Stops
-                        </RoutePill>
-                        <RoutePill active={activeTab === 'rostering'} onClick={() => setActiveTab('rostering')}>
-                            <Users className="h-4 w-4" /> People
-                        </RoutePill>
-                    </div>
-                }
-            />
+                        ) : undefined
+                    }
+                    tabs={
+                        <TabsList aria-label="Route sections">
+                            <TabsTrigger value="overview" icon={<Info />}>Overview</TabsTrigger>
+                            <TabsTrigger value="stops" icon={<ListOrdered />} count={stopCount}>Stops</TabsTrigger>
+                            <TabsTrigger value="rostering" icon={<Users />}>People</TabsTrigger>
+                        </TabsList>
+                    }
+                />
 
-            {/* Overview Tab */}
-            {activeTab === 'overview' && (
-                <div className="space-y-4">
-                    <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-card)]">
-                        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-                            <div className="min-w-[220px] flex-1">
-                                <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Route name</div>
-                                {isEditing ? (
-                                    <input
-                                        value={editForm.name}
-                                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                                        className={cx(adminInput, 'mt-1 max-w-xl')}
-                                    />
-                                ) : (
-                                    <div className="mt-1 text-base font-semibold text-[var(--text-primary)]">{route.name}</div>
-                                )}
-                            </div>
-                            {canEditRoutes && (
-                                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                                    {isEditing ? (
+                <TabsContent value="overview" className="mt-0 space-y-4">
+                    <Card>
+                        <CardHeader
+                            title="Route details"
+                            description={isEditing ? 'Edit the name and usual crew.' : undefined}
+                            actions={
+                                canEditRoutes ? (
+                                    isEditing ? (
                                         <>
-                                            <button type="button" onClick={handleCancelEdit} className={adminBtnOutline}>
+                                            <Button variant="outline" size="sm" onClick={handleCancelEdit} disabled={actionStatus === 'loading'}>
                                                 Cancel
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => void handleSaveDetails()}
-                                                className={adminBtnPrimary}
-                                            >
-                                                <Save className="mr-2 h-4 w-4" /> Save
-                                            </button>
+                                            </Button>
+                                            <Button size="sm" onClick={() => void handleSaveDetails()} loading={actionStatus === 'loading'} leftIcon={<Save />}>
+                                                Save
+                                            </Button>
                                         </>
                                     ) : (
-                                        <button
-                                            type="button"
-                                            onClick={() => { hydrateEditFormFromRoute(); setIsEditing(true); }}
-                                            className={adminBtnOutline}
-                                        >
-                                            <Pencil className="mr-2 h-4 w-4" /> Edit route
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3 text-sm">
-                            <div>
-                                <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Company</div>
-                                <div className="mt-1 font-medium text-[var(--text-primary)]">{companyName}</div>
-                            </div>
+                                        <Button variant="outline" size="sm" onClick={() => { hydrateEditFormFromRoute(); setIsEditing(true); }} leftIcon={<Pencil />}>
+                                            Edit route
+                                        </Button>
+                                    )
+                                ) : undefined
+                            }
+                        />
+                        <CardContent>
                             {!isEditing ? (
-                                <>
-                                    <div>
-                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Morning driver</div>
-                                        <div className="mt-1 font-medium text-[var(--text-primary)]">{morningDriver}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Morning vehicle</div>
-                                        <div className="mt-1 font-medium text-[var(--text-primary)]">{morningVehicle}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Evening driver</div>
-                                        <div className="mt-1 font-medium text-[var(--text-primary)]">{eveningDriver}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Evening vehicle</div>
-                                        <div className="mt-1 font-medium text-[var(--text-primary)]">{eveningVehicle}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Evening lock time</div>
-                                        <div className="mt-1 font-medium text-[var(--text-primary)]">
-                                            {format12h(formatTime(route.evening_lock_time)) || 'Not set'}
-                                        </div>
-                                        <div className="mt-0.5 text-xs text-[var(--text-muted)]">Evening return cannot start before this</div>
-                                    </div>
-                                </>
+                                <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
+                                    <DetailField label="Company" value={companyName} />
+                                    <DetailField label="Morning driver" value={morningDriver} />
+                                    <DetailField label="Morning vehicle" value={morningVehicle} />
+                                    <DetailField label="Evening driver" value={eveningDriver} />
+                                    <DetailField label="Evening vehicle" value={eveningVehicle} />
+                                    <DetailField
+                                        label="Evening lock time"
+                                        value={format12h(route.evening_lock_time) || 'Not set'}
+                                        hint="Evening return cannot start before this"
+                                    />
+                                </dl>
                             ) : (
-                                <>
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Morning driver</label>
-                                        <select
-                                            className={adminSelect}
-                                            value={editForm.assigned_driver_id}
-                                            onChange={(e) => setEditForm({ ...editForm, assigned_driver_id: e.target.value })}
-                                        >
-                                            <option value="">None</option>
-                                            {driversForSelect.map((d) => (
-                                                <option key={d.id} value={d.id}>{d.full_name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Morning vehicle</label>
-                                        <select
-                                            className={adminSelect}
-                                            value={editForm.assigned_vehicle_id}
-                                            onChange={(e) => setEditForm({ ...editForm, assigned_vehicle_id: e.target.value })}
-                                        >
-                                            <option value="">None</option>
-                                            {vehiclesForSelect.map((v: { id: number; plate_number?: string; model?: string }) => (
-                                                <option key={v.id} value={v.id}>
-                                                    {v.plate_number}{v.model ? ` · ${v.model}` : ''}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Evening driver</label>
-                                        <select
-                                            className={adminSelect}
-                                            value={editForm.evening_driver_id}
-                                            onChange={(e) => setEditForm({ ...editForm, evening_driver_id: e.target.value })}
-                                        >
-                                            <option value="">Same as morning</option>
-                                            {driversForSelect.map((d) => (
-                                                <option key={d.id} value={d.id}>{d.full_name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Evening vehicle</label>
-                                        <select
-                                            className={adminSelect}
-                                            value={editForm.evening_vehicle_id}
-                                            onChange={(e) => setEditForm({ ...editForm, evening_vehicle_id: e.target.value })}
-                                        >
-                                            <option value="">Same as morning</option>
-                                            {vehiclesForSelect.map((v: { id: number; plate_number?: string; model?: string }) => (
-                                                <option key={v.id} value={v.id}>
-                                                    {v.plate_number}{v.model ? ` · ${v.model}` : ''}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Evening lock time</label>
+                                <FormGrid cols={3}>
+                                    <Field label="Route name" required className="sm:col-span-2 lg:col-span-3">
+                                        <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="max-w-xl" />
+                                    </Field>
+                                    <Field label="Company">
+                                        <Input value={companyName} readOnly disabled />
+                                    </Field>
+                                    <Field label="Morning driver">
+                                        <Select placeholder="None" value={editForm.assigned_driver_id} onChange={(e) => setEditForm({ ...editForm, assigned_driver_id: e.target.value })}>
+                                            {driverOptions}
+                                        </Select>
+                                    </Field>
+                                    <Field label="Morning vehicle">
+                                        <Select placeholder="None" value={editForm.assigned_vehicle_id} onChange={(e) => setEditForm({ ...editForm, assigned_vehicle_id: e.target.value })}>
+                                            {vehicleOptions}
+                                        </Select>
+                                    </Field>
+                                    <Field label="Evening driver">
+                                        <Select placeholder="Same as morning" value={editForm.evening_driver_id} onChange={(e) => setEditForm({ ...editForm, evening_driver_id: e.target.value })}>
+                                            {driverOptions}
+                                        </Select>
+                                    </Field>
+                                    <Field label="Evening vehicle">
+                                        <Select placeholder="Same as morning" value={editForm.evening_vehicle_id} onChange={(e) => setEditForm({ ...editForm, evening_vehicle_id: e.target.value })}>
+                                            {vehicleOptions}
+                                        </Select>
+                                    </Field>
+                                    <Field label="Evening lock time" hint="Drivers cannot start evening trips before this time.">
                                         <div className="flex items-center gap-2">
-                                            <input
+                                            <Input
                                                 type="time"
                                                 value={editForm.evening_lock_time}
                                                 onChange={(e) => setEditForm({ ...editForm, evening_lock_time: e.target.value })}
-                                                className={adminInput}
                                             />
                                             {editForm.evening_lock_time && (
-                                                <button
-                                                    type="button"
-                                                    className="shrink-0 text-xs text-[var(--text-muted)] hover:text-rose-600"
-                                                    onClick={() => setEditForm({ ...editForm, evening_lock_time: '' })}
-                                                >
+                                                <Button variant="ghost" size="sm" onClick={() => setEditForm({ ...editForm, evening_lock_time: '' })}>
                                                     Clear
-                                                </button>
+                                                </Button>
                                             )}
                                         </div>
-                                        <span className="mt-1 block text-xs text-[var(--text-muted)]">Drivers cannot start evening trips before this time.</span>
-                                    </div>
-                                </>
+                                    </Field>
+                                </FormGrid>
                             )}
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                         {/* Map */}
-                        <div className="col-span-2 flex flex-col gap-2" style={{ height: '520px' }}>
-                            <div className="flex shrink-0 rounded-full bg-[var(--bg-subtle)] p-1 w-fit">
-                                <RoutePill active={mapDirection === 'MORNING'} onClick={() => setMapDirection('MORNING')}>
-                                    <Sun className="h-3.5 w-3.5" /> Morning
-                                </RoutePill>
-                                <RoutePill active={mapDirection === 'EVENING'} onClick={() => setMapDirection('EVENING')}>
-                                    <Sunset className="h-3.5 w-3.5" /> Evening
-                                </RoutePill>
+                        <div className="flex flex-col gap-2 lg:col-span-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <Tabs value={mapDirection} onValueChange={(v) => setMapDirection(v as 'MORNING' | 'EVENING')}>
+                                    <TabsList variant="pills" aria-label="Map direction">
+                                        <TabsTrigger value="MORNING" icon={<Sun />}>Morning</TabsTrigger>
+                                        <TabsTrigger value="EVENING" icon={<Sunset />}>Evening</TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
+                                <ul className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-fg-secondary" aria-label="Map legend">
+                                    <li className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ backgroundColor: MAP_COLORS.office }} aria-hidden="true" /> Office</li>
+                                    <li className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ backgroundColor: MAP_COLORS.pickup }} aria-hidden="true" /> Pickup</li>
+                                    <li className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ backgroundColor: MAP_COLORS.highlighted }} aria-hidden="true" /> Selected</li>
+                                    {stopFormOpen && (
+                                        <li className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ backgroundColor: isAddingStop ? MAP_COLORS.draft : MAP_COLORS.editing }} aria-hidden="true" /> {isAddingStop ? 'New stop' : 'Editing'}</li>
+                                    )}
+                                </ul>
                             </div>
-                            <div className="flex-1 overflow-hidden rounded-2xl border border-[var(--border-default)]">
+                            <div className="h-[360px] overflow-hidden rounded-xl border border-line sm:h-[460px] lg:h-[520px]">
                                 <Map
                                     height="100%"
                                     markers={overviewMapMarkers}
@@ -835,256 +880,229 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                             </div>
                         </div>
 
-                        <div className="flex max-h-[520px] flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-card)]">
-                            <div className="mb-3 flex shrink-0 items-center justify-between">
-                                <h3 className="font-semibold text-[var(--text-primary)]">
-                                    {mapDirection === 'MORNING' ? 'Morning' : 'Evening'} stops
-                                </h3>
-                                {!isAddingStop && !editingStopId && (
-                                    <button
-                                        type="button"
-                                        onClick={canEditRoutes ? handleStopAddClick : undefined}
-                                        disabled={!canEditRoutes}
-                                        className={cx(adminBtnPrimary, 'h-8 px-3 text-xs')}
-                                    >
-                                        <Plus className="mr-1 h-4 w-4" /> Add stop
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* Stop form (add / edit) */}
-                            {(isAddingStop || editingStopId) && (
-                                <div className="mb-3 flex max-h-[320px] shrink-0 flex-col rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)]">
-                                    <div className="space-y-3 overflow-y-auto p-3">
-                                    <div className="flex items-center justify-between">
-                                        <h4 className="text-sm font-medium text-[var(--text-primary)]">
-                                            {isAddingStop ? 'New stop' : 'Edit stop'}
-                                        </h4>
-                                        <button type="button" onClick={resetStopForm} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]" aria-label="Close">
-                                            <X className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                    {isAddingStop && (
-                                        <div>
-                                            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Stop type</label>
-                                            <div className="inline-flex rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] p-0.5">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleStopFormTypeChange('PICKUP')}
-                                                    className={cx(
-                                                        'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
-                                                        stopForm.stopType === 'PICKUP'
-                                                            ? 'bg-[var(--cort-navy)] text-white'
-                                                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]',
-                                                    )}
-                                                >
-                                                    Pickup
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleStopFormTypeChange('OFFICE')}
-                                                    className={cx(
-                                                        'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
-                                                        stopForm.stopType === 'OFFICE'
-                                                            ? 'bg-[var(--cort-orange)] text-white'
-                                                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]',
-                                                    )}
-                                                >
-                                                    <Building2 className="h-3.5 w-3.5" /> Office
-                                                </button>
+                        {/* Stops panel */}
+                        <Card className="flex flex-col lg:max-h-[568px]">
+                            <CardHeader
+                                title={`${mapDirection === 'MORNING' ? 'Morning' : 'Evening'} stops`}
+                                description={`${directionStops.length} on this direction`}
+                                actions={
+                                    !stopFormOpen && canEditRoutes ? (
+                                        <Button size="sm" onClick={handleStopAddClick} leftIcon={<Plus />}>
+                                            Add stop
+                                        </Button>
+                                    ) : undefined
+                                }
+                            />
+                            <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+                                {stopFormOpen && (
+                                    <div className="flex max-h-[340px] shrink-0 flex-col rounded-lg border border-line bg-subtle">
+                                        <div className="space-y-3 overflow-y-auto p-3">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="text-sm font-semibold text-fg">{isAddingStop ? 'New stop' : 'Edit stop'}</h4>
+                                                <IconButton label="Close stop form" size="icon-xs" onClick={resetStopForm}>
+                                                    <X />
+                                                </IconButton>
                                             </div>
-                                        </div>
-                                    )}
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Search location</label>
-                                        <StopAddressSearch
-                                            onSelect={handleAddressSelect}
-                                            defaultValue={stopForm.name}
-                                            placeholder="Search address..."
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Stop name</label>
-                                        <input
-                                            className={cx(adminInput, 'h-8 text-sm')}
-                                            value={stopForm.name}
-                                            onChange={(e) => setStopForm({ ...stopForm, name: e.target.value })}
-                                            placeholder="e.g. Disco Bakery"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Lat</label>
-                                            <input className={cx(adminInput, 'h-8 text-sm')} type="number" step="any" value={stopForm.lat} onChange={(e) => setStopForm({ ...stopForm, lat: e.target.value })} />
-                                        </div>
-                                        <div>
-                                            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Lng</label>
-                                            <input className={cx(adminInput, 'h-8 text-sm')} type="number" step="any" value={stopForm.lng} onChange={(e) => setStopForm({ ...stopForm, lng: e.target.value })} />
-                                        </div>
-                                    </div>
-                                    <p className="text-[11px] text-[var(--text-muted)]">
-                                        Timing and ordering are set from the Stops tab.
-                                    </p>
-                                    {isOfficeStopForm && (
-                                        <div className="space-y-2 rounded-lg border border-orange-200 bg-orange-50/70 p-3">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div>
-                                                    <p className="text-xs font-semibold text-orange-900">Morning completion geofence</p>
-                                                    <p className="mt-1 text-[11px] leading-relaxed text-orange-800/90">
-                                                        Draw the office approach area on the map. Drivers cannot complete a morning trip until their GPS is inside this polygon.
+                                            {isAddingStop && (
+                                                <div className="flex flex-col gap-1.5">
+                                                    <Label>Stop type</Label>
+                                                    <Tabs value={stopForm.stopType} onValueChange={(v) => handleStopFormTypeChange(v as 'PICKUP' | 'OFFICE')}>
+                                                        <TabsList variant="pills" className="bg-card" aria-label="Stop type">
+                                                            <TabsTrigger value="PICKUP" icon={<MapPin />}>Pickup</TabsTrigger>
+                                                            <TabsTrigger value="OFFICE" icon={<Building2 />}>Office</TabsTrigger>
+                                                        </TabsList>
+                                                    </Tabs>
+                                                </div>
+                                            )}
+                                            <div className="flex flex-col gap-1.5">
+                                                <Label>Search location</Label>
+                                                <StopAddressSearch
+                                                    onSelect={handleAddressSelect}
+                                                    defaultValue={stopForm.name}
+                                                    placeholder="Search address..."
+                                                />
+                                            </div>
+                                            <Field label="Stop name" required>
+                                                <Input
+                                                    className="h-8"
+                                                    value={stopForm.name}
+                                                    onChange={(e) => setStopForm({ ...stopForm, name: e.target.value })}
+                                                    placeholder="e.g. Disco Bakery"
+                                                />
+                                            </Field>
+                                            <FormGrid cols={2} className="gap-2">
+                                                <Field label="Latitude">
+                                                    <Input className="h-8" mono type="number" step="any" value={stopForm.lat} onChange={(e) => setStopForm({ ...stopForm, lat: e.target.value })} />
+                                                </Field>
+                                                <Field label="Longitude">
+                                                    <Input className="h-8" mono type="number" step="any" value={stopForm.lng} onChange={(e) => setStopForm({ ...stopForm, lng: e.target.value })} />
+                                                </Field>
+                                            </FormGrid>
+                                            <p className="text-[11px] text-fg-muted">
+                                                Click the map to set coordinates. Timing and ordering are set from the Stops tab.
+                                            </p>
+                                            {isOfficeStopForm && (
+                                                <div className="space-y-2 rounded-lg border border-brand-line bg-brand-soft p-3">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div>
+                                                            <p className="text-xs font-semibold text-fg">Morning completion geofence</p>
+                                                            <p className="mt-1 text-[11px] leading-relaxed text-fg-secondary">
+                                                                Draw the office approach area on the map. Drivers cannot complete a morning trip until their GPS is inside this polygon.
+                                                            </p>
+                                                        </div>
+                                                        {hasValidOfficeGeofence(geofenceCoords) && (
+                                                            <Badge tone="success" size="sm" dot>Configured</Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <Button
+                                                            variant={geofenceMode ? 'secondary' : 'outline'}
+                                                            size="sm"
+                                                            aria-pressed={geofenceMode}
+                                                            onClick={() => setGeofenceMode((prev) => !prev)}
+                                                            disabled={!canEditRoutes}
+                                                        >
+                                                            {geofenceMode ? 'Stop drawing' : 'Draw on map'}
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => setGeofenceCoords((prev) => prev.slice(0, -1))}
+                                                            disabled={!canEditRoutes || geofenceCoords.length === 0}
+                                                        >
+                                                            Undo point
+                                                        </Button>
+                                                        <Button
+                                                            variant="danger-outline"
+                                                            size="sm"
+                                                            onClick={() => void handleClearGeofence()}
+                                                            disabled={!canEditRoutes || geofenceCoords.length === 0}
+                                                        >
+                                                            Clear geofence
+                                                        </Button>
+                                                    </div>
+                                                    <p className="text-[11px] text-fg-muted" aria-live="polite">
+                                                        {geofenceMode
+                                                            ? 'Click the map to add polygon corners. Add at least 3 points around the reachable office entrance.'
+                                                            : `${geofenceCoords.length} point${geofenceCoords.length === 1 ? '' : 's'} in this draft.`}
                                                     </p>
                                                 </div>
-                                                {hasValidOfficeGeofence(geofenceCoords) && (
-                                                    <Badge color="orange">Configured</Badge>
-                                                )}
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                <button
-                                                    type="button"
-                                                    className={cx(
-                                                        adminBtnOutline,
-                                                        'h-8 px-3 text-xs',
-                                                        geofenceMode && 'border-[var(--cort-navy)] bg-[var(--cort-navy)]/5 text-[var(--cort-navy)]',
-                                                    )}
-                                                    onClick={() => setGeofenceMode((prev) => !prev)}
-                                                    disabled={!canEditRoutes}
-                                                >
-                                                    {geofenceMode ? 'Stop drawing' : 'Draw on map'}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={cx(adminBtnOutline, 'h-8 px-3 text-xs')}
-                                                    onClick={() => setGeofenceCoords((prev) => prev.slice(0, -1))}
-                                                    disabled={!canEditRoutes || geofenceCoords.length === 0}
-                                                >
-                                                    Undo point
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={cx(adminBtnOutline, 'h-8 px-3 text-xs text-rose-700')}
-                                                    onClick={() => {
-                                                        setGeofenceCoords([]);
-                                                        setGeofenceMode(false);
-                                                    }}
-                                                    disabled={!canEditRoutes || geofenceCoords.length === 0}
-                                                >
-                                                    Clear geofence
-                                                </button>
-                                            </div>
-                                            <p className="text-[11px] text-orange-900/80">
-                                                {geofenceMode
-                                                    ? 'Click the map to add polygon corners. Add at least 3 points around the reachable office entrance.'
-                                                    : `${geofenceCoords.length} point${geofenceCoords.length === 1 ? '' : 's'} saved in this draft.`}
-                                            </p>
+                                            )}
                                         </div>
-                                    )}
+                                        <div className="border-t border-line p-3">
+                                            <Button
+                                                className="w-full"
+                                                size="sm"
+                                                onClick={() => void handleStopSubmit()}
+                                                disabled={!canEditRoutes}
+                                                loading={isSavingStop}
+                                                leftIcon={<Save />}
+                                            >
+                                                Save stop
+                                            </Button>
+                                        </div>
                                     </div>
-                                    <div className="border-t border-[var(--border-default)] bg-[var(--bg-subtle)] p-3">
-                                    <button
-                                        type="button"
-                                        className={cx(adminBtnPrimary, 'w-full text-xs')}
-                                        onClick={() => void handleStopSubmit()}
-                                        disabled={!canEditRoutes || isSavingStop}
-                                    >
-                                        {isSavingStop ? 'Saving…' : 'Save stop'}
-                                    </button>
-                                    </div>
-                                </div>
-                            )}
+                                )}
 
-                            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-                                {(route.route_stops ?? [])
-                                    .filter(stop =>
-                                        mapDirection === 'MORNING'
-                                            ? stop.morning_sequence != null
-                                            : stop.evening_sequence != null
-                                    )
-                                    .sort((a, b) =>
-                                        mapDirection === 'MORNING'
-                                            ? (a.morning_sequence ?? 0) - (b.morning_sequence ?? 0)
-                                            : (a.evening_sequence ?? 0) - (b.evening_sequence ?? 0)
-                                    )
-                                    .map((stop) => {
-                                    const isOffice = officeStopIds.has(stop.id);
-                                    const seq = mapDirection === 'MORNING' ? (stop.morning_sequence ?? stop.sequence_order) : (stop.evening_sequence ?? stop.sequence_order);
-                                    const isHighlighted = highlightedStopId === stop.id;
-                                    return (
-                                    <div
-                                        key={stop.id}
-                                        id={`overview-stop-${stop.id}`}
-                                        onClick={() => setHighlightedStopId(stop.id)}
-                                        className={cx(
-                                            'group cursor-pointer rounded-xl border p-3 transition-colors',
-                                            isHighlighted
-                                                ? 'border-[var(--cort-navy)] bg-[var(--cort-navy)]/8 ring-2 ring-[var(--cort-navy)]/20'
-                                                : 'border-[var(--border-default)] bg-[var(--bg-subtle)] hover:border-[var(--cort-navy)]/40',
-                                        )}
-                                    >
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div>
-                                                <div className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-[var(--text-primary)]">
-                                                    <span className={cx(
-                                                        'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white',
-                                                        isOffice ? 'bg-[var(--cort-orange)]' : 'bg-[var(--cort-navy)]',
-                                                    )}>
-                                                        {isOffice ? <Building2 className="h-3 w-3" /> : seq}
-                                                    </span>
-                                                    {stop.name}
-                                                    {isOffice && (
-                                                        <Badge color="orange">
-                                                            {hasMultipleOffices ? 'Office stop' : 'Office — last morning / first evening'}
-                                                        </Badge>
+                                {directionStops.length === 0 ? (
+                                    <EmptyState
+                                        compact
+                                        icon={<MapPin aria-hidden="true" />}
+                                        title={`No ${mapDirection === 'MORNING' ? 'morning' : 'evening'} stops`}
+                                        description="Add a stop, or switch direction."
+                                    />
+                                ) : (
+                                    <ol className="min-h-0 flex-1 space-y-2 overflow-y-auto" aria-label={`${mapDirection === 'MORNING' ? 'Morning' : 'Evening'} stops`}>
+                                        {directionStops.map((stop) => {
+                                            const isOffice = officeStopIds.has(stop.id);
+                                            const seq = mapDirection === 'MORNING' ? (stop.morning_sequence ?? stop.sequence_order) : (stop.evening_sequence ?? stop.sequence_order);
+                                            const isHighlighted = highlightedStopId === stop.id;
+                                            const hasGeofence = isOffice && hasValidOfficeGeofence(parseOfficeGeofenceRing(stop.completion_geofence_geojson));
+                                            return (
+                                                <li
+                                                    key={stop.id}
+                                                    id={`overview-stop-${stop.id}`}
+                                                    onClick={() => setHighlightedStopId(stop.id)}
+                                                    className={cn(
+                                                        'group rounded-lg border p-3 transition-colors',
+                                                        isHighlighted
+                                                            ? 'border-purple-line bg-purple-soft'
+                                                            : 'border-line bg-subtle hover:border-line-strong',
                                                     )}
-                                                    {isOffice && hasValidOfficeGeofence(parseOfficeGeofenceRing(stop.completion_geofence_geojson)) && (
-                                                        <Badge color="blue">Geofence set</Badge>
-                                                    )}
-                                                </div>
-                                                <div className="mt-1 text-xs text-[var(--text-muted)]">
-                                                    Morning {format12h(formatTime(stop.morning_eta)) || '—'} · Evening {format12h(formatTime(stop.evening_eta)) || '—'}
-                                                    {isOffice ? ' · People board at pickups only' : ''}
-                                                </div>
-                                            </div>
-                                            <div className="flex shrink-0 gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100">
-                                                <button
-                                                    type="button"
-                                                    onClick={canEditRoutes ? (e) => {
-                                                        e.stopPropagation();
-                                                        handleStopEditClick(stop);
-                                                    } : undefined}
-                                                    disabled={!canEditRoutes}
-                                                    className="rounded-md px-2 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-card)] disabled:opacity-40"
                                                 >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={canEditRoutes && !isOffice ? (e) => {
-                                                        e.stopPropagation();
-                                                        void handleStopDelete(stop.id);
-                                                    } : undefined}
-                                                    disabled={!canEditRoutes || isOffice}
-                                                    className="rounded-md px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-500/10 disabled:opacity-40"
-                                                    title={isOffice ? 'Office cannot be deleted' : 'Remove stop'}
-                                                >
-                                                    Remove
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    );
-                                })}
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="min-w-0">
+                                                            <div className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-fg">
+                                                                <span
+                                                                    className={cn(
+                                                                        'flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white',
+                                                                        isOffice ? 'bg-brand' : 'bg-info',
+                                                                    )}
+                                                                    aria-hidden="true"
+                                                                >
+                                                                    {isOffice ? <Building2 className="size-3" /> : seq}
+                                                                </span>
+                                                                <span className="truncate">{stop.name}</span>
+                                                                {isOffice && (
+                                                                    <Badge tone="brand" size="sm">
+                                                                        {hasMultipleOffices ? 'Office' : 'Office — last AM / first PM'}
+                                                                    </Badge>
+                                                                )}
+                                                                {hasGeofence && <Badge tone="info" size="sm">Geofence set</Badge>}
+                                                            </div>
+                                                            <div className="mt-1 text-xs text-fg-muted">
+                                                                Morning {format12h(stop.morning_eta) || '—'} · Evening {format12h(stop.evening_eta) || '—'}
+                                                                {isOffice ? ' · People board at pickups only' : ''}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex shrink-0 items-center gap-0.5 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+                                                            <IconButton
+                                                                label={`Show ${stop.name} on map`}
+                                                                size="icon-xs"
+                                                                onClick={(e) => { e.stopPropagation(); setHighlightedStopId(stop.id); }}
+                                                            >
+                                                                <MapPin />
+                                                            </IconButton>
+                                                            {canEditRoutes && (
+                                                                <>
+                                                                    <IconButton
+                                                                        label={`Edit ${stop.name}`}
+                                                                        size="icon-xs"
+                                                                        onClick={(e) => { e.stopPropagation(); handleStopEditClick(stop); }}
+                                                                    >
+                                                                        <Pencil />
+                                                                    </IconButton>
+                                                                    <IconButton
+                                                                        label={isOffice ? 'Office stops cannot be removed' : `Remove ${stop.name}`}
+                                                                        size="icon-xs"
+                                                                        disabled={isOffice}
+                                                                        className="text-danger-ink hover:bg-danger-soft hover:text-danger-ink"
+                                                                        onClick={(e) => { e.stopPropagation(); void handleStopDelete(stop.id); }}
+                                                                    >
+                                                                        <Trash2 />
+                                                                    </IconButton>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                            );
+                                        })}
+                                    </ol>
+                                )}
                             </div>
-                        </div>
+                        </Card>
                     </div>
-                </div>
-            )}
+                </TabsContent>
 
-            {/* Stops Tab */}
-            {activeTab === 'stops' && <ManageStopsTab route={route} onStopMutated={schedulePolylineRefresh} />}
+                <TabsContent value="stops" className="mt-0">
+                    <ManageStopsTab route={route} canEdit={canEditRoutes} onStopMutated={schedulePolylineRefresh} />
+                </TabsContent>
 
-            {/* Rostering Tab */}
-            {activeTab === 'rostering' && <RosteringTab route={route} />}
-            </div>
+                <TabsContent value="rostering" className="mt-0">
+                    <RosteringTab route={route} canEdit={canEditRoutes} />
+                </TabsContent>
+            </Tabs>
         </PermissionGate>
     );
 }

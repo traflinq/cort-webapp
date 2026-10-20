@@ -31,7 +31,10 @@
       "subtitle": "سجّل الدخول للوصول إلى لوحة التنقل الخاصة بك",
       "emailLabel": "البريد الإلكتروني",
       "emailPlaceholder": "name@company.com",
-      "passwordLabel": "كلمة المرور"
+      "passwordLabel": "كلمة المرور",
+      "brandEyebrow": "بوابة الشركة",
+      "brandHeadline": "تنقل شركتك في مكان واحد.",
+      "brandBody": "المسارات والحجوزات والمركبات والفواتير لمؤسستك."
     },
     "error": {
       "title": "حدث خطأ ما",

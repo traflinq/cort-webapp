@@ -2,14 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
+import { AdminToaster } from "../ui/Toast";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useWebPush } from "../../lib/hooks/useWebPush";
 
+type BookingSocketPayload = {
+  id: number;
+  booking_type?: string;
+  company_name: string;
+  passenger_name: string;
+  pickup_address: string;
+  city: string;
+  [key: string]: unknown;
+};
+
 function playNotificationSound() {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     const beep = (freq: number, start: number, duration: number) => {
       const o = ctx.createOscillator();
       const g = ctx.createGain();
@@ -67,7 +78,7 @@ export function BookingNotificationProvider() {
     });
     socketRef.current = socket;
 
-    socket.on("booking:new", (booking: any) => {
+    socket.on("booking:new", (booking: BookingSocketPayload) => {
       const isImmediate = booking?.booking_type === "SPOT";
 
       // Broadcast a custom DOM event so any page (e.g. bookings list) can refresh
@@ -129,7 +140,7 @@ export function BookingNotificationProvider() {
 
   return (
     <>
-      <Toaster position="top-right" richColors />
+      <AdminToaster />
 
       {/* Immediate booking alert banners — visible on every admin page */}
       {immediateAlerts.length > 0 && (

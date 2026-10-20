@@ -2,10 +2,23 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeftRight, Bus, Car, MapPin, Plus, Search } from 'lucide-react';
-import { Badge } from '@/app/admin/components/ui/Badge';
-import { adminBtnOutline, adminBtnPrimary, adminSelect, adminInput } from '@/app/admin/components/ui/admin-styles';
-import { cx } from '@/app/admin/components/ui/cx';
+import { ArrowLeftRight, Bus, Car, MapPin, Plus } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+    Badge,
+    Button,
+    Card,
+    CardContent,
+    CardSkeleton,
+    EmptyState,
+    ErrorState,
+    FilterBar,
+    FilterField,
+    PageHeader,
+    Select,
+    StatusBadge,
+    focusRing,
+} from '@/app/admin/ui';
 import { PermissionGate } from '@/app/admin/components/PermissionGate';
 import { AdminCan, useAdminAbility } from '@/app/lib/abilities/AdminAbilityProvider';
 import { ADMIN_SUBJECTS } from '@/app/lib/abilities/admin-subjects';
@@ -13,7 +26,7 @@ import { useAuth } from '@/app/lib/contexts/auth-context';
 import { useAppDispatch, useAppSelector } from '@/app/lib/store/hooks';
 import { fetchAdminRoutes, selectAdminRoutes, selectAdminRoutesStatus, type Route } from '@/app/lib/store/slices/adminRoutesSlice';
 import { fetchAdminCompanies, selectAdminCompanies, selectAdminCompaniesStatus } from '@/app/lib/store/slices/adminCompaniesSlice';
-import { RouteCommandBar, RouteEmptyState, initials } from './RouteCommandBar';
+import { initials } from './RouteCommandBar';
 
 export default function RoutesPage() {
     return (
@@ -67,120 +80,132 @@ function RoutesPageContent() {
         return routes.filter((r) => routeCompanyId(r) === selectedCompanyId).length;
     }, [routes, selectedCompanyId]);
 
+    const companySelect = (
+        <Select
+            placeholder="Select a company"
+            value={selectedCompanyId === '' ? '' : String(selectedCompanyId)}
+            onChange={(e) => setSelectedCompanyId(e.target.value ? Number(e.target.value) : '')}
+            disabled={companiesStatus === 'loading'}
+            className="min-w-[14rem]"
+        >
+            {companies.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+        </Select>
+    );
+
+    const createButton = canCreate ? (
+        <Button asChild leftIcon={<Plus />}>
+            <Link href="/admin/routes/create">
+                <Plus />
+                Create route
+            </Link>
+        </Button>
+    ) : (
+        <Button disabled leftIcon={<Plus />}>
+            Create route
+        </Button>
+    );
+
     return (
-        <div className="space-y-5">
-            <RouteCommandBar
+        <div className="space-y-6">
+            <PageHeader
                 title="Shuttle routes"
-                subtitle={
+                description={
                     selectedCompanyId !== ''
                         ? `${companyRouteCount} ${companyRouteCount === 1 ? 'route' : 'routes'} for this company`
                         : 'Pick a company, then open a route to set stops, people, and usual crew.'
                 }
-                filters={
-                    <>
-                        <select
-                            className={cx(adminSelect, 'min-w-[220px] max-w-[280px]')}
-                            value={selectedCompanyId}
-                            onChange={(e) => setSelectedCompanyId(e.target.value ? Number(e.target.value) : '')}
-                            aria-label="Company"
-                        >
-                            <option value="">Select a company</option>
-                            {companies.map((c) => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
-                        {selectedCompanyId !== '' && (
-                            <label className="relative min-w-[180px] max-w-[240px] flex-1">
-                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
-                                <input
-                                    className={cx(adminInput, 'pl-9')}
-                                    placeholder="Search route, driver, plate"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    aria-label="Search routes"
-                                />
-                            </label>
-                        )}
-                    </>
-                }
                 actions={
                     <>
                         {canOpsShuttle && (
-                            <Link href="/admin/routes/daily-overrides" className={cx(adminBtnOutline, 'h-9 px-3 text-xs')}>
-                                <ArrowLeftRight className="mr-1.5 h-3.5 w-3.5" />
-                                Daily plan
-                            </Link>
+                            <Button variant="outline" asChild>
+                                <Link href="/admin/routes/daily-overrides">
+                                    <ArrowLeftRight />
+                                    Today&apos;s plan
+                                </Link>
+                            </Button>
                         )}
                         {canOpsShuttle && (
-                            <Link href="/admin/routes/shuttle-trips" className={cx(adminBtnOutline, 'h-9 px-3 text-xs')}>
-                                <Bus className="mr-1.5 h-3.5 w-3.5" />
-                                Trip scheduling
-                            </Link>
+                            <Button variant="outline" asChild>
+                                <Link href="/admin/routes/shuttle-trips">
+                                    <Bus />
+                                    Trip scheduling
+                                </Link>
+                            </Button>
                         )}
-                        {canCreate ? (
-                            <Link href="/admin/routes/create" className={adminBtnPrimary}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Create route
-                            </Link>
-                        ) : (
-                            <button type="button" disabled className={adminBtnPrimary}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Create route
-                            </button>
-                        )}
+                        {createButton}
                     </>
                 }
             />
 
+            <Card>
+                <CardContent className="py-3">
+                    <FilterBar
+                        search={selectedCompanyId !== '' ? { value: search, onChange: setSearch, placeholder: 'Search route, driver, plate' } : undefined}
+                        activeCount={search ? 1 : 0}
+                        onClear={() => setSearch('')}
+                    >
+                        <FilterField label="Company">{companySelect}</FilterField>
+                    </FilterBar>
+                </CardContent>
+            </Card>
+
             {status === 'loading' && (
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
                     {[0, 1, 2].map((i) => (
-                        <div key={i} className="h-44 animate-pulse rounded-2xl bg-[var(--bg-subtle)]" />
+                        <CardSkeleton key={i} lines={4} />
                     ))}
                 </div>
             )}
 
             {status === 'failed' && (
-                <RouteEmptyState title="Couldn’t load routes" description="Refresh the page and try again." />
+                <Card>
+                    <ErrorState title="Couldn’t load routes" message="The routes list did not load." onRetry={() => dispatch(fetchAdminRoutes({}))} />
+                </Card>
             )}
 
             {status === 'succeeded' && selectedCompanyId === '' && (
-                <RouteEmptyState
-                    title="Pick a company to start"
-                    description="Choose who you are setting up routes for."
-                    action={
-                        <select
-                            className={cx(adminSelect, 'min-w-[240px]')}
-                            value={selectedCompanyId}
-                            onChange={(e) => setSelectedCompanyId(e.target.value ? Number(e.target.value) : '')}
-                        >
-                            <option value="">Select a company</option>
-                            {companies.map((c) => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
-                    }
-                />
+                <Card>
+                    <EmptyState
+                        icon={<Bus aria-hidden="true" />}
+                        title="Pick a company to start"
+                        description="Choose who you are setting up routes for."
+                        action={<div className="w-64">{companySelect}</div>}
+                    />
+                </Card>
             )}
 
             {status === 'succeeded' && selectedCompanyId !== '' && filteredRoutes.length === 0 && (
-                <RouteEmptyState
-                    title={search ? 'No routes match that search' : 'No routes for this company yet'}
-                    description={search ? 'Try a different name, driver, or plate.' : 'Create a route, then assign usual driver, vehicle, stops, and people.'}
-                    action={
-                        canCreate && !search ? (
-                            <Link href="/admin/routes/create" className={adminBtnPrimary}>Create route</Link>
-                        ) : null
-                    }
-                />
+                <Card>
+                    <EmptyState
+                        icon={<Bus aria-hidden="true" />}
+                        title={search ? 'No routes match that search' : 'No routes for this company yet'}
+                        description={search ? 'Try a different name, driver, or plate.' : 'Create a route, then assign usual driver, vehicle, stops, and people.'}
+                        action={
+                            search ? (
+                                <Button variant="outline" size="sm" onClick={() => setSearch('')}>Clear search</Button>
+                            ) : canCreate ? (
+                                <Button asChild size="sm">
+                                    <Link href="/admin/routes/create">
+                                        <Plus />
+                                        Create route
+                                    </Link>
+                                </Button>
+                            ) : null
+                        }
+                    />
+                </Card>
             )}
 
             {status === 'succeeded' && selectedCompanyId !== '' && filteredRoutes.length > 0 && (
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {filteredRoutes.map((route) => (
-                        <RouteTile key={route.id} route={route} />
+                        <li key={route.id}>
+                            <RouteTile route={route} />
+                        </li>
                     ))}
-                </div>
+                </ul>
             )}
         </div>
     );
@@ -198,49 +223,41 @@ function RouteTile({ route }: { route: Route }) {
         : 'CORT';
 
     return (
-        <Link
-            href={`/admin/routes/${route.id}`}
-            className="block overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] shadow-[var(--shadow-card)] transition hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5"
-        >
-            <div className="flex">
-                <div className={cx('w-1.5 shrink-0', missingCrew ? 'bg-[var(--cort-orange)]' : 'bg-[var(--cort-navy)]')} />
-                <div className="flex-1 space-y-3 p-4">
+        <Link href={`/admin/routes/${route.id}`} className={cn('block h-full rounded-xl', focusRing)}>
+            <Card interactive className={cn('h-full overflow-hidden border-l-4', missingCrew ? 'border-l-warning' : 'border-l-brand')}>
+                <div className="space-y-3 p-4">
                     <div className="flex items-start justify-between gap-2">
-                        <h2 className="font-semibold text-[var(--text-primary)]">{route.name}</h2>
-                        <Badge color={route.status === 'ACTIVE' ? 'green' : 'gray'}>
-                            {route.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-                        </Badge>
+                        <h2 className="truncate font-semibold text-fg">{route.name}</h2>
+                        <StatusBadge status={route.status} size="sm" />
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--cort-navy)] text-[11px] font-bold text-white">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[11px] font-semibold text-brand-ink" aria-hidden="true">
                             {initials(driver)}
                         </span>
                         <div className="min-w-0">
-                            <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Usual driver</div>
-                            <div className="truncate text-sm text-[var(--text-primary)]">
-                                {driver ?? 'Not set'}
-                            </div>
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Usual driver</div>
+                            <div className="truncate text-sm text-fg">{driver ?? 'Not set'}</div>
                         </div>
                     </div>
 
                     <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Usual vehicle</div>
-                        <div className="mt-0.5 flex items-center gap-2 text-sm text-[var(--text-primary)]">
-                            <Car className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
-                            <span className="truncate">{vehicle ?? 'Not set'}</span>
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Usual vehicle</div>
+                        <div className="mt-0.5 flex items-center gap-2 text-sm text-fg">
+                            <Car className="size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+                            <span className={cn('truncate', vehicle && 'font-mono text-[13px]')}>{vehicle ?? 'Not set'}</span>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--bg-subtle)] px-2 py-1">
-                            <MapPin className="h-3 w-3" /> {stopCount} {stopCount === 1 ? 'stop' : 'stops'}
-                        </span>
-                        <Badge color={route.company_vendor_link_id ? 'purple' : 'blue'}>{vendor}</Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone="neutral" icon={<MapPin aria-hidden="true" />}>
+                            {stopCount} {stopCount === 1 ? 'stop' : 'stops'}
+                        </Badge>
+                        <Badge tone={route.company_vendor_link_id ? 'purple' : 'info'}>{vendor}</Badge>
                     </div>
 
                     {missingCrew && (
-                        <p className="rounded-lg bg-[color-mix(in_srgb,var(--cort-orange)_12%,transparent)] px-2.5 py-1.5 text-xs text-[var(--cort-orange)]">
+                        <p className="rounded-lg border border-warning-line bg-warning-soft px-2.5 py-1.5 text-xs text-warning-ink">
                             {!driver && !vehicle
                                 ? 'Set a usual driver and vehicle — needed for trips'
                                 : !driver
@@ -249,7 +266,7 @@ function RouteTile({ route }: { route: Route }) {
                         </p>
                     )}
                 </div>
-            </div>
+            </Card>
         </Link>
     );
 }
