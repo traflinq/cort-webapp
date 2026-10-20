@@ -35,15 +35,35 @@ function ShellFrame({ pathname, children }: { pathname: string; children: React.
   const closeTimer = React.useRef<number | null>(null);
   const expanded = hovered || focused;
 
+  const asideRef = React.useRef<HTMLElement>(null);
+  // After navigating, the pointer is still over the rail; ignore it until it leaves and comes back.
+  const suppressed = React.useRef(false);
+
   const openRail = () => {
+    if (suppressed.current) return;
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
     setHovered(true);
   };
   // Short grace period so brushing past the edge doesn't make the rail flicker shut.
   const closeRail = () => {
+    suppressed.current = false;
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
     closeTimer.current = window.setTimeout(() => setHovered(false), 120);
   };
+
+  // Collapse on every route change and drop focus from the clicked link.
+  const [prevPath, setPrevPath] = React.useState(pathname);
+  if (prevPath !== pathname) {
+    setPrevPath(pathname);
+    setHovered(false);
+    setFocused(false);
+  }
+  React.useEffect(() => {
+    suppressed.current = true;
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    const el = document.activeElement;
+    if (el instanceof HTMLElement && asideRef.current?.contains(el)) el.blur();
+  }, [pathname]);
   React.useEffect(() => () => { if (closeTimer.current) window.clearTimeout(closeTimer.current); }, []);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -101,9 +121,13 @@ function ShellFrame({ pathname, children }: { pathname: string; children: React.
         {/* Reserves the rail's width in the layout; the real sidebar overlays content when expanded. */}
         <div className="relative hidden w-16 shrink-0 md:block">
           <aside
+            ref={asideRef}
             onMouseEnter={openRail}
             onMouseLeave={closeRail}
-            onFocus={() => setFocused(true)}
+            onFocus={(e) => {
+              // Only keyboard focus expands the rail; a mouse click on a link must not pin it open.
+              if (e.target instanceof HTMLElement && e.target.matches(":focus-visible")) setFocused(true);
+            }}
             onBlur={(e) => {
               if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
             }}
