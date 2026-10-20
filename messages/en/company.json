@@ -31,7 +31,10 @@
       "subtitle": "Sign in to access your mobility dashboard",
       "emailLabel": "Email Address",
       "emailPlaceholder": "name@company.com",
-      "passwordLabel": "Password"
+      "passwordLabel": "Password",
+      "brandEyebrow": "Company Portal",
+      "brandHeadline": "Your corporate mobility, in one place.",
+      "brandBody": "Routes, bookings, fleet and invoices for your organisation."
     },
     "error": {
       "title": "Something went wrong",

@@ -11,13 +11,25 @@ export interface AuthShellProps {
   children: React.ReactNode;
   /** Links under the card, e.g. "Back to sign in". */
   footer?: React.ReactNode;
+  /** Brand panel copy; defaults to the admin portal text. Pass translated strings for other portals. */
+  brand?: { eyebrow: string; headline: string; body: string };
+  /** Copyright line text (without the year). */
+  copyright?: string;
+  /** Top corner slot, e.g. a language switcher. */
+  corner?: React.ReactNode;
 }
+
+const DEFAULT_BRAND = {
+  eyebrow: "Super Admin Portal",
+  headline: "The operating system for corporate mobility.",
+  body: "Companies, routes, bookings, fleet and invoicing, managed from one place.",
+};
 
 /**
  * Shared layout for the admin auth pages: brand panel on the left (desktop),
  * form card on the right. Replaces three copies of the same dark hero markup.
  */
-export function AuthShell({ title, description, children, footer }: AuthShellProps) {
+export function AuthShell({ title, description, children, footer, brand = DEFAULT_BRAND, copyright = "Traflinq. All rights reserved.", corner }: AuthShellProps) {
   return (
     <div className="flex min-h-screen bg-page text-fg">
       <aside className="relative hidden w-[42%] max-w-xl flex-col justify-between overflow-hidden bg-navy p-10 text-white lg:flex">
@@ -33,16 +45,15 @@ export function AuthShell({ title, description, children, footer }: AuthShellPro
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/traflinq_dark_no_tagline-Photoroom.png" alt="Traflinq" className="relative h-10 w-auto self-start" />
         <div className="relative space-y-4">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/60">Super Admin Portal</p>
-          <h2 className="text-3xl font-semibold leading-tight tracking-tight">The operating system for corporate mobility.</h2>
-          <p className="max-w-md text-sm leading-relaxed text-white/65">
-            Companies, routes, bookings, fleet and invoicing, managed from one place.
-          </p>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/60">{brand.eyebrow}</p>
+          <h2 className="text-3xl font-semibold leading-tight tracking-tight">{brand.headline}</h2>
+          <p className="max-w-md text-sm leading-relaxed text-white/65">{brand.body}</p>
         </div>
-        <p className="relative text-xs text-white/45">&copy; {new Date().getFullYear()} Traflinq. All rights reserved.</p>
+        <p className="relative text-xs text-white/45">&copy; {new Date().getFullYear()} {copyright}</p>
       </aside>
 
-      <main className="flex flex-1 flex-col items-center justify-center px-4 py-10 sm:px-6">
+      <main className="relative flex flex-1 flex-col items-center justify-center px-4 py-10 sm:px-6">
+        {corner && <div className="absolute end-4 top-4 z-10">{corner}</div>}
         <div className="w-full max-w-md">
           <div className="mb-8 flex flex-col items-start gap-6">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -54,7 +65,7 @@ export function AuthShell({ title, description, children, footer }: AuthShellPro
           </div>
           <div className="rounded-2xl border border-line bg-card p-6 shadow-[var(--shadow-card)] sm:p-8">{children}</div>
           {footer && <div className="mt-6 text-center text-sm text-fg-muted">{footer}</div>}
-          <p className="mt-10 text-center text-xs text-fg-muted lg:hidden">&copy; {new Date().getFullYear()} Traflinq</p>
+          <p className="mt-10 text-center text-xs text-fg-muted lg:hidden">&copy; {new Date().getFullYear()} {copyright}</p>
         </div>
       </main>
     </div>
