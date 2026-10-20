@@ -6,7 +6,6 @@ import { ChevronDown, LogOut, Menu, Moon, Palette, Search, Sun } from "lucide-re
 import { cn } from "@/lib/utils";
 import { focusRing } from "../styles";
 import { IconButton } from "../IconButton";
-import { Breadcrumbs, type Crumb } from "../PageHeader";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,9 +18,6 @@ import { DeleteRequestsBell } from "../../components/DeleteRequestsBell";
 import { initials } from "../../lib/format";
 
 export interface TopBarProps {
-  crumbs: Crumb[];
-  /** Current page label for the compact mobile title. */
-  pageTitle: string;
   onOpenMenu: () => void;
   onOpenPalette: () => void;
   theme: "light" | "dark";
@@ -34,7 +30,7 @@ export interface TopBarProps {
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
-export function TopBar({ crumbs, pageTitle, onOpenMenu, onOpenPalette, theme, onToggleTheme, user, isSuperAdmin, onLogout, showDesignSystemLink }: TopBarProps) {
+export function TopBar({ onOpenMenu, onOpenPalette, theme, onToggleTheme, user, isSuperAdmin, onLogout, showDesignSystemLink }: TopBarProps) {
   const displayName = user?.name || user?.email || "Account";
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-line bg-card/85 px-3 backdrop-blur md:px-5">
@@ -43,8 +39,14 @@ export function TopBar({ crumbs, pageTitle, onOpenMenu, onOpenPalette, theme, on
       </IconButton>
 
       <div className="min-w-0 flex-1">
-        <Breadcrumbs items={crumbs} className="hidden sm:block" />
-        <span className="truncate text-sm font-medium text-fg sm:hidden">{pageTitle}</span>
+        <Link href="/admin" aria-label="Traflinq dashboard" className={cn("inline-flex rounded-md", focusRing)}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={theme === "light" ? "/traflinq_light_no_tagline-Photoroom.png" : "/traflinq_dark_no_tagline-Photoroom.png"}
+            alt="Traflinq"
+            className="h-8 w-auto"
+          />
+        </Link>
       </div>
 
       <div className="flex items-center gap-1">

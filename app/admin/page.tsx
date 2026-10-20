@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Activity, AlertTriangle, ArrowRight, Car, CreditCard, Percent, Receipt, RefreshCw, TrendingUp, Wallet } from "lucide-react";
+import { Activity, AlertTriangle, ArrowRight, Car, CreditCard, Percent, Receipt, TrendingUp, Wallet } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../lib/store/hooks";
 import { fetchDashboardStats, setDateRange } from "../lib/store/slices/superAdminDashboardSlice";
 import type { RootState } from "../lib/store/store";
@@ -22,14 +22,12 @@ import {
   DrawerContent,
   EmptyState,
   ErrorState,
-  IconButton,
   KpiCard,
   KpiGrid,
   KpiSkeleton,
   PageHeader,
   SectionHeader,
-  type DateRange,
-} from "./ui";
+  type DateRange, RefreshButton } from "./ui";
 import { formatCurrency, formatNumber, formatPercent, formatRelative } from "./lib/format";
 import { currentMonthRange } from "./lib/dates";
 
@@ -87,9 +85,7 @@ function AdminDashboardContent() {
       actions={
         <>
           <DateRangePicker value={range} onChange={onRangeChange} label="Reporting period" />
-          <IconButton label="Refresh data" variant="outline" onClick={() => load(range)} disabled={loading}>
-            <RefreshCw className={loading ? "animate-spin" : undefined} />
-          </IconButton>
+          <RefreshButton label="Refresh data" onClick={() => load(range)} loading={loading} />
         </>
       }
     />

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Car, Clock, MapPin, Navigation, PanelRightOpen, Phone, RefreshCw, User, Wifi, WifiOff } from "lucide-react";
+import { Car, Clock, MapPin, Navigation, PanelRightOpen, Phone, User, Wifi, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PermissionGate } from "@/app/admin/components/PermissionGate";
 import { AdminCan } from "@/app/lib/abilities/AdminAbilityProvider";
@@ -18,7 +18,7 @@ import {
   DrawerContent,
   EmptyState,
   ErrorState,
-  IconButton,
+  RefreshButton,
   PageHeader,
   Skeleton,
   StatusBadge,
@@ -301,9 +301,7 @@ function OpsChauffeurContent() {
           </>
         }
         actions={
-          <IconButton label="Refresh bookings" variant="outline" onClick={refresh} disabled={loading}>
-            <RefreshCw className={loading ? "animate-spin" : undefined} />
-          </IconButton>
+          <RefreshButton label="Refresh bookings" onClick={refresh} loading={loading} />
         }
       />
 

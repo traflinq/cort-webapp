@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Bus, MapPin, Navigation, PanelRightOpen, Radio, RefreshCw, Square, Users } from "lucide-react";
+import { Bus, MapPin, Navigation, PanelRightOpen, Radio, Square, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PermissionGate } from "@/app/admin/components/PermissionGate";
 import { AdminCan } from "@/app/lib/abilities/AdminAbilityProvider";
@@ -23,7 +23,7 @@ import {
   DrawerContent,
   EmptyState,
   ErrorState,
-  IconButton,
+  RefreshButton,
   PageHeader,
   Select,
   Skeleton,
@@ -411,9 +411,7 @@ function OpsShuttleContent() {
                 </option>
               ))}
             </Select>
-            <IconButton label="Refresh trips" variant="outline" onClick={handleRefresh} disabled={loading}>
-              <RefreshCw className={loading ? "animate-spin" : undefined} />
-            </IconButton>
+            <RefreshButton label="Refresh trips" onClick={handleRefresh} loading={loading} />
           </>
         }
       />

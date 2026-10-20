@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw } from "lucide-react";
 import { apiClient } from "../../lib/services/api-client";
 import { AdminProtectedPage } from "../components/AdminProtectedPage";
 import { ADMIN_SUBJECTS } from "../../lib/abilities/admin-subjects";
-import { Badge, Card, CardContent, DataTable, FilterBar, IconButton, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger, sortRows, type DataTableColumn, type SortState } from "../ui";
+import { Badge, Card, CardContent, DataTable, FilterBar, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger, sortRows, type DataTableColumn, type SortState, RefreshButton } from "../ui";
 import { formatDateTime, humanize } from "../lib/format";
 
 type LandingLead = {
@@ -179,9 +178,7 @@ function LeadsContent() {
         title="Leads"
         description="Inquiries from the Traflinq marketing landing page and the Explore trial sign-up."
         actions={
-          <IconButton label="Refresh leads" variant="outline" onClick={fetchLeads} disabled={loading}>
-            <RefreshCw className={loading ? "animate-spin" : undefined} />
-          </IconButton>
+          <RefreshButton label="Refresh leads" onClick={fetchLeads} loading={loading} />
         }
       />
 

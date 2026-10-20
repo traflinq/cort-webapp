@@ -7,13 +7,12 @@ import { useAuth } from "../../lib/contexts/auth-context";
 import type { PermissionKey } from "../../lib/types/auth-types";
 import { BookingNotificationProvider } from "../components/BookingNotificationProvider";
 import { useAdminTheme } from "../lib/theme-context";
-import { activeNavItem, navGroupFor, visibleNavGroups, type NavViewer } from "../lib/nav";
+import { activeNavItem, visibleNavGroups, type NavViewer } from "../lib/nav";
 import { Drawer, DrawerContent } from "./Drawer";
 import { Sidebar } from "./shell/Sidebar";
 import { TopBar } from "./shell/TopBar";
 import { CommandPalette } from "./shell/CommandPalette";
-import { BreadcrumbProvider, useBreadcrumbContext } from "./shell/breadcrumbs-context";
-import type { Crumb } from "./PageHeader";
+import { BreadcrumbProvider } from "./shell/breadcrumbs-context";
 
 const SHOW_DESIGN_SYSTEM = process.env.NODE_ENV !== "production";
 
@@ -67,7 +66,6 @@ function ShellFrame({ pathname, children }: { pathname: string; children: React.
   React.useEffect(() => () => { if (closeTimer.current) window.clearTimeout(closeTimer.current); }, []);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
-  const { extra } = useBreadcrumbContext();
 
   const viewer = React.useMemo<NavViewer>(
     () => ({
@@ -82,17 +80,6 @@ function ShellFrame({ pathname, children }: { pathname: string; children: React.
   const groups = React.useMemo(() => visibleNavGroups(viewer), [viewer]);
   const items = React.useMemo(() => groups.flatMap((g) => g.items), [groups]);
   const active = React.useMemo(() => activeNavItem(pathname, items), [pathname, items]);
-
-  const crumbs = React.useMemo<Crumb[]>(() => {
-    if (!active) return [{ label: "Admin" }];
-    const group = navGroupFor(active);
-    const base: Crumb[] = group ? [{ label: group.label }] : [];
-    const isDeeper = pathname !== active.href;
-    base.push({ label: active.label, href: isDeeper ? active.href : undefined });
-    if (extra && extra.length > 0) base.push(...extra);
-    else if (isDeeper) base.push({ label: "Details" });
-    return base;
-  }, [active, pathname, extra]);
 
   // ⌘K / Ctrl+K opens the palette from anywhere in the portal.
   React.useEffect(() => {
@@ -150,8 +137,6 @@ function ShellFrame({ pathname, children }: { pathname: string; children: React.
 
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar
-            crumbs={crumbs}
-            pageTitle={active?.label ?? "Admin"}
             onOpenMenu={() => setMobileOpen(true)}
             onOpenPalette={() => setPaletteOpen(true)}
             theme={theme}

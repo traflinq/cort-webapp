@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { apiClient } from '@/app/lib/services/api-client';
+import { LoadingBlock } from '../ui/Spinner';
 import { AlertTriangle, Fuel, Bus, Navigation, TrendingDown, TrendingUp, Zap, RefreshCw, Map as MapIcon, X, Clock, Users, Package, CarFront, Lock, Car } from 'lucide-react';
 import type { MapMarker, MapPolyline } from '@/app/admin/ui/Map';
 
@@ -362,9 +363,7 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-[var(--text-muted)]">
-        <RefreshCw className="h-6 w-6 animate-spin mr-2" /> Loading fleet metrics…
-      </div>
+      <LoadingBlock label="Loading fleet metrics…" />
     );
   }
 
@@ -624,9 +623,7 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
                       </button>
                     </div>
                     {mapLoading ? (
-                      <div className="flex items-center justify-center h-64 text-[var(--text-muted)] text-sm">
-                        <RefreshCw className="h-5 w-5 animate-spin mr-2" /> Loading route data…
-                      </div>
+                      <LoadingBlock label="Loading route data…" className="h-64" />
                     ) : routeComparison ? (
                       <RouteMapOverlay
                         comparison={routeComparison}

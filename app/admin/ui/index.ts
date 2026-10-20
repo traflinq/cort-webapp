@@ -49,6 +49,7 @@ export { EmptyState, type EmptyStateProps } from "./EmptyState";
 export { ErrorState, InlineError } from "./ErrorState";
 export { Skeleton, TableSkeletonRows, CardSkeleton, KpiSkeleton, PageSkeleton } from "./Skeleton";
 export { Spinner, LoadingBlock } from "./Spinner";
+export { RefreshButton, type RefreshButtonProps } from "./RefreshButton";
 export { Pagination, type PaginationProps } from "./Pagination";
 export { DataTable, sortRows, type DataTableColumn, type DataTableProps, type SortState, type SortDir, type RowKey } from "./DataTable";
 export { FilterBar, FilterField, FilterChip, SearchInput } from "./FilterBar";
