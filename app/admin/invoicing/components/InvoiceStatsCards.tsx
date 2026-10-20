@@ -1,34 +1,35 @@
 "use client";
 
+import { AlertTriangle, CircleDollarSign, Wallet } from "lucide-react";
 import type { InvoiceStats } from "../types";
-import { adminStatCard } from "../../components/ui/admin-styles";
+import { KpiCard, KpiGrid } from "../../ui";
+import { formatCurrency } from "../../lib/format";
 
-export function InvoiceStatsCards({ stats }: { stats: InvoiceStats }) {
+export function InvoiceStatsCards({ stats, error }: { stats: InvoiceStats; error?: string | null }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
-      <div className={adminStatCard}>
-        <div className="text-xs font-semibold text-[var(--text-muted)] uppercase">Unpaid / Collectable</div>
-        <div className="mt-2 text-2xl font-bold text-red-500">
-          PKR {stats.totalCollectable.toLocaleString()}
-        </div>
-        <div className="text-xs text-[var(--text-muted)] mt-1">Pending payments</div>
-      </div>
-
-      <div className={adminStatCard}>
-        <div className="text-xs font-semibold text-[var(--text-muted)] uppercase">Total Collected</div>
-        <div className="mt-2 text-2xl font-bold text-emerald-500">
-          PKR {stats.totalCollected.toLocaleString()}
-        </div>
-        <div className="text-xs text-[var(--text-muted)] mt-1">Successfully recognized revenue</div>
-      </div>
-
-      <div className={`${adminStatCard} opacity-70`}>
-        <div className="text-xs font-semibold text-[var(--text-muted)] uppercase">Overdue Amount</div>
-        <div className="mt-2 text-2xl font-bold text-orange-500">
-          PKR {stats.totalOverdue.toLocaleString()}
-        </div>
-        <div className="text-xs text-[var(--text-muted)] mt-1">Included in Collectable</div>
-      </div>
-    </div>
+    <KpiGrid cols={3}>
+      <KpiCard
+        label="Unpaid / collectable"
+        value={formatCurrency(stats.totalCollectable)}
+        hint={error ?? "Pending payments"}
+        icon={<Wallet />}
+        tone="warning"
+      />
+      <KpiCard
+        label="Total collected"
+        value={formatCurrency(stats.totalCollected)}
+        hint={error ?? "Recognised revenue"}
+        icon={<CircleDollarSign />}
+        tone="success"
+      />
+      <KpiCard
+        label="Overdue"
+        value={formatCurrency(stats.totalOverdue)}
+        hint={error ?? "Included in collectable"}
+        icon={<AlertTriangle />}
+        tone="danger"
+        emphasis={stats.totalOverdue > 0 ? "danger" : "none"}
+      />
+    </KpiGrid>
   );
 }

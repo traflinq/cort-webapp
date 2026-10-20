@@ -138,6 +138,86 @@
     --text-muted: rgba(15,23,42,0.45);
 }
 
+/* ── Admin design-system tokens (super-admin redesign) ─────────── */
+:root {
+    --ring: #fe8503;
+    --bg-elevated: #111827;
+    --bg-overlay: rgba(2, 6, 23, 0.65);
+    --text-on-brand: #ffffff;
+
+    /* Tones: ink (text), soft (tinted bg), line (tinted border) */
+    --tone-neutral-ink: rgba(255,255,255,0.72);
+    --tone-neutral-soft: rgba(255,255,255,0.06);
+    --tone-neutral-line: rgba(255,255,255,0.14);
+    --tone-brand-ink: #fdba74;
+    --tone-brand-soft: rgba(254,133,3,0.14);
+    --tone-brand-line: rgba(254,133,3,0.38);
+    --tone-success-ink: #6ee7b7;
+    --tone-success-soft: rgba(16,185,129,0.14);
+    --tone-success-line: rgba(16,185,129,0.35);
+    --tone-warning-ink: #fcd34d;
+    --tone-warning-soft: rgba(245,158,11,0.14);
+    --tone-warning-line: rgba(245,158,11,0.35);
+    --tone-danger-ink: #fca5a5;
+    --tone-danger-soft: rgba(239,68,68,0.14);
+    --tone-danger-line: rgba(239,68,68,0.35);
+    --tone-info-ink: #93c5fd;
+    --tone-info-soft: rgba(59,130,246,0.14);
+    --tone-info-line: rgba(59,130,246,0.35);
+    --tone-purple-ink: #d8b4fe;
+    --tone-purple-soft: rgba(168,85,247,0.14);
+    --tone-purple-line: rgba(168,85,247,0.35);
+    --tone-purple-solid: #a855f7;
+
+    /* Chart palette — validated (CVD-safe, dark band) with dataviz validator */
+    --chart-1: #d97316;
+    --chart-2: #3987e5;
+    --chart-3: #199e70;
+    --chart-4: #9085e9;
+    --chart-5: #d55181;
+    --chart-6: #c98500;
+    --chart-grid: rgba(255,255,255,0.07);
+    --chart-axis: rgba(255,255,255,0.40);
+}
+
+[data-theme="light"] {
+    --bg-elevated: #ffffff;
+    --bg-overlay: rgba(15, 23, 42, 0.45);
+
+    --tone-neutral-ink: rgba(15,23,42,0.70);
+    --tone-neutral-soft: rgba(15,23,42,0.05);
+    --tone-neutral-line: rgba(15,23,42,0.12);
+    --tone-brand-ink: #9a4a00;
+    --tone-brand-soft: rgba(254,133,3,0.12);
+    --tone-brand-line: rgba(254,133,3,0.35);
+    --tone-success-ink: #047857;
+    --tone-success-soft: #ecfdf5;
+    --tone-success-line: #a7f3d0;
+    --tone-warning-ink: #b45309;
+    --tone-warning-soft: #fffbeb;
+    --tone-warning-line: #fde68a;
+    --tone-danger-ink: #b91c1c;
+    --tone-danger-soft: #fef2f2;
+    --tone-danger-line: #fecaca;
+    --tone-info-ink: #1d4ed8;
+    --tone-info-soft: #eff6ff;
+    --tone-info-line: #bfdbfe;
+    --tone-purple-ink: #6d28d9;
+    --tone-purple-soft: #f5f3ff;
+    --tone-purple-line: #ddd6fe;
+    --tone-purple-solid: #7c3aed;
+
+    /* Chart palette — validated (CVD-safe, light band) */
+    --chart-1: #e5700a;
+    --chart-2: #2a78d6;
+    --chart-3: #1baf7a;
+    --chart-4: #6250d6;
+    --chart-5: #e87ba4;
+    --chart-6: #eda100;
+    --chart-grid: rgba(15,23,42,0.07);
+    --chart-axis: rgba(15,23,42,0.45);
+}
+
 /* Theme-aware tinted alert banners (readable in light + dark mode) */
 .alert-banner-warning {
     border-radius: 0.75rem;
@@ -164,6 +244,95 @@
     --color-foreground: var(--foreground);
     --font-sans: var(--font-geist-sans);
     --font-mono: var(--font-geist-mono);
+
+    /* ── Admin design-system aliases (utilities: bg-card, text-fg, border-line…) ── */
+    --color-primary: var(--cort-orange);
+    --color-primary-hover: var(--cort-orange-hover);
+    --color-primary-foreground: var(--text-on-brand);
+    --color-secondary: var(--bg-subtle);
+    --color-secondary-foreground: var(--text-primary);
+    --color-card: var(--bg-card);
+    --color-card-foreground: var(--text-primary);
+    --color-popover: var(--bg-elevated);
+    --color-popover-foreground: var(--text-primary);
+    --color-accent: var(--bg-subtle);
+    --color-accent-foreground: var(--text-primary);
+    --color-destructive: var(--accent-danger);
+    --color-destructive-foreground: #ffffff;
+    --color-input: var(--border-input);
+    --color-ring: var(--ring);
+    --color-page: var(--bg-page);
+    --color-subtle: var(--bg-subtle);
+    --color-elevated: var(--bg-elevated);
+    --color-overlay: var(--bg-overlay);
+    --color-row-hover: var(--row-hover);
+    --color-line: var(--border-default);
+    --color-line-strong: var(--border-strong);
+    --color-fg: var(--text-primary);
+    --color-fg-secondary: var(--text-secondary);
+    --color-fg-muted: var(--text-muted);
+    --color-fg-placeholder: var(--text-placeholder);
+    --color-muted-foreground: var(--text-muted);
+    --color-brand: var(--cort-orange);
+    --color-warning: var(--accent-warning);
+    --color-info: var(--accent-info);
+    /* Fix previously-dead aliases (bg-yellow/10, text-green…) */
+    --color-yellow: var(--accent-warning);
+    --color-green: var(--accent-success);
+    --color-red: var(--accent-danger);
+
+    --color-neutral-ink: var(--tone-neutral-ink);
+    --color-neutral-soft: var(--tone-neutral-soft);
+    --color-neutral-line: var(--tone-neutral-line);
+    --color-brand-ink: var(--tone-brand-ink);
+    --color-brand-soft: var(--tone-brand-soft);
+    --color-brand-line: var(--tone-brand-line);
+    --color-success-ink: var(--tone-success-ink);
+    --color-success-soft: var(--tone-success-soft);
+    --color-success-line: var(--tone-success-line);
+    --color-warning-ink: var(--tone-warning-ink);
+    --color-warning-soft: var(--tone-warning-soft);
+    --color-warning-line: var(--tone-warning-line);
+    --color-danger-ink: var(--tone-danger-ink);
+    --color-danger-soft: var(--tone-danger-soft);
+    --color-danger-line: var(--tone-danger-line);
+    --color-info-ink: var(--tone-info-ink);
+    --color-info-soft: var(--tone-info-soft);
+    --color-info-line: var(--tone-info-line);
+    --color-purple-ink: var(--tone-purple-ink);
+    --color-purple-soft: var(--tone-purple-soft);
+    --color-purple-line: var(--tone-purple-line);
+    --color-purple-solid: var(--tone-purple-solid);
+
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+    --color-chart-6: var(--chart-6);
+
+    /* Admin micro-interactions (all ≤ 200ms) */
+    @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes overlay-out { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes pop-in { from { opacity: 0; transform: translate(-50%, calc(-50% + 6px)) scale(0.98); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+    @keyframes pop-out { from { opacity: 1; transform: translate(-50%, -50%) scale(1); } to { opacity: 0; transform: translate(-50%, calc(-50% + 6px)) scale(0.98); } }
+    @keyframes sheet-in-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    @keyframes sheet-out-right { from { transform: translateX(0); } to { transform: translateX(100%); } }
+    @keyframes sheet-in-left { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+    @keyframes sheet-out-left { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+    @keyframes menu-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes indeterminate { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
+
+    --animate-overlay-in: overlay-in 150ms ease-out;
+    --animate-overlay-out: overlay-out 120ms ease-in forwards;
+    --animate-pop-in: pop-in 160ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    --animate-pop-out: pop-out 120ms ease-in forwards;
+    --animate-sheet-in: sheet-in-right 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    --animate-sheet-out: sheet-out-right 150ms ease-in forwards;
+    --animate-sheet-in-left: sheet-in-left 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    --animate-sheet-out-left: sheet-out-left 150ms ease-in forwards;
+    --animate-menu-in: menu-in 120ms ease-out;
+    --animate-indeterminate: indeterminate 1.2s ease-in-out infinite;
 
     /* App tokens */
     --color-surface: var(--surface);
@@ -292,6 +461,16 @@
 body {
     background: var(--bg-page);
     color: var(--text-primary);
+}
+
+/* Respect the OS reduced-motion preference everywhere */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 
 /* RTL typography and layout */

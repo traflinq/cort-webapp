@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DriverType, ChauffeurBooking, apiClient } from "../../../../lib/services/api-client";
 import { useDebounce } from "../../../../lib/hooks/useDebounce";
+import type { DateRange } from "../../../lib/dates";
+import { errorMessage } from "../components/booking-status";
 
 export type BookingStats = {
   total: number;
@@ -15,179 +17,257 @@ export type BookingStats = {
   cancelled: number;
 };
 
-const LIMIT = 10;
+export type CompanyOption = { id: number; name: string };
+
+export type AssignableVehicle = { id: number; make: string; model: string; plate_number: string };
+export type AssignableDriver = {
+  id: string;
+  full_name: string;
+  email: string;
+  drivers_profile?: { driver_type?: string; current_vehicle_id?: number | null } | null;
+};
+
+export const BOOKINGS_PAGE_SIZE = 10;
+
+type ListQuery = {
+  page: number;
+  search?: string;
+  status?: string;
+  company_id?: number;
+  start_date?: string;
+  end_date?: string;
+};
+
+type ListResult = {
+  key: string;
+  rows: ChauffeurBooking[];
+  pagination: { page: number; pages: number; total: number };
+  error: string | null;
+};
+
+type StatsResult = { key: string; stats: BookingStats | null };
+
+/** API responses come back as `{ data: { data, pagination } }`, `{ data }` or bare; normalise once. */
+function unwrap<T>(res: unknown): T {
+  if (res && typeof res === "object" && "data" in res) {
+    const inner = (res as { data: unknown }).data;
+    if (inner !== undefined && inner !== null) return inner as T;
+  }
+  return res as T;
+}
+
+function unwrapList<T>(res: unknown): { rows: T[]; pagination?: { page?: number; pages?: number; total?: number } } {
+  const raw = unwrap<{ data?: T[]; pagination?: { page?: number; pages?: number; total?: number } } | T[]>(res);
+  if (Array.isArray(raw)) return { rows: raw };
+  return { rows: raw?.data ?? [], pagination: raw?.pagination };
+}
 
 export function usePendingBookings() {
-  const [bookings, setBookings] = useState<ChauffeurBooking[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
-  const [availableCars, setAvailableCars] = useState<any[]>([]);
-  const [availableDrivers, setAvailableDrivers] = useState<any[]>([]);
-  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
-  const [paymentSummary, setPaymentSummary] = useState<any>(null);
-  const [stats, setStats] = useState<BookingStats | null>(null);
-  const [companies, setCompanies] = useState<{ id: number; name: string }[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
-  const [selectedCarId, setSelectedCarId] = useState("");
-  const [selectedDriverId, setSelectedDriverId] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [companyFilter, setCompanyFilter] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const debouncedSearch = useDebounce(searchQuery, 500);
-  const debouncedStatus = useDebounce(statusFilter, 500);
-  const [currentPage, setCurrentPage] = useState(1);
+  // ── Filters (each setter also resets the page) ─────────────────────────
+  const [searchQuery, setSearchQueryState] = useState("");
+  const [statusFilter, setStatusFilterState] = useState("");
+  const [companyFilter, setCompanyFilterState] = useState("");
+  const [dateRange, setDateRangeState] = useState<DateRange | null>(null);
+  const [page, setPage] = useState(1);
+  const [tick, setTick] = useState(0);
+  const debouncedSearch = useDebounce(searchQuery, 400);
 
-  const buildFilterParams = useCallback(() => ({
-    company_id: companyFilter ? Number(companyFilter) : undefined,
-    start_date: startDate || undefined,
-    end_date: endDate || undefined,
-  }), [companyFilter, startDate, endDate]);
-
-  const loadData = useCallback(async (page: number, search: string, status: string) => {
-    setIsLoading(true);
-    try {
-      const res = (await apiClient.getAllBookings({
-        status: status || undefined,
-        search: search || undefined,
-        page,
-        limit: LIMIT,
-        ...buildFilterParams(),
-      })) as any;
-      const raw = res?.data ?? res;
-      setBookings(raw?.data ?? raw ?? []);
-      const meta = raw?.pagination ?? {};
-      setPagination({ page: meta.page ?? page, pages: meta.pages ?? 1, total: meta.total ?? 0 });
-    } catch (e) {
-      console.error("Failed to load bookings", e);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [buildFilterParams]);
-
-  const loadStats = useCallback(async () => {
-    try {
-      const res = (await apiClient.getBookingStats(buildFilterParams())) as any;
-      const data = res?.data ?? res;
-      setStats(data);
-    } catch (e) {
-      console.error("Failed to load booking stats", e);
-    }
-  }, [buildFilterParams]);
-
-  const loadCompanies = useCallback(async () => {
-    try {
-      const res = (await apiClient.getCompanies({ limit: 200 })) as any;
-      const raw = res?.data ?? res;
-      setCompanies(raw?.data ?? raw ?? []);
-    } catch (e) {
-      console.error("Failed to load companies", e);
-    }
+  const setSearchQuery = useCallback((v: string) => {
+    setSearchQueryState(v);
+    setPage(1);
   }, []);
+  const setStatusFilter = useCallback((v: string) => {
+    setStatusFilterState(v);
+    setPage(1);
+  }, []);
+  const setCompanyFilter = useCallback((v: string) => {
+    setCompanyFilterState(v);
+    setPage(1);
+  }, []);
+  const setDateRange = useCallback((v: DateRange | null) => {
+    setDateRangeState(v);
+    setPage(1);
+  }, []);
+  const clearFilters = useCallback(() => {
+    setSearchQueryState("");
+    setStatusFilterState("");
+    setCompanyFilterState("");
+    setDateRangeState(null);
+    setPage(1);
+  }, []);
+
+  const query = useMemo<ListQuery>(
+    () => ({
+      page,
+      search: debouncedSearch || undefined,
+      status: statusFilter || undefined,
+      company_id: companyFilter ? Number(companyFilter) : undefined,
+      start_date: dateRange?.start || undefined,
+      end_date: dateRange?.end || undefined,
+    }),
+    [page, debouncedSearch, statusFilter, companyFilter, dateRange],
+  );
+  const queryKey = JSON.stringify({ ...query, tick });
+
+  const statsParams = useMemo(
+    () => ({ company_id: query.company_id, start_date: query.start_date, end_date: query.end_date }),
+    [query.company_id, query.start_date, query.end_date],
+  );
+  const statsKey = JSON.stringify({ ...statsParams, tick });
+
+  // ── List: one request per distinct query; stale responses are dropped ──
+  const [list, setList] = useState<ListResult | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiClient.getAllBookings({ ...query, limit: BOOKINGS_PAGE_SIZE });
+        if (cancelled) return;
+        const { rows, pagination } = unwrapList<ChauffeurBooking>(res);
+        setList({
+          key: queryKey,
+          rows,
+          pagination: { page: pagination?.page ?? query.page, pages: pagination?.pages ?? 1, total: pagination?.total ?? rows.length },
+          error: null,
+        });
+      } catch (e) {
+        if (cancelled) return;
+        setList((prev) => ({
+          key: queryKey,
+          rows: prev?.rows ?? [],
+          pagination: prev?.pagination ?? { page: 1, pages: 1, total: 0 },
+          error: errorMessage(e, "Failed to load bookings"),
+        }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // query is fully represented by queryKey
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryKey]);
+
+  const isLoading = list?.key !== queryKey;
+  const bookings = useMemo(() => (list?.error && list.key === queryKey ? [] : list?.rows ?? []), [list, queryKey]);
+  const pagination = list?.pagination ?? { page: 1, pages: 1, total: 0 };
+  const listError = list?.key === queryKey ? list.error : null;
+
+  // ── Stats ──────────────────────────────────────────────────────────────
+  const [statsResult, setStatsResult] = useState<StatsResult | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiClient.getBookingStats(statsParams);
+        if (!cancelled) setStatsResult({ key: statsKey, stats: unwrap<BookingStats>(res) });
+      } catch (e) {
+        console.error("Failed to load booking stats", e);
+        if (!cancelled) setStatsResult((prev) => ({ key: statsKey, stats: prev?.stats ?? null }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statsKey]);
+  const stats = statsResult?.stats ?? null;
+  const statsLoading = statsResult?.key !== statsKey;
+
+  // ── Companies for the filter ───────────────────────────────────────────
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiClient.getCompanies({ limit: 200 });
+        if (!cancelled) setCompanies(unwrapList<CompanyOption>(res).rows);
+      } catch (e) {
+        console.error("Failed to load companies", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const refreshList = useCallback(() => setTick((t) => t + 1), []);
+
+  // Live refresh when a new booking arrives (socket → window event).
+  useEffect(() => {
+    window.addEventListener("booking:new", refreshList);
+    return () => window.removeEventListener("booking:new", refreshList);
+  }, [refreshList]);
+
+  // ── Selection / detail ─────────────────────────────────────────────────
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
+  const [selectedCarId, setSelectedCarIdState] = useState("");
+  const [selectedDriverId, setSelectedDriverId] = useState("");
+  const [availableCars, setAvailableCars] = useState<AssignableVehicle[]>([]);
+  const [availableDrivers, setAvailableDrivers] = useState<AssignableDriver[]>([]);
+  const [resourcesLoading, setResourcesLoading] = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState<unknown[]>([]);
+  const [paymentSummary, setPaymentSummary] = useState<unknown>(null);
+
+  /** Picking a vehicle auto-selects the driver currently assigned to it. */
+  const setSelectedCarId = useCallback(
+    (carId: string, drivers: AssignableDriver[] = availableDrivers) => {
+      setSelectedCarIdState(carId);
+      if (!carId) return;
+      const numeric = parseInt(carId, 10);
+      const assigned = drivers.find((d) => d.drivers_profile?.current_vehicle_id === numeric);
+      if (assigned) setSelectedDriverId(assigned.id);
+    },
+    [availableDrivers],
+  );
 
   const loadPaymentData = useCallback(async (bookingId: number) => {
     try {
-      const [histRes, sumRes] = await Promise.all([
-        apiClient.getPaymentHistory(bookingId) as any,
-        apiClient.getPaymentSummary(bookingId) as any,
-      ]);
-      const histRaw = histRes?.data ?? histRes;
-      const sumRaw = sumRes?.data ?? sumRes;
-      setPaymentHistory(histRaw?.data ?? histRaw ?? []);
-      setPaymentSummary(sumRaw?.data ?? sumRaw ?? null);
+      const [histRes, sumRes] = await Promise.all([apiClient.getPaymentHistory(bookingId), apiClient.getPaymentSummary(bookingId)]);
+      setPaymentHistory(unwrapList<unknown>(histRes).rows);
+      setPaymentSummary(unwrap<unknown>(sumRes) ?? null);
     } catch (e) {
       console.error("Failed to load payment data", e);
     }
   }, []);
 
-  useEffect(() => {
-    loadCompanies();
-  }, [loadCompanies]);
-
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
-
-  useEffect(() => {
-    const handler = () => {
-      loadData(1, "", "");
-      loadStats();
-    };
-    window.addEventListener("booking:new", handler);
-    return () => window.removeEventListener("booking:new", handler);
-  }, [loadData, loadStats]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-    loadData(1, debouncedSearch, debouncedStatus);
-  }, [debouncedSearch, debouncedStatus, companyFilter, startDate, endDate, loadData]);
-
-  useEffect(() => {
-    loadData(currentPage, debouncedSearch, debouncedStatus);
-  }, [currentPage, debouncedSearch, debouncedStatus, loadData]);
-
-  useEffect(() => {
-    if (selectedCarId) {
-      const carId = parseInt(selectedCarId);
-      const assignedDriver = availableDrivers.find(
-        (d: any) => d.drivers_profile?.current_vehicle_id === carId
-      );
-      if (assignedDriver) {
-        setSelectedDriverId(assignedDriver.id);
-      }
-    }
-  }, [selectedCarId, availableDrivers]);
-
-  const refreshList = useCallback(() => {
-    loadData(currentPage, debouncedSearch, debouncedStatus);
-    loadStats();
-  }, [loadData, loadStats, currentPage, debouncedSearch, debouncedStatus]);
-
   const onOpenBookingModal = async (booking: ChauffeurBooking) => {
     setSelectedBookingId(booking.id);
-    setSelectedCarId(booking.vehicles?.id?.toString() || "");
+    setSelectedCarIdState(booking.vehicles?.id?.toString() || "");
     setSelectedDriverId(booking.users_chauffeur_bookings_driver_idTousers?.id?.toString() || "");
     setAvailableCars([]);
     setAvailableDrivers([]);
+    setPaymentHistory([]);
+    setPaymentSummary(null);
 
-    const canEditAssignment =
-      booking.status === "PENDING" ||
-      booking.status === "ASSIGNED" ||
-      booking.status === "ARRIVED";
+    const canEditAssignment = booking.status === "PENDING" || booking.status === "ASSIGNED" || booking.status === "ARRIVED";
 
     if (canEditAssignment) {
+      setResourcesLoading(true);
       try {
         const [carsRes, driversRes] = await Promise.all([
-          apiClient.getAvailableVehicles({ limit: 100 }) as any,
-          apiClient.getAvailableDrivers({ limit: 100, driver_type: DriverType.CHAUFFEUR }) as any,
+          apiClient.getAvailableVehicles({ limit: 100 }),
+          apiClient.getAvailableDrivers({ limit: 100, driver_type: DriverType.CHAUFFEUR }),
         ]);
+        const cars = [...unwrapList<AssignableVehicle>(carsRes).rows];
+        const drivers = [...unwrapList<AssignableDriver>(driversRes).rows];
 
-        const carsRaw = carsRes?.data ?? carsRes;
-        const driversRaw = driversRes?.data ?? driversRes;
+        const currentCar = booking.vehicles as AssignableVehicle | undefined;
+        if (currentCar?.id != null && !cars.some((c) => c?.id === currentCar.id)) cars.push(currentCar);
 
-        const cars = carsRaw?.data ?? carsRaw ?? [];
-        const drivers = driversRaw?.data ?? driversRaw ?? [];
-
-        const currentCar = booking.vehicles;
-        if (currentCar?.id != null && !cars.some((c: any) => c?.id === currentCar.id)) {
-          cars.push(currentCar);
-        }
-
-        const currentDriver = booking.users_chauffeur_bookings_driver_idTousers;
-        if (currentDriver?.id && !drivers.some((d: any) => d?.id === currentDriver.id)) {
-          drivers.push(currentDriver);
-        }
+        const currentDriver = booking.users_chauffeur_bookings_driver_idTousers as AssignableDriver | undefined;
+        if (currentDriver?.id && !drivers.some((d) => d?.id === currentDriver.id)) drivers.push(currentDriver);
 
         setAvailableCars(cars);
         setAvailableDrivers(drivers);
       } catch (e) {
         console.error("Failed to load assignment resources", e);
+      } finally {
+        setResourcesLoading(false);
       }
     }
 
     if (booking.status !== "PENDING") {
-      loadPaymentData(booking.id);
+      void loadPaymentData(booking.id);
     }
   };
 
@@ -196,26 +276,30 @@ export function usePendingBookings() {
     return bookings.find((b) => b.id === selectedBookingId) ?? null;
   }, [bookings, selectedBookingId]);
 
-  const closeBookingModal = () => setSelectedBookingId(null);
+  const closeBookingModal = useCallback(() => setSelectedBookingId(null), []);
+
+  const activeFilterCount = (searchQuery ? 1 : 0) + (statusFilter ? 1 : 0) + (companyFilter ? 1 : 0) + (dateRange ? 1 : 0);
 
   return {
     bookings,
     pagination,
-    stats,
-    companies,
     isLoading,
+    listError,
+    stats,
+    statsLoading,
+    companies,
     searchQuery,
     setSearchQuery,
     statusFilter,
     setStatusFilter,
     companyFilter,
     setCompanyFilter,
-    startDate,
-    setStartDate,
-    endDate,
-    setEndDate,
-    currentPage,
-    setCurrentPage,
+    dateRange,
+    setDateRange,
+    clearFilters,
+    activeFilterCount,
+    currentPage: page,
+    setCurrentPage: setPage,
     selectedBooking,
     selectedBookingId,
     setSelectedBookingId,
@@ -226,6 +310,7 @@ export function usePendingBookings() {
     setSelectedDriverId,
     availableCars,
     availableDrivers,
+    resourcesLoading,
     paymentHistory,
     paymentSummary,
     onOpenBookingModal,

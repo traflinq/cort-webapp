@@ -1,20 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Save } from "lucide-react";
 import { SuperAdminPage } from "../../components/SuperAdminPage";
-import { AdminPageHeader } from "../../components/AdminPageHeader";
-import { ToggleSwitch } from "../../components/ToggleSwitch";
 import { apiClient } from "../../../lib/services/api-client";
 import type { MobileAppConfig } from "../../../lib/services/types/app-config";
-import {
-  adminBtnPrimary,
-  adminCardPadding,
-  adminInput,
-} from "../../components/ui/admin-styles";
+import { useConfirm } from "../../../lib/hooks/useConfirm";
+import { Badge, Button, Card, CardContent, CardHeader, CardSkeleton, ErrorState, Field, FormGrid, Input, PageHeader, Switch, Textarea } from "../../ui";
 
-const PLAY_STORE_PLACEHOLDER =
-  "https://play.google.com/store/apps/details?id=com.corttechnologies.traflinq";
+const PLAY_STORE_PLACEHOLDER = "https://play.google.com/store/apps/details?id=com.corttechnologies.traflinq";
 const APP_STORE_PLACEHOLDER = "https://apps.apple.com/app/idXXXXXXXX";
 
 type FormState = {
@@ -63,33 +58,57 @@ export default function AppConfigPage() {
 }
 
 function AppConfigContent() {
+  const confirm = useConfirm();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [saved, setSaved] = useState<FormState>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const fetchConfig = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await apiClient.getAppConfig();
-      setForm(toForm(data));
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load app config");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    void fetchConfig();
-  }, [fetchConfig]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiClient.getAppConfig();
+        if (cancelled) return;
+        const next = toForm(data);
+        setForm(next);
+        setSaved(next);
+        setError(null);
+      } catch (e: unknown) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load app config");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
+  const fetchConfig = useCallback(() => {
+    setLoading(true);
+    setReloadKey((k) => k + 1);
+  }, []);
+
+  const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(saved), [form, saved]);
 
   function patch<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   async function handleSave() {
+    if (form.maintenanceEnabled && !saved.maintenanceEnabled) {
+      const ok = await confirm({
+        title: "Turn on maintenance mode?",
+        message: "Every mobile app user will be blocked until maintenance mode is turned off again.",
+        consequences: ["Drivers cannot start or end trips from the app", "Employees cannot book or check in", "Takes effect when apps next come to the foreground"],
+        confirmLabel: "Turn on and save",
+        destructive: true,
+      });
+      if (!ok) return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -102,7 +121,9 @@ function AppConfigContent() {
         androidStoreUrl: emptyToNull(form.androidStoreUrl),
         forceUpdateMessage: emptyToNull(form.forceUpdateMessage),
       });
-      setForm(toForm(data));
+      const next = toForm(data);
+      setForm(next);
+      setSaved(next);
       toast.success("App config saved");
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to save app config";
@@ -114,144 +135,100 @@ function AppConfigContent() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-3xl mx-auto">
-      <AdminPageHeader
-        eyebrow="Settings"
-        title="App Config"
+    <div className="mx-auto max-w-3xl space-y-6">
+      <PageHeader
+        title="App config"
         description="Control mobile maintenance mode and the minimum iOS / Android versions. Open apps pick up changes the next time they launch or return to the foreground."
+        meta={
+          form.maintenanceEnabled ? (
+            <Badge tone="danger" dot>
+              Maintenance mode on
+            </Badge>
+          ) : (
+            <Badge tone="success" dot>
+              Apps available
+            </Badge>
+          )
+        }
+        actions={
+          <>
+            {dirty && (
+              <Button variant="ghost" onClick={() => setForm(saved)} disabled={saving}>
+                Discard
+              </Button>
+            )}
+            <Button onClick={() => void handleSave()} loading={saving} disabled={loading || !dirty} leftIcon={<Save />}>
+              Save changes
+            </Button>
+          </>
+        }
       />
 
-      {error && (
-        <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-          {error}
-        </p>
-      )}
+      {error && !loading && <ErrorState compact title="Couldn't load app config" message={error} onRetry={fetchConfig} />}
 
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--cort-navy)] border-t-transparent" />
-        </div>
+        <>
+          <CardSkeleton lines={3} />
+          <CardSkeleton lines={5} />
+        </>
       ) : (
         <>
-          <section className={adminCardPadding}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-                  Maintenance mode
-                </h2>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">
-                  Blocks the app for every user, even on the latest version. Use this when the
-                  service is temporarily unavailable.
-                </p>
-              </div>
-              <ToggleSwitch
+          <Card>
+            <CardHeader title="Maintenance mode" description="Blocks the app for every user, even on the latest version. Use this when the service is temporarily unavailable." />
+            <CardContent className="space-y-4">
+              <Switch
+                label="Maintenance mode"
+                description={form.maintenanceEnabled ? "The app is currently blocked for all users." : "The app is available to users."}
                 checked={form.maintenanceEnabled}
-                onChange={() => patch("maintenanceEnabled", !form.maintenanceEnabled)}
+                onCheckedChange={(checked) => patch("maintenanceEnabled", checked)}
                 disabled={saving}
               />
-            </div>
-            <label className="mt-4 block text-xs font-medium text-[var(--text-muted)]">
-              Message shown in the app
-            </label>
-            <textarea
-              className={`${adminInput} mt-1 min-h-[88px] resize-y`}
-              rows={3}
-              maxLength={500}
-              value={form.maintenanceMessage}
-              onChange={(e) => patch("maintenanceMessage", e.target.value)}
-              placeholder="Traflinq is temporarily unavailable. Please try again shortly."
-              disabled={saving}
-            />
-          </section>
-
-          <section className={adminCardPadding}>
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Force update</h2>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Users on a version below the platform minimum are stopped until they update from
-              the store. Leave a version blank to disable force-update for that platform.
-            </p>
-
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-muted)]">
-                  iOS min version
-                </label>
-                <input
-                  className={`${adminInput} mt-1`}
-                  value={form.iosMinVersion}
-                  onChange={(e) => patch("iosMinVersion", e.target.value)}
-                  placeholder="1.3.0"
+              <Field label="Message shown in the app" hint="Up to 500 characters.">
+                <Textarea
+                  rows={3}
+                  maxLength={500}
+                  value={form.maintenanceMessage}
+                  onChange={(e) => patch("maintenanceMessage", e.target.value)}
+                  placeholder="Traflinq is temporarily unavailable. Please try again shortly."
                   disabled={saving}
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-muted)]">
-                  Android min version
-                </label>
-                <input
-                  className={`${adminInput} mt-1`}
-                  value={form.androidMinVersion}
-                  onChange={(e) => patch("androidMinVersion", e.target.value)}
-                  placeholder="1.3.0"
-                  disabled={saving}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-muted)]">
-                  App Store URL
-                </label>
-                <input
-                  className={`${adminInput} mt-1`}
-                  value={form.iosStoreUrl}
-                  onChange={(e) => patch("iosStoreUrl", e.target.value)}
-                  placeholder={APP_STORE_PLACEHOLDER}
-                  disabled={saving}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-muted)]">
-                  Play Store URL
-                </label>
-                <input
-                  className={`${adminInput} mt-1`}
-                  value={form.androidStoreUrl}
-                  onChange={(e) => patch("androidStoreUrl", e.target.value)}
-                  placeholder={PLAY_STORE_PLACEHOLDER}
-                  disabled={saving}
-                />
-              </div>
-            </div>
+              </Field>
+            </CardContent>
+          </Card>
 
-            <label className="mt-4 block text-xs font-medium text-[var(--text-muted)]">
-              Update message
-            </label>
-            <textarea
-              className={`${adminInput} mt-1 min-h-[88px] resize-y`}
-              rows={3}
-              maxLength={500}
-              value={form.forceUpdateMessage}
-              onChange={(e) => patch("forceUpdateMessage", e.target.value)}
-              placeholder="A new version of Traflinq is required. Please update to continue."
-              disabled={saving}
-            />
-          </section>
+          <Card>
+            <CardHeader title="Force update" description="Users on a version below the platform minimum are stopped until they update from the store. Leave a version blank to disable force-update for that platform." />
+            <CardContent className="space-y-4">
+              <FormGrid cols={2}>
+                <Field label="iOS minimum version">
+                  <Input mono value={form.iosMinVersion} onChange={(e) => patch("iosMinVersion", e.target.value)} placeholder="1.3.0" disabled={saving} />
+                </Field>
+                <Field label="Android minimum version">
+                  <Input mono value={form.androidMinVersion} onChange={(e) => patch("androidMinVersion", e.target.value)} placeholder="1.3.0" disabled={saving} />
+                </Field>
+                <Field label="App Store URL">
+                  <Input type="url" value={form.iosStoreUrl} onChange={(e) => patch("iosStoreUrl", e.target.value)} placeholder={APP_STORE_PLACEHOLDER} disabled={saving} />
+                </Field>
+                <Field label="Play Store URL">
+                  <Input type="url" value={form.androidStoreUrl} onChange={(e) => patch("androidStoreUrl", e.target.value)} placeholder={PLAY_STORE_PLACEHOLDER} disabled={saving} />
+                </Field>
+              </FormGrid>
+              <Field label="Update message" hint="Up to 500 characters.">
+                <Textarea
+                  rows={3}
+                  maxLength={500}
+                  value={form.forceUpdateMessage}
+                  onChange={(e) => patch("forceUpdateMessage", e.target.value)}
+                  placeholder="A new version of Traflinq is required. Please update to continue."
+                  disabled={saving}
+                />
+              </Field>
+            </CardContent>
+          </Card>
 
-          <p className="text-xs text-[var(--text-muted)]">
-            Already-open apps refresh this config when brought back to the foreground (not
-            more than once a minute). This only affects iOS and Android builds that include
-            the version-check code.
+          <p className="text-xs text-fg-muted">
+            Already-open apps refresh this config when brought back to the foreground (not more than once a minute). This only affects iOS and Android builds that include the version-check code.
           </p>
-
-          <div>
-            <button
-              type="button"
-              className={adminBtnPrimary}
-              onClick={() => void handleSave()}
-              disabled={saving}
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-          </div>
         </>
       )}
     </div>

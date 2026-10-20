@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { adminEyebrow, adminPageTitle } from "./ui/admin-styles";
+import { PageHeader } from "../ui/PageHeader";
 
 type AdminPageHeaderProps = {
   eyebrow?: string;
@@ -10,17 +10,7 @@ type AdminPageHeaderProps = {
   action?: ReactNode;
 };
 
+/** Legacy wrapper; delegates to the design-system PageHeader. */
 export function AdminPageHeader({ eyebrow, title, description, action }: AdminPageHeaderProps) {
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        {eyebrow && <div className={adminEyebrow}>{eyebrow}</div>}
-        <h1 className={`mt-1 ${adminPageTitle}`}>{title}</h1>
-        {description && (
-          <p className="mt-1 max-w-2xl text-sm text-[var(--text-muted)]">{description}</p>
-        )}
-      </div>
-      {action}
-    </div>
-  );
+  return <PageHeader title={title} description={description} actions={action} breadcrumbs={eyebrow ? [{ label: eyebrow }] : undefined} />;
 }

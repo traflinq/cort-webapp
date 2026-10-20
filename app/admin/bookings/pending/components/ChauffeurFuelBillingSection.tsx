@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "../../../../lib/services/api-client";
 import type { ChauffeurContract } from "../../../../lib/services/types/pricing";
+import { Field, Input, Select } from "../../../ui";
+import { formatCurrency } from "../../../lib/format";
 
 export type ChauffeurFuelMode = "CONTRACT" | "SELECTED";
 
@@ -28,28 +30,15 @@ function calculateAdjustedRate(
   currentPrice: number,
   revisionPercentage: number | null,
 ): { adjusted: number; willAdjust: boolean; percentChange: number } {
-  if (!contractBase) {
-    return { adjusted: baseRate, willAdjust: false, percentChange: 0 };
-  }
+  if (!contractBase) return { adjusted: baseRate, willAdjust: false, percentChange: 0 };
   const percentChange = (currentPrice - contractBase) / contractBase;
-  const willAdjust =
-    revisionPercentage === null || Math.abs(percentChange) > revisionPercentage;
-  return {
-    adjusted: willAdjust ? baseRate * (currentPrice / contractBase) : baseRate,
-    willAdjust,
-    percentChange,
-  };
+  const willAdjust = revisionPercentage === null || Math.abs(percentChange) > revisionPercentage;
+  return { adjusted: willAdjust ? baseRate * (currentPrice / contractBase) : baseRate, willAdjust, percentChange };
 }
 
-export function ChauffeurFuelBillingSection({
-  companyId,
-  vehicleModel,
-  distanceKm,
-  fuelMode,
-  selectedFuelPrice,
-  onFuelModeChange,
-  onSelectedFuelPriceChange,
-}: Props) {
+const money2 = (n: number) => formatCurrency(n, { digits: 2 });
+
+export function ChauffeurFuelBillingSection({ companyId, vehicleModel, distanceKm, fuelMode, selectedFuelPrice, onFuelModeChange, onSelectedFuelPriceChange }: Props) {
   const [contract, setContract] = useState<ChauffeurContract | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -58,21 +47,21 @@ export function ChauffeurFuelBillingSection({
     let cancelled = false;
     (async () => {
       try {
-        const res = await apiClient.getChauffeurContracts(companyId);
-        const raw: any = res;
-        const contracts: ChauffeurContract[] = Array.isArray(raw?.data)
-          ? raw.data
-          : Array.isArray(raw)
-            ? raw
-            : Array.isArray(raw?.data?.data)
-              ? raw.data.data
+        const res: unknown = await apiClient.getChauffeurContracts(companyId);
+        const raw = res as { data?: ChauffeurContract[] | { data?: ChauffeurContract[] } } | ChauffeurContract[];
+        const contracts: ChauffeurContract[] = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.data)
+            ? raw.data
+            : Array.isArray((raw?.data as { data?: ChauffeurContract[] })?.data)
+              ? ((raw?.data as { data?: ChauffeurContract[] }).data as ChauffeurContract[])
               : [];
         if (!cancelled) {
           setContract(contracts[0] ?? null);
           setLoadError(contracts[0] ? null : "No chauffeur contract found for this company.");
         }
       } catch {
-        if (!cancelled) setLoadError("Could not load chauffeur contract.");
+        if (!cancelled) setLoadError("Could not load the chauffeur contract.");
       }
     })();
     return () => {
@@ -97,12 +86,9 @@ export function ChauffeurFuelBillingSection({
     if (!contract) return null;
     const petrolBase = parsePositiveNumber(contract.fuel_base_price) ?? 0;
     const revisionRaw = contract.revision_percentage;
-    const revision =
-      revisionRaw == null || revisionRaw === "" ? null : Number(revisionRaw);
+    const revision = revisionRaw == null || revisionRaw === "" ? null : Number(revisionRaw);
     const safeRevision = revision != null && Number.isFinite(revision) ? revision : null;
-    const rate = (contract.chauffeur_contract_rates ?? []).find(
-      (r) => r.vehicle_model === vehicleModel,
-    );
+    const rate = (contract.chauffeur_contract_rates ?? []).find((r) => r.vehicle_model === vehicleModel);
     const baseCostPerKm = Number(rate?.cost_per_km ?? 0);
     const distance = Number(distanceKm);
     const billedDistance = Number.isFinite(distance) && distance > 0 ? distance : 0;
@@ -118,10 +104,8 @@ export function ChauffeurFuelBillingSection({
     const adjustedFuelTotal = roundedCostPerKm * billedDistance;
 
     return {
-      petrolBase,
       revisionLabel: safeRevision == null ? "No limit (always revises)" : `${(safeRevision * 100).toFixed(1)}%`,
       baseCostPerKm,
-      adjustedCostPerKm: effectiveCostPerKm,
       roundedCostPerKm,
       billedDistance,
       percentChange: fuel.percentChange,
@@ -130,120 +114,95 @@ export function ChauffeurFuelBillingSection({
       adjustedFuelTotal,
       delta: adjustedFuelTotal - contractFuelTotal,
       vehicleModel: rate.vehicle_model,
+      changed: Math.abs(roundedCostPerKm - Math.round(baseCostPerKm)) > 0,
     };
   }, [contract, vehicleModel, distanceKm, fuelMode, selectedFuelPrice]);
 
   return (
     <div className="space-y-3">
-      <h4 className="text-xs font-semibold text-muted uppercase tracking-wider">
-        Fuel Billing
-      </h4>
-      <label className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-navy">How to bill fuel for this invoice</span>
-        <select
-          value={fuelMode}
-          onChange={(e) => onFuelModeChange(e.target.value as ChauffeurFuelMode)}
-          className="h-9 rounded-md border border-border px-2 text-sm focus:outline-none focus:ring-1 focus:ring-orange bg-white"
-        >
+      <h4 className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Fuel billing</h4>
+      <Field
+        label="How to bill fuel for this invoice"
+        error={loadError}
+        hint={
+          !loadError && contract?.fuel_base_price
+            ? `Contract petrol base: PKR ${contract.fuel_base_price}/L${
+                contract.revision_percentage != null && contract.revision_percentage !== ""
+                  ? ` · Threshold: ${(Number(contract.revision_percentage) * 100).toFixed(1)}%`
+                  : " · Always revises with fuel price"
+              }`
+            : undefined
+        }
+      >
+        <Select value={fuelMode} onChange={(e) => onFuelModeChange(e.target.value as ChauffeurFuelMode)}>
           <option value="CONTRACT">Same as contract (no fuel revision)</option>
-          <option value="SELECTED">Adjust to selected fuel (this invoice only)</option>
-        </select>
-        {contract?.fuel_base_price && (
-          <p className="text-xs text-muted">
-            Contract petrol base: PKR {contract.fuel_base_price}/L
-            {contract.revision_percentage != null && contract.revision_percentage !== ""
-              ? ` · Threshold: ${(Number(contract.revision_percentage) * 100).toFixed(1)}%`
-              : " · Always revises with fuel price"}
-          </p>
-        )}
-        {loadError && <p className="text-xs text-red-600">{loadError}</p>}
-      </label>
+          <option value="SELECTED">Adjust to selected fuel price (this invoice only)</option>
+        </Select>
+      </Field>
 
       {fuelMode === "SELECTED" && (
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-navy">Petrol Price (PKR/L)</span>
-          <input
-            type="number"
-            min={0}
-            step="0.01"
-            value={selectedFuelPrice}
-            onChange={(e) => onSelectedFuelPriceChange(e.target.value)}
-            placeholder="e.g. 264.61"
-            className="h-9 rounded-md border border-border px-3 text-sm focus:outline-none focus:ring-1 focus:ring-orange"
-          />
-          <p className="text-xs text-muted">
-            Fuel on this invoice is revised against the contract base using this price. Global fuel settings are not changed.
-          </p>
-        </label>
+        <Field label="Petrol price (PKR/L)" hint="Fuel on this invoice is revised against the contract base using this price. Global fuel settings are not changed.">
+          <Input type="number" min={0} step="0.01" value={selectedFuelPrice} onChange={(e) => onSelectedFuelPriceChange(e.target.value)} placeholder="e.g. 264.61" mono />
+        </Field>
       )}
 
       {preview ? (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <div className="px-3 py-2 bg-surface space-y-1">
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Fuel Adjustment Preview
-            </div>
-            <p className="text-xs text-navy/80">
-              {fuelMode === "CONTRACT"
-                ? "Fuel will be billed at the contract cost/km with no petrol revision."
-                : (
-                  <>
-                    Contract threshold: {preview.revisionLabel}. Selected petrol is{" "}
-                    {preview.percentChange >= 0 ? "+" : ""}
-                    {(preview.percentChange * 100).toFixed(1)}% vs contract
-                    {preview.willAdjust
-                      ? " — cost/km will be revised."
-                      : " — within threshold, cost/km stays as contract."}
-                  </>
-                )}
+        <div className="overflow-hidden rounded-lg border border-line">
+          <div className="space-y-1 bg-subtle px-3 py-2">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Fuel adjustment preview</div>
+            <p className="text-xs text-fg-secondary">
+              {fuelMode === "CONTRACT" ? (
+                "Fuel is billed at the contract cost/km with no petrol revision."
+              ) : (
+                <>
+                  Contract threshold: {preview.revisionLabel}. Selected petrol is {preview.percentChange >= 0 ? "+" : ""}
+                  {(preview.percentChange * 100).toFixed(1)}% vs contract
+                  {preview.willAdjust ? " — cost/km will be revised." : " — within threshold, cost/km stays as contract."}
+                </>
+              )}
             </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="bg-surface">
+              <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
                 <tr>
-                  <th className="px-3 py-2 text-left font-semibold text-muted">Vehicle</th>
-                  <th className="px-3 py-2 text-right font-semibold text-muted">Contract / km</th>
-                  <th className="px-3 py-2 text-right font-semibold text-muted">Billed / km</th>
-                  <th className="px-3 py-2 text-right font-semibold text-muted">This invoice fuel</th>
+                  <th scope="col" className="px-3 py-2 text-left">
+                    Vehicle
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-right">
+                    Contract / km
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-right">
+                    Billed / km
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-right">
+                    This invoice fuel
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-t border-border">
+                <tr className="border-t border-line">
                   <td className="px-3 py-2">
-                    <div className="font-medium text-navy">{preview.vehicleModel}</div>
-                    <div className="text-muted">
-                      {preview.billedDistance > 0
-                        ? `${preview.billedDistance} km`
-                        : "Enter distance to see billed fuel"}
-                    </div>
+                    <div className="font-medium text-fg">{preview.vehicleModel}</div>
+                    <div className="text-fg-muted">{preview.billedDistance > 0 ? `${preview.billedDistance} km` : "Enter distance to see billed fuel"}</div>
                   </td>
-                  <td className="px-3 py-2 text-right">
-                    {preview.baseCostPerKm.toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                  <td className={`px-3 py-2 text-right font-semibold ${Math.abs(preview.roundedCostPerKm - Math.round(preview.baseCostPerKm)) > 0 ? "text-orange-600" : "text-green-600"}`}>
-                    {preview.roundedCostPerKm.toLocaleString("en-PK")}
-                  </td>
-                  <td className="px-3 py-2 text-right text-navy">
-                    {preview.billedDistance > 0
-                      ? preview.adjustedFuelTotal.toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                      : "—"}
-                  </td>
+                  <td className="px-3 py-2 text-right font-mono tabular-nums text-fg">{preview.baseCostPerKm.toFixed(2)}</td>
+                  <td className={`px-3 py-2 text-right font-mono font-semibold tabular-nums ${preview.changed ? "text-warning-ink" : "text-success-ink"}`}>{preview.roundedCostPerKm}</td>
+                  <td className="px-3 py-2 text-right font-mono tabular-nums text-fg">{preview.billedDistance > 0 ? money2(preview.adjustedFuelTotal) : "—"}</td>
                 </tr>
               </tbody>
             </table>
           </div>
           {preview.billedDistance > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-3 py-2 text-xs">
-              <span className="text-muted">
-                Contract fuel: PKR {preview.contractFuelTotal.toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              <span className="font-semibold text-navy">
-                Billed fuel: PKR {preview.adjustedFuelTotal.toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-3 py-2 text-xs">
+              <span className="text-fg-muted">Contract fuel: {money2(preview.contractFuelTotal)}</span>
+              <span className="font-semibold text-fg">
+                Billed fuel: {money2(preview.adjustedFuelTotal)}
                 {Math.abs(preview.delta) >= 0.01 && (
-                  <span className={preview.delta > 0 ? " text-orange-600" : " text-green-600"}>
-                    {" "}({preview.delta > 0 ? "+" : ""}
-                    {preview.delta.toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                  <span className={preview.delta > 0 ? " text-warning-ink" : " text-success-ink"}>
+                    {" "}
+                    ({preview.delta > 0 ? "+" : ""}
+                    {money2(preview.delta)})
                   </span>
                 )}
               </span>
@@ -251,9 +210,7 @@ export function ChauffeurFuelBillingSection({
           )}
         </div>
       ) : fuelMode === "SELECTED" ? (
-        <p className="text-xs text-muted">
-          Enter a petrol price to preview the fuel adjustment for this invoice.
-        </p>
+        <p className="text-xs text-fg-muted">Enter a petrol price to preview the fuel adjustment for this invoice.</p>
       ) : null}
     </div>
   );

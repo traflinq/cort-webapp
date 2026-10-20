@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import { Building2, Clock, MapPin, Users } from 'lucide-react';
-import { Card } from '@/app/admin/ui/Card';
-import { getOfficeStops, isOfficeStop } from '@/app/lib/utils/routeStops';
-import { formatEtaTime12h, formatPktTime12h } from '@/app/lib/utils';
+import { Building2, CheckCheck, CheckCircle2, Clock, MapPin, Users, XCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { getOfficeStops, isOfficeStop } from "@/app/lib/utils/routeStops";
+import { Badge, Card, EmptyState, Skeleton, StatusBadge, type BadgeTone, type StatusEntry } from "@/app/admin/ui";
+import { formatTime, initials } from "@/app/admin/lib/format";
 
 export type TripEmployee = {
   /** Assignment row id — not always present on the trip employees payload. */
@@ -42,12 +43,12 @@ export type TripDetailStop = {
   morning_eta: string | null;
   evening_eta: string | null;
   /** 'PICKUP' | 'OFFICE' — defaults to 'PICKUP' server-side. */
-  stop_type?: 'PICKUP' | 'OFFICE';
+  stop_type?: "PICKUP" | "OFFICE";
 };
 
 export type TripDetailTrip = {
   id: number;
-  direction: 'MORNING' | 'EVENING';
+  direction: "MORNING" | "EVENING";
   status: string;
   started_at: string | null;
   current_stop_id: number | null;
@@ -61,24 +62,27 @@ export type TripDetailTrip = {
   } | null;
 };
 
-function formatTime(iso: string | null | undefined) {
-  return formatPktTime12h(iso);
-}
+/** Shuttle-trip status keys the shared registry doesn't know. */
+export const SHUTTLE_STATUS_OVERRIDES: Record<string, StatusEntry> = {
+  STARTED: { tone: "info", label: "Started" },
+  AT_STOP: { tone: "brand", label: "At stop" },
+};
 
-function boardingLabel(emp: TripEmployee) {
+type BoardingState = { text: string; tone: BadgeTone; icon: React.ReactNode };
+
+function boardingState(emp: TripEmployee): BoardingState {
   const boarding = emp.boarding;
-  if (boarding?.status === 'ABSENT') {
-    return { text: 'Absent', className: 'text-red-600' };
+  const iconCls = "size-3";
+  if (boarding?.status === "ABSENT") {
+    return { text: "Absent", tone: "danger", icon: <XCircle className={iconCls} aria-hidden="true" /> };
   }
-  const dropOffAt = formatTime(boarding?.drop_off_at);
-  if (dropOffAt) {
-    return { text: `Dropped off ${dropOffAt}`, className: 'text-sky-600' };
+  if (boarding?.drop_off_at) {
+    return { text: `Dropped off ${formatTime(boarding.drop_off_at)}`, tone: "info", icon: <CheckCheck className={iconCls} aria-hidden="true" /> };
   }
-  const boardedAt = formatTime(boarding?.scanned_at);
-  if (boardedAt) {
-    return { text: `Boarded ${boardedAt}`, className: 'text-emerald-600' };
+  if (boarding?.scanned_at) {
+    return { text: `Boarded ${formatTime(boarding.scanned_at)}`, tone: "success", icon: <CheckCircle2 className={iconCls} aria-hidden="true" /> };
   }
-  return { text: 'Not yet boarded', className: 'text-gray-400' };
+  return { text: "Not yet boarded", tone: "neutral", icon: <Clock className={iconCls} aria-hidden="true" /> };
 }
 
 export function occupancyCounts(employees: TripEmployee[]) {
@@ -88,7 +92,7 @@ export function occupancyCounts(employees: TripEmployee[]) {
   let pending = 0;
   for (const emp of employees) {
     const b = emp.boarding;
-    if (b?.status === 'ABSENT') {
+    if (b?.status === "ABSENT") {
       absent += 1;
     } else if (b?.drop_off_at) {
       droppedOff += 1;
@@ -101,29 +105,33 @@ export function occupancyCounts(employees: TripEmployee[]) {
   return { boarded, absent, droppedOff, pending, total: employees.length };
 }
 
+function isActiveStatus(status: string) {
+  return status === "STARTED" || status === "IN_PROGRESS";
+}
+
 type TripDetailPanelProps = {
   trip: TripDetailTrip;
   employees: TripEmployee[];
   loading: boolean;
   liveStopName?: string | null;
   liveNextStopName?: string | null;
+  /** Render without the card chrome (inside a Drawer). */
+  flush?: boolean;
+  className?: string;
 };
 
-export function TripDetailPanel({
-  trip,
-  employees,
-  loading,
-  liveStopName,
-  liveNextStopName,
-}: TripDetailPanelProps) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">{children}</p>;
+}
+
+export function TripDetailPanel({ trip, employees, loading, liveStopName, liveNextStopName, flush = false, className }: TripDetailPanelProps) {
   const stops = trip.routes?.route_stops ?? [];
-  const currentStop =
-    stops.find((s) => s.id === trip.current_stop_id) ?? null;
+  const currentStop = stops.find((s) => s.id === trip.current_stop_id) ?? null;
   const currentStopName = liveStopName || currentStop?.name || null;
   const stopStatus = trip.current_stop_status ?? null;
   const counts = occupancyCounts(employees);
   const vehicle = trip.routes?.vehicles;
-  const vehicleLabel = [vehicle?.model, vehicle?.plate_number].filter(Boolean).join(' · ') || '—';
+  const vehicleLabel = [vehicle?.model, vehicle?.plate_number].filter(Boolean).join(" · ") || "—";
   const officeStops = getOfficeStops(stops);
   const hasMultipleOffices = officeStops.length > 1;
 
@@ -132,7 +140,7 @@ export function TripDetailPanel({
     ? (() => {
         const byOffice = new Map<string, TripEmployee[]>();
         for (const emp of employees) {
-          const officeName = emp.office_route_stops?.name ?? 'Unassigned office';
+          const officeName = emp.office_route_stops?.name ?? "Unassigned office";
           if (!byOffice.has(officeName)) byOffice.set(officeName, []);
           byOffice.get(officeName)!.push(emp);
         }
@@ -140,202 +148,154 @@ export function TripDetailPanel({
       })()
     : [{ officeName: null, employees }];
 
-  return (
-    <Card className="flex flex-col h-full min-h-0 overflow-y-auto overscroll-contain p-0">
+  const body = (
+    <>
       {/* Header */}
-      <div className="p-4 border-b border-gray-100 shrink-0">
-        <div className="flex items-center gap-1.5 flex-wrap mb-2">
-          <span
-            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-              trip.direction === 'MORNING'
-                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-            }`}
-          >
-            {trip.direction === 'MORNING' ? 'Morning' : 'Evening'}
-          </span>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-            {trip.status}
-          </span>
-          {stopStatus && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-orange-50 text-orange-700 border border-orange-200">
-              {stopStatus === 'AT_STOP' ? 'At stop' : stopStatus === 'EN_ROUTE' ? 'En route' : stopStatus}
-            </span>
-          )}
+      <div className="shrink-0 border-b border-line p-4">
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          <Badge tone={trip.direction === "MORNING" ? "warning" : "purple"} size="sm">
+            {trip.direction === "MORNING" ? "Morning" : "Evening"}
+          </Badge>
+          <StatusBadge status={trip.status} size="sm" overrides={SHUTTLE_STATUS_OVERRIDES} />
+          {stopStatus && <StatusBadge status={stopStatus} size="sm" overrides={SHUTTLE_STATUS_OVERRIDES} />}
         </div>
-        <h3 className="text-sm font-bold text-gray-900 leading-tight">
-          {trip.routes?.name ?? `Trip #${trip.id}`}
-        </h3>
-        <p className="text-xs text-gray-500 mt-0.5">{vehicleLabel}</p>
+        <h3 className="text-sm font-semibold leading-tight text-fg">{trip.routes?.name ?? `Trip #${trip.id}`}</h3>
+        <p className="mt-0.5 font-mono text-xs text-fg-muted">{vehicleLabel}</p>
         {trip.started_at && (
-          <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1 font-medium">
-            <Clock className="w-3 h-3" />
+          <p className="mt-1 flex items-center gap-1 text-[11px] text-fg-muted">
+            <Clock className="size-3" aria-hidden="true" />
             Started {formatTime(trip.started_at)}
           </p>
         )}
       </div>
 
       {/* Current stop */}
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3 shrink-0">
-        <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-          <MapPin className="w-3.5 h-3.5 text-orange-600" />
+      <div className="flex shrink-0 items-center gap-3 border-b border-line px-4 py-3">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-ink">
+          <MapPin className="size-3.5" aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-            Current stop
-          </div>
-          <div className="text-sm font-semibold text-gray-900 truncate">
-            {currentStopName ?? (isActiveStatus(trip.status) ? 'Not arrived yet' : '—')}
-          </div>
-          {liveNextStopName && stopStatus === 'EN_ROUTE' && (
-            <div className="text-[11px] text-gray-500 mt-0.5">
-              Next: {liveNextStopName}
-            </div>
-          )}
+          <SectionLabel>Current stop</SectionLabel>
+          <div className="truncate text-sm font-semibold text-fg">{currentStopName ?? (isActiveStatus(trip.status) ? "Not arrived yet" : "—")}</div>
+          {liveNextStopName && stopStatus === "EN_ROUTE" && <div className="mt-0.5 text-[11px] text-fg-muted">Next: {liveNextStopName}</div>}
         </div>
       </div>
 
       {/* Occupancy */}
-      <div className="px-4 py-3 border-b border-gray-100 shrink-0">
-        <div className="flex items-center justify-between mb-2">
+      <div className="shrink-0 border-b border-line px-4 py-3">
+        <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Users className="w-3.5 h-3.5 text-gray-400" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              Passengers
-            </span>
+            <Users className="size-3.5 text-fg-muted" aria-hidden="true" />
+            <SectionLabel>Passengers</SectionLabel>
           </div>
-          <span className="text-sm font-bold text-gray-900">
-            {loading ? '…' : counts.total}
-          </span>
+          <span className="text-sm font-semibold tabular-nums text-fg">{loading ? "…" : counts.total}</span>
         </div>
         {!loading && counts.total > 0 && (
-          <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-            <span className="text-emerald-600 font-semibold">Boarded {counts.boarded}</span>
-            <span className="text-red-600 font-semibold">Absent {counts.absent}</span>
-            <span className="text-sky-600 font-semibold">Dropped {counts.droppedOff}</span>
-            <span className="text-gray-500 font-semibold">Pending {counts.pending}</span>
-          </div>
+          <ul className="grid grid-cols-2 gap-1.5 text-[11px] font-medium">
+            <li className="flex items-center gap-1 text-success-ink">
+              <CheckCircle2 className="size-3" aria-hidden="true" /> Boarded {counts.boarded}
+            </li>
+            <li className="flex items-center gap-1 text-danger-ink">
+              <XCircle className="size-3" aria-hidden="true" /> Absent {counts.absent}
+            </li>
+            <li className="flex items-center gap-1 text-info-ink">
+              <CheckCheck className="size-3" aria-hidden="true" /> Dropped {counts.droppedOff}
+            </li>
+            <li className="flex items-center gap-1 text-fg-muted">
+              <Clock className="size-3" aria-hidden="true" /> Pending {counts.pending}
+            </li>
+          </ul>
         )}
       </div>
 
       {/* Stop progress */}
       {stops.length > 0 && (
-        <div className="px-4 py-3 border-b border-gray-100 shrink-0">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">
-            Stop progress
-          </div>
-          <div className="space-y-1.5">
+        <div className="shrink-0 border-b border-line px-4 py-3">
+          <SectionLabel>Stop progress</SectionLabel>
+          <ol className="mt-2 space-y-1">
             {stops.map((stop, idx) => {
               const isCurrent = stop.id === trip.current_stop_id;
               const isOffice = isOfficeStop(stop);
-              const etaRaw =
-                trip.direction === 'MORNING' ? stop.morning_eta : stop.evening_eta;
-              const eta = formatEtaTime12h(etaRaw);
+              const etaRaw = trip.direction === "MORNING" ? stop.morning_eta : stop.evening_eta;
+              const eta = etaRaw ? formatTime(etaRaw) : null;
               return (
-                <div
+                <li
                   key={stop.id}
-                  className={`flex items-center gap-2 text-xs rounded-lg px-2 py-1.5 ${
-                    isCurrent
-                      ? 'bg-orange-50 text-orange-800 font-semibold'
-                      : isOffice
-                        ? 'bg-red-50/60 text-gray-700'
-                        : 'text-gray-600'
-                  }`}
+                  aria-current={isCurrent ? "step" : undefined}
+                  className={cn("flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs", isCurrent ? "bg-brand-soft font-semibold text-brand-ink" : "text-fg-secondary")}
                 >
                   <span
-                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                      isCurrent
-                        ? 'bg-orange-500 text-white'
-                        : isOffice
-                          ? 'bg-red-500 text-white'
-                          : 'bg-gray-100 text-gray-500'
-                    }`}
+                    className={cn(
+                      "flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
+                      isCurrent ? "bg-brand text-white" : isOffice ? "bg-danger-soft text-danger-ink" : "bg-subtle text-fg-muted",
+                    )}
                   >
-                    {isOffice ? <Building2 className="w-3 h-3" /> : idx + 1}
+                    {isOffice ? <Building2 className="size-3" aria-hidden="true" /> : idx + 1}
                   </span>
-                  <span className="truncate flex-1">{stop.name}</span>
+                  <span className="flex-1 truncate">{stop.name}</span>
                   {isOffice && (
-                    <span className="text-[9px] font-bold uppercase tracking-wide bg-red-100 text-red-700 px-1.5 py-0.5 rounded shrink-0">
+                    <Badge tone="danger" size="sm">
                       Office
-                    </span>
+                    </Badge>
                   )}
-                  {eta && <span className="text-[10px] text-gray-400 shrink-0">{eta}</span>}
-                </div>
+                  {eta && <span className="shrink-0 font-mono text-[10px] text-fg-muted">{eta}</span>}
+                </li>
               );
             })}
-          </div>
+          </ol>
         </div>
       )}
 
       {/* Employee list */}
       <div className="shrink-0">
-        <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-            Assigned employees
-          </span>
+        <div className="border-b border-line bg-subtle px-4 py-2.5">
+          <SectionLabel>Assigned employees</SectionLabel>
         </div>
-        <div className="p-3 space-y-2">
+        <div className="space-y-2 p-3">
           {loading ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50 animate-pulse"
-              >
-                <div className="w-7 h-7 rounded-full bg-gray-200" />
+              <div key={i} className="flex items-center gap-3 rounded-lg bg-subtle p-2.5">
+                <Skeleton className="size-7 rounded-full" />
                 <div className="flex-1 space-y-1.5">
-                  <div className="h-2.5 bg-gray-200 rounded w-3/4" />
-                  <div className="h-2 bg-gray-200 rounded w-1/2" />
+                  <Skeleton className="h-2.5 w-3/4" />
+                  <Skeleton className="h-2 w-1/2" />
                 </div>
               </div>
             ))
           ) : employees.length === 0 ? (
-            <div className="py-8 flex flex-col items-center gap-2">
-              <Users className="w-5 h-5 text-gray-300" />
-              <p className="text-xs text-gray-400 font-medium">No employees assigned</p>
-            </div>
+            <EmptyState compact icon={<Users aria-hidden="true" />} title="No employees assigned" />
           ) : (
             employeeGroups.map((group) => (
-              <div key={group.officeName ?? 'all'} className="space-y-2">
+              <div key={group.officeName ?? "all"} className="space-y-2">
                 {group.officeName && (
                   <div className="flex items-center gap-1.5 px-0.5 pt-1 first:pt-0">
-                    <Building2 className="w-3 h-3 text-red-500" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-red-600">
-                      {group.officeName}
-                    </span>
-                    <span className="text-[10px] text-gray-400">({group.employees.length})</span>
+                    <Building2 className="size-3 text-danger-ink" aria-hidden="true" />
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-danger-ink">{group.officeName}</span>
+                    <span className="text-[11px] text-fg-muted">({group.employees.length})</span>
                   </div>
                 )}
                 {group.employees.map((emp) => {
-                  const label = boardingLabel(emp);
-                  const name = emp.users?.full_name ?? 'Unknown';
+                  const state = boardingState(emp);
+                  const name = emp.users?.full_name ?? "Unknown";
                   return (
-                    <div
-                      key={emp.user_id}
-                      className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50 border border-gray-100"
-                    >
-                      <div className="w-7 h-7 rounded-full bg-[#0C225E]/10 flex items-center justify-center shrink-0">
-                        <span className="text-[10px] font-bold text-[#0C225E]">
-                          {name.charAt(0).toUpperCase()}
-                        </span>
+                    <div key={emp.user_id} className="flex items-center gap-3 rounded-lg border border-line bg-subtle p-2.5">
+                      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-soft">
+                        <span className="text-[10px] font-semibold text-brand-ink">{initials(name, 1)}</span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-semibold text-gray-900 truncate">{name}</div>
-                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-xs font-semibold text-fg">{name}</div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                           {emp.route_stops?.name && (
-                            <span className="text-[10px] text-gray-500 font-medium flex items-center gap-0.5">
-                              <MapPin className="w-2.5 h-2.5" />
+                            <span className="flex items-center gap-0.5 text-[10px] font-medium text-fg-secondary">
+                              <MapPin className="size-2.5" aria-hidden="true" />
                               {emp.route_stops.name}
                             </span>
                           )}
-                          {emp.users?.department && (
-                            <span className="text-[10px] text-gray-400 truncate">
-                              {emp.users.department}
-                            </span>
-                          )}
+                          {emp.users?.department && <span className="truncate text-[10px] text-fg-muted">{emp.users.department}</span>}
                         </div>
-                        <div className={`mt-0.5 text-[10px] font-bold ${label.className}`}>
-                          {label.text}
-                        </div>
+                        <Badge tone={state.tone} size="sm" icon={state.icon} className="mt-1">
+                          {state.text}
+                        </Badge>
                       </div>
                     </div>
                   );
@@ -345,10 +305,9 @@ export function TripDetailPanel({
           )}
         </div>
       </div>
-    </Card>
+    </>
   );
-}
 
-function isActiveStatus(status: string) {
-  return status === 'STARTED' || status === 'IN_PROGRESS';
+  if (flush) return <div className={cn("flex flex-col", className)}>{body}</div>;
+  return <Card className={cn("flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain", className)}>{body}</Card>;
 }

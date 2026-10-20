@@ -1,39 +1,45 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+import { Button } from "./ui/Button";
 
 export default function AdminError({
-    error,
-    reset,
+  error,
+  reset,
 }: {
-    error: Error & { digest?: string };
-    reset: () => void;
+  error: Error & { digest?: string };
+  reset: () => void;
 }) {
-    useEffect(() => {
-        console.error("[Admin Error Boundary]", error);
-    }, [error]);
+  useEffect(() => {
+    console.error("[Admin Error Boundary]", error);
+  }, [error]);
 
-    return (
-        <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="flex flex-col items-center gap-4 max-w-md text-center px-4">
-                <div className="h-14 w-14 rounded-full bg-red-50 flex items-center justify-center">
-                    <svg className="h-7 w-7 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-                    </svg>
-                </div>
-                <div>
-                    <h2 className="text-lg font-semibold text-gray-900">Something went wrong</h2>
-                    <p className="mt-1 text-sm text-gray-500">
-                        {error.message || "An unexpected error occurred. Please try again."}
-                    </p>
-                </div>
-                <button
-                    onClick={reset}
-                    className="px-4 py-2 text-sm font-medium text-white bg-orange rounded-lg hover:bg-orange/90 transition-colors"
-                >
-                    Try again
-                </button>
-            </div>
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <div role="alert" className="flex w-full max-w-md flex-col items-center gap-4 rounded-2xl border border-line bg-card p-8 text-center shadow-[var(--shadow-card)]">
+        <div className="flex size-12 items-center justify-center rounded-full bg-danger-soft text-danger-ink">
+          <AlertTriangle className="size-6" aria-hidden="true" />
         </div>
-    );
+        <div>
+          <h2 className="text-lg font-semibold text-fg">Something went wrong</h2>
+          <p className="mt-1 text-sm text-fg-muted">
+            This page hit an unexpected error. You can retry, or go back to the dashboard.
+          </p>
+          {error.digest && (
+            <p className="mt-3 font-mono text-[11px] text-fg-muted">Reference: {error.digest}</p>
+          )}
+        </div>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row">
+          <Button variant="outline" asChild>
+            <Link href="/admin">Go to dashboard</Link>
+          </Button>
+          <Button onClick={reset} leftIcon={<RefreshCw />}>
+            Try again
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }

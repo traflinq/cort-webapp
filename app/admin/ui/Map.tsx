@@ -2,6 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+
+/** Info-window content is raw HTML: escape user-provided stop/person names to prevent injection. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export type MapMarker = {
   id: string;
   position: [number, number]; // [lat, lng]
@@ -311,10 +322,10 @@ export default function Map({
           const iw = infoWindowRef.current!;
           gmMarker.addListener('click', () => {
             const description = marker.description
-              ? `<div style="font-size:11px;color:#4b5563;margin-top:4px">${marker.description}</div>`
+              ? `<div style="font-size:11px;color:#4b5563;margin-top:4px">${escapeHtml(marker.description)}</div>`
               : '';
             iw.setContent(
-              `<div style="font-size:12px;font-weight:600">${marker.label}</div>${description}`,
+              `<div style="font-size:12px;font-weight:600">${escapeHtml(marker.label ?? '')}</div>${description}`,
             );
             iw.open({ anchor: gmMarker, map: mapRef.current });
             onMarkerClickRef.current?.(marker.id);
@@ -372,7 +383,7 @@ export default function Map({
     }
 
     return () => { cancelled = true; };
-  }, [mapReady, markers, center]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mapReady, markers, center]);
 
   // ── Sync polylines ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -439,7 +450,7 @@ export default function Map({
   return (
     <div
       ref={containerRef}
-      className={`rounded-lg overflow-hidden border border-border shadow-lg ${className}`}
+      className={`rounded-lg overflow-hidden border border-line shadow-lg ${className}`}
       style={{ height, width: '100%' }}
     />
   );

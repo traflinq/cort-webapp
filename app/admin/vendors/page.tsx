@@ -1,365 +1,290 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import { useDebounce } from "../../lib/hooks/useDebounce";
 import { useConfirm } from "../../lib/hooks/useConfirm";
 import {
-    fetchAdminVendors,
-    createAdminVendor,
-    updateAdminVendor,
-    deleteAdminVendor,
-    selectAdminVendors,
-    selectAdminVendorsStatus,
-    selectAdminVendorsActionStatus,
-    selectAdminVendorsError,
-    selectVendorFilters,
-    resetActionStatus,
-    selectAdminVendorsPagination,
+  fetchAdminVendors,
+  createAdminVendor,
+  updateAdminVendor,
+  deleteAdminVendor,
+  selectAdminVendors,
+  selectAdminVendorsStatus,
+  selectAdminVendorsActionStatus,
+  selectAdminVendorsError,
+  selectVendorFilters,
+  resetActionStatus,
+  selectAdminVendorsPagination,
 } from "../../lib/store/slices/adminVendorsSlice";
-import Pagination from "../../components/ui/Pagination";
 import { Vendor, CreateVendorRequest } from "../../lib/services/api-client";
 import { AdminProtectedPage } from "../components/AdminProtectedPage";
-import { AdminPageHeader } from "../components/AdminPageHeader";
 import { useAdminAbility } from "../../lib/abilities/AdminAbilityProvider";
 import { ADMIN_SUBJECTS } from "../../lib/abilities/admin-subjects";
+import { getPhoneValidationError, PHONE_MAX_LENGTH, PHONE_PLACEHOLDER, sanitizePhoneInput } from "../../lib/utils/phone";
 import {
-    getPhoneValidationError,
-    PHONE_MAX_LENGTH,
-    PHONE_PLACEHOLDER,
-    sanitizePhoneInput,
-} from "../../lib/utils/phone";
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  DataTable,
+  Dialog,
+  DialogContent,
+  Field,
+  FilterBar,
+  FormGrid,
+  Input,
+  PageHeader,
+  Textarea,
+  Tooltip,
+  type DataTableColumn,
+} from "../ui";
+
+const PAGE_SIZE = 10;
 
 export default function VendorsPage() {
-    return (
-        <AdminProtectedPage permission="vendors" subject={ADMIN_SUBJECTS.vendors}>
-            <VendorsPageContent />
-        </AdminProtectedPage>
-    );
+  return (
+    <AdminProtectedPage permission="vendors" subject={ADMIN_SUBJECTS.vendors}>
+      <VendorsPageContent />
+    </AdminProtectedPage>
+  );
 }
 
 function VendorsPageContent() {
-    const router = useRouter();
-    const dispatch = useAppDispatch();
-    const confirm = useConfirm();
-    const ability = useAdminAbility();
-    const canCreate = ability.can("create", ADMIN_SUBJECTS.vendors);
-    const canUpdate = ability.can("update", ADMIN_SUBJECTS.vendors);
-    const canDelete = ability.can("delete", ADMIN_SUBJECTS.vendors);
-    const vendors = useAppSelector(selectAdminVendors);
-    const status = useAppSelector(selectAdminVendorsStatus);
-    const actionStatus = useAppSelector(selectAdminVendorsActionStatus);
-    const error = useAppSelector(selectAdminVendorsError);
-    const savedFilters = useAppSelector(selectVendorFilters);
-    const pagination = useAppSelector(selectAdminVendorsPagination);
+  const dispatch = useAppDispatch();
+  const confirm = useConfirm();
+  const ability = useAdminAbility();
+  const canCreate = ability.can("create", ADMIN_SUBJECTS.vendors);
+  const canUpdate = ability.can("update", ADMIN_SUBJECTS.vendors);
+  const canDelete = ability.can("delete", ADMIN_SUBJECTS.vendors);
+  const vendors = useAppSelector(selectAdminVendors);
+  const status = useAppSelector(selectAdminVendorsStatus);
+  const actionStatus = useAppSelector(selectAdminVendorsActionStatus);
+  const error = useAppSelector(selectAdminVendorsError);
+  const savedFilters = useAppSelector(selectVendorFilters);
+  const pagination = useAppSelector(selectAdminVendorsPagination);
 
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [modalMode, setModalMode] = useState<"create" | "edit">("create");
-    const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [search, setSearch] = useState(savedFilters.search);
+  const debouncedSearch = useDebounce(search, 500);
+  const [formData, setFormData] = useState<Partial<CreateVendorRequest>>({});
 
-    const [search, setSearch] = useState(savedFilters.search);
-    const debouncedSearch = useDebounce(search, 500);
+  useEffect(() => {
+    const filtersChanged = debouncedSearch !== savedFilters.search;
+    if (status === "idle" || filtersChanged) {
+      dispatch(fetchAdminVendors({ limit: PAGE_SIZE, page: 1, search: debouncedSearch }));
+    }
+  }, [dispatch, debouncedSearch, status, savedFilters]);
 
-    const [formData, setFormData] = useState<Partial<CreateVendorRequest>>({});
+  const handlePageChange = (page: number) => {
+    dispatch(fetchAdminVendors({ limit: PAGE_SIZE, page, search: debouncedSearch }));
+  };
 
-    useEffect(() => {
-        setSearch(savedFilters.search);
-    }, [savedFilters]);
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedVendor(null);
+    setFormData({});
+  };
 
-    useEffect(() => {
-        const filtersChanged = debouncedSearch !== savedFilters.search;
+  /** Runs a create/update thunk, closes the dialog on success, toasts either way, and clears the slice's action status. */
+  const runSave = async (run: () => Promise<unknown>, successMessage: string) => {
+    try {
+      await run();
+      closeModal();
+      toast.success(successMessage);
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : error || "Failed to save vendor");
+    } finally {
+      dispatch(resetActionStatus());
+    }
+  };
 
-        if (status === 'idle' || filtersChanged) {
-            dispatch(fetchAdminVendors({ limit: 10, page: 1, search: debouncedSearch }));
-        }
-    }, [dispatch, debouncedSearch, status, savedFilters]);
+  const handleCreate = () => {
+    if (!formData.name) {
+      toast.error("Vendor name is required");
+      return;
+    }
+    const phoneError = getPhoneValidationError(formData.phone || "");
+    if (phoneError) {
+      toast.error(phoneError);
+      return;
+    }
+    void runSave(() => dispatch(createAdminVendor(formData as CreateVendorRequest)).unwrap(), "Vendor created");
+  };
 
-    const handlePageChange = (page: number) => {
-        dispatch(fetchAdminVendors({ limit: 10, page, search: debouncedSearch }));
-    };
+  const handleUpdate = () => {
+    if (!selectedVendor) return;
+    const phoneError = getPhoneValidationError(formData.phone || "");
+    if (phoneError) {
+      toast.error(phoneError);
+      return;
+    }
+    void runSave(() => dispatch(updateAdminVendor({ id: selectedVendor.id, data: formData })).unwrap(), "Vendor updated");
+  };
 
-    useEffect(() => {
-        if (actionStatus === 'succeeded') {
-            closeModal();
-            dispatch(resetActionStatus());
-        } else if (actionStatus === 'failed' && error) {
-            toast.error(error);
-            dispatch(resetActionStatus());
-        }
-    }, [actionStatus, error, dispatch]);
+  const handleDelete = async (vendor: Vendor) => {
+    const vehicles = vendor._count?.vehicles ?? 0;
+    const ok = await confirm({
+      title: `Delete ${vendor.name}?`,
+      message: "This permanently removes the vendor record.",
+      consequences: [
+        vehicles > 0 ? `${vehicles} partner ${vehicles === 1 ? "vehicle is" : "vehicles are"} linked to this vendor` : "No vehicles are linked to this vendor",
+        "Trip logs and settlements already recorded are kept",
+        "This cannot be undone",
+      ],
+      destructive: true,
+      confirmLabel: "Delete vendor",
+    });
+    if (!ok) return;
+    try {
+      await dispatch(deleteAdminVendor(vendor.id)).unwrap();
+      toast.success(`${vendor.name} deleted`);
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Failed to delete vendor");
+    }
+  };
 
-    const handleCreate = () => {
-        if (!formData.name) {
-            toast.error("Vendor name is required");
-            return;
-        }
-        const phoneError = getPhoneValidationError(formData.phone || "");
-        if (phoneError) {
-            toast.error(phoneError);
-            return;
-        }
-        dispatch(createAdminVendor(formData as CreateVendorRequest));
-    };
+  const startCreate = () => {
+    setSelectedVendor(null);
+    setFormData({});
+    setModalMode("create");
+    setIsModalOpen(true);
+  };
 
-    const handleUpdate = () => {
-        if (!selectedVendor) return;
-        const phoneError = getPhoneValidationError(formData.phone || "");
-        if (phoneError) {
-            toast.error(phoneError);
-            return;
-        }
-        dispatch(updateAdminVendor({ id: selectedVendor.id, data: formData }));
-    };
+  const startEdit = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setFormData({
+      name: vendor.name,
+      contact_person: vendor.contact_person || "",
+      phone: vendor.phone || "",
+      email: vendor.email || "",
+      address: vendor.address || "",
+    });
+    setModalMode("edit");
+    setIsModalOpen(true);
+  };
 
-    const handleDelete = async (vendor: Vendor) => {
-        const ok = await confirm({
-            message: `Are you sure you want to delete ${vendor.name}?`,
-            destructive: true,
-            confirmLabel: "Delete",
-        });
-        if (!ok) return;
-        dispatch(deleteAdminVendor(vendor.id));
-    };
+  const isLoading = status === "loading";
+  const isSubmitting = actionStatus === "loading";
 
-    const startCreate = () => {
-        setSelectedVendor(null);
-        setFormData({});
-        setModalMode("create");
-        setIsModalOpen(true);
-    };
-
-    const startEdit = (vendor: Vendor) => {
-        setSelectedVendor(vendor);
-        setFormData({
-            name: vendor.name,
-            contact_person: vendor.contact_person || "",
-            phone: vendor.phone || "",
-            email: vendor.email || "",
-            address: vendor.address || "",
-        });
-        setModalMode("edit");
-        setIsModalOpen(true);
-    };
-
-    const closeModal = () => {
-        setIsModalOpen(false);
-        setSelectedVendor(null);
-        setFormData({});
-    };
-
-    const renderForm = () => (
-        <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-1">
-                <span className="text-xs font-semibold tracking-wider text-muted">Vendor Name *</span>
-                <input
-                    value={formData.name || ""}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="h-10 rounded-md border border-border px-3 text-sm outline-none focus:ring-2 focus:ring-blue/40"
-                    placeholder="ABC Transport"
-                />
-            </label>
-            <label className="flex flex-col gap-1">
-                <span className="text-xs font-semibold tracking-wider text-muted">Contact Person</span>
-                <input
-                    value={formData.contact_person || ""}
-                    onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
-                    className="h-10 rounded-md border border-border px-3 text-sm outline-none focus:ring-2 focus:ring-blue/40"
-                    placeholder="John Doe"
-                />
-            </label>
-            <label className="flex flex-col gap-1">
-                <span className="text-xs font-semibold tracking-wider text-muted">Phone</span>
-                <input
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={PHONE_MAX_LENGTH}
-                    value={formData.phone || ""}
-                    onChange={(e) => setFormData({ ...formData, phone: sanitizePhoneInput(e.target.value) })}
-                    className="h-10 rounded-md border border-border px-3 text-sm outline-none focus:ring-2 focus:ring-blue/40"
-                    placeholder={PHONE_PLACEHOLDER}
-                />
-            </label>
-            <label className="flex flex-col gap-1">
-                <span className="text-xs font-semibold tracking-wider text-muted">Email</span>
-                <input
-                    type="email"
-                    value={formData.email || ""}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="h-10 rounded-md border border-border px-3 text-sm outline-none focus:ring-2 focus:ring-blue/40"
-                    placeholder="contact@example.com"
-                />
-            </label>
-            <div className="col-span-full">
-                <label className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold tracking-wider text-muted">Address</span>
-                    <textarea
-                        value={formData.address || ""}
-                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                        className="min-h-[80px] rounded-md border border-border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue/40"
-                        placeholder="123 Main St, City"
-                    />
-                </label>
-            </div>
+  const columns: DataTableColumn<Vendor>[] = [
+    { key: "name", header: "Vendor", sortable: false, cell: (v) => <span className="font-medium text-fg">{v.name}</span> },
+    { key: "contact", header: "Contact", hideBelow: "md", cell: (v) => <span className="text-fg">{v.contact_person || "—"}</span> },
+    {
+      key: "phone",
+      header: "Phone / email",
+      cell: (v) => (
+        <div className="min-w-0">
+          <div className="font-mono text-[13px] text-fg">{v.phone || "—"}</div>
+          <div className="truncate text-xs text-fg-muted">{v.email || ""}</div>
         </div>
-    );
+      ),
+    },
+    { key: "vehicles", header: "Vehicles", align: "center", width: "1%", cell: (v) => <Badge tone={v._count?.vehicles ? "info" : "neutral"}>{v._count?.vehicles || 0}</Badge> },
+  ];
 
-    const isLoading = status === 'loading';
-    const isSubmitting = actionStatus === 'loading';
+  const addButton = (
+    <Button leftIcon={<Plus />} onClick={startCreate} disabled={!canCreate}>
+      Add vendor
+    </Button>
+  );
 
-    return (
-        <div className="flex flex-col gap-6">
-            <AdminPageHeader eyebrow="Admin" title="Vendor Management" />
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Vendors"
+        description="Partner vehicle vendors and their fleet."
+        actions={
+          canCreate ? (
+            addButton
+          ) : (
+            <Tooltip content="You don't have permission to add vendors">
+              <span tabIndex={0} className="inline-flex rounded-lg">
+                {addButton}
+              </span>
+            </Tooltip>
+          )
+        }
+      />
 
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-white p-4">
-                <div className="flex-1 min-w-[200px]">
-                    <input
-                        type="text"
-                        placeholder="Search vendors..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="h-10 w-full rounded-md border border-border px-3 text-sm outline-none focus:ring-2 focus:ring-blue/40"
-                    />
-                </div>
-                <button
-                    type="button"
-                    onClick={startCreate}
-                    disabled={!canCreate}
-                    className="inline-flex h-10 items-center justify-center rounded-md bg-orange px-4 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-50 disabled:pointer-events-none"
-                >
-                    Add Vendor
-                </button>
-            </div>
+      <Card>
+        <CardContent className="border-b border-line py-3">
+          <FilterBar search={{ value: search, onChange: setSearch, placeholder: "Search vendors…" }} activeCount={search ? 1 : 0} onClear={() => setSearch("")} />
+        </CardContent>
+        <DataTable<Vendor>
+          caption="Vendors"
+          rows={vendors}
+          rowKey={(v) => v.id}
+          columns={columns}
+          loading={isLoading}
+          error={status === "failed" ? error : null}
+          onRetry={() => dispatch(fetchAdminVendors({ limit: PAGE_SIZE, page: pagination.page || 1, search: debouncedSearch }))}
+          empty={{
+            title: search ? "No vendors match your search" : "No vendors yet",
+            description: search ? "Try a different name." : "Add your first partner vendor to start logging trips.",
+            action: canCreate && !search ? <Button size="sm" leftIcon={<Plus />} onClick={startCreate}>Add vendor</Button> : undefined,
+          }}
+          rowActions={(v) => [
+            { label: "View logs & settlements", icon: <Eye />, href: `/admin/vendors/${v.id}` },
+            { label: "Edit", icon: <Pencil />, disabled: !canUpdate, onSelect: () => startEdit(v) },
+            { label: "Delete", icon: <Trash2 />, destructive: true, separatorBefore: true, disabled: !canDelete, onSelect: () => void handleDelete(v) },
+          ]}
+          pagination={{
+            page: pagination.page || 1,
+            totalPages: pagination.pages || 1,
+            total: pagination.total,
+            pageSize: pagination.limit || PAGE_SIZE,
+            onPageChange: handlePageChange,
+          }}
+        />
+      </Card>
 
-            <div className="rounded-xl border border-border bg-white overflow-hidden flex flex-col">
-                {isLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <div className="text-sm text-muted">Loading vendors...</div>
-                    </div>
-                ) : (
-                    <>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full text-sm">
-                                <thead className="bg-surface text-xs font-semibold tracking-wider text-muted">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left">Vendor Name</th>
-                                        <th className="px-4 py-3 text-left">Contact</th>
-                                        <th className="px-4 py-3 text-left">Phone / Email</th>
-                                        <th className="px-4 py-3 text-center">Vehicles</th>
-                                        <th className="px-4 py-3 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {vendors.map((v) => (
-                                        <tr key={v.id} className="hover:bg-surface/50">
-                                            <td className="px-4 py-3 font-medium text-ink">{v.name}</td>
-                                            <td className="px-4 py-3 text-ink">{v.contact_person || "-"}</td>
-                                            <td className="px-4 py-3">
-                                                <div className="text-ink">{v.phone}</div>
-                                                <div className="text-xs text-muted">{v.email}</div>
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className="inline-flex items-center rounded-full bg-blue/10 px-2.5 py-0.5 text-xs font-medium text-blue">
-                                                    {v._count?.vehicles || 0}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => router.push(`/admin/vendors/${v.id}`)}
-                                                        className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-white px-3 text-xs font-medium text-blue hover:bg-surface"
-                                                    >
-                                                        View
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => startEdit(v)}
-                                                        disabled={!canUpdate}
-                                                        className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-white px-3 text-xs font-medium text-ink hover:bg-surface disabled:opacity-50 disabled:pointer-events-none"
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => void handleDelete(v)}
-                                                        disabled={!canDelete}
-                                                        className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-white px-3 text-xs font-medium text-danger hover:bg-danger/5 disabled:opacity-50 disabled:pointer-events-none"
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {!isLoading && vendors.length === 0 && (
-                                        <tr>
-                                            <td colSpan={5} className="px-4 py-8 text-center text-muted">
-                                                No vendors found.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div className="border-t border-border">
-                            <Pagination
-                                currentPage={pagination.page}
-                                totalPages={pagination.pages}
-                                onPageChange={handlePageChange}
-                            />
-                        </div>
-                    </>
-                )}
-            </div>
-
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-                    <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl animate-in fade-in zoom-in-95 duration-200">
-                        <div className="mb-6 flex items-center justify-between">
-                            <div>
-                                <div className="text-xs font-semibold tracking-wider text-muted">
-                                    {modalMode === "create" ? "NEW VENDOR" : "EDIT VENDOR"}
-                                </div>
-                                <h2 className="mt-1 text-2xl font-semibold text-navy">
-                                    {modalMode === "create" ? "Add New Vendor" : "Edit Vendor"}
-                                </h2>
-                            </div>
-                            <button
-                                onClick={closeModal}
-                                className="rounded-full p-2 text-muted hover:bg-surface hover:text-ink"
-                            >
-                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        <div className="max-h-[70vh] overflow-y-auto pr-2">
-                            {renderForm()}
-                        </div>
-
-                        <div className="mt-6 flex justify-end gap-3 border-t border-border pt-6">
-                            <button
-                                onClick={closeModal}
-                                disabled={isSubmitting}
-                                className="inline-flex h-10 items-center justify-center rounded-md border border-border px-4 text-sm font-medium text-ink hover:bg-surface disabled:opacity-50"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={modalMode === "create" ? handleCreate : handleUpdate}
-                                disabled={isSubmitting || (modalMode === "create" ? !canCreate : !canUpdate)}
-                                className="inline-flex h-10 items-center justify-center rounded-md bg-blue px-6 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-50"
-                            >
-                                {isSubmitting ? "Saving..." : (modalMode === "create" ? "Create Vendor" : "Save Changes")}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
+      <Dialog open={isModalOpen} onOpenChange={(open) => !open && !isSubmitting && closeModal()}>
+        <DialogContent
+          size="lg"
+          title={modalMode === "create" ? "Add vendor" : `Edit ${selectedVendor?.name ?? "vendor"}`}
+          footer={
+            <>
+              <Button variant="outline" onClick={closeModal} disabled={isSubmitting}>
+                Cancel
+              </Button>
+              <Button onClick={modalMode === "create" ? handleCreate : handleUpdate} loading={isSubmitting} disabled={modalMode === "create" ? !canCreate : !canUpdate}>
+                {modalMode === "create" ? "Create vendor" : "Save changes"}
+              </Button>
+            </>
+          }
+        >
+          <FormGrid cols={2}>
+            <Field label="Vendor name" required>
+              <Input value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="ABC Transport" autoFocus />
+            </Field>
+            <Field label="Contact person">
+              <Input value={formData.contact_person || ""} onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })} placeholder="Full name" />
+            </Field>
+            <Field label="Phone">
+              <Input
+                type="tel"
+                inputMode="numeric"
+                mono
+                maxLength={PHONE_MAX_LENGTH}
+                value={formData.phone || ""}
+                onChange={(e) => setFormData({ ...formData, phone: sanitizePhoneInput(e.target.value) })}
+                placeholder={PHONE_PLACEHOLDER}
+              />
+            </Field>
+            <Field label="Email">
+              <Input type="email" value={formData.email || ""} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="contact@example.com" />
+            </Field>
+            <Field label="Address" className="sm:col-span-2">
+              <Textarea value={formData.address || ""} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Street, city" rows={3} />
+            </Field>
+          </FormGrid>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }

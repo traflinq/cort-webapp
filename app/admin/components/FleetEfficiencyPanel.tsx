@@ -173,7 +173,7 @@ function InsightCard({ insight }: { insight: FleetInsight }) {
 function DisabledSection({ label }: { label: string }) {
   return (
     <div className="rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-subtle)] px-6 py-8 text-center">
-      <Lock className="h-6 w-6 text-gray-300 mx-auto mb-2" />
+      <Lock className="h-6 w-6 text-fg-muted mx-auto mb-2" />
       <p className="text-sm font-medium text-[var(--text-muted)]">{label}</p>
       <p className="text-xs text-[var(--text-muted)] mt-1">Enable the service and AI Insights for this company to unlock.</p>
     </div>
@@ -289,7 +289,10 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
     }
   }, [companyId, fromDate, toDate]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => void load());
+    return () => window.cancelAnimationFrame(id);
+  }, [load]);
 
   const loadRouteComparison = useCallback(async (shuttleTripId: number, routeId: number | null) => {
     if (selectedTripForMap === shuttleTripId) {
@@ -391,7 +394,7 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
             <button
               onClick={triggerGenerate}
               disabled={generating}
-              className="flex items-center gap-1.5 rounded-lg bg-[#f47f00] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#d96f00] disabled:opacity-60"
+              className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover disabled:opacity-60"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${generating ? 'animate-spin' : ''}`} />
               {generating ? 'Generating…' : 'Run AI Analysis'}
@@ -526,7 +529,7 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
                   <button
                     onClick={applyDateFilter}
                     disabled={!dateFilterDirty}
-                    className="rounded-md bg-[#f47f00] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#d96f00] disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-white hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Apply
                   </button>
@@ -591,7 +594,7 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
                           <td className="px-4 py-2.5 text-right">
                             <button
                               onClick={() => loadRouteComparison(m.shuttle_trip_id, m.route_id)}
-                              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${selectedTripForMap === m.shuttle_trip_id ? 'bg-blue-100 text-blue-700' : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:bg-gray-200'}`}
+                              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${selectedTripForMap === m.shuttle_trip_id ? 'bg-info-soft text-info-ink' : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:bg-line'}`}
                             >
                               <MapIcon className="h-3 w-3" />
                               {selectedTripForMap === m.shuttle_trip_id ? 'Close' : 'View'}

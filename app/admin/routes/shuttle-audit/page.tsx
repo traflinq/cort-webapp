@@ -1,12 +1,26 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, Fragment } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight, ScrollText } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import { PermissionGate } from '@/app/admin/components/PermissionGate';
 import { AdminCan } from '@/app/lib/abilities/AdminAbilityProvider';
-import { adminBtnOutline, adminCard, adminInput, adminPageTitle, adminSelect, adminTableHead, adminTableRow } from '@/app/admin/components/ui/admin-styles';
+import {
+    Button,
+    Card,
+    CardContent,
+    DataTable,
+    DateRangePicker,
+    FilterBar,
+    FilterField,
+    PageHeader,
+    Select,
+    type DataTableColumn,
+    type DateRange,
+} from '@/app/admin/ui';
+import { formatDateTime } from '@/app/admin/lib/format';
+import { lastNDaysRange } from '@/app/admin/lib/dates';
 import { apiClient } from '@/app/lib/services/api-client';
 import { useAuth } from '@/app/lib/contexts/auth-context';
 import { useAppDispatch, useAppSelector } from '@/app/lib/store/hooks';
@@ -16,7 +30,7 @@ import {
     selectAdminCompaniesStatus,
 } from '@/app/lib/store/slices/adminCompaniesSlice';
 import { fetchAdminRoutes, selectAdminRoutes } from '@/app/lib/store/slices/adminRoutesSlice';
-import Pagination from '@/app/components/ui/Pagination';
+import { useLoader } from '../daily-overrides/plan-types';
 
 const ACTION_OPTIONS: { value: string; label: string }[] = [
     { value: 'shuttle.trip.assignment_changed', label: 'Trip driver/vehicle changed' },
@@ -49,8 +63,10 @@ const ACTION_OPTIONS: { value: string; label: string }[] = [
 
 const ACTION_LABELS = Object.fromEntries(ACTION_OPTIONS.map((o) => [o.value, o.label]));
 
-// TODO: remove this email allowlist; shuttle_audit permission is the real gate
+// FLAGGED (kept as-is, decision 2026-10-20): hard-coded email allowlist; shuttle_audit permission is the real gate.
 const SHUTTLE_AUDIT_ALLOWED_EMAIL = 'hashir.ahmed@cort.com.pk';
+
+const PAGE_SIZE = 50;
 
 type AuditRow = {
     id: number;
@@ -69,31 +85,8 @@ type AuditRow = {
     impersonated_by: string | null;
 };
 
-function utcTodayYmd(): string {
-    const n = new Date();
-    return `${n.getUTCFullYear()}-${String(n.getUTCMonth() + 1).padStart(2, '0')}-${String(n.getUTCDate()).padStart(2, '0')}`;
-}
-
-function daysAgoYmd(days: number): string {
-    const n = new Date();
-    n.setUTCDate(n.getUTCDate() - days);
-    return `${n.getUTCFullYear()}-${String(n.getUTCMonth() + 1).padStart(2, '0')}-${String(n.getUTCDate()).padStart(2, '0')}`;
-}
-
-function formatWhen(iso: string): string {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-}
-
 function formatValue(value: unknown): string {
-    if (value == null || value === '') return '-';
+    if (value == null || value === '') return '—';
     if (typeof value === 'object') return JSON.stringify(value);
     return String(value);
 }
@@ -128,8 +121,7 @@ function ShuttleAuditContent() {
     const companiesStatus = useAppSelector(selectAdminCompaniesStatus);
     const routes = useAppSelector(selectAdminRoutes);
 
-    const [from, setFrom] = useState(() => daysAgoYmd(7));
-    const [to, setTo] = useState(utcTodayYmd);
+    const [range, setRange] = useState<DateRange>(() => lastNDaysRange(7));
     const [companyId, setCompanyId] = useState<number | ''>('');
     const [routeId, setRouteId] = useState<number | ''>('');
     const [action, setAction] = useState('');
@@ -164,10 +156,10 @@ function ShuttleAuditContent() {
             setLoading(true);
             setError(null);
             const res = await apiClient.getShuttleAuditLogs({
-                from,
-                to,
+                from: range.start,
+                to: range.end,
                 page,
-                limit: 50,
+                limit: PAGE_SIZE,
                 company_id: companyId === '' ? undefined : companyId,
                 route_id: routeId === '' ? undefined : routeId,
                 action: action || undefined,
@@ -181,183 +173,148 @@ function ShuttleAuditContent() {
         } finally {
             setLoading(false);
         }
-    }, [from, to, page, companyId, routeId, action]);
+    }, [range.start, range.end, page, companyId, routeId, action]);
 
-    useEffect(() => {
-        loadLogs();
-    }, [loadLogs]);
+    useLoader(loadLogs);
+
+    const activeFilters = (companyId !== '' ? 1 : 0) + (routeId !== '' ? 1 : 0) + (action ? 1 : 0);
+
+    const columns: DataTableColumn<AuditRow>[] = [
+        { key: 'when', header: 'When', cell: (r) => <span className="whitespace-nowrap text-fg-secondary">{formatDateTime(r.created_at)}</span> },
+        {
+            key: 'actor',
+            header: 'Actor',
+            cell: (r) => (
+                <div className="min-w-0">
+                    <div className="font-medium text-fg">{r.actor_name ?? r.actor_id}</div>
+                    {r.actor_role && <div className="text-xs text-fg-muted">{r.actor_role}</div>}
+                </div>
+            ),
+        },
+        { key: 'action', header: 'Action', cell: (r) => ACTION_LABELS[r.action] ?? r.action },
+        {
+            key: 'entity',
+            header: 'Entity',
+            hideBelow: 'md',
+            cell: (r) => (
+                <span className="text-fg-secondary">
+                    {r.trip_id
+                        ? `Trip #${r.trip_id}`
+                        : r.route_id
+                            ? (routeNameById.get(r.route_id) ?? `Route #${r.route_id}`)
+                            : (r.entity_type ?? '—')}
+                </span>
+            ),
+        },
+        { key: 'notes', header: 'Notes', hideBelow: 'lg', className: 'max-w-md', cell: (r) => r.notes || '—' },
+    ];
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <div className="text-sm font-medium text-[var(--text-muted)]">Shuttle</div>
-                    <h1 className={`${adminPageTitle} mt-1 flex items-center gap-2`}>
-                        <ScrollText className="h-6 w-6" />
-                        Shuttle audit logs
-                    </h1>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">
-                        Who changed drivers, vehicles, daily plan moves, routes, stops, and roster assignments.
-                    </p>
-                </div>
-                <Link href="/admin/routes/shuttle-trips" className={adminBtnOutline}>
-                    Shuttle trip scheduling
-                </Link>
-            </div>
+            <PageHeader
+                title="Shuttle audit"
+                description="Who changed drivers, vehicles, daily plan moves, routes, stops, and roster assignments."
+                actions={
+                    <Button variant="outline" asChild>
+                        <Link href="/admin/routes/shuttle-trips">
+                            <CalendarDays />
+                            Trip scheduling
+                        </Link>
+                    </Button>
+                }
+            />
 
-            <div className={`${adminCard} p-4`}>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium text-[var(--text-secondary)]">From</span>
-                        <input
-                            type="date"
-                            className={adminInput}
-                            value={from}
-                            onChange={(e) => { setFrom(e.target.value); setPage(1); }}
-                        />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium text-[var(--text-secondary)]">To</span>
-                        <input
-                            type="date"
-                            className={adminInput}
-                            value={to}
-                            onChange={(e) => { setTo(e.target.value); setPage(1); }}
-                        />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium text-[var(--text-secondary)]">Company</span>
-                        <select
-                            className={adminSelect}
-                            value={companyId}
-                            onChange={(e) => {
-                                setCompanyId(e.target.value ? Number(e.target.value) : '');
-                                setRouteId('');
+            <Card>
+                <CardContent className="border-b border-line py-3">
+                    <FilterBar
+                        activeCount={activeFilters}
+                        onClear={() => {
+                            setCompanyId('');
+                            setRouteId('');
+                            setAction('');
+                            setPage(1);
+                        }}
+                    >
+                        <DateRangePicker
+                            size="sm"
+                            label="Period"
+                            value={range}
+                            onChange={(next) => {
+                                if (!next) return;
+                                setRange(next);
                                 setPage(1);
                             }}
-                        >
-                            <option value="">All companies</option>
-                            {companies.map((c) => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium text-[var(--text-secondary)]">Route</span>
-                        <select
-                            className={adminSelect}
-                            value={routeId}
-                            onChange={(e) => {
-                                setRouteId(e.target.value ? Number(e.target.value) : '');
-                                setPage(1);
-                            }}
-                        >
-                            <option value="">All routes</option>
-                            {routeOptions.map((r) => (
-                                <option key={r.id} value={r.id}>{r.name}</option>
-                            ))}
-                        </select>
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium text-[var(--text-secondary)]">Action</span>
-                        <select
-                            className={adminSelect}
-                            value={action}
-                            onChange={(e) => { setAction(e.target.value); setPage(1); }}
-                        >
-                            <option value="">All actions</option>
-                            {ACTION_OPTIONS.map((o) => (
-                                <option key={o.value} value={o.value}>{o.label}</option>
-                            ))}
-                        </select>
-                    </label>
-                </div>
-            </div>
+                        />
+                        <FilterField label="Company">
+                            <Select
+                                width="auto"
+                                className="h-8 text-xs"
+                                value={companyId === '' ? '' : String(companyId)}
+                                placeholder="All companies"
+                                onChange={(e) => {
+                                    setCompanyId(e.target.value ? Number(e.target.value) : '');
+                                    setRouteId('');
+                                    setPage(1);
+                                }}
+                            >
+                                {companies.map((c) => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </Select>
+                        </FilterField>
+                        <FilterField label="Route">
+                            <Select
+                                width="auto"
+                                className="h-8 text-xs"
+                                value={routeId === '' ? '' : String(routeId)}
+                                placeholder="All routes"
+                                onChange={(e) => {
+                                    setRouteId(e.target.value ? Number(e.target.value) : '');
+                                    setPage(1);
+                                }}
+                            >
+                                {routeOptions.map((r) => (
+                                    <option key={r.id} value={r.id}>{r.name}</option>
+                                ))}
+                            </Select>
+                        </FilterField>
+                        <FilterField label="Action">
+                            <Select
+                                width="auto"
+                                className="h-8 max-w-[16rem] text-xs"
+                                value={action}
+                                placeholder="All actions"
+                                onChange={(e) => {
+                                    setAction(e.target.value);
+                                    setPage(1);
+                                }}
+                            >
+                                {ACTION_OPTIONS.map((o) => (
+                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                ))}
+                            </Select>
+                        </FilterField>
+                    </FilterBar>
+                </CardContent>
 
-            <div className={`${adminCard} overflow-hidden`}>
-                {error && (
-                    <div className="border-b border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
-                )}
-                <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                        <thead className={adminTableHead}>
-                            <tr>
-                                <th className="px-4 py-3 text-left">When</th>
-                                <th className="px-4 py-3 text-left">Actor</th>
-                                <th className="px-4 py-3 text-left">Action</th>
-                                <th className="px-4 py-3 text-left">Entity</th>
-                                <th className="px-4 py-3 text-left">Notes</th>
-                                <th className="px-4 py-3" />
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading && (
-                                <tr>
-                                    <td colSpan={6} className="px-4 py-10 text-center text-[var(--text-muted)]">
-                                        Loading audit logs...
-                                    </td>
-                                </tr>
-                            )}
-                            {!loading && rows.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="px-4 py-10 text-center text-[var(--text-muted)]">
-                                        No shuttle changes in this range.
-                                    </td>
-                                </tr>
-                            )}
-                            {!loading && rows.map((row) => {
-                                const open = expandedId === row.id;
-                                const entityLabel = row.trip_id
-                                    ? `Trip #${row.trip_id}`
-                                    : row.route_id
-                                        ? (routeNameById.get(row.route_id) ?? `Route #${row.route_id}`)
-                                        : (row.entity_type ?? '-');
-                                return (
-                                    <Fragment key={row.id}>
-                                        <tr className={adminTableRow}>
-                                            <td className="whitespace-nowrap px-4 py-3 text-[var(--text-secondary)]">
-                                                {formatWhen(row.created_at)}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="font-medium text-[var(--text-primary)]">{row.actor_name ?? row.actor_id}</div>
-                                                {row.actor_role && (
-                                                    <div className="text-xs text-[var(--text-muted)]">{row.actor_role}</div>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3 text-[var(--text-primary)]">
-                                                {ACTION_LABELS[row.action] ?? row.action}
-                                            </td>
-                                            <td className="px-4 py-3 text-[var(--text-secondary)]">{entityLabel}</td>
-                                            <td className="max-w-md px-4 py-3 text-[var(--text-primary)]">{row.notes || '-'}</td>
-                                            <td className="px-4 py-3">
-                                                <button
-                                                    type="button"
-                                                    className="inline-flex items-center gap-1 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                                                    onClick={() => setExpandedId(open ? null : row.id)}
-                                                >
-                                                    {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                                    Details
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        {open && (
-                                            <tr>
-                                                <td colSpan={6} className="p-0">
-                                                    <ChangeDetails row={row} />
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </Fragment>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-                <div className="flex items-center justify-between border-t border-[var(--border-default)] px-4 py-3">
-                    <div className="text-xs text-[var(--text-muted)]">{total} change{total === 1 ? '' : 's'}</div>
-                    <Pagination currentPage={page} totalPages={pages} onPageChange={setPage} />
-                </div>
-            </div>
+                <DataTable<AuditRow>
+                    caption="Shuttle audit log"
+                    columns={columns}
+                    rows={rows}
+                    rowKey={(r) => r.id}
+                    loading={loading}
+                    error={error}
+                    onRetry={() => void loadLogs()}
+                    empty={{ title: 'No shuttle changes in this range', description: 'Widen the period or clear the filters.' }}
+                    expandable={{
+                        isExpanded: (r) => expandedId === r.id,
+                        onToggle: (r) => setExpandedId((cur) => (cur === r.id ? null : r.id)),
+                        render: (r) => <ChangeDetails row={r} />,
+                    }}
+                    onRowClick={(r) => setExpandedId((cur) => (cur === r.id ? null : r.id))}
+                    pagination={{ page, totalPages: pages, total, pageSize: PAGE_SIZE, onPageChange: setPage }}
+                />
+            </Card>
         </div>
     );
 }
@@ -368,32 +325,33 @@ function ChangeDetails({ row }: { row: AuditRow }) {
         ...Object.keys(row.after ?? {}),
     ])];
     return (
-        <div className="border-t border-[var(--border-default)] bg-[var(--bg-subtle)] px-4 py-4">
-            <div className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                Previous vs new values
-            </div>
+        <div className="border-t border-line px-4 py-4">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Previous vs new values</div>
             {keys.length === 0 ? (
-                <p className="text-sm text-[var(--text-muted)]">No field-level values stored for this event.</p>
+                <p className="text-sm text-fg-muted">No field-level values stored for this event.</p>
             ) : (
-                <table className="min-w-full text-sm">
-                    <thead>
-                        <tr className="text-left text-xs text-[var(--text-muted)]">
-                            <th className="py-1 pr-4">Field</th>
-                            <th className="py-1 pr-4">Previous</th>
-                            <th className="py-1">New</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {keys.map((key) => (
-                            <tr key={key}>
-                                <td className="py-1 pr-4 font-medium text-[var(--text-secondary)]">{key}</td>
-                                <td className="py-1 pr-4 text-[var(--text-primary)]">{formatValue(row.before?.[key])}</td>
-                                <td className="py-1 text-[var(--text-primary)]">{formatValue(row.after?.[key])}</td>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                        <thead>
+                            <tr className="text-left text-xs text-fg-muted">
+                                <th scope="col" className="py-1 pr-4 font-medium">Field</th>
+                                <th scope="col" className="py-1 pr-4 font-medium">Previous</th>
+                                <th scope="col" className="py-1 font-medium">New</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {keys.map((key) => (
+                                <tr key={key}>
+                                    <td className="py-1 pr-4 font-mono text-[13px] text-fg-secondary">{key}</td>
+                                    <td className="py-1 pr-4 text-fg">{formatValue(row.before?.[key])}</td>
+                                    <td className="py-1 text-fg">{formatValue(row.after?.[key])}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             )}
+            {row.impersonated_by && <p className="mt-2 text-xs text-fg-muted">Performed while impersonating (by {row.impersonated_by}).</p>}
         </div>
     );
 }

@@ -1,32 +1,22 @@
 "use client";
 
 import React, { memo } from "react";
-import { useAdminTheme } from "../../lib/theme-context";
-import {
-  badgeColorsDark,
-  badgeColorsLight,
-  type BadgeColor,
-} from "./admin-styles";
-import { cx } from "./cx";
+import { Badge as DsBadge, type BadgeTone } from "../../ui/Badge";
+export type BadgeColor = "blue" | "green" | "red" | "orange" | "purple" | "gray";
 
-export const Badge = memo(function Badge({
-  children,
-  color = "blue",
-}: {
-  children: React.ReactNode;
-  color?: BadgeColor;
-}) {
-  const { theme } = useAdminTheme();
-  const colors = theme === "dark" ? badgeColorsDark : badgeColorsLight;
+const colorToTone: Record<BadgeColor, BadgeTone> = {
+  blue: "info",
+  green: "success",
+  red: "danger",
+  orange: "warning",
+  purple: "purple",
+  gray: "neutral",
+};
 
-  return (
-    <span
-      className={cx(
-        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
-        colors[color],
-      )}
-    >
-      {children}
-    </span>
-  );
+/**
+ * Legacy colour-named Badge; delegates to the design-system Badge (CSS-var tones,
+ * no hydration flicker). New code: import { Badge, StatusBadge } from "@/app/admin/ui".
+ */
+export const Badge = memo(function Badge({ children, color = "blue" }: { children: React.ReactNode; color?: BadgeColor }) {
+  return <DsBadge tone={colorToTone[color]}>{children}</DsBadge>;
 });

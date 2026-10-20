@@ -1,95 +1,96 @@
 "use client";
 
 import React, { useState, memo } from "react";
+import { KeyRound, Wand2 } from "lucide-react";
+import { toast } from "sonner";
 import { Company } from "../../../lib/services/api-client";
-import { Modal } from "../../components/ui/Modal";
+import { Dialog, DialogContent } from "../../ui/Dialog";
+import { Button } from "../../ui/Button";
+import { Field } from "../../ui/Field";
+import { Input } from "../../ui/Input";
+import { generatePassword } from "../../lib/format";
 
 export const PasswordResetModal = memo(function PasswordResetModal({
-    isOpen,
-    onClose,
-    company,
-    onReset,
+  isOpen,
+  onClose,
+  company,
+  onReset,
 }: {
-    isOpen: boolean;
-    onClose: () => void;
-    company: Company | null;
-    onReset: (password: string) => void;
+  isOpen: boolean;
+  onClose: () => void;
+  company: Company | null;
+  onReset: (password: string) => void;
 }) {
-    const [password, setPassword] = useState("");
-    const [isResetting, setIsResetting] = useState(false);
+  const [password, setPassword] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
 
-    const generatePassword = () => {
-        const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-        let pass = "";
-        for (let i = 0; i < 12; i++) {
-            pass += chars.charAt(Math.floor(Math.random() * chars.length));
+  const tooShort = password.length > 0 && password.length < 8;
+
+  const handleReset = async () => {
+    if (!password || password.length < 8) {
+      toast.error("Password must be at least 8 characters long");
+      return;
+    }
+    setIsResetting(true);
+    try {
+      await onReset(password);
+      setPassword("");
+      onClose();
+    } catch {
+      // Error toast is shown by the parent
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const close = () => {
+    if (isResetting) return;
+    setPassword("");
+    onClose();
+  };
+
+  if (!company) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
+      <DialogContent
+        size="sm"
+        title="Reset company password"
+        description={`${company.name} · ${company.email}`}
+        footer={
+          <>
+            <Button variant="outline" onClick={close} disabled={isResetting}>
+              Cancel
+            </Button>
+            <Button onClick={handleReset} loading={isResetting} disabled={!password || tooShort} leftIcon={<KeyRound />}>
+              Reset password
+            </Button>
+          </>
         }
-        setPassword(pass);
-    };
-
-    const handleReset = async () => {
-        if (!password || password.length < 8) {
-            alert("Password must be at least 8 characters long");
-            return;
-        }
-        setIsResetting(true);
-        try {
-            await onReset(password);
-            setPassword("");
-            onClose();
-        } catch (error) {
-            // Error handled by parent
-        } finally {
-            setIsResetting(false);
-        }
-    };
-
-    if (!isOpen || !company) return null;
-
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Reset Company Password">
-            <div className="space-y-4">
-                <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-700">
-                    You are resetting the password for <strong>{company.name}</strong> ({company.email}).
-                </div>
-                <div>
-                    <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">New Password</label>
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#f47f00] focus:ring-1 focus:ring-[#f47f00] outline-none font-mono"
-                            placeholder="Enter new password (min 8 characters)"
-                            disabled={isResetting}
-                        />
-                        <button
-                            type="button"
-                            onClick={generatePassword}
-                            className="px-3 py-2 text-xs font-bold text-[#f47f00] border border-[#f47f00] rounded-lg hover:bg-orange-50 disabled:opacity-50"
-                            disabled={isResetting}
-                        >
-                            Generate
-                        </button>
-                    </div>
-                </div>
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800"
-                        disabled={isResetting}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleReset}
-                        className="rounded-lg bg-[#f47f00] px-4 py-2 text-sm font-bold text-white hover:bg-[#d97000] shadow-md shadow-orange-500/10 disabled:opacity-50"
-                        disabled={isResetting || !password}
-                    >
-                        {isResetting ? "Resetting..." : "Reset Password"}
-                    </button>
-                </div>
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-sm text-warning-ink">
+            The company admin&apos;s current password stops working immediately. Share the new one securely.
+          </div>
+          <Field label="New password" hint="At least 8 characters." error={tooShort ? "Password must be at least 8 characters long." : undefined}>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                mono
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter new password"
+                disabled={isResetting}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <Button type="button" variant="outline" onClick={() => setPassword(generatePassword())} disabled={isResetting} leftIcon={<Wand2 />}>
+                Generate
+              </Button>
             </div>
-        </Modal>
-    );
+          </Field>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 });

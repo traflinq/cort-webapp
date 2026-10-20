@@ -1,138 +1,192 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { Loader2, MapPin, Search } from 'lucide-react';
-import { useGooglePlacesAutocomplete } from '@/app/hooks/useGooglePlacesAutocomplete';
+import { useEffect, useId, useRef, useState } from "react";
+import { MapPin, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useGooglePlacesAutocomplete } from "@/app/hooks/useGooglePlacesAutocomplete";
+import { inputBase, focusRingInset } from "./styles";
+import { Spinner } from "./Spinner";
 
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
 export interface StopSelection {
-    name: string;
-    lat: number;
-    lng: number;
-    fullAddress: string;
+  name: string;
+  lat: number;
+  lng: number;
+  fullAddress: string;
 }
 
 interface StopAddressSearchProps {
-    /** Called when the user picks a suggestion from the dropdown */
-    onSelect: (stop: StopSelection) => void;
-    /** Pre-fill the text input (e.g. existing stop name when editing) */
-    defaultValue?: string;
-    placeholder?: string;
-    className?: string;
-    /** Clear input after selection (useful when adding multiple stops) */
-    clearOnSelect?: boolean;
+  /** Called when the user picks a suggestion from the dropdown */
+  onSelect: (stop: StopSelection) => void;
+  /** Pre-fill the text input (e.g. existing stop name when editing) */
+  defaultValue?: string;
+  placeholder?: string;
+  className?: string;
+  /** Clear input after selection (useful when adding multiple stops) */
+  clearOnSelect?: boolean;
+  /** Accessible name when no visible <label> is associated. */
+  "aria-label"?: string;
+  id?: string;
 }
 
 /** Shorten a geocode display_name to a human-friendly stop label. */
 function shortenDisplayName(displayName: string): string {
-    const parts = displayName.split(',').map((p) => p.trim()).filter(Boolean);
-    // Use first 2 parts (usually the landmark + neighbourhood)
-    return parts.slice(0, 2).join(', ');
+  const parts = displayName
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  // Use first 2 parts (usually the landmark + neighbourhood)
+  return parts.slice(0, 2).join(", ");
 }
 
+type Suggestion = { place_id: string; display_name: string; lat: number; lng: number; name: string };
+
+/**
+ * Google Places address search as an accessible combobox:
+ * arrow keys move through suggestions, Enter selects, Escape closes, click/tap selects.
+ */
 export default function StopAddressSearch({
-    onSelect,
-    defaultValue = '',
-    placeholder = 'Search address or place...',
-    className = '',
-    clearOnSelect = false,
+  onSelect,
+  defaultValue = "",
+  placeholder = "Search address or place…",
+  className = "",
+  clearOnSelect = false,
+  "aria-label": ariaLabel,
+  id,
 }: StopAddressSearchProps) {
-    const [query, setQuery] = useState(defaultValue);
-    const [open, setOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
+  const listId = useId();
+  const [query, setQuery] = useState(defaultValue);
+  const [dismissed, setDismissed] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-    const { suggestions, isLoading, search, clearSuggestions, refreshToken } = useGooglePlacesAutocomplete({
-        apiKey: GOOGLE_MAPS_API_KEY,
-    });
+  // Follow defaultValue changes (editing a different stop) without an effect.
+  const [prevDefault, setPrevDefault] = useState(defaultValue);
+  if (prevDefault !== defaultValue) {
+    setPrevDefault(defaultValue);
+    setQuery(defaultValue);
+  }
 
-    // Update input value when defaultValue changes (e.g. when editing different stops)
-    useEffect(() => {
-        setQuery(defaultValue);
-    }, [defaultValue]);
+  const { suggestions, isLoading, search, clearSuggestions, refreshToken } = useGooglePlacesAutocomplete({
+    apiKey: GOOGLE_MAPS_API_KEY,
+  });
 
-    useEffect(() => {
-        if (query.length >= 3) {
-            search(query);
-            setOpen(true);
-        } else {
-            clearSuggestions();
-            setOpen(false);
-        }
+  useEffect(() => {
+    if (query.length >= 3) search(query);
+    else clearSuggestions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [query]);
+  }, [query]);
 
-    // Close dropdown when clicking outside
-    useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-                setOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
-
-    const handleSelect = (suggestion: { display_name: string; lat: number; lng: number; name: string }) => {
-        const name = suggestion.name || shortenDisplayName(suggestion.display_name);
-        const lat = suggestion.lat;
-        const lng = suggestion.lng;
-
-        onSelect({ name, lat, lng, fullAddress: suggestion.display_name });
-
-        if (clearOnSelect) {
-            setQuery('');
-        } else {
-            setQuery(name);
-        }
-        setOpen(false);
-        clearSuggestions();
-        refreshToken();
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setDismissed(true);
+      }
     };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
-    return (
-        <div ref={containerRef} className={`relative ${className}`}>
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none" />
-                <input
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={placeholder}
-                    className="w-full pl-9 pr-8 py-2 border border-[var(--border-input)] rounded-lg text-sm bg-[var(--bg-input)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/40 focus:border-[var(--cort-orange)]"
-                    autoComplete="off"
-                />
-                {isLoading && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] animate-spin" />
+  const open = !dismissed && query.length >= 3;
+  const items = suggestions as Suggestion[];
+
+  const handleSelect = (suggestion: Suggestion) => {
+    const name = suggestion.name || shortenDisplayName(suggestion.display_name);
+    onSelect({ name, lat: suggestion.lat, lng: suggestion.lng, fullAddress: suggestion.display_name });
+    setQuery(clearOnSelect ? "" : name);
+    setDismissed(true);
+    setActiveIndex(-1);
+    clearSuggestions();
+    refreshToken();
+  };
+
+  return (
+    <div ref={containerRef} className={cn("relative", className)}>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-muted" aria-hidden="true" />
+        <input
+          id={id}
+          type="text"
+          role="combobox"
+          aria-label={ariaLabel}
+          aria-expanded={open && items.length > 0}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={open && activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setDismissed(false);
+            setActiveIndex(-1);
+          }}
+          onFocus={() => setDismissed(false)}
+          onKeyDown={(e) => {
+            if (!open || items.length === 0) {
+              if (e.key === "Escape") setDismissed(true);
+              return;
+            }
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setActiveIndex((i) => (i + 1) % items.length);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActiveIndex((i) => (i <= 0 ? items.length - 1 : i - 1));
+            } else if (e.key === "Enter") {
+              if (activeIndex >= 0) {
+                e.preventDefault();
+                handleSelect(items[activeIndex]);
+              }
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              setDismissed(true);
+            }
+          }}
+          placeholder={placeholder}
+          className={cn(inputBase, "pl-9 pr-9")}
+          autoComplete="off"
+        />
+        {isLoading && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2">
+            <Spinner size="sm" label="Searching addresses" />
+          </span>
+        )}
+      </div>
+
+      {open && items.length > 0 && (
+        <ul
+          id={listId}
+          role="listbox"
+          className="absolute top-full z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-line bg-popover shadow-[var(--shadow-modal)]"
+        >
+          {items.map((s, i) => (
+            <li key={s.place_id} id={`${listId}-${i}`} role="option" aria-selected={i === activeIndex} className="border-b border-line last:border-b-0">
+              <button
+                type="button"
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelect(s)}
+                onMouseEnter={() => setActiveIndex(i)}
+                className={cn(
+                  "flex w-full cursor-pointer items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-subtle",
+                  i === activeIndex && "bg-subtle",
+                  focusRingInset,
                 )}
-            </div>
+              >
+                <MapPin className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+                <span className="text-sm leading-snug text-fg">{s.display_name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
-            {open && suggestions.length > 0 && (
-                <ul className="absolute z-50 top-full mt-1 w-full bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg shadow-xl overflow-hidden max-h-64 overflow-y-auto">
-                    {suggestions.map((s) => (
-                        <li key={s.place_id}>
-                            <button
-                                type="button"
-                                onMouseDown={(e) => {
-                                    // Use mousedown to fire before onBlur closes the dropdown
-                                    e.preventDefault();
-                                    handleSelect(s);
-                                }}
-                                className="w-full text-left px-4 py-3 hover:bg-[var(--bg-subtle)] flex items-start gap-3 border-b border-[var(--border-default)] last:border-b-0 transition-colors"
-                            >
-                                <MapPin className="w-4 h-4 text-[var(--text-muted)] shrink-0 mt-0.5" />
-                                <span className="text-sm text-[var(--text-primary)] leading-snug">{s.display_name}</span>
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            )}
-
-            {open && !isLoading && suggestions.length === 0 && query.length >= 3 && (
-                <div className="absolute z-50 top-full mt-1 w-full bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg shadow-lg px-4 py-3 text-sm text-[var(--text-muted)]">
-                    No results found
-                </div>
-            )}
+      {open && !isLoading && items.length === 0 && (
+        <div role="status" className="absolute top-full z-50 mt-1 w-full rounded-lg border border-line bg-popover px-3 py-2.5 text-sm text-fg-muted shadow-[var(--shadow-card)]">
+          No results found
         </div>
-    );
+      )}
+    </div>
+  );
 }

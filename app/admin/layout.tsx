@@ -10,7 +10,7 @@ import { UserRole } from "../lib/types/auth-types";
 import { Provider } from "react-redux";
 import { adminStore } from "../lib/store/admin-store";
 import { AdminThemeProvider } from "./lib/theme-context";
-import "./admin-theme.css";
+import { TooltipProvider } from "./ui/Tooltip";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -30,16 +30,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <Provider store={adminStore}>
         <AdminThemeProvider>
           <AdminAbilityProvider>
-            <ConfirmProvider>
-              <div className="admin-portal">
-                <AdminShell>{children}</AdminShell>
-              </div>
-            </ConfirmProvider>
+            <TooltipProvider delayDuration={300} skipDelayDuration={200}>
+              <ConfirmProvider>
+                <div className="admin-portal">
+                  <AdminShell>{children}</AdminShell>
+                </div>
+              </ConfirmProvider>
+            </TooltipProvider>
           </AdminAbilityProvider>
         </AdminThemeProvider>
       </Provider>
     </ProtectedRoute>
   );
 }
-
-

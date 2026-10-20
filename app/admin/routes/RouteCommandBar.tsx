@@ -1,9 +1,67 @@
 'use client';
 
+/**
+ * Shared helpers for the Routes area (list, create, detail, stops, roster).
+ * The old command-bar/pill/empty-state components are kept as thin wrappers over
+ * the design-system primitives so nothing outside this folder has to change.
+ */
 import type { ReactNode } from 'react';
 import { Bus } from 'lucide-react';
-import { cx } from '@/app/admin/components/ui/cx';
+import { cn } from '@/lib/utils';
+import { Card, EmptyState, PageHeader, focusRing } from '@/app/admin/ui';
+import { formatTime, initials as initialsFmt } from '@/app/admin/lib/format';
 
+/**
+ * Google Maps needs raw hex. These mirror the light chart palette (chart-1 orange,
+ * chart-2 blue, chart-3 green, chart-4 violet, chart-6 amber) and brand navy, so
+ * map legends and badges stay consistent with the rest of the portal.
+ */
+export const MAP_COLORS = {
+    office: '#e5700a',
+    pickup: '#2a78d6',
+    highlighted: '#6250d6',
+    editing: '#eda100',
+    draft: '#1baf7a',
+    route: '#0c225e',
+    fallback: '#2a78d6',
+    geofence: '#2a78d6',
+    geofenceSaved: '#e5700a',
+} as const;
+
+/**
+ * Extract "HH:mm" from "HH:mm", "HH:mm:ss" or a time-only ISO value
+ * ("1970-01-01T08:00:00.000Z"). Time-only values are read as-is (UTC), never shifted.
+ */
+export function toClockHHmm(timeStr: string | null | undefined): string {
+    if (!timeStr) return '';
+    const trimmed = String(timeStr).trim();
+    const hhmm = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?/);
+    if (hhmm) {
+        const hour = Number.parseInt(hhmm[1], 10);
+        if (!Number.isNaN(hour) && hour >= 0 && hour <= 23) {
+            return `${String(hour).padStart(2, '0')}:${hhmm[2]}`;
+        }
+    }
+    try {
+        const date = new Date(trimmed.includes('T') ? trimmed : `1970-01-01T${trimmed}Z`);
+        if (Number.isNaN(date.getTime())) return trimmed;
+        return date.toISOString().substring(11, 16);
+    } catch {
+        return trimmed;
+    }
+}
+
+/** Any time value → "8:00 AM"; null when empty/unparseable. */
+export function format12h(time: string | null | undefined): string | null {
+    const hhmm = toClockHHmm(time);
+    if (!hhmm) return null;
+    const out = formatTime(hhmm);
+    return out === '—' ? null : out;
+}
+
+export const initials = initialsFmt;
+
+/** @deprecated Use PageHeader directly. Kept for API compatibility. */
 export function RouteCommandBar({
     title,
     subtitle,
@@ -18,30 +76,17 @@ export function RouteCommandBar({
     tabs?: ReactNode;
 }) {
     return (
-        <div className="sticky top-0 z-20 overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)]/95 shadow-[var(--shadow-card)] backdrop-blur-md">
-            <div className="h-1 w-full bg-[var(--cort-orange)]" />
-            <div className="flex flex-wrap items-center gap-4 px-5 py-4">
-                <div className="min-w-[180px] flex-1">
-                    {title.toLowerCase() !== 'shuttle routes' && (
-                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                            Shuttle routes
-                        </div>
-                    )}
-                    <h1 className={cx('text-2xl font-semibold tracking-tight text-[var(--text-primary)]', title.toLowerCase() !== 'shuttle routes' && 'mt-1')}>{title}</h1>
-                    {subtitle ? <div className="mt-1 text-sm text-[var(--text-muted)]">{subtitle}</div> : null}
-                </div>
-                {filters}
-                {actions ? <div className="ml-auto flex flex-wrap items-center gap-2">{actions}</div> : null}
-            </div>
-            {tabs ? (
-                <div className="flex flex-wrap items-center gap-3 border-t border-[var(--border-default)] px-5 py-3">
-                    {tabs}
-                </div>
-            ) : null}
-        </div>
+        <PageHeader
+            title={title}
+            description={subtitle}
+            actions={actions}
+            meta={filters}
+            tabs={tabs}
+        />
     );
 }
 
+/** Empty state inside a card, used by the routes list. */
 export function RouteEmptyState({
     title,
     description,
@@ -54,17 +99,13 @@ export function RouteEmptyState({
     icon?: ReactNode;
 }) {
     return (
-        <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] px-6 py-12 text-center shadow-[var(--shadow-card)]">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--cort-navy)] text-white shadow-[var(--shadow-card)]">
-                {icon ?? <Bus className="h-7 w-7" />}
-            </div>
-            <p className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">{title}</p>
-            <p className="mt-2 max-w-md text-sm text-[var(--text-muted)]">{description}</p>
-            {action ? <div className="mt-5">{action}</div> : null}
-        </div>
+        <Card>
+            <EmptyState icon={icon ?? <Bus aria-hidden="true" />} title={title} description={description} action={action} />
+        </Card>
     );
 }
 
+/** Small toggle pill with pressed state. Prefer <Tabs variant="pills"> for tab sets. */
 export function RoutePill({
     active,
     onClick,
@@ -78,33 +119,14 @@ export function RoutePill({
         <button
             type="button"
             onClick={onClick}
-            className={cx(
-                'inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors',
-                active
-                    ? 'bg-[var(--cort-navy)] text-white shadow-sm'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
+            aria-pressed={active}
+            className={cn(
+                'inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors [&_svg]:size-4',
+                active ? 'bg-card text-fg shadow-xs' : 'text-fg-muted hover:text-fg',
+                focusRing,
             )}
         >
             {children}
         </button>
     );
 }
-
-export function initials(name: string | null | undefined): string {
-    if (!name) return '?';
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    return parts.slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?';
-}
-
-export function format12h(hhmm: string | null | undefined): string | null {
-    if (!hhmm) return null;
-    const match = String(hhmm).match(/^(\d{1,2}):(\d{2})/);
-    if (!match) return hhmm;
-    let hour = Number.parseInt(match[1], 10);
-    const minute = match[2];
-    if (Number.isNaN(hour)) return hhmm;
-    const suffix = hour >= 12 ? 'PM' : 'AM';
-    hour = hour % 12 || 12;
-    return `${hour}:${minute} ${suffix}`;
-}
-

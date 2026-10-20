@@ -5,9 +5,11 @@ import dynamic from 'next/dynamic';
 import {
     DndContext,
     DragOverlay,
+    KeyboardSensor,
     PointerSensor,
     useSensor,
     useSensors,
+    type Announcements,
     type DragEndEvent,
     type DragStartEvent,
 } from '@dnd-kit/core';
@@ -15,19 +17,21 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { PermissionGate } from '@/app/admin/components/PermissionGate';
 import { AdminCan } from '@/app/lib/abilities/AdminAbilityProvider';
-import { adminBtnOutline, adminSelect } from '@/app/admin/components/ui/admin-styles';
 import { apiClient, Company } from '@/app/lib/services/api-client';
 import { useAuth } from '@/app/lib/contexts/auth-context';
+import { useConfirm } from '@/app/lib/hooks/useConfirm';
 import { useAppDispatch, useAppSelector } from '@/app/lib/store/hooks';
 import { fetchAdminCompanies, selectAdminCompanies, selectAdminCompaniesStatus } from '@/app/lib/store/slices/adminCompaniesSlice';
 import type { MapPolyline } from '@/app/admin/ui/Map';
+import { Button, Card, CardHeader, ErrorState, Select, useChartTheme } from '@/app/admin/ui';
 import { CrewAssignmentsPanel } from './CrewAssignmentsPanel';
 import { PlanBoard, PlanBoardSkeleton, PlanDragPreview, PlanLegend } from './PlanBoard';
-import { PlanCommandBar, PlanFloatingSave } from './PlanCommandBar';
+import { PlanCommandBar, PlanSaveBar } from './PlanCommandBar';
 import { PlanEmptyState } from './PlanEmptyState';
 import {
-    localTodayYmd,
-    ROUTE_COLORS,
+    businessTodayYmd,
+    columnKeyboardCoordinates,
+    useLoader,
     type Direction,
     type OpsTab,
     type OverrideRow,
@@ -53,12 +57,14 @@ export default function DailyOverridesPage() {
 function DailyOverridesContent() {
     const { hasCrud } = useAuth();
     const canMutate = hasCrud('ops_shuttle', 'update');
+    const confirm = useConfirm();
     const dispatch = useAppDispatch();
     const companies = useAppSelector(selectAdminCompanies);
     const companiesStatus = useAppSelector(selectAdminCompaniesStatus);
+    const chart = useChartTheme();
 
     const [companyId, setCompanyId] = useState<number | ''>('');
-    const [date, setDate] = useState(localTodayYmd);
+    const [date, setDate] = useState(businessTodayYmd);
     const [direction, setDirection] = useState<Direction>('MORNING');
     const [opsTab, setOpsTab] = useState<OpsTab>('passengers');
     const [mapOpen, setMapOpen] = useState(false);
@@ -68,6 +74,7 @@ function DailyOverridesContent() {
     const [overrides, setOverrides] = useState<OverrideRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [routesLoading, setRoutesLoading] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const [activeDrag, setActiveDrag] = useState<{ routeId: number; entry: RosterEntry } | null>(null);
     const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -80,7 +87,10 @@ function DailyOverridesContent() {
     const [orderByRoute, setOrderByRoute] = useState<Record<number, string[]>>({});
     const [saving, setSaving] = useState(false);
 
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: columnKeyboardCoordinates }),
+    );
 
     useEffect(() => {
         if (companiesStatus === 'idle') dispatch(fetchAdminCompanies({ limit: 200 }));
@@ -94,18 +104,20 @@ function DailyOverridesContent() {
         }
         setRoutes([]);
         setRoutesLoading(true);
+        setLoadError(null);
         const params = new URLSearchParams({ company_id: String(companyId) });
         try {
             const data = await apiClient.request<RouteOption[]>(`/shuttle-trips/generation-routes?${params.toString()}`);
             setRoutes(Array.isArray(data) ? data : []);
-        } catch {
+        } catch (e) {
             setRoutes([]);
+            setLoadError(e instanceof Error ? e.message : 'Could not load routes');
         } finally {
             setRoutesLoading(false);
         }
     }, [companyId]);
 
-    useEffect(() => { loadRoutes(); }, [loadRoutes]);
+    useLoader(loadRoutes);
 
     const loadOverrides = useCallback(async () => {
         if (companyId === '') {
@@ -117,8 +129,9 @@ function DailyOverridesContent() {
                 `/shuttle-daily-overrides?date=${date}&direction=${direction}&company_id=${companyId}`,
             );
             setOverrides(Array.isArray(data) ? data : []);
-        } catch {
+        } catch (e) {
             setOverrides([]);
+            setLoadError(e instanceof Error ? e.message : "Could not load today's moves");
         }
     }, [companyId, date, direction]);
 
@@ -158,16 +171,17 @@ function DailyOverridesContent() {
         }
     }, [companyId, routes, date, direction]);
 
-    useEffect(() => {
-        loadAll();
-        loadOverrides();
+    const loadPlan = useCallback(() => {
+        void loadAll();
+        void loadOverrides();
     }, [loadAll, loadOverrides]);
+    useLoader(loadPlan);
 
     const routeColor = useMemo(() => {
         const map = new globalThis.Map<number, string>();
-        routes.forEach((r, i) => map.set(r.id, ROUTE_COLORS[i % ROUTE_COLORS.length]));
+        routes.forEach((r, i) => map.set(r.id, chart.colors[i % chart.colors.length]));
         return map;
-    }, [routes]);
+    }, [routes, chart.colors]);
 
     const ghostOutByRoute = useMemo(() => {
         const map = new globalThis.Map<number, OverrideRow[]>();
@@ -259,15 +273,12 @@ function DailyOverridesContent() {
         editingUserId != null;
     const hasUnsavedChanges = hasPassengerUnsaved || pendingCrew.size > 0;
 
-    const confirmDiscardUnsaved = (message: string) => {
-        if (!hasUnsavedChanges) return true;
-        return window.confirm(message);
-    };
-
-    const switchOpsTab = (tab: OpsTab) => {
-        if (tab === opsTab) return;
-        setOpsTab(tab);
-    };
+    const unsavedSummary = [
+        pendingMoves.size > 0 ? `${pendingMoves.size} ${pendingMoves.size === 1 ? 'move' : 'moves'}` : null,
+        pendingUndos.size > 0 ? `${pendingUndos.size} undo${pendingUndos.size === 1 ? '' : 's'}` : null,
+        pendingTimes.size > 0 ? `${pendingTimes.size} time ${pendingTimes.size === 1 ? 'edit' : 'edits'}` : null,
+        pendingCrew.size > 0 ? `${pendingCrew.size} crew ${pendingCrew.size === 1 ? 'change' : 'changes'}` : null,
+    ].filter(Boolean).join(' · ') || 'Unsaved changes';
 
     const clearDraft = useCallback(() => {
         setPendingMoves(new globalThis.Map());
@@ -278,14 +289,41 @@ function DailyOverridesContent() {
         setPendingCrew(new globalThis.Map());
     }, []);
 
+    // Drafts belong to one (company, date, direction); reset when that key changes.
+    const draftScope = `${companyId}|${date}|${direction}`;
+    const [prevDraftScope, setPrevDraftScope] = useState(draftScope);
+    if (prevDraftScope !== draftScope) {
+        setPrevDraftScope(draftScope);
+        clearDraft();
+    }
+
+    // Warn before the tab closes or reloads with an unsaved draft.
     useEffect(() => {
-        setPendingMoves(new globalThis.Map());
-        setPendingUndos(new globalThis.Map());
-        setPendingTimes(new globalThis.Map());
-        setOrderByRoute({});
-        setEditingUserId(null);
-        setPendingCrew(new globalThis.Map());
-    }, [date, direction, companyId]);
+        if (!hasUnsavedChanges) return;
+        const onBeforeUnload = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, [hasUnsavedChanges]);
+
+    const confirmDiscardUnsaved = async (title: string, message: string) => {
+        if (!hasUnsavedChanges) return true;
+        return confirm({
+            title,
+            message,
+            consequences: [`${unsavedSummary} will be lost`, 'Nothing has been sent to drivers yet'],
+            destructive: true,
+            confirmLabel: 'Discard changes',
+            cancelLabel: 'Keep editing',
+        });
+    };
+
+    const switchOpsTab = (tab: OpsTab) => {
+        if (tab === opsTab) return;
+        setOpsTab(tab);
+    };
 
     const handleDragStart = (event: DragStartEvent) => {
         if (saving) return;
@@ -364,8 +402,9 @@ function DailyOverridesContent() {
         if (editingUserId === userId) setEditingUserId(null);
     };
 
-    const handleDiscardChanges = () => {
-        clearDraft();
+    const handleDiscardChanges = async () => {
+        const ok = await confirmDiscardUnsaved('Discard unsaved changes?', 'Your draft for this day will be thrown away.');
+        if (ok) clearDraft();
     };
 
     const handleSaveChanges = async () => {
@@ -598,43 +637,65 @@ function DailyOverridesContent() {
                 const hasOverrideToday = entries.some((e) => e.is_override) || ghostOutByRoute.has(r.id) || getPendingGhostOut(r.id).length > 0;
                 return {
                     positions: entries.map((e) => [e.lat as number, e.lng as number] as [number, number]),
-                    color: routeColor.get(r.id) ?? '#0C225E',
+                    color: routeColor.get(r.id) ?? chart.colors[0],
                     weight: hasOverrideToday ? 4 : 3,
                     dashArray: hasOverrideToday ? '8 6' : undefined,
                 } as MapPolyline;
             })
             .filter((p): p is MapPolyline => p != null);
-    }, [routes, getDisplayEntries, routeColor, ghostOutByRoute, getPendingGhostOut]);
+    }, [routes, getDisplayEntries, routeColor, ghostOutByRoute, getPendingGhostOut, chart.colors]);
 
     const passengerCount = useMemo(
         () => routes.reduce((n, r) => n + getDisplayEntries(r.id).length, 0),
         [routes, getDisplayEntries],
     );
 
-    const changeCompany = (next: number | '') => {
+    const changeCompany = async (next: number | '') => {
         if (next === companyId) return;
-        if (!confirmDiscardUnsaved('You have unsaved changes. Change company and discard them?')) return;
+        if (!(await confirmDiscardUnsaved('Change company?', 'Switching company discards the unsaved changes for this plan.'))) return;
         setCompanyId(next);
     };
 
-    const changeDate = (next: string) => {
+    const changeDate = async (next: string) => {
         if (!next || next === date) return;
-        if (!confirmDiscardUnsaved('You have unsaved changes. Change date and discard them?')) return;
+        if (!(await confirmDiscardUnsaved('Change date?', 'Switching date discards the unsaved changes for this plan.'))) return;
         setDate(next);
     };
 
-    const changeDirection = (next: Direction) => {
+    const changeDirection = async (next: Direction) => {
         if (next === direction) return;
-        if (!confirmDiscardUnsaved('You have unsaved changes. Switch direction and discard them?')) return;
+        if (!(await confirmDiscardUnsaved('Switch direction?', 'Switching direction discards the unsaved changes for this plan.'))) return;
         setDirection(next);
     };
 
-    const unsavedSummary = [
-        pendingMoves.size > 0 ? `${pendingMoves.size} ${pendingMoves.size === 1 ? 'move' : 'moves'}` : null,
-        pendingUndos.size > 0 ? `${pendingUndos.size} undo${pendingUndos.size === 1 ? '' : 's'}` : null,
-        pendingTimes.size > 0 ? `${pendingTimes.size} time ${pendingTimes.size === 1 ? 'edit' : 'edits'}` : null,
-        pendingCrew.size > 0 ? `${pendingCrew.size} crew ${pendingCrew.size === 1 ? 'change' : 'changes'}` : null,
-    ].filter(Boolean).join(' · ') || 'Unsaved changes';
+    const nameOfActive = (id: string | number) => {
+        const [, userId] = String(id).split('::');
+        for (const entries of Object.values(rosterByRoute)) {
+            const hit = entries.find((e) => e.user_id === userId);
+            if (hit) return hit.user?.full_name ?? userId;
+        }
+        return [...pendingMoves.values()].find((m) => m.entry.user_id === userId)?.entry.user?.full_name ?? userId ?? 'passenger';
+    };
+    const nameOfOver = (id: string | number) => {
+        const routeId = Number(String(id).replace('panel::', ''));
+        return routeNameById.get(routeId) ?? 'a route';
+    };
+
+    const announcements: Announcements = {
+        onDragStart: ({ active }) =>
+            `Picked up ${nameOfActive(active.id)}. Press left or right arrow to choose a route, space to drop, escape to cancel.`,
+        onDragOver: ({ active, over }) =>
+            over ? `${nameOfActive(active.id)} is over ${nameOfOver(over.id)}.` : `${nameOfActive(active.id)} is not over a route.`,
+        onDragEnd: ({ active, over }) =>
+            over ? `Moved ${nameOfActive(active.id)} to ${nameOfOver(over.id)}. Not saved yet.` : `${nameOfActive(active.id)} was dropped outside a route. Nothing changed.`,
+        onDragCancel: ({ active }) => `Moving ${nameOfActive(active.id)} was cancelled.`,
+    };
+
+    const retryLoad = () => {
+        setLoadError(null);
+        void loadRoutes();
+        void loadOverrides();
+    };
 
     return (
         <div className="space-y-5">
@@ -649,18 +710,15 @@ function DailyOverridesContent() {
                 hasUnsavedChanges={hasUnsavedChanges}
                 passengerCount={passengerCount}
                 routeCount={routes.length}
-                pendingMoves={pendingMoves.size}
-                pendingUndos={pendingUndos.size}
-                pendingTimes={pendingTimes.size}
-                pendingCrew={pendingCrew.size}
+                unsavedSummary={unsavedSummary}
                 mapOpen={mapOpen}
                 showMapToggle={opsTab === 'passengers' && routes.length > 0 && polylines.length > 0}
-                onCompanyChange={changeCompany}
-                onDateChange={changeDate}
-                onDirectionChange={changeDirection}
+                onCompanyChange={(id) => void changeCompany(id)}
+                onDateChange={(d) => void changeDate(d)}
+                onDirectionChange={(d) => void changeDirection(d)}
                 onTabChange={switchOpsTab}
                 onSave={() => void handleSaveChanges()}
-                onDiscard={handleDiscardChanges}
+                onDiscard={() => void handleDiscardChanges()}
                 onToggleMap={() => setMapOpen((v) => !v)}
             />
 
@@ -669,18 +727,24 @@ function DailyOverridesContent() {
                     title="Pick a company to start the day"
                     description="Choose who you're operating for, then morning or evening."
                     action={
-                        <select
-                            className={adminSelect}
-                            value={companyId}
-                            onChange={(e) => changeCompany(e.target.value ? Number(e.target.value) : '')}
+                        <Select
+                            aria-label="Company"
+                            width="auto"
+                            className="min-w-[14rem]"
+                            value={companyId === '' ? '' : String(companyId)}
+                            placeholder="Select a company"
+                            onChange={(e) => void changeCompany(e.target.value ? Number(e.target.value) : '')}
                         >
-                            <option value="">Select a company</option>
                             {companies.map((c: Company) => (
                                 <option key={c.id} value={c.id}>{c.name}</option>
                             ))}
-                        </select>
+                        </Select>
                     }
                 />
+            ) : loadError ? (
+                <Card>
+                    <ErrorState title="Could not load the plan" message={loadError} onRetry={retryLoad} />
+                </Card>
             ) : opsTab === 'crew' ? (
                 <CrewAssignmentsPanel
                     companyId={companyId}
@@ -713,16 +777,18 @@ function DailyOverridesContent() {
                     title="No ready shuttle routes"
                     description="This company has no shuttle routes with a usual driver and vehicle assigned. Set those on the routes page first."
                     action={
-                        <Link href="/admin/routes" className={adminBtnOutline}>Open routes</Link>
+                        <Button variant="outline" asChild>
+                            <Link href="/admin/routes">Open routes</Link>
+                        </Button>
                     }
                 />
             ) : (
                 <div className="space-y-3">
                     <PlanLegend />
                     {loading && (
-                        <p className="text-sm text-[var(--text-muted)]">Loading who&apos;s on each route…</p>
+                        <p className="text-sm text-fg-muted" role="status">Loading who&apos;s on each route…</p>
                     )}
-                    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                    <DndContext sensors={sensors} accessibility={{ announcements }} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                         <PlanBoard
                             routes={routes}
                             routeColor={routeColor}
@@ -753,19 +819,17 @@ function DailyOverridesContent() {
             )}
 
             {opsTab === 'passengers' && mapOpen && routes.length > 0 && polylines.length > 0 && (
-                <div className="overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] shadow-[var(--shadow-card)]">
-                    <div className="px-4 py-3 text-sm font-semibold text-[var(--text-primary)]">
-                        Dashed lines are routes with a passenger move today
-                    </div>
+                <Card className="overflow-hidden">
+                    <CardHeader title="Route map" description="Dashed lines are routes with a passenger move today" />
                     <Map height="420px" polylines={polylines} />
-                </div>
+                </Card>
             )}
 
             {hasUnsavedChanges && canMutate && (
-                <PlanFloatingSave
+                <PlanSaveBar
                     summary={unsavedSummary}
                     saving={saving}
-                    onDiscard={handleDiscardChanges}
+                    onDiscard={() => void handleDiscardChanges()}
                     onSave={() => void handleSaveChanges()}
                 />
             )}

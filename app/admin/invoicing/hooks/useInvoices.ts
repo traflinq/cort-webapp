@@ -7,9 +7,13 @@ import { ShuttleContractRoute } from "../../../lib/services/types/pricing";
 import { useAdminAbility } from "../../../lib/abilities/AdminAbilityProvider";
 import { ADMIN_SUBJECTS } from "../../../lib/abilities/admin-subjects";
 import { useConfirm } from "../../../lib/hooks/useConfirm";
-import type { Invoice, InvoiceStats, PaginationMeta } from "../types";
+import { formatCurrency } from "../../lib/format";
+import { todayYmd } from "../../lib/dates";
+import { errorMessage, type Invoice, type InvoicePaymentLogs, type InvoiceStats, type InvoiceStatus, type PaginationMeta } from "../types";
 
 const WEEKLY_DIVISOR = 4.33;
+/** Companies/vendors pickers are capped at this many rows (existing behaviour). */
+export const PICKER_LIMIT = 100;
 
 function parsePositiveNumber(value: string | null | undefined): number | null {
   if (value == null || value === "") return null;
@@ -27,13 +31,24 @@ function calculateAdjustedFuel(
     return { adjusted: baseFuel, willAdjust: false, percentChange: 0 };
   }
   const percentChange = (currentPrice - contractBase) / contractBase;
-  const willAdjust =
-    revisionPercentage === null || Math.abs(percentChange) > revisionPercentage;
+  const willAdjust = revisionPercentage === null || Math.abs(percentChange) > revisionPercentage;
   return {
     adjusted: willAdjust ? baseFuel * (currentPrice / contractBase) : baseFuel,
     willAdjust,
     percentChange,
   };
+}
+
+type ListEnvelope = {
+  data?: { data?: Invoice[]; pagination?: Partial<PaginationMeta> } | Invoice[];
+  pagination?: Partial<PaginationMeta>;
+};
+
+function unwrapInvoiceList(res: unknown): { rows: Invoice[]; meta: Partial<PaginationMeta> } {
+  const env = res as ListEnvelope | undefined;
+  const inner = env?.data;
+  if (Array.isArray(inner)) return { rows: inner, meta: env?.pagination ?? {} };
+  return { rows: inner?.data ?? [], meta: inner?.pagination ?? env?.pagination ?? {} };
 }
 
 export function useInvoices() {
@@ -44,10 +59,19 @@ export function useInvoices() {
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [stats, setStats] = useState<InvoiceStats>({ totalCollectable: 0, totalCollected: 0, totalOverdue: 0 });
-  const [isLoading, setIsLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [pagination, setPagination] = useState<PaginationMeta>({ page: 1, pages: 1, total: 0 });
   const [currentPage, setCurrentPage] = useState(1);
   const [filterCompanyId, setFilterCompanyId] = useState<number | undefined>(undefined);
+  const [filterStatus, setFilterStatus] = useState<InvoiceStatus | "">("");
+  // Request keys: loading is derived (requested ≠ loaded), state is only set in promise callbacks.
+  const [listNonce, setListNonce] = useState(0);
+  const [statsNonce, setStatsNonce] = useState(0);
+  const listKey = `${currentPage}|${filterCompanyId ?? ""}|${filterStatus}|${listNonce}`;
+  const statsKey = `${filterCompanyId ?? ""}|${statsNonce}`;
+  const [loadedListKey, setLoadedListKey] = useState<string | null>(null);
+  const isLoading = loadedListKey !== listKey;
 
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [viewingId, setViewingId] = useState<number | null>(null);
@@ -56,6 +80,7 @@ export function useInvoices() {
 
   const [showShuttleModal, setShowShuttleModal] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesTruncated, setCompaniesTruncated] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
   const [billingMonthRaw, setBillingMonthRaw] = useState<string>("");
   const [billingPeriod, setBillingPeriod] = useState<"MONTHLY" | "WEEKLY">("MONTHLY");
@@ -87,71 +112,116 @@ export function useInvoices() {
   const [selectedVendorId, setSelectedVendorId] = useState<string>("");
   const [vendorCost, setVendorCost] = useState<string>("");
   const [allVendors, setAllVendors] = useState<{ id: number; name: string }[]>([]);
+  const [vendorsTruncated, setVendorsTruncated] = useState(false);
 
-  // Settle modal state
+  // Settle dialog state
   const [showSettleModal, setShowSettleModal] = useState(false);
   const [settlingInvoice, setSettlingInvoice] = useState<Invoice | null>(null);
   const [settleAmount, setSettleAmount] = useState<string>("");
   const [settlePaymentType, setSettlePaymentType] = useState<"PARTIAL" | "FINAL">("PARTIAL");
   const [settlePaymentMethod, setSettlePaymentMethod] = useState<string>("");
   const [settleNotes, setSettleNotes] = useState<string>("");
-  const [settlePaymentDate, setSettlePaymentDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [settlePaymentDate, setSettlePaymentDate] = useState<string>(todayYmd());
   const [isSettling, setIsSettling] = useState(false);
 
-  // View logs state
+  // Payment history dialog state
   const [showLogsModal, setShowLogsModal] = useState(false);
-  const [activeInvoiceLogs, setActiveInvoiceLogs] = useState<any>(null);
+  const [activeInvoiceLogs, setActiveInvoiceLogs] = useState<InvoicePaymentLogs | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
-  const fetchInvoices = useCallback(async (page: number, companyId?: number) => {
-    setIsLoading(true);
-    try {
-      const res = await apiClient.getAllInvoices({ page, ...(companyId ? { company_id: companyId } : {}) }) as any;
-      const raw = res?.data ?? res;
-      setInvoices(raw?.data ?? []);
-      const meta = raw?.pagination ?? {};
-      setPagination({ page: meta.page ?? page, pages: meta.pages ?? 1, total: meta.total ?? 0 });
-    } catch (e) {
-      console.error("Failed to fetch invoices", e);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const fetchStats = useCallback(async (companyId?: number) => {
-    try {
-      const res = await apiClient.getInvoiceStats(companyId) as any;
-      const raw = res?.data ?? res;
-      setStats({
-        totalCollectable: raw?.totalCollectable ?? 0,
-        totalCollected: raw?.totalCollected ?? 0,
-        totalOverdue: raw?.totalOverdue ?? 0,
+  // Invoice list — one request per key change; stale responses are ignored.
+  useEffect(() => {
+    let cancelled = false;
+    const page = currentPage;
+    apiClient
+      .getAllInvoices({
+        page,
+        ...(filterCompanyId ? { company_id: filterCompanyId } : {}),
+        ...(filterStatus ? { status: filterStatus } : {}),
+      })
+      .then((res) => {
+        if (cancelled) return;
+        const { rows, meta } = unwrapInvoiceList(res);
+        setInvoices(rows);
+        setPagination({ page: meta.page ?? page, pages: meta.pages ?? 1, total: meta.total ?? 0 });
+        setListError(null);
+        setLoadedListKey(listKey);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        console.error("Failed to fetch invoices", e);
+        setListError(errorMessage(e, "Could not load invoices."));
+        setLoadedListKey(listKey);
       });
-    } catch (e) {
-      console.error("Failed to fetch invoice stats", e);
-    }
+    return () => {
+      cancelled = true;
+    };
+    // listKey encodes page/filters/nonce
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listKey]);
+
+  // Totals
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .getInvoiceStats(filterCompanyId)
+      .then((res: { data?: Partial<InvoiceStats> } | Partial<InvoiceStats> | undefined) => {
+        if (cancelled) return;
+        const raw = (res && "data" in (res as object) ? (res as { data?: Partial<InvoiceStats> }).data : res) as Partial<InvoiceStats> | undefined;
+        setStats({
+          totalCollectable: raw?.totalCollectable ?? 0,
+          totalCollected: raw?.totalCollected ?? 0,
+          totalOverdue: raw?.totalOverdue ?? 0,
+        });
+        setStatsError(null);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        console.error("Failed to fetch invoice stats", e);
+        setStatsError(errorMessage(e, "Could not load invoice totals."));
+      });
+    return () => {
+      cancelled = true;
+    };
+    // statsKey encodes company filter/nonce
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statsKey]);
+
+  const refetchStats = useCallback(() => setStatsNonce((n) => n + 1), []);
+  const refetch = useCallback(() => {
+    setListNonce((n) => n + 1);
+    setStatsNonce((n) => n + 1);
   }, []);
 
-  useEffect(() => {
-    fetchInvoices(currentPage, filterCompanyId);
-  }, [currentPage, filterCompanyId, fetchInvoices]);
-
-  useEffect(() => {
-    fetchStats(filterCompanyId);
-  }, [filterCompanyId, fetchStats]);
+  /** Filter setters reset to page 1 in the same event so only one fetch fires. */
+  const applyCompanyFilter = (companyId: number | undefined) => {
+    setFilterCompanyId(companyId);
+    setCurrentPage(1);
+  };
+  const applyStatusFilter = (status: InvoiceStatus | "") => {
+    setFilterStatus(status);
+    setCurrentPage(1);
+  };
+  const clearFilters = () => {
+    setFilterCompanyId(undefined);
+    setFilterStatus("");
+    setCurrentPage(1);
+  };
 
   // Load companies for shuttle invoice generation
   useEffect(() => {
     (async () => {
       try {
         const [compRes, vendRes] = await Promise.all([
-          apiClient.getCompanies({ limit: 100 }),
-          apiClient.getVendors({ limit: 100 })
+          apiClient.getCompanies({ limit: PICKER_LIMIT }),
+          apiClient.getVendors({ limit: PICKER_LIMIT }),
         ]);
         const companyList = compRes.data.data;
         const vendorList = vendRes.data.data;
         setCompanies(companyList);
         setAllVendors(vendorList);
+        setCompaniesTruncated((compRes.data.pagination?.total ?? 0) > PICKER_LIMIT);
+        setVendorsTruncated((vendRes.data.pagination?.total ?? 0) > PICKER_LIMIT);
         if (companyList.length > 0 && !selectedCompanyId) {
           setSelectedCompanyId(String(companyList[0].id));
         }
@@ -160,9 +230,10 @@ export function useInvoices() {
         }
       } catch (e) {
         console.error("Failed to load companies/vendors for shuttle invoices", e);
+        toast.error(errorMessage(e, "Could not load companies and vendors for invoice generation."));
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load shuttle contract routes when company changes
@@ -218,16 +289,20 @@ export function useInvoices() {
 
   const handleSendEmail = async (id: number, invoiceNumber: string) => {
     if (sendingEmailId) return;
-    const ok = await confirm({ message: `Send invoice #${invoiceNumber} via email?` });
+    const ok = await confirm({
+      title: "Send invoice by email?",
+      message: `Invoice ${invoiceNumber} will be emailed to the company's billing contact.`,
+      confirmLabel: "Send email",
+    });
     if (!ok) return;
 
     setSendingEmailId(id);
     try {
       await apiClient.sendInvoiceEmail(id);
-      toast.success(`Invoice #${invoiceNumber} sent successfully.`);
-    } catch (e: any) {
+      toast.success(`Invoice ${invoiceNumber} sent.`);
+    } catch (e) {
       console.error("Failed to send email", e);
-      toast.error(`Failed to send email: ${e}`);
+      toast.error("Could not send email", { description: errorMessage(e, "Please try again.") });
     } finally {
       setSendingEmailId(null);
     }
@@ -240,7 +315,7 @@ export function useInvoices() {
       await apiClient.downloadInvoicePdf(id, invoiceNumber);
     } catch (e) {
       console.error("Failed to download PDF", e);
-      toast.error("Failed to download PDF");
+      toast.error("Could not download the PDF", { description: errorMessage(e, "Please try again.") });
     } finally {
       setDownloadingId(null);
     }
@@ -253,28 +328,30 @@ export function useInvoices() {
       await apiClient.viewInvoicePdf(id);
     } catch (e) {
       console.error("Failed to view PDF", e);
-      toast.error("Failed to view PDF");
+      toast.error("Could not open the PDF", { description: errorMessage(e, "Please try again.") });
     } finally {
       setViewingId(null);
     }
   };
 
-  const handleStatusUpdate = async (id: number, newStatus: string) => {
-    const ok = await confirm({ message: `Are you sure you want to change status to ${newStatus}?` });
+  const handleStatusUpdate = async (id: number, invoiceNumber: string, newStatus: string) => {
+    const ok = await confirm({
+      title: "Change invoice status?",
+      message: `Set invoice ${invoiceNumber} to "${newStatus.replace(/_/g, " ").toLowerCase()}"?`,
+      consequences: ["Collectable and collected totals are recalculated", "The change is visible to the company on its invoices page"],
+      confirmLabel: "Change status",
+    });
     if (!ok) return;
     try {
       await apiClient.updateInvoiceStatus(id, newStatus);
-      setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status: newStatus } : inv));
-      fetchStats(filterCompanyId);
-      toast.success("Status updated successfully");
-    } catch (error: any) {
-      console.error("Failed to update status:", error);
-      toast.error("Failed to update status: " + error);
+      setInvoices((prev) => prev.map((inv) => (inv.id === id ? { ...inv, status: newStatus } : inv)));
+      refetchStats();
+      toast.success("Status updated.");
+    } catch (e) {
+      console.error("Failed to update status:", e);
+      toast.error("Could not update status", { description: errorMessage(e, "Please try again.") });
     }
   };
-
-  const isInvoicesLoading = isLoading;
-  const totalPages = pagination.pages;
 
   const formatPeriodDate = (value: string) => {
     const hasTimeComponent = value.includes("T");
@@ -327,13 +404,8 @@ export function useInvoices() {
     if (invoice.billing_period === "WEEKLY" || invoice.billing_period === "MONTHLY") {
       return invoice.billing_period;
     }
-
     const raw = invoice.billing_month ?? "";
     return /\s+W\d{4}-\d{4}$/.test(raw) ? "WEEKLY" : "MONTHLY";
-  };
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
   };
 
   const fuelAdjustmentPreview = useMemo(() => {
@@ -344,15 +416,10 @@ export function useInvoices() {
 
     const dieselPrice = parsePositiveNumber(selectedDieselPrice) ?? petrolPrice;
     const petrolBase = parsePositiveNumber(shuttleContractFuel.fuelBasePrice) ?? 0;
-    const dieselBase =
-      parsePositiveNumber(shuttleContractFuel.dieselBasePrice) ?? petrolBase;
+    const dieselBase = parsePositiveNumber(shuttleContractFuel.dieselBasePrice) ?? petrolBase;
     const revisionRaw = shuttleContractFuel.revisionPercentage;
-    const revisionPercentage =
-      revisionRaw == null || revisionRaw === "" ? null : Number(revisionRaw);
-    const safeRevision =
-      revisionPercentage != null && Number.isFinite(revisionPercentage)
-        ? revisionPercentage
-        : null;
+    const revisionPercentage = revisionRaw == null || revisionRaw === "" ? null : Number(revisionRaw);
+    const safeRevision = revisionPercentage != null && Number.isFinite(revisionPercentage) ? revisionPercentage : null;
 
     const petrolAdj = calculateAdjustedFuel(1, petrolBase, petrolPrice, safeRevision);
     const dieselAdj = calculateAdjustedFuel(1, dieselBase, dieselPrice, safeRevision);
@@ -395,23 +462,13 @@ export function useInvoices() {
       dieselPercentChange: hasDieselRoutes ? dieselAdj.percentChange : null,
       willPetrolAdjust: petrolAdj.willAdjust,
       willDieselAdjust: hasDieselRoutes ? dieselAdj.willAdjust : null,
-      revisionLabel:
-        safeRevision == null ? "No limit (always revises)" : `${(safeRevision * 100).toFixed(1)}%`,
+      revisionLabel: safeRevision == null ? "No limit (always revises)" : `${(safeRevision * 100).toFixed(1)}%`,
       rows,
       contractFuelTotal,
       adjustedFuelTotal,
       delta: adjustedFuelTotal - contractFuelTotal,
     };
-  }, [
-    fuelMode,
-    selectedFuelPrice,
-    selectedDieselPrice,
-    shuttleContractFuel,
-    shuttleRoutes,
-    routeQuantities,
-    routeTrips,
-    billingPeriod,
-  ]);
+  }, [fuelMode, selectedFuelPrice, selectedDieselPrice, shuttleContractFuel, shuttleRoutes, routeQuantities, routeTrips, billingPeriod]);
 
   const handleGenerateShuttleInvoice = async () => {
     if (!selectedCompanyId) {
@@ -426,7 +483,6 @@ export function useInvoices() {
         toast.error("Please select a billing month.");
         return;
       }
-
       const [year, month] = billingMonthRaw.split("-");
       if (!year || !month) {
         toast.error("Invalid billing month.");
@@ -438,7 +494,6 @@ export function useInvoices() {
         toast.error("Please select weekly start and end dates.");
         return;
       }
-
       const start = new Date(weeklyStartDate);
       const end = new Date(weeklyEndDate);
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
@@ -484,14 +539,15 @@ export function useInvoices() {
         billingPeriod,
         weeklyStartDate: billingPeriod === "WEEKLY" ? weeklyStartDate : undefined,
         weeklyEndDate: billingPeriod === "WEEKLY" ? weeklyEndDate : undefined,
-        routeTrips: shuttleRoutes.length > 0
-          ? shuttleRoutes.map((r) => ({
-              routeId: r.id,
-              tripsCount: r.billing_type === "PER_TRIP" ? Number(routeTrips[r.id] ?? 0) : 0,
-              quantity: Number(routeQuantities[r.id] ?? r.quantity ?? 0),
-              tripDate: r.billing_type === "PER_TRIP" ? (routeTripDates[r.id] || undefined) : undefined,
-            }))
-          : undefined,
+        routeTrips:
+          shuttleRoutes.length > 0
+            ? shuttleRoutes.map((r) => ({
+                routeId: r.id,
+                tripsCount: r.billing_type === "PER_TRIP" ? Number(routeTrips[r.id] ?? 0) : 0,
+                quantity: Number(routeQuantities[r.id] ?? r.quantity ?? 0),
+                tripDate: r.billing_type === "PER_TRIP" ? routeTripDates[r.id] || undefined : undefined,
+              }))
+            : undefined,
         discountType: shuttleDiscountType !== "NONE" ? shuttleDiscountType : undefined,
         discountValue: shuttleDiscountType !== "NONE" && shuttleDiscountValue !== "" ? Number(shuttleDiscountValue) : undefined,
         vendorId: isVendorCar ? Number(selectedVendorId) : undefined,
@@ -501,11 +557,9 @@ export function useInvoices() {
         selectedDieselPrice: fuelMode === "SELECTED" && selectedDieselPrice !== "" ? Number(selectedDieselPrice) : undefined,
       });
 
-      // Refresh invoices and stats
-      fetchInvoices(currentPage, filterCompanyId);
-      fetchStats(filterCompanyId);
+      refetch();
 
-      toast.success("Shuttle invoice generated successfully.");
+      toast.success("Shuttle invoice generated.");
       setShowShuttleModal(false);
       setBillingMonthRaw("");
       setBillingPeriod("MONTHLY");
@@ -528,9 +582,9 @@ export function useInvoices() {
       });
       setRouteTrips(resetTrips);
       setRouteQuantities(resetQuantities);
-    } catch (e: any) {
+    } catch (e) {
       console.error("Failed to generate shuttle invoice", e);
-      toast.error(`Failed to generate shuttle invoice: ${e?.message || e}`);
+      toast.error("Could not generate the invoice", { description: errorMessage(e, "Please check the inputs and try again.") });
     } finally {
       setIsGeneratingShuttle(false);
     }
@@ -542,14 +596,21 @@ export function useInvoices() {
     setSettlePaymentType("PARTIAL");
     setSettlePaymentMethod("");
     setSettleNotes("");
-    setSettlePaymentDate(new Date().toISOString().split('T')[0]);
+    setSettlePaymentDate(todayYmd());
     setShowSettleModal(true);
+  };
+
+  /** Closing (cancel, Esc, overlay) always clears the selected invoice. */
+  const closeSettleModal = () => {
+    if (isSettling) return;
+    setShowSettleModal(false);
+    setSettlingInvoice(null);
   };
 
   const handleSettleInvoice = async () => {
     if (!settlingInvoice) return;
     const amount = Number(settleAmount);
-    if (!settleAmount || isNaN(amount) || amount <= 0) {
+    if (!settleAmount || Number.isNaN(amount) || amount <= 0) {
       toast.error("Please enter a valid amount.");
       return;
     }
@@ -562,13 +623,12 @@ export function useInvoices() {
         notes: settleNotes || undefined,
         paymentDate: settlePaymentDate || undefined,
       });
-      fetchInvoices(currentPage, filterCompanyId);
-      fetchStats(filterCompanyId);
-      toast.success(`Payment of PKR ${amount.toLocaleString()} recorded successfully.`);
+      refetch();
+      toast.success(`Payment of ${formatCurrency(amount)} recorded.`);
       setShowSettleModal(false);
       setSettlingInvoice(null);
-    } catch (e: any) {
-      toast.error(`Failed to record payment: ${e?.message || e}`);
+    } catch (e) {
+      toast.error("Could not record the payment", { description: errorMessage(e, "Please try again.") });
     } finally {
       setIsSettling(false);
     }
@@ -576,55 +636,76 @@ export function useInvoices() {
 
   const openLogsModal = async (inv: Invoice) => {
     setIsLoadingLogs(true);
+    setActiveInvoiceLogs(null);
     setShowLogsModal(true);
     try {
       const res = await apiClient.getShuttleInvoicePayments(inv.id);
-      setActiveInvoiceLogs(res.data);
+      setActiveInvoiceLogs((res?.data ?? null) as InvoicePaymentLogs | null);
     } catch (e) {
       console.error("Failed to fetch logs", e);
-      toast.error("Failed to fetch payment logs");
+      toast.error("Could not load payment history", { description: errorMessage(e, "Please try again.") });
       setShowLogsModal(false);
     } finally {
       setIsLoadingLogs(false);
     }
   };
 
-  const handleDeleteInvoice = async (id: number, invoiceNumber: string) => {
+  const closeLogsModal = () => {
+    setShowLogsModal(false);
+    setActiveInvoiceLogs(null);
+  };
+
+  const handleDeleteInvoice = async (invoice: Invoice) => {
     const ok = await confirm({
-      message: `Delete invoice #${invoiceNumber}? This cannot be undone.`,
+      title: `Delete invoice ${invoice.invoice_number}?`,
+      message: "This permanently removes the invoice from the ledger.",
+      consequences: [
+        "Recorded payments against this invoice are no longer visible here",
+        "Collectable and collected totals are recalculated",
+        "This cannot be undone",
+      ],
       destructive: true,
-      confirmLabel: "Delete",
+      confirmLabel: "Delete invoice",
     });
     if (!ok) return;
-    setDeletingInvoiceId(id);
+    setDeletingInvoiceId(invoice.id);
     try {
-      await apiClient.deleteInvoice(id);
-      setInvoices(prev => prev.filter(inv => inv.id !== id));
-      fetchStats(filterCompanyId);
-      toast.success("Invoice deleted successfully.");
-    } catch (e: any) {
-      toast.error(`Failed to delete invoice: ${e?.message || e}`);
+      await apiClient.deleteInvoice(invoice.id);
+      toast.success(`Invoice ${invoice.invoice_number} deleted.`);
+      // Refetch so pagination and totals stay accurate (previously only removed locally).
+      refetch();
+    } catch (e) {
+      toast.error("Could not delete the invoice", { description: errorMessage(e, "Please try again.") });
     } finally {
       setDeletingInvoiceId(null);
     }
   };
 
   return {
-    invoices, stats, isLoading: isInvoicesLoading, pagination, currentPage, setCurrentPage,
-    filterCompanyId, setFilterCompanyId, companies, canUpdate, canDelete,
-    downloadingId, viewingId, sendingEmailId, showShuttleModal, setShowShuttleModal,
-    isGeneratingShuttle, selectedCompanyId, setSelectedCompanyId, billingMonthRaw, setBillingMonthRaw,
+    // list
+    invoices, stats, isLoading, listError, statsError, pagination, currentPage, setCurrentPage, refetch,
+    filterCompanyId, filterStatus, applyCompanyFilter, applyStatusFilter, clearFilters,
+    companies, companiesTruncated, canUpdate, canDelete,
+    downloadingId, viewingId, sendingEmailId, deletingInvoiceId,
+    // generate
+    showShuttleModal, setShowShuttleModal, isGeneratingShuttle,
+    selectedCompanyId, setSelectedCompanyId, billingMonthRaw, setBillingMonthRaw,
     billingPeriod, setBillingPeriod, weeklyStartDate, setWeeklyStartDate, weeklyEndDate, setWeeklyEndDate,
     continuedVehicles, setContinuedVehicles, amountMode, setAmountMode, amountDelta, setAmountDelta,
     fuelMode, setFuelMode, selectedFuelPrice, setSelectedFuelPrice, selectedDieselPrice, setSelectedDieselPrice,
     shuttleContractFuel, fuelAdjustmentPreview,
     shuttleDiscountType, setShuttleDiscountType, shuttleDiscountValue, setShuttleDiscountValue,
     shuttleRoutes, routeTrips, setRouteTrips, routeQuantities, setRouteQuantities, routeTripDates, setRouteTripDates,
-    isVendorCar, setIsVendorCar, selectedVendorId, setSelectedVendorId, vendorCost, setVendorCost, allVendors,
-    showSettleModal, setShowSettleModal, settlingInvoice, setSettlingInvoice, settleAmount, setSettleAmount, settlePaymentType, setSettlePaymentType,
-    settlePaymentMethod, setSettlePaymentMethod, settleNotes, setSettleNotes, settlePaymentDate, setSettlePaymentDate,
-    isSettling, showLogsModal, setShowLogsModal, activeInvoiceLogs, setActiveInvoiceLogs, isLoadingLogs, deletingInvoiceId,
-    totalPages, formatInvoicePeriod, getInvoicePeriodType, handleSendEmail, downloadPdf, viewPdf, handleStatusUpdate,
+    isVendorCar, setIsVendorCar, selectedVendorId, setSelectedVendorId, vendorCost, setVendorCost, allVendors, vendorsTruncated,
+    // settle
+    showSettleModal, closeSettleModal, settlingInvoice, settleAmount, setSettleAmount, settlePaymentType, setSettlePaymentType,
+    settlePaymentMethod, setSettlePaymentMethod, settleNotes, setSettleNotes, settlePaymentDate, setSettlePaymentDate, isSettling,
+    // logs
+    showLogsModal, closeLogsModal, activeInvoiceLogs, isLoadingLogs,
+    // helpers + actions
+    formatInvoicePeriod, getInvoicePeriodType, handleSendEmail, downloadPdf, viewPdf, handleStatusUpdate,
     handleGenerateShuttleInvoice, openSettleModal, handleSettleInvoice, openLogsModal, handleDeleteInvoice,
   };
 }
+
+export type InvoicesController = ReturnType<typeof useInvoices>;

@@ -15,9 +15,25 @@ import { apiClient } from '@/app/lib/services/api-client';
 import { DriverType } from '@/app/lib/services/types/drivers';
 import type { MapMarker, MapPolyline } from '@/app/admin/ui/Map';
 import { PermissionGate } from '@/app/admin/components/PermissionGate';
-import { adminBtnOutline, adminBtnPrimary, adminInput, adminSelect } from '@/app/admin/components/ui/admin-styles';
-import { cx } from '@/app/admin/components/ui/cx';
-import { RouteCommandBar } from '../RouteCommandBar';
+import {
+    Badge,
+    Button,
+    Card,
+    CardContent,
+    CardHeader,
+    Field,
+    FormGrid,
+    IconButton,
+    Input,
+    Label,
+    PageHeader,
+    Select,
+    Tabs,
+    TabsList,
+    TabsTrigger,
+    usePageBreadcrumbs,
+} from '@/app/admin/ui';
+import { MAP_COLORS } from '../RouteCommandBar';
 
 const Map = dynamic(() => import('@/app/admin/ui/Map'), { ssr: false });
 
@@ -61,6 +77,15 @@ export default function CreateRoutePage() {
     );
 }
 
+function SectionTitle({ children, extra }: { children: React.ReactNode; extra?: React.ReactNode }) {
+    return (
+        <div className="flex items-center justify-between gap-2">
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">{children}</h2>
+            {extra}
+        </div>
+    );
+}
+
 function CreateRoutePageContent() {
     const router = useRouter();
     const dispatch = useAppDispatch();
@@ -69,6 +94,8 @@ function CreateRoutePageContent() {
     const routeActionStatus = useAppSelector(selectAdminRoutesActionStatus);
     const drivers = useAppSelector(selectAdminDrivers);
     const vehicles = useAppSelector(selectAdminVehicles);
+
+    usePageBreadcrumbs([{ label: 'New route' }]);
 
     const [name, setName] = useState('');
     const [companyId, setCompanyId] = useState('');
@@ -213,8 +240,8 @@ function CreateRoutePageContent() {
             })).unwrap();
             toast.success('Route created successfully!');
             router.push('/admin/routes');
-        } catch (error: any) {
-            toast.error(error || 'Failed to create route');
+        } catch (error: unknown) {
+            toast.error(typeof error === 'string' ? error : 'Failed to create route');
         }
     };
 
@@ -223,20 +250,20 @@ function CreateRoutePageContent() {
             id: s.id,
             position: [s.lat, s.lng] as [number, number],
             label: `${index + 1}. ${s.name}`,
-            color: '#6366f1',
+            color: MAP_COLORS.pickup,
         })),
         ...officeStops.map((s) => ({
             id: s.id,
             position: [s.lat, s.lng] as [number, number],
             label: `Office · ${s.name}`,
-            color: '#ef4444',
+            color: MAP_COLORS.office,
         })),
     ];
 
     const mapPolylines: MapPolyline[] = routePolyline.length >= 2
-        ? [{ positions: routePolyline, color: '#0C225E' }]
+        ? [{ positions: routePolyline, color: MAP_COLORS.route }]
         : orderedStops.length > 1
-        ? [{ positions: orderedStops.map((s) => [s.lat, s.lng] as [number, number]), color: '#2563eb' }]
+        ? [{ positions: orderedStops.map((s) => [s.lat, s.lng] as [number, number]), color: MAP_COLORS.fallback, dashArray: '6 6' }]
         : [];
 
     const mapCenter: [number, number] | undefined = officeStops[0]
@@ -251,336 +278,260 @@ function CreateRoutePageContent() {
     if (officeStops.length === 0) missing.push('At least one office');
     if (pickupStops.length < 1) missing.push('A pickup');
     const canSave = missing.length === 0;
+    const isSaving = routeActionStatus === 'loading';
+
+    const driverOptions = drivers.map((d) => (
+        <option key={d.id} value={d.id}>{d.full_name}</option>
+    ));
+    const vehicleOptions = vehicles.map((v) => (
+        <option key={v.id} value={v.id}>
+            {v.plate_number}{v.model ? ` · ${v.model}` : ''}
+        </option>
+    ));
 
     return (
-        <div className="flex h-[calc(100vh-100px)] flex-col gap-4">
-            <RouteCommandBar
+        <div className="space-y-6">
+            <PageHeader
+                back={{ href: '/admin/routes', label: 'Back to routes' }}
                 title="New route"
-                subtitle="Offices are always last in the morning and first in the evening."
+                description="Offices are always last in the morning and first in the evening."
                 actions={
                     <>
-                        <button type="button" onClick={() => router.back()} className={adminBtnOutline}>Cancel</button>
-                        <button
-                            type="button"
-                            onClick={() => void handleSubmit()}
-                            disabled={routeActionStatus === 'loading' || !canSave}
-                            className={adminBtnPrimary}
-                        >
-                            {routeActionStatus === 'loading' ? 'Saving…' : 'Save route'}
-                        </button>
+                        <Button variant="outline" onClick={() => router.back()} disabled={isSaving}>Cancel</Button>
+                        <Button onClick={() => void handleSubmit()} disabled={!canSave} loading={isSaving}>
+                            Save route
+                        </Button>
                     </>
+                }
+                meta={
+                    !canSave ? (
+                        <>
+                            <span className="text-xs text-fg-muted">Still need:</span>
+                            {missing.map((item) => (
+                                <Badge key={item} tone="warning" size="sm">{item}</Badge>
+                            ))}
+                        </>
+                    ) : (
+                        <Badge tone="success" size="sm" dot>Ready to save</Badge>
+                    )
                 }
             />
 
-            {!canSave && (
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="text-[var(--text-muted)]">Still need:</span>
-                    {missing.map((item) => (
-                        <span key={item} className="rounded-full bg-[color-mix(in_srgb,var(--cort-orange)_12%,transparent)] px-2.5 py-1 font-medium text-[var(--cort-orange)]">
-                            {item}
-                        </span>
-                    ))}
-                </div>
-            )}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+                <Card className="lg:order-1">
+                    <CardContent className="space-y-6">
+                        <section className="space-y-3">
+                            <SectionTitle>1. Company &amp; name</SectionTitle>
+                            <Field label="Route name" required>
+                                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Gulshan to office" />
+                            </Field>
+                            <Field label="Company" required>
+                                <Select
+                                    placeholder="Select company"
+                                    value={companyId}
+                                    onChange={(e) => setCompanyId(e.target.value)}
+                                    disabled={companiesStatus === 'loading'}
+                                >
+                                    {companies.map((c) => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </Select>
+                            </Field>
+                        </section>
 
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-3">
-                <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-card)]">
-                    <section className="space-y-3">
-                        <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">1. Company &amp; name</h2>
-                        <div>
-                            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Route name</label>
-                            <input
-                                id="name"
-                                className={adminInput}
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="e.g. Gulshan to office"
-                            />
-                        </div>
-                        <div>
-                            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Company</label>
-                            <select
-                                id="company"
-                                className={adminSelect}
-                                value={companyId}
-                                onChange={(e) => setCompanyId(e.target.value)}
-                                disabled={companiesStatus === 'loading'}
-                            >
-                                <option value="">Select company</option>
-                                {companies.map((c) => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </section>
-
-                    <div className="flex rounded-full bg-[var(--bg-subtle)] p-1">
-                        <button
-                            type="button"
-                            onClick={() => setPinMode('office')}
-                            className={cx(
-                                'flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold',
-                                pinMode === 'office' ? 'bg-[var(--cort-navy)] text-white' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
-                            )}
-                        >
-                            <Building2 className="h-3.5 w-3.5" />
-                            Set office
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setPinMode('pickup')}
-                            className={cx(
-                                'flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold',
-                                pinMode === 'pickup' ? 'bg-[var(--cort-orange)] text-white' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
-                            )}
-                        >
-                            <MapPin className="h-3.5 w-3.5" />
-                            Add pickup
-                        </button>
-                    </div>
-
-                    <div>
-                        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                            {pinMode === 'office' ? 'Search office address' : 'Search employee pickup'}
-                        </label>
-                        <StopAddressSearch
-                            onSelect={handleAddressSelect}
-                            placeholder={pinMode === 'office' ? 'Search office / HQ…' : 'Search pickup…'}
-                            clearOnSelect
-                        />
-                        <p className="mt-1.5 text-xs text-[var(--text-muted)]">
-                            Or click the map to pin the {pinMode === 'office' ? 'office' : 'pickup'}.
-                        </p>
-                    </div>
-
-                    <section>
-                        <div className="mb-2 flex items-center justify-between">
-                            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                                2. Office{officeStops.length !== 1 ? 's' : ''}{officeStops.length > 0 ? ` (${officeStops.length})` : ''}
-                            </h2>
-                            <span className="rounded-full bg-[color-mix(in_srgb,var(--cort-orange)_12%,transparent)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--cort-orange)]">
-                                At least 1 required
-                            </span>
-                        </div>
-                        {officeStops.length === 0 ? (
-                            <div className="rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-subtle)] p-4 text-center">
-                                <p className="text-sm font-medium text-[var(--text-primary)]">No office set yet</p>
-                                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                                    Switch to Set office, then search or click the map. Add more than one if this route serves multiple offices.
+                        <section className="space-y-3">
+                            <SectionTitle>Add stops</SectionTitle>
+                            <Tabs value={pinMode} onValueChange={(v) => setPinMode(v as PinMode)}>
+                                <TabsList variant="pills" className="w-full" aria-label="What the next pin adds">
+                                    <TabsTrigger value="office" icon={<Building2 />} className="flex-1 justify-center">Set office</TabsTrigger>
+                                    <TabsTrigger value="pickup" icon={<MapPin />} className="flex-1 justify-center">Add pickup</TabsTrigger>
+                                </TabsList>
+                            </Tabs>
+                            <div className="flex flex-col gap-1.5">
+                                <Label>{pinMode === 'office' ? 'Search office address' : 'Search employee pickup'}</Label>
+                                <StopAddressSearch
+                                    onSelect={handleAddressSelect}
+                                    placeholder={pinMode === 'office' ? 'Search office / HQ…' : 'Search pickup…'}
+                                    clearOnSelect
+                                />
+                                <p className="text-xs text-fg-muted">
+                                    Or click the map to pin the {pinMode === 'office' ? 'office' : 'pickup'}.
                                 </p>
                             </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {officeStops.map((stop) => (
-                                    <div key={stop.id} className="rounded-xl border border-[color-mix(in_srgb,var(--cort-orange)_35%,transparent)] bg-[var(--bg-subtle)] p-3">
-                                        <div className="mb-2 flex items-start gap-2">
-                                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--cort-orange)] text-white">
-                                                <Building2 className="h-4 w-4" />
-                                            </span>
-                                            <div className="min-w-0 flex-1">
-                                                <input
-                                                    value={stop.name}
-                                                    onChange={(e) => handleOfficeChange(stop.id, 'name', e.target.value)}
-                                                    className={cx(adminInput, 'h-8 text-sm font-semibold')}
-                                                />
-                                                <p className="mt-1 text-[11px] text-[var(--text-muted)]">People board at pickups only — no employee assignment here.</p>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRemoveOffice(stop.id)}
-                                                className="text-[var(--text-muted)] hover:text-rose-600"
-                                                title="Remove office"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2 pl-10 text-xs">
-                                            <div>
-                                                <label className="mb-0.5 block text-[var(--text-muted)]">Morning arrival</label>
-                                                <input type="time" value={stop.morningEta} onChange={(e) => handleOfficeChange(stop.id, 'morningEta', e.target.value)} className={adminInput} />
-                                            </div>
-                                            <div>
-                                                <label className="mb-0.5 block text-[var(--text-muted)]">Evening departure</label>
-                                                <input type="time" value={stop.eveningEta} onChange={(e) => handleOfficeChange(stop.id, 'eveningEta', e.target.value)} className={adminInput} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-
-                    <section>
-                        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                            3. Pickups ({pickupStops.length})
-                        </h2>
-                        {pickupStops.length === 0 ? (
-                            <p className="rounded-xl border border-dashed border-[var(--border-default)] py-6 text-center text-sm text-[var(--text-muted)]">
-                                No pickups yet — use Add pickup or the map.
-                            </p>
-                        ) : (
-                            <div className="space-y-2">
-                                {pickupStops.map((stop, index) => (
-                                    <div key={stop.id} className="group rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-3">
-                                        <div className="mb-2 flex items-center gap-2">
-                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--cort-navy)] text-xs font-bold text-white">
-                                                {index + 1}
-                                            </span>
-                                            <input
-                                                value={stop.name}
-                                                onChange={(e) => handlePickupChange(stop.id, 'name', e.target.value)}
-                                                className={cx(adminInput, 'h-8 flex-1 text-sm')}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRemovePickup(stop.id)}
-                                                className="text-[var(--text-muted)] hover:text-rose-600 md:opacity-0 md:group-hover:opacity-100"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-2 pl-8 text-xs">
-                                            <div>
-                                                <label className="mb-0.5 block text-[var(--text-muted)]">When</label>
-                                                <select
-                                                    value={stop.direction}
-                                                    onChange={(e) => handlePickupChange(stop.id, 'direction', e.target.value)}
-                                                    className={adminSelect}
-                                                >
-                                                    <option value="BOTH">Both</option>
-                                                    <option value="MORNING">Morning only</option>
-                                                    <option value="EVENING">Evening only</option>
-                                                </select>
-                                            </div>
-                                            {stop.direction !== 'EVENING' && (
-                                                <div>
-                                                    <label className="mb-0.5 block text-[var(--text-muted)]">Morning time</label>
-                                                    <input type="time" value={stop.morningEta} onChange={(e) => handlePickupChange(stop.id, 'morningEta', e.target.value)} className={adminInput} />
-                                                </div>
-                                            )}
-                                            {stop.direction !== 'MORNING' && (
-                                                <div>
-                                                    <label className="mb-0.5 block text-[var(--text-muted)]">Evening time</label>
-                                                    <input type="time" value={stop.eveningEta} onChange={(e) => handlePickupChange(stop.id, 'eveningEta', e.target.value)} className={adminInput} />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-
-                    <section className="space-y-3">
-                        <div>
-                            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">4. Usual driver &amp; vehicle (optional)</h2>
-                            <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                                Leave evening empty to use the same driver and vehicle as morning.
-                            </p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div>
-                                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Morning driver</label>
-                                <select
-                                    className={adminSelect}
-                                    value={assignedDriverId}
-                                    onChange={(e) => setAssignedDriverId(e.target.value)}
-                                >
-                                    <option value="">None</option>
-                                    {drivers.map((d) => (
-                                        <option key={d.id} value={d.id}>{d.full_name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Morning vehicle</label>
-                                <select
-                                    className={adminSelect}
-                                    value={assignedVehicleId}
-                                    onChange={(e) => setAssignedVehicleId(e.target.value)}
-                                >
-                                    <option value="">None</option>
-                                    {vehicles.map((v) => (
-                                        <option key={v.id} value={v.id}>
-                                            {v.plate_number}{v.model ? ` · ${v.model}` : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Evening driver</label>
-                                <select
-                                    className={adminSelect}
-                                    value={eveningDriverId}
-                                    onChange={(e) => setEveningDriverId(e.target.value)}
-                                >
-                                    <option value="">Same as morning</option>
-                                    {drivers.map((d) => (
-                                        <option key={d.id} value={d.id}>{d.full_name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Evening vehicle</label>
-                                <select
-                                    className={adminSelect}
-                                    value={eveningVehicleId}
-                                    onChange={(e) => setEveningVehicleId(e.target.value)}
-                                >
-                                    <option value="">Same as morning</option>
-                                    {vehicles.map((v) => (
-                                        <option key={v.id} value={v.id}>
-                                            {v.plate_number}{v.model ? ` · ${v.model}` : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    </section>
-
-                    {officeStops.length > 0 && pickupStops.length > 0 && (
-                        <section className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-3 text-xs text-[var(--text-secondary)]">
-                            <p className="mb-2 font-semibold text-[var(--text-primary)]">Order on save</p>
-                            <p>
-                                <span className="font-medium">Morning → </span>
-                                {pickupStops.map((s) => s.name).join(' → ')} → {officeStops.map((s) => s.name).join(', ')}
-                            </p>
-                            <p className="mt-1">
-                                <span className="font-medium">Evening → </span>
-                                {officeStops.map((s) => s.name).join(', ')} → {[...pickupStops].reverse().map((s) => s.name).join(' → ')}
-                            </p>
-                            <p className="mt-2 text-[var(--text-muted)]">
-                                Pickup order is auto-optimized on save; evening is the reverse of morning.
-                                {officeStops.length > 1 && ' Multiple offices are placed after pickups — adjust exact positions from Manage Stops after creating the route.'}
-                            </p>
                         </section>
-                    )}
 
-                    {orderedStops.length >= 2 && (
-                        <div className="flex items-center gap-2 border-t border-[var(--border-default)] pt-2 text-xs text-[var(--text-muted)]">
-                            <div className="h-2 w-2 rounded-full bg-[var(--cort-navy)]" />
-                            Road-following route via Google Maps
-                        </div>
-                    )}
-                </div>
+                        <section className="space-y-2">
+                            <SectionTitle extra={<Badge tone="warning" size="sm">At least 1 required</Badge>}>
+                                2. Office{officeStops.length !== 1 ? 's' : ''}{officeStops.length > 0 ? ` (${officeStops.length})` : ''}
+                            </SectionTitle>
+                            {officeStops.length === 0 ? (
+                                <div className="rounded-lg border border-dashed border-line bg-subtle p-4 text-center">
+                                    <p className="text-sm font-medium text-fg">No office set yet</p>
+                                    <p className="mt-1 text-xs text-fg-muted">
+                                        Switch to Set office, then search or click the map. Add more than one if this route serves multiple offices.
+                                    </p>
+                                </div>
+                            ) : (
+                                <ul className="space-y-2">
+                                    {officeStops.map((stop) => (
+                                        <li key={stop.id} className="rounded-lg border border-brand-line bg-brand-soft/40 p-3">
+                                            <div className="mb-2 flex items-start gap-2">
+                                                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand text-white" aria-hidden="true">
+                                                    <Building2 className="size-4" />
+                                                </span>
+                                                <div className="min-w-0 flex-1">
+                                                    <Field label="Office name">
+                                                        <Input value={stop.name} onChange={(e) => handleOfficeChange(stop.id, 'name', e.target.value)} className="h-8 font-medium" />
+                                                    </Field>
+                                                    <p className="mt-1 text-[11px] text-fg-muted">People board at pickups only — no employee assignment here.</p>
+                                                </div>
+                                                <IconButton label={`Remove office ${stop.name}`} size="icon-sm" variant="ghost" onClick={() => handleRemoveOffice(stop.id)}>
+                                                    <Trash2 />
+                                                </IconButton>
+                                            </div>
+                                            <FormGrid cols={2} className="gap-2 pl-10">
+                                                <Field label="Morning arrival">
+                                                    <Input type="time" value={stop.morningEta} onChange={(e) => handleOfficeChange(stop.id, 'morningEta', e.target.value)} className="h-8" />
+                                                </Field>
+                                                <Field label="Evening departure">
+                                                    <Input type="time" value={stop.eveningEta} onChange={(e) => handleOfficeChange(stop.id, 'eveningEta', e.target.value)} className="h-8" />
+                                                </Field>
+                                            </FormGrid>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </section>
 
-                <div className="relative h-full min-h-[320px] overflow-hidden rounded-2xl border border-[var(--border-default)] lg:col-span-2">
-                    <div className="pointer-events-none absolute left-3 top-3 z-[500] flex gap-2">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--bg-card)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] shadow-sm">
-                            <span className="h-2 w-2 rounded-full bg-[var(--cort-orange)]" /> Office
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--bg-card)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] shadow-sm">
-                            <span className="h-2 w-2 rounded-full bg-[var(--cort-navy)]" /> Pickups
-                        </span>
-                    </div>
-                    <Map
-                        height="100%"
-                        onMapClick={handleMapClick}
-                        markers={mapMarkers}
-                        polylines={mapPolylines}
-                        center={mapCenter}
+                        <section className="space-y-2">
+                            <SectionTitle>3. Pickups ({pickupStops.length})</SectionTitle>
+                            {pickupStops.length === 0 ? (
+                                <p className="rounded-lg border border-dashed border-line py-6 text-center text-sm text-fg-muted">
+                                    No pickups yet — use Add pickup or the map.
+                                </p>
+                            ) : (
+                                <ul className="space-y-2">
+                                    {pickupStops.map((stop, index) => (
+                                        <li key={stop.id} className="rounded-lg border border-line bg-subtle p-3">
+                                            <div className="mb-2 flex items-center gap-2">
+                                                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-info text-xs font-semibold text-white" aria-hidden="true">
+                                                    {index + 1}
+                                                </span>
+                                                <Input
+                                                    aria-label={`Pickup ${index + 1} name`}
+                                                    value={stop.name}
+                                                    onChange={(e) => handlePickupChange(stop.id, 'name', e.target.value)}
+                                                    className="h-8 flex-1"
+                                                />
+                                                <IconButton label={`Remove pickup ${stop.name}`} size="icon-sm" variant="ghost" onClick={() => handleRemovePickup(stop.id)}>
+                                                    <Trash2 />
+                                                </IconButton>
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-2 pl-8 sm:grid-cols-3">
+                                                <Field label="When">
+                                                    <Select
+                                                        value={stop.direction}
+                                                        onChange={(e) => handlePickupChange(stop.id, 'direction', e.target.value)}
+                                                        className="h-8"
+                                                    >
+                                                        <option value="BOTH">Both</option>
+                                                        <option value="MORNING">Morning only</option>
+                                                        <option value="EVENING">Evening only</option>
+                                                    </Select>
+                                                </Field>
+                                                {stop.direction !== 'EVENING' && (
+                                                    <Field label="Morning time">
+                                                        <Input type="time" value={stop.morningEta} onChange={(e) => handlePickupChange(stop.id, 'morningEta', e.target.value)} className="h-8" />
+                                                    </Field>
+                                                )}
+                                                {stop.direction !== 'MORNING' && (
+                                                    <Field label="Evening time">
+                                                        <Input type="time" value={stop.eveningEta} onChange={(e) => handlePickupChange(stop.id, 'eveningEta', e.target.value)} className="h-8" />
+                                                    </Field>
+                                                )}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </section>
+
+                        <section className="space-y-3">
+                            <div>
+                                <SectionTitle>4. Usual driver &amp; vehicle (optional)</SectionTitle>
+                                <p className="mt-0.5 text-xs text-fg-muted">
+                                    Leave evening empty to use the same driver and vehicle as morning.
+                                </p>
+                            </div>
+                            <FormGrid cols={2} className="gap-3">
+                                <Field label="Morning driver">
+                                    <Select placeholder="None" value={assignedDriverId} onChange={(e) => setAssignedDriverId(e.target.value)}>
+                                        {driverOptions}
+                                    </Select>
+                                </Field>
+                                <Field label="Morning vehicle">
+                                    <Select placeholder="None" value={assignedVehicleId} onChange={(e) => setAssignedVehicleId(e.target.value)}>
+                                        {vehicleOptions}
+                                    </Select>
+                                </Field>
+                                <Field label="Evening driver">
+                                    <Select placeholder="Same as morning" value={eveningDriverId} onChange={(e) => setEveningDriverId(e.target.value)}>
+                                        {driverOptions}
+                                    </Select>
+                                </Field>
+                                <Field label="Evening vehicle">
+                                    <Select placeholder="Same as morning" value={eveningVehicleId} onChange={(e) => setEveningVehicleId(e.target.value)}>
+                                        {vehicleOptions}
+                                    </Select>
+                                </Field>
+                            </FormGrid>
+                        </section>
+
+                        {officeStops.length > 0 && pickupStops.length > 0 && (
+                            <section className="rounded-lg border border-line bg-subtle p-3 text-xs text-fg-secondary">
+                                <p className="mb-2 font-semibold text-fg">Order on save</p>
+                                <p>
+                                    <span className="font-medium">Morning → </span>
+                                    {pickupStops.map((s) => s.name).join(' → ')} → {officeStops.map((s) => s.name).join(', ')}
+                                </p>
+                                <p className="mt-1">
+                                    <span className="font-medium">Evening → </span>
+                                    {officeStops.map((s) => s.name).join(', ')} → {[...pickupStops].reverse().map((s) => s.name).join(' → ')}
+                                </p>
+                                <p className="mt-2 text-fg-muted">
+                                    Pickup order is auto-optimized on save; evening is the reverse of morning.
+                                    {officeStops.length > 1 && ' Multiple offices are placed after pickups — adjust exact positions from Manage Stops after creating the route.'}
+                                </p>
+                            </section>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card className="overflow-hidden lg:sticky lg:top-20 lg:order-2 lg:col-span-2">
+                    <CardHeader
+                        title="Map"
+                        description={orderedStops.length >= 2 ? 'Road-following route via Google Maps' : 'Click the map to pin a stop'}
+                        actions={
+                            <ul className="flex items-center gap-3 text-[11px] font-medium text-fg-secondary" aria-label="Map legend">
+                                <li className="inline-flex items-center gap-1.5">
+                                    <span className="size-2.5 rounded-full" style={{ backgroundColor: MAP_COLORS.office }} aria-hidden="true" /> Office
+                                </li>
+                                <li className="inline-flex items-center gap-1.5">
+                                    <span className="size-2.5 rounded-full" style={{ backgroundColor: MAP_COLORS.pickup }} aria-hidden="true" /> Pickups
+                                </li>
+                            </ul>
+                        }
                     />
-                </div>
+                    <div className="h-[320px] sm:h-[420px] lg:h-[calc(100vh-16rem)] lg:min-h-[420px]">
+                        <Map
+                            height="100%"
+                            onMapClick={handleMapClick}
+                            markers={mapMarkers}
+                            polylines={mapPolylines}
+                            center={mapCenter}
+                        />
+                    </div>
+                </Card>
             </div>
         </div>
     );

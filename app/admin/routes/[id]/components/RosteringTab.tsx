@@ -1,11 +1,22 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { UserPlus } from 'lucide-react';
+import { UserMinus, UserPlus, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { Badge } from '@/app/admin/components/ui/Badge';
-import { adminBtnPrimary, adminInput, adminSelect } from '@/app/admin/components/ui/admin-styles';
-import { cx } from '@/app/admin/components/ui/cx';
+import {
+    Badge,
+    Button,
+    Card,
+    CardContent,
+    CardSkeleton,
+    EmptyState,
+    Field,
+    FormGrid,
+    SearchInput,
+    SectionHeader,
+    Select,
+} from '@/app/admin/ui';
+import { useConfirm } from '@/app/lib/hooks/useConfirm';
 import { useAppDispatch, useAppSelector } from '@/app/lib/store/hooks';
 import {
     fetchRouteAssignments,
@@ -19,8 +30,9 @@ import { fetchEmployees, selectEmployees } from '@/app/lib/store/slices/employee
 import { format12h, initials } from '../../RouteCommandBar';
 import { getOfficeStops } from '@/app/lib/utils/routeStops';
 
-export default function RosteringTab({ route }: { route: Route }) {
+export default function RosteringTab({ route, canEdit }: { route: Route; canEdit: boolean }) {
     const dispatch = useAppDispatch();
+    const confirm = useConfirm();
     const assignments = useAppSelector(selectRouteAssignments);
     const assignmentStatus = useAppSelector(selectAssignmentStatus);
     const employees = useAppSelector(selectEmployees);
@@ -29,33 +41,44 @@ export default function RosteringTab({ route }: { route: Route }) {
     const [selectedStopId, setSelectedStopId] = useState<number | ''>('');
     const [selectedOfficeStopId, setSelectedOfficeStopId] = useState<number | ''>('');
     const [search, setSearch] = useState('');
+    const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
     // A route may have multiple OFFICE-type stops (multi-office shuttle support).
     const officeStops = getOfficeStops(route.route_stops ?? []);
     const officeStopIds = new Set(officeStops.map((s) => s.id));
     const hasMultipleOffices = officeStops.length > 1;
 
+    // Clear the add form when the route changes (render-time adjustment), then load data.
+    const routeKey = `${route.id}|${route.company_id ?? ''}`;
+    const [prevRouteKey, setPrevRouteKey] = useState(routeKey);
+    if (prevRouteKey !== routeKey) {
+        setPrevRouteKey(routeKey);
+        setSelectedEmployeeId('');
+        setSelectedStopId('');
+        setSelectedOfficeStopId('');
+    }
+
     useEffect(() => {
         if (route.id && route.company_id) {
-            setSelectedEmployeeId('');
-            setSelectedStopId('');
-            setSelectedOfficeStopId('');
             dispatch(fetchRouteAssignments(route.id));
             dispatch(fetchEmployees(route.company_id.toString()));
         }
     }, [dispatch, route.id, route.company_id]);
 
     // Default-select the single office stop so single-office routes need no extra input.
-    useEffect(() => {
+    const officeDefaultKey = `${route.id}|${hasMultipleOffices}|${officeStops.length}`;
+    const [prevOfficeDefaultKey, setPrevOfficeDefaultKey] = useState<string | null>(null);
+    if (prevOfficeDefaultKey !== officeDefaultKey) {
+        setPrevOfficeDefaultKey(officeDefaultKey);
         if (!hasMultipleOffices && officeStops.length === 1) {
             setSelectedOfficeStopId(officeStops[0].id);
         } else if (!hasMultipleOffices) {
             setSelectedOfficeStopId('');
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [route.id, hasMultipleOffices, officeStops.length]);
+    }
 
     const handleAssign = async () => {
+        if (!canEdit) return;
         if (!selectedEmployeeId || !selectedStopId) {
             toast.error('Select a person and a pickup');
             return;
@@ -80,13 +103,27 @@ export default function RosteringTab({ route }: { route: Route }) {
         }
     };
 
-    const handleRemove = async (userId: string) => {
-        if (!confirm('Remove this person from the standing roster?')) return;
+    const handleRemove = async (userId: string, name: string) => {
+        if (!canEdit) return;
+        const ok = await confirm({
+            title: `Remove ${name} from this route?`,
+            message: 'They are taken off the standing roster for this route.',
+            consequences: [
+                'They will no longer be listed as a regular rider on this route',
+                'Their employee account is not changed',
+            ],
+            destructive: true,
+            confirmLabel: 'Remove',
+        });
+        if (!ok) return;
         try {
+            setRemovingUserId(userId);
             await dispatch(removeEmployeeFromRoute(userId)).unwrap();
             toast.success('Removed from this route');
         } catch {
             toast.error('Could not remove this person');
+        } finally {
+            setRemovingUserId(null);
         }
     };
 
@@ -111,93 +148,93 @@ export default function RosteringTab({ route }: { route: Route }) {
         });
     }, [assignments, search]);
 
+    const isLoading = assignmentStatus === 'loading' && assignments.length === 0;
+    const isAssigning = assignmentStatus === 'loading' && !isLoading;
+
     return (
         <div className="space-y-4">
-            <div>
-                <h3 className="text-lg font-semibold text-[var(--text-primary)]">Who normally rides this route</h3>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">
-                    This is the standing roster. Day-of moves live on Today&apos;s shuttle plan.
-                </p>
-            </div>
+            <SectionHeader
+                title="Who normally rides this route"
+                description="This is the standing roster. Day-of moves live on Today's shuttle plan."
+            />
 
-            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-card)]">
-                <div className={`grid grid-cols-1 items-end gap-3 ${hasMultipleOffices ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
-                    <div>
-                        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Employee</label>
-                        <select
-                            className={adminSelect}
-                            value={selectedEmployeeId}
-                            onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                        >
-                            <option value="">Select employee</option>
-                            {availableEmployees.map((emp) => (
-                                <option key={emp.id} value={emp.id}>{emp.full_name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Pickup</label>
-                        <select
-                            className={adminSelect}
-                            value={selectedStopId}
-                            onChange={(e) => setSelectedStopId(e.target.value ? Number(e.target.value) : '')}
-                        >
-                            <option value="">Select pickup</option>
-                            {pickupStops.map((stop) => (
-                                <option key={stop.id} value={stop.id}>
-                                    {stop.name}{stop.morning_eta ? ` · ${format12h(stop.morning_eta) ?? stop.morning_eta}` : ''}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    {hasMultipleOffices && (
-                        <div>
-                            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Office</label>
-                            <select
-                                className={adminSelect}
-                                value={selectedOfficeStopId}
-                                onChange={(e) => setSelectedOfficeStopId(e.target.value ? Number(e.target.value) : '')}
-                            >
-                                <option value="">Select office</option>
-                                {officeStops.map((stop) => (
-                                    <option key={stop.id} value={stop.id}>{stop.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-                    <button
-                        type="button"
-                        onClick={() => void handleAssign()}
-                        disabled={assignmentStatus === 'loading'}
-                        className={cx(adminBtnPrimary, 'h-[38px]')}
-                    >
-                        <UserPlus className="mr-2 h-4 w-4" />
-                        {assignmentStatus === 'loading' ? 'Adding…' : 'Add to route'}
-                    </button>
-                </div>
-                <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-                    {hasMultipleOffices
-                        ? 'Office stops are excluded from pickup — people board at pickups only. This route has multiple offices, so pick which one this person is assigned to.'
-                        : 'Office is excluded — people board at pickups only.'}
-                </p>
-            </div>
+            {canEdit && (
+                <Card>
+                    <CardContent>
+                        <FormGrid cols={hasMultipleOffices ? 4 : 3} className="items-end">
+                            <Field label="Employee">
+                                <Select placeholder="Select employee" value={selectedEmployeeId} onChange={(e) => setSelectedEmployeeId(e.target.value)}>
+                                    {availableEmployees.map((emp) => (
+                                        <option key={emp.id} value={emp.id}>{emp.full_name}</option>
+                                    ))}
+                                </Select>
+                            </Field>
+                            <Field label="Pickup">
+                                <Select
+                                    placeholder="Select pickup"
+                                    value={selectedStopId === '' ? '' : String(selectedStopId)}
+                                    onChange={(e) => setSelectedStopId(e.target.value ? Number(e.target.value) : '')}
+                                >
+                                    {pickupStops.map((stop) => (
+                                        <option key={stop.id} value={stop.id}>
+                                            {stop.name}{stop.morning_eta ? ` · ${format12h(stop.morning_eta) ?? stop.morning_eta}` : ''}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </Field>
+                            {hasMultipleOffices && (
+                                <Field label="Office">
+                                    <Select
+                                        placeholder="Select office"
+                                        value={selectedOfficeStopId === '' ? '' : String(selectedOfficeStopId)}
+                                        onChange={(e) => setSelectedOfficeStopId(e.target.value ? Number(e.target.value) : '')}
+                                    >
+                                        {officeStops.map((stop) => (
+                                            <option key={stop.id} value={stop.id}>{stop.name}</option>
+                                        ))}
+                                    </Select>
+                                </Field>
+                            )}
+                            <Button onClick={() => void handleAssign()} loading={isAssigning} leftIcon={<UserPlus />}>
+                                Add to route
+                            </Button>
+                        </FormGrid>
+                        <p className="mt-2 text-xs text-fg-muted">
+                            {hasMultipleOffices
+                                ? 'Office stops are excluded from pickup — people board at pickups only. This route has multiple offices, so pick which one this person is assigned to.'
+                                : 'Office is excluded — people board at pickups only.'}
+                        </p>
+                    </CardContent>
+                </Card>
+            )}
 
-            <label className="block max-w-sm">
-                <span className="sr-only">Search roster</span>
-                <input
-                    className={adminInput}
-                    placeholder={hasMultipleOffices ? 'Search name, pickup, or office' : 'Search name or pickup'}
+            <div className="max-w-sm">
+                <SearchInput
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={setSearch}
+                    placeholder={hasMultipleOffices ? 'Search name, pickup, or office' : 'Search name or pickup'}
+                    aria-label="Search roster"
                 />
-            </label>
+            </div>
 
-            {visible.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-[var(--border-default)] py-10 text-center text-sm text-[var(--text-muted)]">
-                    {assignments.length === 0 ? 'No one is on this route yet.' : 'No one matches that search.'}
-                </p>
+            {isLoading ? (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+                    {[0, 1, 2].map((i) => (
+                        <CardSkeleton key={i} lines={2} />
+                    ))}
+                </div>
+            ) : visible.length === 0 ? (
+                <Card>
+                    <EmptyState
+                        compact
+                        icon={<Users aria-hidden="true" />}
+                        title={assignments.length === 0 ? 'No one is on this route yet' : 'No one matches that search'}
+                        description={assignments.length === 0 ? (canEdit ? 'Add people using the form above.' : undefined) : 'Try a different name or pickup.'}
+                        action={search ? <Button variant="outline" size="sm" onClick={() => setSearch('')}>Clear search</Button> : undefined}
+                    />
+                </Card>
             ) : (
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {visible.map((assignment) => {
                         const name = assignment.users?.full_name ?? 'Employee';
                         const stop = assignment.pickup_stop_id ? stopById.get(assignment.pickup_stop_id) : undefined;
@@ -205,35 +242,39 @@ export default function RosteringTab({ route }: { route: Route }) {
                         const officeName = assignment.office_route_stops?.name ?? null;
                         const time = format12h(stop?.morning_eta ?? null);
                         return (
-                            <div
-                                key={assignment.user_id}
-                                className="flex items-start gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-card)]"
-                            >
-                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--cort-navy)] text-xs font-bold text-white">
-                                    {initials(name)}
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                    <div className="font-semibold text-[var(--text-primary)]">{name}</div>
-                                    {assignment.users?.email && (
-                                        <div className="truncate text-xs text-[var(--text-muted)]">{assignment.users.email}</div>
-                                    )}
-                                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                        <Badge color="gray">{pickupName}</Badge>
-                                        {hasMultipleOffices && officeName && <Badge color="purple">{officeName}</Badge>}
-                                        {time && <span className="text-xs text-[var(--text-muted)]">{time}</span>}
+                            <li key={assignment.user_id}>
+                                <Card className="flex h-full items-start gap-3 p-4">
+                                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-ink" aria-hidden="true">
+                                        {initials(name)}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="truncate font-semibold text-fg">{name}</div>
+                                        {assignment.users?.email && (
+                                            <div className="truncate text-xs text-fg-muted">{assignment.users.email}</div>
+                                        )}
+                                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                            <Badge tone="neutral">{pickupName}</Badge>
+                                            {hasMultipleOffices && officeName && <Badge tone="purple">{officeName}</Badge>}
+                                            {time && <span className="text-xs text-fg-muted">{time}</span>}
+                                        </div>
                                     </div>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => void handleRemove(assignment.user_id)}
-                                    className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-500/10"
-                                >
-                                    Remove
-                                </button>
-                            </div>
+                                    {canEdit && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="shrink-0 text-danger-ink hover:bg-danger-soft hover:text-danger-ink"
+                                            onClick={() => void handleRemove(assignment.user_id, name)}
+                                            loading={removingUserId === assignment.user_id}
+                                            leftIcon={<UserMinus />}
+                                        >
+                                            Remove
+                                        </Button>
+                                    )}
+                                </Card>
+                            </li>
                         );
                     })}
-                </div>
+                </ul>
             )}
         </div>
     );

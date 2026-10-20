@@ -2,7 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import type { MapMarker } from "@/app/admin/ui/Map";
+import { Badge, Button, Card, CardContent, CardHeader, Field, FormGrid, Input, PageHeader, Textarea } from "@/app/admin/ui";
 
 const Map = dynamic(() => import("@/app/admin/ui/Map"), { ssr: false });
 
@@ -38,7 +40,20 @@ function safeJsonParse(text: string): { ok: true; value: Json } | { ok: false; e
   }
 }
 
+function Code({ children }: { children: React.ReactNode }) {
+  return <code className="rounded bg-subtle px-1 font-mono text-[12px] text-fg">{children}</code>;
+}
+
+function JsonOut({ value }: { value: unknown }) {
+  return (
+    <pre className="mt-2 max-h-64 overflow-auto rounded-lg border border-line bg-subtle p-3 font-mono text-xs text-fg">
+      {value ? JSON.stringify(value, null, 2) : "—"}
+    </pre>
+  );
+}
+
 export default function TrackerTestPage() {
+  // FLAGGED (kept as-is per decision 2026-10-20): credentials are shipped to the browser.
   const HARDCODED_USERID = "Z1X5CVA";
   const HARDCODED_PASSWORD = "c1d8a6b2-9f47-4e3a-b5c1-2a7f9d0e6c44";
   const DEFAULT_PHONE = "03156618471";
@@ -52,8 +67,8 @@ export default function TrackerTestPage() {
         Password: HARDCODED_PASSWORD,
       },
       null,
-      2
-    )
+      2,
+    ),
   );
 
   const [token, setToken] = useState("");
@@ -63,9 +78,7 @@ export default function TrackerTestPage() {
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
 
   const [loginStatus, setLoginStatus] = useState<{ status?: number; body?: unknown; error?: string } | null>(null);
-  const [locationStatus, setLocationStatus] = useState<{ status?: number; body?: unknown; error?: string } | null>(
-    null
-  );
+  const [locationStatus, setLocationStatus] = useState<{ status?: number; body?: unknown; error?: string } | null>(null);
   const [busy, setBusy] = useState<"login" | "location" | null>(null);
 
   const parsedLoginBody = useMemo(() => safeJsonParse(loginBodyText), [loginBodyText]);
@@ -107,9 +120,7 @@ export default function TrackerTestPage() {
     }
   }
 
-  async function ensureToken(): Promise<
-    { ok: true; userId: string; token: string } | { ok: false; error: string }
-  > {
+  async function ensureToken(): Promise<{ ok: true; userId: string; token: string } | { ok: false; error: string }> {
     if (token && userId) return { ok: true, userId, token };
     try {
       const res = await fetch("/api/tracker/token", {
@@ -230,133 +241,101 @@ export default function TrackerTestPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Tracker Test</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Step 1: POST login to <code className="rounded bg-gray-100 px-1">/api/tracker/token</code> → Step 2: use{" "}
-          <code className="rounded bg-gray-100 px-1">UserID</code> + <code className="rounded bg-gray-100 px-1">Token</code>{" "}
-          headers to call <code className="rounded bg-gray-100 px-1">/api/tracker/location</code>.
-        </p>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeader
+        title="Tracker test"
+        description={
+          <>
+            Step 1: POST login to <Code>/api/tracker/token</Code> → Step 2: use <Code>UserID</Code> + <Code>Token</Code> headers to call <Code>/api/tracker/location</Code>.
+          </>
+        }
+        meta={
+          <Badge tone="warning" dot>
+            Internal test harness
+          </Badge>
+        }
+      />
+
+      <div role="alert" className="flex items-start gap-3 rounded-xl border border-warning-line bg-warning-soft px-4 py-3 text-sm">
+        <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning-ink" aria-hidden="true" />
+        <div className="text-fg">
+          <p className="font-semibold">Internal test harness — not a production feature.</p>
+          <p className="mt-0.5 text-fg-secondary">
+            This page calls the third-party tracker API with a fixed test account and is intended for developers only. Flagged for review: the test credentials are bundled into the browser.
+          </p>
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-lg border p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">1) Get Token</h2>
-            <button
-              onClick={doLogin}
-              disabled={busy !== null}
-              className="rounded bg-black px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {busy === "login" ? "Logging in…" : "Login"}
-            </button>
-          </div>
-
-          <label className="mt-4 block text-sm font-medium">Login JSON body</label>
-          <textarea
-            value={loginBodyText}
-            onChange={(e) => setLoginBodyText(e.target.value)}
-            className="mt-2 h-56 w-full rounded border p-2 font-mono text-xs"
-            spellCheck={false}
-            readOnly
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader
+            title="1) Get token"
+            actions={
+              <Button size="sm" onClick={doLogin} loading={busy === "login"} disabled={busy !== null}>
+                Login
+              </Button>
+            }
           />
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <CardContent className="space-y-4">
+            <Field label="Login JSON body" hint={parsedLoginBody.ok ? "Read-only" : `Invalid JSON: ${parsedLoginBody.error}`}>
+              <Textarea value={loginBodyText} onChange={(e) => setLoginBodyText(e.target.value)} className="h-40 font-mono text-xs" spellCheck={false} readOnly />
+            </Field>
+            <FormGrid cols={2}>
+              <Field label="UserID">
+                <Input mono value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="Will auto-fill after login" readOnly />
+              </Field>
+              <Field label="Token">
+                <Input mono value={token} onChange={(e) => setToken(e.target.value)} placeholder="Will auto-fill after login" readOnly />
+              </Field>
+            </FormGrid>
             <div>
-              <label className="block text-sm font-medium">UserID</label>
-              <input
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-                placeholder="Will auto-fill after login"
-                readOnly
-              />
+              <p className="text-[13px] font-medium text-fg-secondary">Token response</p>
+              <JsonOut value={loginStatus} />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="2) Get live location (GetVLL)"
+            actions={
+              <Button size="sm" onClick={() => doLocation(false)} loading={busy === "location"} disabled={busy !== null || !token || !userId || !phone || !year}>
+                Fetch location
+              </Button>
+            }
+          />
+          <CardContent className="space-y-4">
+            <FormGrid cols={2}>
+              <Field label="Phone">
+                <Input mono value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 03156618471" />
+              </Field>
+              <Field label="Year">
+                <Input mono value={year} onChange={(e) => setYear(e.target.value)} placeholder="e.g. 1992" />
+              </Field>
+            </FormGrid>
+            <p className="text-xs text-fg-muted">
+              Sends headers <Code>x-tracker-userid</Code> and <Code>x-tracker-token</Code>.
+            </p>
             <div>
-              <label className="block text-sm font-medium">Token</label>
-              <input
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-                placeholder="Will auto-fill after login"
-                readOnly
-              />
+              <p className="text-[13px] font-medium text-fg-secondary">Location response</p>
+              <JsonOut value={locationStatus} />
             </div>
-          </div>
-
-          <div className="mt-4">
-            <div className="text-sm font-medium">Token response</div>
-            <pre className="mt-2 max-h-64 overflow-auto rounded bg-gray-50 p-3 text-xs">
-              {loginStatus ? JSON.stringify(loginStatus, null, 2) : "—"}
-            </pre>
-          </div>
-        </section>
-
-        <section className="rounded-lg border p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">2) Get Live Location (GetVLL)</h2>
-            <button
-              onClick={() => doLocation(false)}
-              disabled={busy !== null || !token || !userId || !phone || !year}
-              className="rounded bg-black px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {busy === "location" ? "Fetching…" : "Fetch location"}
-            </button>
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium">Phone</label>
-              <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-                placeholder="e.g. 03156618471"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Year</label>
-              <input
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-                className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-                placeholder="e.g. 1992"
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 text-xs text-gray-600">
-            Sends headers{" "}
-            <code className="rounded bg-gray-100 px-1">x-tracker-userid</code> and{" "}
-            <code className="rounded bg-gray-100 px-1">x-tracker-token</code>.
-          </div>
-
-          <div className="mt-4">
-            <div className="text-sm font-medium">Location response</div>
-            <pre className="mt-2 max-h-64 overflow-auto rounded bg-gray-50 p-3 text-xs">
-              {locationStatus ? JSON.stringify(locationStatus, null, 2) : "—"}
-            </pre>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
       </div>
 
-      <section className="rounded-lg border p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-medium">Map</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Vehicles from GetVLL are plotted using <code className="rounded bg-gray-100 px-1">Lat</code> and{" "}
-              <code className="rounded bg-gray-100 px-1">Long</code>.
-            </p>
-          </div>
-          <div className="text-xs text-gray-600">{mapMarkers.length ? `${mapMarkers.length} marker(s)` : "No markers yet"}</div>
-        </div>
-
-        <div className="mt-4">
-          <Map height="520px" markers={mapMarkers} />
-        </div>
-      </section>
+      <Card className="overflow-hidden">
+        <CardHeader
+          title="Map"
+          description={
+            <>
+              Vehicles from GetVLL are plotted using <Code>Lat</Code> and <Code>Long</Code>.
+            </>
+          }
+          actions={<span className="text-xs text-fg-muted">{mapMarkers.length ? `${mapMarkers.length} marker(s)` : "No markers yet"}</span>}
+        />
+        <Map height="520px" markers={mapMarkers} />
+      </Card>
     </div>
   );
 }
