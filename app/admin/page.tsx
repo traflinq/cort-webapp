@@ -28,7 +28,7 @@ import {
   PageHeader,
   SectionHeader,
   type DateRange, RefreshButton } from "./ui";
-import { formatCurrency, formatNumber, formatPercent, formatRelative } from "./lib/format";
+import { formatCurrency, formatNumber, formatPercent } from "./lib/format";
 import { currentMonthRange } from "./lib/dates";
 
 export default function AdminDashboardPage() {
@@ -49,7 +49,7 @@ function deltaOf(metric: MetricComparison | undefined, invert = false) {
 
 function AdminDashboardContent() {
   const dispatch = useAppDispatch();
-  const { stats, loading, error, dateRange, lastFetched } = useAppSelector((state: RootState) => state.superAdminDashboard);
+  const { stats, loading, error, dateRange } = useAppSelector((state: RootState) => state.superAdminDashboard);
 
   // Default to the full calendar month so shuttle revenue (recognised at billing-period end) shows immediately.
   const [range, setRange] = React.useState<DateRange>(() =>
@@ -80,8 +80,6 @@ function AdminDashboardContent() {
   const header = (
     <PageHeader
       title="Dashboard"
-      description="Financial performance and fleet operations for the selected period."
-      meta={lastFetched ? <span className="text-xs text-fg-muted">Updated {formatRelative(lastFetched)}</span> : undefined}
       actions={
         <>
           <DateRangePicker value={range} onChange={onRangeChange} label="Reporting period" />
@@ -122,7 +120,7 @@ function AdminDashboardContent() {
   const unassigned = stats.totalUnassignedBookings ?? 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {header}
       <FuelPriceAlert />
 
