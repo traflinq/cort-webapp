@@ -367,19 +367,21 @@ function ShuttleLogDetails({ log }: { log: ShuttleReport }) {
           <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Passenger manifest</h4>
           <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-card">
             {passengers.map((p, idx) => {
-              // scanned_at is also set on ABSENT logs (it doubles as "marked at"), so only treat it as boarding time for boarded passengers.
+              // scanned_at doubles as "marked at" for both boarding and absence.
               const boardedAt = (p.status === "BOARDED" || p.status === "DROPPED_OFF") && p.scanned_at ? formatTime(p.scanned_at) : null;
+              const absentAt = p.status === "ABSENT" && p.scanned_at ? formatTime(p.scanned_at) : null;
               const dropOffAt = p.drop_off_at ? formatTime(p.drop_off_at) : null;
               return (
                 <li key={idx} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
                   <div className="min-w-0">
                     <div className="font-medium text-fg">{p.employee?.full_name || "Unknown"}</div>
                     <div className="truncate text-fg-muted">{p.employee?.department || p.employee?.email || "—"}</div>
-                    {(boardedAt || dropOffAt) && (
+                    {(boardedAt || dropOffAt || absentAt) && (
                       <div className="mt-0.5 font-mono text-[11px] text-fg-secondary">
                         {boardedAt && <span>Boarded {boardedAt}</span>}
                         {boardedAt && dropOffAt && <span> · </span>}
                         {dropOffAt && <span>Drop-off {dropOffAt}</span>}
+                        {absentAt && <span>Marked absent {absentAt}</span>}
                       </div>
                     )}
                   </div>
@@ -420,6 +422,12 @@ function ShuttleLogDetails({ log }: { log: ShuttleReport }) {
                       <dd>{s.arrived_at ? formatTime(s.arrived_at) : "—"}</dd>
                       <dt className="font-sans text-[10px] text-fg-muted">Boarded</dt>
                       <dd>{s.boarded_at ? formatTime(s.boarded_at) : "—"}</dd>
+                      {s.absent_at && (
+                        <>
+                          <dt className="font-sans text-[10px] text-fg-muted">Absent</dt>
+                          <dd className="text-danger">{formatTime(s.absent_at)}</dd>
+                        </>
+                      )}
                     </>
                   )}
                 </dl>
