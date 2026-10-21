@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { io, Socket } from "socket.io-client";
+import type { Socket } from "socket.io-client";
+import { acquireRidesSocket } from "../../lib/realtime/ridesSocket";
 import { toast } from "sonner";
 import { AdminToaster } from "../ui/Toast";
 import { X } from "lucide-react";
@@ -64,18 +65,7 @@ export function BookingNotificationProvider() {
       typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
     if (!token) return;
 
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-
-    const socket = io(`${apiUrl}/rides`, {
-      auth: { token },
-      transports: ["websocket"],
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 30_000,
-      randomizationFactor: 0.5,
-    });
+    const { socket, release } = acquireRidesSocket(token);
     socketRef.current = socket;
 
     socket.on("booking:new", (booking: BookingSocketPayload) => {
@@ -130,7 +120,10 @@ export function BookingNotificationProvider() {
     });
 
     return () => {
-      socket.disconnect();
+      // Each component owns distinct events on the shared socket, so clearing these is safe.
+      socket.off("booking:new");
+      socket.off("shuttle:lifecycle");
+      release();
       socketRef.current = null;
     };
   }, [router]);

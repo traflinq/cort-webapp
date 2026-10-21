@@ -24,6 +24,7 @@ export function useWebPush(isAuthenticated: boolean) {
       if (subscribedRef.current) {
         subscribedRef.current = false;
         apiClient.deleteWebPushSubscription().catch(() => {});
+        try { localStorage.removeItem("webpush_registered_endpoint"); } catch {}
       }
       return;
     }
@@ -37,19 +38,31 @@ export function useWebPush(isAuthenticated: boolean) {
         const permission = await Notification.requestPermission();
         if (permission !== "granted") return;
 
-        const publicKey = await apiClient.getVapidPublicKey();
-        if (!publicKey) return;
-
         const registration = await navigator.serviceWorker.register("/sw.js");
         await navigator.serviceWorker.ready;
 
+        const storedKey = "webpush_registered_endpoint";
         const existing = await registration.pushManager.getSubscription();
+
+        // Already registered with the backend in this browser — skip the VAPID fetch and the POST.
+        try {
+          if (existing && localStorage.getItem(storedKey) === existing.endpoint) {
+            subscribedRef.current = true;
+            return;
+          }
+        } catch {}
+
         const sub =
           existing ??
-          (await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey) as unknown as string,
-          }));
+          (await (async () => {
+            const publicKey = await apiClient.getVapidPublicKey();
+            if (!publicKey) return null;
+            return registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(publicKey) as unknown as string,
+            });
+          })());
+        if (!sub) return;
 
         const json = sub.toJSON();
         const keys = json.keys as { p256dh: string; auth: string } | undefined;
@@ -62,6 +75,7 @@ export function useWebPush(isAuthenticated: boolean) {
           userAgent: navigator.userAgent,
         });
 
+        try { localStorage.setItem(storedKey, sub.endpoint); } catch {}
         subscribedRef.current = true;
       } catch (err) {
         console.warn("[WebPush] subscription failed:", err);

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { io, Socket } from "socket.io-client";
+import type { Socket } from "socket.io-client";
+import { acquireRidesSocket } from "../../lib/realtime/ridesSocket";
 import { toast } from "sonner";
 import { Bell } from "lucide-react";
 import { apiClient } from "../../lib/services/api-client";
@@ -57,16 +58,7 @@ export function DeleteRequestsBell({ collapsed = false, variant = "nav" }: Delet
 
     const countTimer = window.setTimeout(() => void fetchPendingCount(), 0);
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-    const socket = io(`${apiUrl}/rides`, {
-      auth: { token },
-      transports: ["websocket"],
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 30_000,
-      randomizationFactor: 0.5,
-    });
+    const { socket, release } = acquireRidesSocket(token);
     socketRef.current = socket;
 
     socket.on("record:delete_request", (payload: DeleteRequestSocketAlert) => {
@@ -79,7 +71,8 @@ export function DeleteRequestsBell({ collapsed = false, variant = "nav" }: Delet
 
     return () => {
       window.clearTimeout(countTimer);
-      socket.disconnect();
+      socket.off("record:delete_request");
+      release();
       socketRef.current = null;
     };
   }, [isSuperAdmin, fetchPendingCount]);
