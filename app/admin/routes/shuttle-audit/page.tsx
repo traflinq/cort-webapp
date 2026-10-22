@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { CalendarDays } from 'lucide-react';
 import { PermissionGate } from '@/app/admin/components/PermissionGate';
 import { AdminCan } from '@/app/lib/abilities/AdminAbilityProvider';
@@ -22,7 +21,6 @@ import {
 import { formatDateTime } from '@/app/admin/lib/format';
 import { lastNDaysRange } from '@/app/admin/lib/dates';
 import { apiClient } from '@/app/lib/services/api-client';
-import { useAuth } from '@/app/lib/contexts/auth-context';
 import { useAppDispatch, useAppSelector } from '@/app/lib/store/hooks';
 import {
     fetchAdminCompanies,
@@ -64,7 +62,6 @@ const ACTION_OPTIONS: { value: string; label: string }[] = [
 const ACTION_LABELS = Object.fromEntries(ACTION_OPTIONS.map((o) => [o.value, o.label]));
 
 // FLAGGED (kept as-is, decision 2026-10-20): hard-coded email allowlist; shuttle_audit permission is the real gate.
-const SHUTTLE_AUDIT_ALLOWED_EMAIL = 'hashir.ahmed@cort.com.pk';
 
 const PAGE_SIZE = 50;
 
@@ -92,20 +89,6 @@ function formatValue(value: unknown): string {
 }
 
 export default function ShuttleAuditPage() {
-    const router = useRouter();
-    const { user, loading } = useAuth();
-    const emailAllowed = user?.email?.trim().toLowerCase() === SHUTTLE_AUDIT_ALLOWED_EMAIL;
-
-    useEffect(() => {
-        if (!loading && user && !emailAllowed) {
-            router.replace('/admin');
-        }
-    }, [loading, user, emailAllowed, router]);
-
-    if (loading || !emailAllowed) {
-        return null;
-    }
-
     return (
         <PermissionGate permission="shuttle_audit">
             <AdminCan I="read" a="ShuttleAudit">

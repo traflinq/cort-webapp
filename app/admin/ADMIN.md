@@ -82,7 +82,7 @@ Super-admin-only routes use `SuperAdminPage` (e.g. Staff & Permissions).
 
 ## Known flagged items (not changed on purpose)
 
-- Shuttle audit visibility and impersonation are gated on hard-coded email allowlists (`lib/nav.ts`, `companies/page.tsx`).
+- Impersonation is gated on a hard-coded email allowlist (`companies/page.tsx`).
 - `tracker-test` ships third-party tracker credentials to the browser.
 
 ## Leads

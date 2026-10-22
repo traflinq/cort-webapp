@@ -57,12 +57,6 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-/**
- * FLAGGED (kept as-is per decision 2026-10-20): the shuttle-audit page is additionally
- * gated on a hard-coded email allowlist in three places. Replace with the
- * `shuttle_audit` permission once the product owner confirms.
- */
-export const SHUTTLE_AUDIT_EMAIL_ALLOWLIST = ["hashir.ahmed@cort.com.pk"];
 const SHUTTLE_AUDIT_HREF = "/admin/routes/shuttle-audit";
 
 export const adminNav: NavGroup[] = [
@@ -150,9 +144,7 @@ export function isNavItemVisible(item: NavItem, viewer: NavViewer): boolean {
   if (item.devOnly && IS_PROD) return false;
   if (item.allowInternalStaff && viewer.isInternalStaff) return true;
   if (!item.permission) return viewer.isSuperAdmin;
-  const emailOk = SHUTTLE_AUDIT_EMAIL_ALLOWLIST.includes(viewer.email?.trim().toLowerCase() ?? "");
-  if (viewer.isSuperAdmin) return item.href === SHUTTLE_AUDIT_HREF ? emailOk : true;
-  if (item.href === SHUTTLE_AUDIT_HREF) return viewer.hasPermission(item.permission) && emailOk;
+  if (viewer.isSuperAdmin) return true;
   return viewer.hasPermission(item.permission);
 }
 
