@@ -12,8 +12,6 @@ import { useAuth } from "@/app/lib/contexts/auth-context";
 import { useConfirm } from "@/app/lib/hooks/useConfirm";
 import { useShuttleTracking } from "@/app/lib/hooks/useShuttleTracking";
 import type { MapMarker, MapPolyline } from "@/app/admin/ui/Map";
-import { useAppDispatch, useAppSelector } from "@/app/lib/store/hooks";
-import { fetchAdminCompanies, selectAdminCompanies, selectAdminCompaniesStatus } from "@/app/lib/store/slices/adminCompaniesSlice";
 import {
   Badge,
   Button,
@@ -107,17 +105,19 @@ export default function OpsShuttlePage() {
 }
 
 function OpsShuttleContent() {
-  const dispatch = useAppDispatch();
   const confirm = useConfirm();
   const chart = useChartTheme();
   const { hasCrud } = useAuth();
   const canMutate = hasCrud("ops_shuttle", "update");
-  const companies = useAppSelector(selectAdminCompanies);
-  const companiesStatus = useAppSelector(selectAdminCompaniesStatus);
+  // Loaded locally (not from the shared admin-companies slice, which may hold only one page of results).
+  const [companies, setCompanies] = useState<{ id: number; name: string }[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(true);
+  const [companiesError, setCompaniesError] = useState<string | null>(null);
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
   const [trips, setTrips] = useState<ShuttleTrip[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Nothing is fetched until a company is chosen.
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [lastRefresh, setLastRefresh] = useState<number | null>(null);
@@ -189,18 +189,33 @@ function OpsShuttleContent() {
   // ---- Data fetching -------------------------------------------------------
 
   useEffect(() => {
-    if (companiesStatus === "idle") {
-      dispatch(fetchAdminCompanies({ limit: 100 }));
-    }
-  }, [dispatch, companiesStatus]);
-
-  // One effect loads today's trips on mount, on company change and on manual refresh.
-  useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const params = new URLSearchParams({ date: todayYmd() });
-        if (selectedCompanyId) params.set("company_id", String(selectedCompanyId));
+        const res = await apiClient.getCompanies({ limit: 1000 });
+        if (cancelled) return;
+        // Response is { data: { data: Company[], pagination } } (or a bare page object / array).
+        const page = (res as { data?: unknown } | null)?.data ?? res;
+        const rows = unwrapList<{ id: number; name: string }>(page);
+        setCompanies([...rows].sort((a, b) => a.name.localeCompare(b.name)));
+      } catch (err) {
+        if (!cancelled) setCompaniesError(err instanceof Error ? err.message : "Failed to load companies");
+      } finally {
+        if (!cancelled) setCompaniesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // One effect loads today's trips on company change and on manual refresh. No company, no request.
+  useEffect(() => {
+    if (!selectedCompanyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams({ date: todayYmd(), company_id: String(selectedCompanyId) });
         const data = await apiClient.request<ShuttleTrip[]>(`/shuttle-trips/today?${params.toString()}`);
         if (cancelled) return;
         const list = unwrapList<ShuttleTrip>(data);
@@ -250,9 +265,10 @@ function OpsShuttleContent() {
   }, [selectedTripId]);
 
   const reloadTrips = useCallback(() => {
+    if (!selectedCompanyId) return;
     setLoading(true);
     setReloadKey((k) => k + 1);
-  }, []);
+  }, [selectedCompanyId]);
 
   const handleRefresh = useCallback(() => {
     reloadTrips();
@@ -261,7 +277,10 @@ function OpsShuttleContent() {
 
   const handleCompanyChange = (value: string) => {
     selectTrip(null);
-    setLoading(true);
+    setTrips([]);
+    setError(null);
+    setLastRefresh(null);
+    setLoading(!!value);
     setSelectedCompanyId(value ? Number(value) : null);
   };
 
@@ -403,15 +422,22 @@ function OpsShuttleContent() {
         }
         actions={
           <>
-            <Select aria-label="Company" width="auto" value={selectedCompanyId ?? ""} onChange={(e) => handleCompanyChange(e.target.value)} className="min-w-44">
-              <option value="">All companies</option>
+            <Select
+              aria-label="Company"
+              width="auto"
+              value={selectedCompanyId ?? ""}
+              onChange={(e) => handleCompanyChange(e.target.value)}
+              disabled={companiesLoading}
+              className="min-w-44"
+            >
+              <option value="">{companiesLoading ? "Loading companies…" : "Select a company"}</option>
               {companies.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}
             </Select>
-            <RefreshButton label="Refresh trips" onClick={handleRefresh} loading={loading} />
+            <RefreshButton label="Refresh trips" onClick={handleRefresh} loading={loading} disabled={!selectedCompanyId} />
           </>
         }
       />
@@ -433,9 +459,19 @@ function OpsShuttleContent() {
                   <Skeleton className="h-3 w-1/3" />
                 </Card>
               ))}
-            {!loading && trips.length === 0 && !error && (
+            {!selectedCompanyId && (
               <Card>
-                <EmptyState compact icon={<Bus aria-hidden="true" />} title="No trips scheduled for today" description={selectedCompanyId ? "Try another company." : undefined} />
+                <EmptyState
+                  compact
+                  icon={<Bus aria-hidden="true" />}
+                  title="Select a company"
+                  description={companiesError ?? "Choose a company above to load today's shuttle trips."}
+                />
+              </Card>
+            )}
+            {selectedCompanyId && !loading && trips.length === 0 && !error && (
+              <Card>
+                <EmptyState compact icon={<Bus aria-hidden="true" />} title="No trips scheduled for today" description="Try another company." />
               </Card>
             )}
             {trips.map((trip) => {
