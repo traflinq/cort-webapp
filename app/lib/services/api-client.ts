@@ -751,6 +751,17 @@ class ApiClient {
         return this.request<VendorPaymentTransaction[]>(`/vendors/payments/${bookingId}`);
     }
 
+    async getVendorInvoicePaymentHistory(invoiceId: number): Promise<VendorPaymentTransaction[]> {
+        return this.request<VendorPaymentTransaction[]>(`/vendors/payments/invoice/${invoiceId}`);
+    }
+
+    async updateVendorInvoicePayment(id: number, data: UpdateVendorPaymentRequest): Promise<VendorPaymentTransaction> {
+        return this.request<VendorPaymentTransaction>(`/vendors/payments/invoice-txn/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        });
+    }
+
     async updateVendorPayment(id: number, data: UpdateVendorPaymentRequest): Promise<VendorPaymentTransaction> {
         return this.request<VendorPaymentTransaction>(`/vendors/payments/txn/${id}`, {
             method: 'PATCH',

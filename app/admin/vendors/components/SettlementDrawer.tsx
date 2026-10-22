@@ -67,9 +67,10 @@ const toDatetimeLocal = (iso: string) => {
 
 function SettlementBody({ log, canEditPayments, onChanged }: { log: VendorLogRow; canEditPayments: boolean; onChanged?: () => void }) {
   const confirm = useConfirm();
-  const isChauffeur = log.type === "CHAUFFEUR" && !!log.booking_id;
+  const isShuttle = log.type === "SHUTTLE";
+  const hasHistory = isShuttle ? !!log.invoice_id : !!log.booking_id;
   const [txns, setTxns] = React.useState<VendorPaymentTransaction[]>([]);
-  const [loading, setLoading] = React.useState(isChauffeur);
+  const [loading, setLoading] = React.useState(hasHistory);
   const [error, setError] = React.useState<string | null>(null);
   const [editingId, setEditingId] = React.useState<number | null>(null);
   const [form, setForm] = React.useState<EditForm>({ amount: "", payment_method: "", notes: "", payment_date: "" });
@@ -77,14 +78,19 @@ function SettlementBody({ log, canEditPayments, onChanged }: { log: VendorLogRow
   const [editError, setEditError] = React.useState<string | null>(null);
 
   const loadHistory = React.useCallback(async () => {
-    if (!log.booking_id) return;
-    const res: unknown = await apiClient.getVendorPaymentHistory(log.booking_id);
+    const res: unknown = isShuttle
+      ? log.invoice_id
+        ? await apiClient.getVendorInvoicePaymentHistory(log.invoice_id)
+        : []
+      : log.booking_id
+        ? await apiClient.getVendorPaymentHistory(log.booking_id)
+        : [];
     const rows = Array.isArray(res) ? res : ((res as { data?: unknown })?.data ?? []);
     return Array.isArray(rows) ? (rows as VendorPaymentTransaction[]) : [];
-  }, [log.booking_id]);
+  }, [isShuttle, log.booking_id, log.invoice_id]);
 
   React.useEffect(() => {
-    if (!isChauffeur) return;
+    if (!hasHistory) return;
     let cancelled = false;
     (async () => {
       try {
@@ -99,7 +105,7 @@ function SettlementBody({ log, canEditPayments, onChanged }: { log: VendorLogRow
     return () => {
       cancelled = true;
     };
-  }, [isChauffeur, loadHistory]);
+  }, [hasHistory, loadHistory]);
 
   const startEdit = (t: VendorPaymentTransaction) => {
     setEditingId(t.id);
@@ -133,7 +139,7 @@ function SettlementBody({ log, canEditPayments, onChanged }: { log: VendorLogRow
     setSaving(true);
     setEditError(null);
     try {
-      await apiClient.updateVendorPayment(txnId, {
+      await (isShuttle ? apiClient.updateVendorInvoicePayment : apiClient.updateVendorPayment).call(apiClient, txnId, {
         amount,
         payment_method: form.payment_method || undefined,
         notes: form.notes || undefined,
@@ -259,8 +265,8 @@ function SettlementBody({ log, canEditPayments, onChanged }: { log: VendorLogRow
         </div>
       </dl>
 
-      {!isChauffeur ? (
-        <EmptyState compact title="No settlement history for shuttle logs" description="Settlement breakdown is currently available for chauffeur logs only." />
+      {!hasHistory ? (
+        <EmptyState compact title="No settlement history" description="This log isn't linked to a booking or invoice." />
       ) : error ? (
         <ErrorState compact message={error} />
       ) : (
