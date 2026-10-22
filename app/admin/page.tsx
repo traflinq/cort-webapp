@@ -195,6 +195,7 @@ function AdminDashboardContent() {
         <DashboardTables
           revenueByClient={stats.revenueByClient}
           fuelExpenses={stats.fuelExpenses}
+          fuelMonthComparison={stats.fuelMonthComparison}
           repairExpenses={stats.repairExpenses}
           overdueInvoices={stats.overdueInvoices}
           problemReports={stats.problemReports}

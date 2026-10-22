@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { ArrowUpRight, Fuel, MessageSquare, Users, Wrench } from "lucide-react";
 import type { ComponentType } from "react";
-import type { BreakdownItem, OverdueInvoice, ProblemReport } from "../../../lib/types/admin-dashboard";
+import type { BreakdownItem, FuelMonthComparison, OverdueInvoice, ProblemReport } from "../../../lib/types/admin-dashboard";
 import { Badge, Button, Card, CardHeader, DataTable, StatusBadge, type DataTableColumn } from "..";
 import { formatCurrency, formatDate, formatDateTime, humanize, initials } from "../../lib/format";
 
 interface DashboardTablesProps {
   revenueByClient: BreakdownItem[];
   fuelExpenses: BreakdownItem[];
+  fuelMonthComparison?: FuelMonthComparison;
   repairExpenses: BreakdownItem[];
   overdueInvoices: OverdueInvoice[];
   problemReports: ProblemReport[];
@@ -53,6 +54,32 @@ function RankingTable({
   );
 }
 
+function FuelMonthTable({ data }: { data?: FuelMonthComparison }) {
+  type Row = FuelMonthComparison["rows"][number];
+  const rows = data?.rows ?? [];
+  const columns: DataTableColumn<Row>[] = [
+    { key: "name", header: "Name", cell: (r) => <span className="line-clamp-1 font-medium text-fg">{r.name}</span> },
+    { key: "current", header: data?.currentLabel ?? "This month", align: "right", mono: true, width: "8rem", cell: (r) => formatCurrency(r.current) },
+    { key: "previous", header: data?.previousLabel ?? "Last month", align: "right", mono: true, width: "8rem", cell: (r) => <span className="text-fg-secondary">{formatCurrency(r.previous)}</span> },
+  ];
+  return (
+    <Card className="flex flex-col">
+      <CardHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <Fuel className="size-4 text-fg-muted" />
+            Fuel cost
+          </span>
+        }
+        description="By vehicle · this month vs last month"
+      />
+      <div className="max-h-80 overflow-y-auto">
+        <DataTable<Row> rows={rows} rowKey={(r) => r.name} columns={columns} density="compact" stickyHeader empty={{ title: "No fuel records" }} caption="Fuel cost" />
+      </div>
+    </Card>
+  );
+}
+
 const overdueColumns: DataTableColumn<OverdueInvoice>[] = [
   {
     key: "company",
@@ -91,14 +118,18 @@ const reportColumns: DataTableColumn<ProblemReport>[] = [
   { key: "message", header: "Message", cell: (r) => <p className="line-clamp-2 max-w-md text-fg-secondary" title={r.message}>{r.message}</p> },
 ];
 
-export function DashboardTables({ revenueByClient, fuelExpenses, repairExpenses, overdueInvoices, problemReports }: DashboardTablesProps) {
+export function DashboardTables({ revenueByClient, fuelExpenses, fuelMonthComparison, repairExpenses, overdueInvoices, problemReports }: DashboardTablesProps) {
   const overdue = overdueInvoices ?? [];
   const reports = problemReports ?? [];
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-3">
         <RankingTable title="Top clients by revenue" description="Gross revenue in the period" data={revenueByClient} valueLabel="Revenue" icon={Users} emptyTitle="No client revenue yet" />
-        <RankingTable title="Fuel cost" description="By vehicle, period total" data={fuelExpenses} valueLabel="Cost" icon={Fuel} emptyTitle="No fuel records" />
+        {fuelMonthComparison ? (
+          <FuelMonthTable data={fuelMonthComparison} />
+        ) : (
+          <RankingTable title="Fuel cost" description="By vehicle, period total" data={fuelExpenses} valueLabel="Cost" icon={Fuel} emptyTitle="No fuel records" />
+        )}
         <RankingTable title="Maintenance cost" description="By vehicle, period total" data={repairExpenses} valueLabel="Cost" icon={Wrench} emptyTitle="No maintenance records" />
       </div>
 

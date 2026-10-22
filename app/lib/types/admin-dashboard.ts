@@ -10,6 +10,7 @@ export interface SuperAdminDashboardStats {
     ridesBreakdown: BreakdownItem[];
     expensesBreakdown: BreakdownItem[];
     fuelExpenses: BreakdownItem[];
+    fuelMonthComparison?: FuelMonthComparison;
     repairExpenses: BreakdownItem[];
     oilMaintenanceExpenses: BreakdownItem[];
     revenueByClient: BreakdownItem[];
@@ -63,4 +64,10 @@ export interface ProblemReport {
     reporter_email: string;
     reporter_role: string;
     company_name: string | null;
+}
+
+export interface FuelMonthComparison {
+    currentLabel: string;
+    previousLabel: string;
+    rows: { name: string; current: number; previous: number }[];
 }

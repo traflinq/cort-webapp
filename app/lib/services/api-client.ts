@@ -2176,6 +2176,7 @@ class ApiClient {
             ridesBreakdown: { name: string; value: number }[];
             expensesBreakdown: { name: string; value: number }[];
             fuelExpenses: { name: string; value: number }[];
+            fuelMonthComparison?: { currentLabel: string; previousLabel: string; rows: { name: string; current: number; previous: number }[] };
             repairExpenses: { name: string; value: number }[];
             oilMaintenanceExpenses: { name: string; value: number }[];
             revenueByClient: { name: string; value: number }[];
