@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useAuth } from "../../../lib/contexts/auth-context";
 import { AdminProtectedPage } from "../../components/AdminProtectedPage";
 import { ADMIN_SUBJECTS } from "../../../lib/abilities/admin-subjects";
-import { Card, CardContent, PageHeader } from "../../ui";
+import { Plus } from "lucide-react";
+import { Button, Card, CardContent, PageHeader } from "../../ui";
+import { CreateBookingDialog } from "./components/CreateBookingDialog";
 import { EndTripModal } from "./components/EndTripModal";
 import { DailyLogsModal } from "./components/DailyLogsModal";
 import { RecalculateModal } from "./components/RecalculateModal";
@@ -27,6 +29,9 @@ function BookingsPageContent() {
   const { hasCrud } = useAuth();
   const canEditBookings = hasCrud("bookings", "create") || hasCrud("bookings", "update") || hasCrud("bookings", "delete");
 
+  const canCreateBookings = hasCrud("bookings", "create");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
   const state = usePendingBookings();
   const [showEndTripModal, setShowEndTripModal] = useState(false);
   const [showDailyLogsModal, setShowDailyLogsModal] = useState(false);
@@ -47,7 +52,26 @@ function BookingsPageContent() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Bookings" description="Chauffeur bookings across all companies: assign, track and invoice." />
+      <PageHeader
+        title="Bookings"
+        description="Chauffeur bookings across all companies: assign, track and invoice."
+        actions={
+          canCreateBookings ? (
+            <Button onClick={() => setShowCreateModal(true)}>
+              <Plus className="size-4" aria-hidden="true" />
+              Create booking
+            </Button>
+          ) : undefined
+        }
+      />
+      {canCreateBookings && showCreateModal && (
+        <CreateBookingDialog
+          open
+          companies={state.companies}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={state.refreshList}
+        />
+      )}
 
       <BookingStatsBar stats={state.stats} loading={state.statsLoading} activeStatus={state.statusFilter} onFilterByStatus={state.setStatusFilter} />
 

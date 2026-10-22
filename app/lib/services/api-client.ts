@@ -1057,6 +1057,17 @@ class ApiClient {
         });
     }
 
+    async adminCreateChauffeurBooking(companyId: number, data: CreateChauffeurBookingRequest): Promise<ChauffeurBookingResponse> {
+        return this.request<ChauffeurBookingResponse>(`/admin/bookings/companies/${companyId}`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async getAdminBookingOptions(companyId: number) {
+        return this.request<any>(`/admin/bookings/companies/${companyId}/options`);
+    }
+
     async assignBooking(id: number, vehicleId: number, driverId: string): Promise<void> {
         return this.request<void>(`/admin/bookings/${id}/assign`, {
             method: 'PATCH',
