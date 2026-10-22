@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Copy } from "lucide-react";
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
+import { AlertTriangle, Check, Copy } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/app/ui";
 
 type AccountTypeKey = "account" | "employee" | "driver";
 
@@ -19,19 +17,16 @@ export function SaveCredentialsNote({ accountTypeKey = "account" }: { accountTyp
   };
 
   return (
-    <div className="alert-banner-warning">
-      <span className="font-semibold">{t("important")}</span>{" "}
-      {t("saveNote", { accountType: accountTypeLabels[accountTypeKey] })}
+    <div role="note" className="flex items-start gap-2 rounded-lg border border-warning-line bg-warning-soft px-3 py-2.5 text-sm text-fg">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-ink" aria-hidden="true" />
+      <p>
+        <span className="font-semibold">{t("important")}</span> {t("saveNote", { accountType: accountTypeLabels[accountTypeKey] })}
+      </p>
     </div>
   );
 }
 
-type CredentialRowProps = {
-  label: string;
-  value: string;
-};
-
-function CredentialRow({ label, value }: CredentialRowProps) {
+function CredentialRow({ label, value }: { label: string; value: string }) {
   const t = useTranslations("company.credentials");
   const [copied, setCopied] = useState(false);
 
@@ -46,18 +41,15 @@ function CredentialRow({ label, value }: CredentialRowProps) {
   }
 
   return (
-    <div className="rounded-xl border border-[var(--border-input)] bg-[var(--bg-input)] px-4 py-3">
-      <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">{label}</div>
+    <div className="rounded-lg border border-line bg-subtle px-4 py-3">
+      <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">{label}</div>
       <div className="flex items-center justify-between gap-3">
-        <code className="text-sm font-mono text-[var(--text-primary)] break-all">{value}</code>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-input)] bg-[var(--bg-card)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--cort-orange)] hover:border-[var(--cort-orange)]/40 transition-colors"
-        >
-          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+        <code dir="ltr" className="break-all font-mono text-sm text-fg">
+          {value}
+        </code>
+        <Button type="button" variant="outline" size="sm" onClick={handleCopy} leftIcon={copied ? <Check /> : <Copy />} aria-live="polite">
           {copied ? t("copied") : t("copy")}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -72,22 +64,17 @@ type AccountCredentialsRevealProps = {
   className?: string;
 };
 
-export function AccountCredentialsReveal({
-  email,
-  password,
-  fullName,
-  subtitle,
-  accountTypeKey = "account",
-  className,
-}: AccountCredentialsRevealProps) {
+export function AccountCredentialsReveal({ email, password, fullName, subtitle, accountTypeKey = "account", className }: AccountCredentialsRevealProps) {
   const t = useTranslations("company.credentials");
 
   return (
-    <div className={cx("space-y-4", className)}>
-      <div className="text-center">
-        {fullName && <div className="font-bold text-[var(--text-primary)] text-lg">{fullName}</div>}
-        {subtitle && <div className="text-sm text-[var(--text-muted)] mt-1">{subtitle}</div>}
-      </div>
+    <div className={cn("space-y-4", className)}>
+      {(fullName || subtitle) && (
+        <div className="text-center">
+          {fullName && <div className="text-lg font-semibold text-fg">{fullName}</div>}
+          {subtitle && <div className="mt-1 text-sm text-fg-muted">{subtitle}</div>}
+        </div>
+      )}
       <SaveCredentialsNote accountTypeKey={accountTypeKey} />
       <div className="space-y-3">
         <CredentialRow label={t("email")} value={email} />

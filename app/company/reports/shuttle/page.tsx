@@ -1,315 +1,71 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronDown } from "lucide-react";
-import { useAppSelector } from "../../../lib/store/hooks";
-import { selectCompany } from "../../../lib/store/slices/companySlice";
-import { ShuttleReport, apiClient } from "../../../lib/services/api-client";
-import { Card } from "../../components/DashboardComponents";
+import { Download, FileBarChart, FileText } from "lucide-react";
 import {
+  ActionMenu,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  DataTable,
+  DateRangePicker,
+  Drawer,
+  DrawerContent,
+  EmptyState,
+  FilterBar,
+  FilterField,
   PageHeader,
-  TABLE_CARD_CLASS,
-  TABLE_TOP_BAR_CLASS,
-  TABLE_HEADER_CELL_CLASS,
-  TABLE_CELL_CLASS,
-} from "../../components/PageLayout";
-import Modal from "../../bookings/components/Modal";
-import TableSkeleton from "@/app/components/ui/TableSkeleton";
+  SectionHeader,
+  Select,
+  StatusBadge,
+  useFormatters,
+  type DateRange,
+} from "@/app/ui";
+import { toast } from "sonner";
+import { useAppSelector } from "@/app/lib/store/hooks";
+import { selectCompany } from "@/app/lib/store/slices/companySlice";
+import { apiClient } from "@/app/lib/services/api-client";
+import type { ShuttleReport } from "@/app/lib/services/types/reports";
+import { shuttleColumns } from "../../components/reports/columns";
+import { exportShuttleCSV, exportShuttlePdf } from "../../lib/reports-export";
 
-type ExportFormat = "csv" | "pdf";
+const PAGE_SIZE = 20;
 
-function DirectionBadge({ direction }: { direction: string }) {
-  const isEvening = direction === "EVENING";
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
-        isEvening
-          ? "bg-indigo-500/20 text-indigo-400"
-          : "bg-amber-500/20 text-amber-400"
-      }`}
-    >
-      {isEvening ? "🌙" : "☀️"} {direction}
-    </span>
-  );
-}
-
-interface PaginationMeta {
-  page: number;
-  pages: number;
-  total: number;
-}
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("en-PK", {
-    timeZone: "Asia/Karachi",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-function formatTimeOnly(value: string | null | undefined) {
-  if (!value) return "—";
-  return new Date(value).toLocaleTimeString("en-PK", {
-    timeZone: "Asia/Karachi",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-function escapeCSV(value: string | number | null | undefined): string {
-  const str = value == null ? "" : String(value);
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
-
-const SHUTTLE_EXPORT_HEADERS = [
-  "Trip Date", "Direction", "Trip ID", "Route",
-  "Vehicle", "Plate Number", "Driver",
-  "Boarded", "Absent", "Total Assigned", "Started At", "Completed At",
-];
-
-function formatExportDate(value: string | null | undefined) {
-  if (!value) return "";
-  return new Date(value).toLocaleDateString("en-PK", {
-    timeZone: "Asia/Karachi",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function formatExportDateTime(value: string | null | undefined) {
-  if (!value) return "";
-  return new Date(value).toLocaleString("en-PK", {
-    timeZone: "Asia/Karachi",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-const BOARDING_LOG_HEADERS = [
-  "Trip Date", "Direction", "Trip ID", "Route",
-  "Passenger", "Employee ID", "Department",
-  "Status", "Boarded At", "Drop-off At",
-];
-
-function buildShuttleExportRows(reports: ShuttleReport[]) {
-  return reports.map((r) => [
-    formatExportDate(r.trip_date),
-    r.direction || "",
-    String(r.id),
-    r.route?.name || "",
-    `${r.vehicle?.make || ""} ${r.vehicle?.model || ""}`.trim(),
-    r.vehicle?.plate_number || "",
-    r.driver?.full_name || "",
-    String(r.passengers?.boarded ?? 0),
-    String(r.passengers?.absent ?? 0),
-    String(r.passengers?.total ?? 0),
-    formatExportDateTime(r.started_at),
-    formatExportDateTime(r.completed_at),
-  ]);
-}
-
-function buildBoardingLogRows(reports: ShuttleReport[]) {
-  return reports.flatMap((r) =>
-    (r.passengers?.details ?? []).map((log) => [
-      formatExportDate(r.trip_date),
-      r.direction || "",
-      String(r.id),
-      r.route?.name || "",
-      log.employee?.full_name || "Unknown",
-      log.employee?.employee_id || "",
-      log.employee?.department || "",
-      log.status || "",
-      formatExportDateTime(log.scanned_at),
-      formatExportDateTime(log.drop_off_at),
-    ]),
-  );
-}
-
-function shuttleExportBasename(startDate: string, endDate: string, routeName?: string) {
-  const dateLabel = startDate && endDate ? `_${startDate}_to_${endDate}` : startDate ? `_from_${startDate}` : "";
-  const routeLabel = routeName
-    ? `_${routeName.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40)}`
-    : "";
-  return `cort_shuttle_report${routeLabel}${dateLabel}`;
-}
+type PaginationMeta = { page: number; pages: number; total: number };
 
 function parseShuttleReportsResponse(res: unknown, fallbackPage: number) {
   const raw = (res as { data?: unknown })?.data ?? res;
   const payload = raw as { data?: ShuttleReport[]; pagination?: PaginationMeta };
-  const list = Array.isArray(payload?.data)
-    ? payload.data
-    : Array.isArray(raw)
-      ? (raw as ShuttleReport[])
-      : [];
+  const list = Array.isArray(payload?.data) ? payload.data : Array.isArray(raw) ? (raw as ShuttleReport[]) : [];
   const meta: Partial<PaginationMeta> = payload?.pagination ?? {};
-  return {
-    list,
-    pagination: {
-      page: meta.page ?? fallbackPage,
-      pages: meta.pages ?? 1,
-      total: meta.total ?? list.length,
-    },
-  };
-}
-
-function exportShuttleCSV(
-  reports: ShuttleReport[],
-  companyName: string,
-  startDate: string,
-  endDate: string,
-  routeName?: string,
-) {
-  const rows = buildShuttleExportRows(reports);
-  const boardingRows = buildBoardingLogRows(reports);
-  const totalBoarded = reports.reduce((s, r) => s + (r.passengers?.boarded ?? 0), 0);
-
-  const csvContent = [
-    `# CORT - Shuttle Report`,
-    `# Company: ${companyName}`,
-    `# Route: ${routeName || "All"}`,
-    `# Period: ${startDate || "All"} to ${endDate || "All"}`,
-    `# Generated: ${new Date().toLocaleString("en-PK")}`,
-    `# Total Trips: ${reports.length}`,
-    `# Total Passengers Boarded: ${totalBoarded}`,
-    `# Boarding Log Rows: ${boardingRows.length}`,
-    "",
-    "# Trips",
-    SHUTTLE_EXPORT_HEADERS.map(escapeCSV).join(","),
-    ...rows.map((row) => row.map(escapeCSV).join(",")),
-    "",
-    "# Boarding Logs",
-    BOARDING_LOG_HEADERS.map(escapeCSV).join(","),
-    ...boardingRows.map((row) => row.map(escapeCSV).join(",")),
-  ].join("\n");
-
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${shuttleExportBasename(startDate, endDate, routeName)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function exportShuttlePDF(
-  reports: ShuttleReport[],
-  companyName: string,
-  startDate: string,
-  endDate: string,
-  routeName?: string,
-) {
-  const jspdfMod = await import("jspdf");
-  const autoTableMod = await import("jspdf-autotable");
-  const jsPDF = jspdfMod.jsPDF ?? (jspdfMod as { default: typeof jspdfMod.jsPDF }).default;
-  const autoTable = autoTableMod.default ?? autoTableMod.autoTable;
-
-  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 36;
-  const totalBoarded = reports.reduce((s, r) => s + (r.passengers?.boarded ?? 0), 0);
-
-  doc.setFillColor(254, 133, 3);
-  doc.rect(0, 0, pageWidth, 52, "F");
-  doc.setTextColor(20, 20, 20);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text("Shuttle Report", margin, 24);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text(companyName, margin, 40);
-
-  doc.setTextColor(80, 80, 80);
-  doc.setFontSize(8);
-  doc.text(
-    [
-      `Route: ${routeName || "All"}`,
-      `Period: ${startDate || "All"} to ${endDate || "All"}`,
-      `Generated: ${new Date().toLocaleString("en-PK")}`,
-      `Total trips: ${reports.length}`,
-      `Passengers boarded: ${totalBoarded}`,
-    ].join("   ·   "),
-    margin,
-    70,
-  );
-
-  autoTable(doc, {
-    head: [SHUTTLE_EXPORT_HEADERS],
-    body: buildShuttleExportRows(reports),
-    startY: 82,
-    margin: { left: margin, right: margin },
-    styles: { fontSize: 7.5, cellPadding: 4, overflow: "linebreak" },
-    headStyles: { fillColor: [254, 133, 3], textColor: [20, 20, 20], fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [250, 247, 244] },
-    columnStyles: {
-      7: { halign: "right" },
-      8: { halign: "right" },
-      9: { halign: "right" },
-    },
-  });
-
-  const lastTable = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable;
-  const pageHeight = doc.internal.pageSize.getHeight();
-  let boardingStartY = (lastTable?.finalY ?? 82) + 28;
-  if (boardingStartY > pageHeight - 80) {
-    doc.addPage();
-    boardingStartY = 40;
-  }
-  const boardingRows = buildBoardingLogRows(reports);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(20, 20, 20);
-  doc.text("Boarding Logs", margin, boardingStartY);
-
-  autoTable(doc, {
-    head: [BOARDING_LOG_HEADERS],
-    body: boardingRows.length > 0
-      ? boardingRows
-      : [[{ content: "No boarding logs for the selected filters", colSpan: BOARDING_LOG_HEADERS.length }]],
-    startY: boardingStartY + 10,
-    margin: { left: margin, right: margin },
-    styles: { fontSize: 7.5, cellPadding: 4, overflow: "linebreak" },
-    headStyles: { fillColor: [254, 133, 3], textColor: [20, 20, 20], fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [250, 247, 244] },
-  });
-
-  doc.save(`${shuttleExportBasename(startDate, endDate, routeName)}.pdf`);
+  return { list, pagination: { page: meta.page ?? fallbackPage, pages: meta.pages ?? 1, total: meta.total ?? list.length } };
 }
 
 export default function ShuttleReportsPage() {
   const t = useTranslations("company.reports");
   const tCommon = useTranslations("common");
+  const fmt = useFormatters();
   const company = useAppSelector(selectCompany);
+  const companyId = company?.id;
 
   const [reports, setReports] = useState<ShuttleReport[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
+  const [exporting, setExporting] = useState(false);
   const [pagination, setPagination] = useState<PaginationMeta>({ page: 1, pages: 1, total: 0 });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [selectedReport, setSelectedReport] = useState<ShuttleReport | null>(null);
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<ShuttleReport | null>(null);
+  const [range, setRange] = useState<DateRange | null>(null);
   const [routeId, setRouteId] = useState<string>("");
   const [routes, setRoutes] = useState<Array<{ id: number; name: string }>>([]);
 
+  const startDate = range?.start ?? "";
+  const endDate = range?.end ?? "";
   const selectedRouteId = routeId ? Number(routeId) : undefined;
-  const selectedRouteName = routes.find((route) => String(route.id) === routeId)?.name;
+  const selectedRouteName = routes.find((r) => String(r.id) === routeId)?.name;
 
   useEffect(() => {
     if (!company?.id) return;
@@ -319,18 +75,14 @@ export default function ShuttleReportsPage() {
       .then((res) => {
         if (cancelled) return;
         const raw = (res as { data?: unknown })?.data ?? res;
-        const list = Array.isArray(raw)
-          ? raw
-          : Array.isArray((raw as { data?: unknown })?.data)
-            ? (raw as { data: unknown[] }).data
-            : [];
+        const list = Array.isArray(raw) ? raw : Array.isArray((raw as { data?: unknown })?.data) ? (raw as { data: unknown[] }).data : [];
         setRoutes(
           list
             .map((item) => {
               const route = item as { id?: number; name?: string };
               return route.id && route.name ? { id: route.id, name: route.name } : null;
             })
-            .filter((route): route is { id: number; name: string } => route != null)
+            .filter((r): r is { id: number; name: string } => r != null)
             .sort((a, b) => a.name.localeCompare(b.name)),
         );
       })
@@ -342,572 +94,294 @@ export default function ShuttleReportsPage() {
     };
   }, [company?.id]);
 
-  const fetchReports = useCallback(async (page: number, start: string, end: string, selectedRoute?: number) => {
-    if (!company?.id) return;
-    setIsLoading(true);
-    try {
-      const res = await apiClient.getShuttleReports(company.id, {
-        startDate: start || undefined,
-        endDate: end || undefined,
-        routeId: selectedRoute,
-        page,
-      });
-      const parsed = parseShuttleReportsResponse(res, page);
-      setReports(parsed.list);
-      setPagination(parsed.pagination);
-    } catch (e) {
-      console.error("Failed to fetch shuttle reports", e);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [company?.id]);
+  // Filters reset to page 1 (render-time state adjustment; one fetch per change, no double effect).
+  const [prevFilters, setPrevFilters] = useState({ startDate, endDate, selectedRouteId });
+  if (prevFilters.startDate !== startDate || prevFilters.endDate !== endDate || prevFilters.selectedRouteId !== selectedRouteId) {
+    setPrevFilters({ startDate, endDate, selectedRouteId });
+    setPage(1);
+  }
 
-  const handleExport = async (format: ExportFormat) => {
-    if (!company?.id || isExporting) return;
-    setExportMenuOpen(false);
-    setIsExporting(true);
+  const fetchReports = useCallback(
+    async (p: number, start: string, end: string, route?: number) => {
+      if (!companyId) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await apiClient.getShuttleReports(companyId, {
+          startDate: start || undefined,
+          endDate: end || undefined,
+          routeId: route,
+          page: p,
+          limit: PAGE_SIZE,
+        });
+        const parsed = parseShuttleReportsResponse(res, p);
+        setReports(parsed.list);
+        setPagination(parsed.pagination);
+      } catch (e) {
+        setReports([]);
+        setError(e instanceof Error ? e.message : tCommon("errors.failedToLoad"));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [companyId, tCommon],
+  );
+
+  // Debounced: one request per filter/page change.
+  useEffect(() => {
+    const timer = setTimeout(() => void fetchReports(page, startDate, endDate, selectedRouteId), 400);
+    return () => clearTimeout(timer);
+  }, [page, startDate, endDate, selectedRouteId, fetchReports, retryTick]);
+
+  const handleExport = async (format: "csv" | "pdf") => {
+    if (!company?.id || exporting) return;
+    setExporting(true);
     try {
-      const allReports: ShuttleReport[] = [];
-      let page = 1;
+      const all: ShuttleReport[] = [];
+      let p = 1;
       let pages = 1;
-      const exportLimit = 100;
-
       do {
         const res = await apiClient.getShuttleReports(company.id, {
           startDate: startDate || undefined,
           endDate: endDate || undefined,
           routeId: selectedRouteId,
-          page,
-          limit: exportLimit,
+          page: p,
+          limit: 100,
         });
-        const parsed = parseShuttleReportsResponse(res, page);
-        allReports.push(...parsed.list);
+        const parsed = parseShuttleReportsResponse(res, p);
+        all.push(...parsed.list);
         pages = parsed.pagination.pages || 1;
-        page += 1;
-      } while (page <= pages);
-
-      if (format === "pdf") {
-        await exportShuttlePDF(allReports, company.name ?? "Company", startDate, endDate, selectedRouteName);
-      } else {
-        exportShuttleCSV(allReports, company.name ?? "Company", startDate, endDate, selectedRouteName);
-      }
+        p += 1;
+      } while (p <= pages);
+      const meta = { companyName: company.name ?? "Company", startDate, endDate, routeName: selectedRouteName };
+      if (format === "pdf") await exportShuttlePdf(all, meta);
+      else exportShuttleCSV(all, meta);
     } catch (e) {
-      console.error("Failed to export shuttle reports", e);
+      toast.error(e instanceof Error ? e.message : t("exportFailed"));
     } finally {
-      setIsExporting(false);
+      setExporting(false);
     }
   };
 
-  // Debounce filter changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setCurrentPage(1);
-      fetchReports(1, startDate, endDate, selectedRouteId);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [startDate, endDate, selectedRouteId, fetchReports]);
-
-  // Page change
-  useEffect(() => {
-    fetchReports(currentPage, startDate, endDate, selectedRouteId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage]);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  useEffect(() => {
-    if (!exportMenuOpen) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!exportMenuRef.current?.contains(event.target as Node)) {
-        setExportMenuOpen(false);
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [exportMenuOpen]);
+  const columns = useMemo(() => shuttleColumns(t, fmt), [t, fmt]);
+  const activeFilters = (range ? 1 : 0) + (routeId ? 1 : 0);
 
   if (!company) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-sm text-[var(--text-muted)]">{tCommon("errors.noCompanySelected")}</div>
-      </div>
-    );
+    return <EmptyState title={tCommon("errors.noCompanySelected")} />;
   }
 
   if (!company.services_enabled?.shuttle_enabled) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Card className="max-w-md text-center flex flex-col items-center justify-center py-12">
-          <div className="text-lg font-bold text-[var(--text-primary)]">
-            {t("shuttleDisabled")}
-          </div>
-          <div className="mt-2 text-sm text-[var(--text-muted)]">
-            {t("shuttleDisabledDescription")}
-          </div>
+      <div className="space-y-6">
+        <PageHeader title={t("shuttleTitle")} />
+        <Card>
+          <EmptyState icon={<FileBarChart aria-hidden="true" />} title={t("shuttleDisabled")} description={t("shuttleDisabledDescription")} />
         </Card>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
+    <div className="space-y-6">
       <PageHeader
-        label={t("shuttleLabel")}
         title={t("shuttleTitle")}
-        action={
-          <>
-            <select
-              value={routeId}
-              onChange={(e) => setRouteId(e.target.value)}
-              className="h-[46px] max-w-[220px] rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] px-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-0"
-              aria-label={t("route")}
-            >
-              <option value="">{t("allRoutes")}</option>
-              {routes.map((route) => (
-                <option key={route.id} value={route.id}>
-                  {route.name}
-                </option>
-              ))}
-            </select>
-            <div className="flex items-center gap-2 bg-[var(--bg-subtle)] p-1 rounded-xl border border-[var(--border-strong)] backdrop-blur-sm">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="h-9 rounded-lg border-0 bg-transparent px-3 text-sm text-[var(--text-primary)] focus:ring-0"
-                placeholder={t("startDate")}
-              />
-              <span className="text-[var(--text-muted)]">/</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="h-9 rounded-lg border-0 bg-transparent px-3 text-sm text-[var(--text-primary)] focus:ring-0"
-                placeholder={t("endDate")}
-              />
-            </div>
-            <div className="relative" ref={exportMenuRef}>
-              <button
-                type="button"
-                disabled={isExporting}
-                aria-haspopup="menu"
-                aria-expanded={exportMenuOpen}
-                className="group relative flex items-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-[var(--text-primary)] transition-all hover:bg-[var(--cort-orange-hover)] hover:-translate-y-0.5 shadow-lg active:translate-y-0 active:shadow-md disabled:opacity-60 disabled:pointer-events-none"
-                onClick={() => setExportMenuOpen((open) => !open)}
-              >
-                <svg
-                  className="w-4 h-4 text-[var(--text-primary)]"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                {isExporting ? t("exporting") : t("export")}
-                <ChevronDown className={`w-4 h-4 transition-transform ${exportMenuOpen ? "rotate-180" : ""}`} />
-              </button>
-              {exportMenuOpen && !isExporting && (
-                <div
-                  role="menu"
-                  className="absolute end-0 z-20 mt-2 w-44 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-card)] shadow-xl"
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="w-full px-4 py-2.5 text-start text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)]"
-                    onClick={() => handleExport("csv")}
-                  >
-                    {t("exportAsCsv")}
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="w-full px-4 py-2.5 text-start text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)]"
-                    onClick={() => handleExport("pdf")}
-                  >
-                    {t("exportAsPdf")}
-                  </button>
-                </div>
-              )}
-            </div>
-          </>
+        description={t("shuttleTableDescription")}
+        actions={
+          <ActionMenu
+            label={t("export")}
+            variant="outline"
+            size="md"
+            trigger={
+              <Button variant="outline" leftIcon={<Download />} loading={exporting} disabled={exporting}>
+                {exporting ? t("exporting") : t("export")}
+              </Button>
+            }
+            items={[
+              { label: t("exportAsCsv"), icon: <FileText />, onSelect: () => void handleExport("csv") },
+              { label: t("exportAsPdf"), icon: <FileText />, onSelect: () => void handleExport("pdf") },
+            ]}
+          />
         }
       />
 
-      <Card className={`min-h-[500px] ${TABLE_CARD_CLASS}`}>
-        <div className={TABLE_TOP_BAR_CLASS}>
-          <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">
-            {t("shuttleTableDescription")}
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm text-start">
-            <thead>
-              <tr className="border-b border-[var(--border-light)]">
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("tripDate")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("direction")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("tripId")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("route")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("vehicle")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("driver")}</th>
-                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("boarded")}</th>
-                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("absent")}</th>
-                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("assigned")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("startedAt")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("completedAt")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-light)]/50">
-              {isLoading && reports.length === 0 ? (
-                <TableSkeleton columns={11} rows={8} />
-              ) : reports.length === 0 && !isLoading ? (
-                <tr>
-                  <td colSpan={11} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center text-[var(--text-muted)]">
-                      <span className="bg-[var(--surface-subtle)] p-4 rounded-full mb-3">
-                        <svg
-                          className="w-6 h-6"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={1.5}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                      </span>
-                      <span>{t("noShuttleReports")}</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                reports.map((report) => (
-                  <tr
-                    key={report.id}
-                    onClick={() => setSelectedReport(report)}
-                    className="group transition-colors border-b border-transparent hover:bg-[var(--surface-subtle)]/80 cursor-pointer"
-                  >
-                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-[var(--text-primary)] font-medium font-mono text-xs`}>
-                      {report.trip_date
-                        ? new Date(report.trip_date).toLocaleDateString("en-PK", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : "—"}
-                    </td>
-                    <td className={TABLE_CELL_CLASS}>
-                      <DirectionBadge direction={report.direction} />
-                    </td>
-                    <td className={`${TABLE_CELL_CLASS} font-bold text-[var(--text-primary)]`}>
-                      #{report.id}
-                    </td>
-                    <td className={TABLE_CELL_CLASS}>
-                      <div className="font-semibold text-[var(--text-primary)] text-sm">
-                        {report.route?.name || "—"}
-                      </div>
-                    </td>
-                    <td className={TABLE_CELL_CLASS}>
-                      {report.vehicle ? (
-                        <>
-                          <div className="text-[var(--text-primary)] font-medium">
-                            {report.vehicle.make} {report.vehicle.model}
-                          </div>
-                          <div className="text-xs text-[var(--text-muted)] font-mono">
-                            {report.vehicle.plate_number}
-                          </div>
-                        </>
-                      ) : (
-                        <span className="text-[var(--text-muted)]">—</span>
-                      )}
-                    </td>
-                    <td className={TABLE_CELL_CLASS}>
-                      <div className="text-[var(--text-primary)] font-medium text-sm">
-                        {report.driver?.full_name || "—"}
-                      </div>
-                    </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end font-mono text-emerald-600 font-semibold`}>
-                      {report.passengers.boarded}
-                    </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end font-mono text-rose-500 font-semibold`}>
-                      {report.passengers.absent}
-                    </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end font-mono text-[var(--text-primary)]`}>
-                      {report.passengers.total}
-                    </td>
-                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-xs text-[var(--text-muted)] font-mono`}>
-                      {formatDateTime(report.started_at)}
-                    </td>
-                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-xs text-[var(--text-muted)] font-mono`}>
-                      {formatDateTime(report.completed_at)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {pagination.pages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border-light)]">
-            <div className="text-xs text-[var(--text-muted)]">
-              {t("showingTrips", { shown: reports.length, total: pagination.total })}
-            </div>
-            <div className="flex gap-1">
-              {Array.from({ length: pagination.pages }, (_, i) => i + 1).map(
-                (page) => (
-                  <button
-                    key={page}
-                    onClick={() => handlePageChange(page)}
-                    className={`h-7 w-7 rounded text-xs font-medium transition-colors ${
-                      page === pagination.page
-                        ? "bg-[#fe8503] text-[var(--text-primary)]"
-                        : "text-[var(--text-muted)] hover:bg-[var(--surface-subtle)]"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                )
-              )}
-            </div>
-          </div>
-        )}
+      <Card>
+        <CardContent className="border-b border-line py-3">
+          <FilterBar
+            activeCount={activeFilters}
+            onClear={() => {
+              setRange(null);
+              setRouteId("");
+            }}
+          >
+            <FilterField label={t("route")}>
+              <Select value={routeId} onChange={(e) => setRouteId(e.target.value)}>
+                <option value="">{t("allRoutes")}</option>
+                {routes.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </Select>
+            </FilterField>
+            <DateRangePicker value={range} onChange={setRange} allowClear label={t("tripDate")} />
+          </FilterBar>
+        </CardContent>
+        <DataTable<ShuttleReport>
+          caption={t("shuttleTitle")}
+          rows={reports}
+          rowKey={(r) => r.id}
+          columns={columns}
+          loading={loading}
+          error={error}
+          onRetry={() => setRetryTick((n) => n + 1)}
+          empty={{ title: t("noShuttleReports") }}
+          onRowClick={setSelected}
+          pagination={{ page, totalPages: pagination.pages, total: pagination.total, pageSize: PAGE_SIZE, onPageChange: setPage }}
+        />
       </Card>
 
-      {/* Trip Detail Modal */}
-      <Modal
-        isOpen={!!selectedReport}
-        onClose={() => setSelectedReport(null)}
-        title={selectedReport ? t("shuttleTrip", { id: selectedReport.id }) : t("tripDetails")}
-      >
-        {selectedReport && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">{t("date")}</div>
-                <div className="font-semibold text-[var(--text-primary)]">
-                  {selectedReport.trip_date
-                    ? new Date(selectedReport.trip_date).toLocaleDateString("en-PK", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })
-                    : "—"}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">{t("direction")}</div>
-                <DirectionBadge direction={selectedReport.direction} />
-              </div>
-              <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">{t("route")}</div>
-                <div className="font-semibold text-[var(--text-primary)]">
-                  {selectedReport.route?.name || "—"}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">{t("driver")}</div>
-                <div className="font-semibold text-[var(--text-primary)]">
-                  {selectedReport.driver?.full_name || "—"}
-                </div>
-              </div>
-              {selectedReport.vehicle && (
-                <div className="col-span-2">
-                  <div className="text-xs text-[var(--text-muted)] mb-1">{t("vehicle")}</div>
-                  <div className="font-semibold text-[var(--text-primary)]">
-                    {selectedReport.vehicle.make} {selectedReport.vehicle.model}{" "}
-                    <span className="font-mono text-xs text-[var(--text-muted)]">
-                      ({selectedReport.vehicle.plate_number})
-                    </span>
-                  </div>
-                </div>
-              )}
-              <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">{t("startedAt")}</div>
-                <div className="font-semibold text-[var(--text-primary)] font-mono text-sm">
-                  {formatDateTime(selectedReport.started_at)}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">{t("completedAt")}</div>
-                <div className="font-semibold text-[var(--text-primary)] font-mono text-sm">
-                  {formatDateTime(selectedReport.completed_at)}
-                </div>
-              </div>
-            </div>
+      <Drawer open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <DrawerContent size="lg" title={selected ? t("shuttleTrip", { id: selected.id }) : t("tripDetails")}>
+          {selected && <ShuttleTripDetail report={selected} />}
+        </DrawerContent>
+      </Drawer>
+    </div>
+  );
+}
 
-            {/* Boarding Summary */}
-            <div>
-              <div className="text-xs font-semibold tracking-wider text-[var(--text-muted)] uppercase mb-3">
-                {t("boardingSummary")}
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-xl bg-[var(--surface-subtle)] px-4 py-3 text-center">
-                  <div className="text-2xl font-bold text-[var(--text-primary)]">
-                    {selectedReport.passengers.total}
-                  </div>
-                  <div className="text-xs text-[var(--text-muted)] mt-1">{t("assigned")}</div>
-                </div>
-                <div className="rounded-xl bg-emerald-50 px-4 py-3 text-center">
-                  <div className="text-2xl font-bold text-emerald-600">
-                    {selectedReport.passengers.boarded}
-                  </div>
-                  <div className="text-xs text-emerald-600/70 mt-1">{t("boarded")}</div>
-                </div>
-                <div className="rounded-xl bg-rose-50 px-4 py-3 text-center">
-                  <div className="text-2xl font-bold text-rose-500">
-                    {selectedReport.passengers.absent}
-                  </div>
-                  <div className="text-xs text-rose-500/70 mt-1">{t("absent")}</div>
-                </div>
-              </div>
-            </div>
+function ShuttleTripDetail({ report }: { report: ShuttleReport }) {
+  const t = useTranslations("company.reports");
+  const tCommon = useTranslations("common");
+  const fmt = useFormatters();
+  const isEvening = report.direction === "EVENING";
+  const stops = report.route?.stops ?? [];
+  const dt = (v: string | null | undefined) => (v ? fmt.formatDateTime(v) : "—");
+  const time = (v: string | null | undefined) => (v ? fmt.formatTime(v) : "—");
 
-            {selectedReport.passengers.details.length > 0 && (
-              <div>
-                <div className="text-xs font-semibold tracking-wider text-[var(--text-muted)] uppercase mb-2">
-                  {t("passengerDetails")}
-                </div>
-                <div className="max-h-72 overflow-y-auto rounded-xl border border-[var(--border-light)] divide-y divide-[var(--border-light)]">
-                  {selectedReport.passengers.details.map((log, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between gap-3 px-4 py-2.5"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-medium text-sm text-[var(--text-primary)]">
-                          {log.employee?.full_name || tCommon("status.unknown")}
-                        </div>
-                        <div className="text-xs text-[var(--text-muted)]">
-                          {log.employee?.department || ""}{" "}
-                          {log.employee?.employee_id
-                            ? `· ID: ${log.employee.employee_id}`
-                            : ""}
-                        </div>
-                        {(log.status === "BOARDED" || log.status === "DROPPED_OFF") && log.scanned_at && (
-                          <div className="text-xs text-emerald-600/80 mt-0.5 font-mono">
-                            {t("boardedAt")} {formatTimeOnly(log.scanned_at)}
-                          </div>
-                        )}
-                        {log.drop_off_at && (
-                          <div className="text-xs text-sky-600/90 mt-0.5 font-mono">
-                            {t("dropoffTime")} {formatTimeOnly(log.drop_off_at)}
-                          </div>
-                        )}
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          log.status === "BOARDED"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : log.status === "DROPPED_OFF"
-                              ? "bg-sky-100 text-sky-700"
-                              : "bg-rose-100 text-rose-600"
-                        }`}
-                      >
-                        {log.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+  const facts: Array<{ label: string; value: React.ReactNode; wide?: boolean }> = [
+    { label: t("date"), value: fmt.formatDate(report.trip_date) },
+    { label: t("direction"), value: <StatusBadge status={report.direction} /> },
+    { label: t("route"), value: report.route?.name || "—" },
+    { label: t("driver"), value: report.driver?.full_name || "—" },
+    ...(report.vehicle
+      ? [{ label: t("vehicle"), value: <>{report.vehicle.make} {report.vehicle.model} <span className="font-mono text-xs text-fg-muted">({report.vehicle.plate_number})</span></>, wide: true }]
+      : []),
+    { label: t("startedAt"), value: <span className="font-mono text-sm">{dt(report.started_at)}</span> },
+    { label: t("completedAt"), value: <span className="font-mono text-sm">{dt(report.completed_at)}</span> },
+  ];
 
-            <div>
-              <div className="text-xs font-semibold tracking-wider text-[var(--text-muted)] uppercase mb-2">
-                {t("stopLogs")}
-              </div>
-              <div className="rounded-xl border border-[var(--border-light)] overflow-hidden">
-                {selectedReport.route?.stops && selectedReport.route.stops.length > 0 ? (
-                  <div className="divide-y divide-[var(--border-light)]">
-                    {selectedReport.route.stops.map((stop, index) => {
-                      const log = selectedReport.stop_logs?.find((item) => item.stop_id === stop.id);
-                      const isEvening = selectedReport.direction === "EVENING";
-                      const isLastStop =
-                        index === (selectedReport.route?.stops?.length ?? 0) - 1;
-                      const isFinalMorningStop = !isEvening && isLastStop;
-                      const arrivedAt = isFinalMorningStop
-                        ? formatDateTime(
-                            selectedReport.completed_at ?? log?.arrived_at ?? null,
-                          )
-                        : formatDateTime(log?.arrived_at ?? null);
-                      const boardedAt = formatDateTime(log?.boarded_at ?? null);
-                      const isFirstEveningStop = isEvening && index === 0;
-                      const dropOffAt = isFirstEveningStop
-                        ? formatDateTime(selectedReport.started_at)
-                        : formatDateTime(log?.drop_off_at ?? null);
-
-                      return (
-                        <div
-                          key={stop.id}
-                          className="grid grid-cols-[auto,1fr,auto] items-start gap-3 px-4 py-3"
-                        >
-                          <div className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[var(--surface-subtle)] px-2 text-xs font-semibold text-[var(--text-primary)]">
-                            {stop.sequence ?? "—"}
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-[var(--text-primary)]">
-                              {stop.name}
-                            </div>
-                            <div className="text-xs text-[var(--text-muted)]">
-                              {isEvening
-                                ? t("dropoffFromLogs")
-                                : isFinalMorningStop
-                                  ? t("tripCompletionTime")
-                                  : t("arrivalFromLogs")}
-                            </div>
-                          </div>
-                          <div className="text-end text-sm font-mono text-[var(--text-primary)]">
-                            {isEvening ? (
-                              <div>
-                                <div className="text-xs text-[var(--text-muted)]">
-                                  {isFirstEveningStop ? t("tripStartedAt") : t("dropoffTime")}
-                                </div>
-                                <div>{dropOffAt}</div>
-                              </div>
-                            ) : isFinalMorningStop ? (
-                              <div>
-                                <div className="text-xs text-[var(--text-muted)]">{t("arrivedAt")}</div>
-                                <div>{arrivedAt}</div>
-                              </div>
-                            ) : (
-                              <div className="space-y-1">
-                                <div>
-                                  <div className="text-xs text-[var(--text-muted)]">{t("arrivedAt")}</div>
-                                  <div>{arrivedAt}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-[var(--text-muted)]">{t("boardedAt")}</div>
-                                  <div>{boardedAt}</div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="px-4 py-6 text-sm text-[var(--text-muted)]">
-                    {t("noStopLogs")}
-                  </div>
-                )}
-              </div>
-            </div>
+  return (
+    <div className="space-y-6">
+      <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {facts.map((f) => (
+          <div key={f.label} className={f.wide ? "sm:col-span-2" : undefined}>
+            <dt className="mb-1 text-xs text-fg-muted">{f.label}</dt>
+            <dd className="font-semibold text-fg">{f.value}</dd>
           </div>
-        )}
-      </Modal>
+        ))}
+      </dl>
+
+      <section>
+        <SectionHeader title={t("boardingSummary")} className="mb-3" />
+        <div className="grid grid-cols-3 gap-3">
+          <Stat value={report.passengers.total} label={t("assigned")} />
+          <Stat value={report.passengers.boarded} label={t("boarded")} tone="success" />
+          <Stat value={report.passengers.absent} label={t("absent")} tone="danger" />
+        </div>
+      </section>
+
+      {report.passengers.details.length > 0 && (
+        <section>
+          <SectionHeader title={t("passengerDetails")} className="mb-2" />
+          <ul className="max-h-72 divide-y divide-line overflow-y-auto rounded-xl border border-line">
+            {report.passengers.details.map((log, idx) => (
+              <li key={idx} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-fg">{log.employee?.full_name || tCommon("status.unknown")}</p>
+                  <p className="text-xs text-fg-muted">
+                    {log.employee?.department || ""}
+                    {log.employee?.employee_id ? ` · ID: ${log.employee.employee_id}` : ""}
+                  </p>
+                  {(log.status === "BOARDED" || log.status === "DROPPED_OFF") && log.scanned_at && (
+                    <p className="mt-0.5 font-mono text-xs text-success-ink">
+                      {t("boardedAt")} {time(log.scanned_at)}
+                    </p>
+                  )}
+                  {log.drop_off_at && (
+                    <p className="mt-0.5 font-mono text-xs text-info-ink">
+                      {t("dropoffTime")} {time(log.drop_off_at)}
+                    </p>
+                  )}
+                </div>
+                <Badge tone={log.status === "BOARDED" ? "success" : log.status === "DROPPED_OFF" ? "info" : "danger"} size="sm">
+                  {log.status}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section>
+        <SectionHeader title={t("stopLogs")} className="mb-2" />
+        <div className="overflow-hidden rounded-xl border border-line">
+          {stops.length > 0 ? (
+            <ol className="divide-y divide-line">
+              {stops.map((stop, index) => {
+                const log = report.stop_logs?.find((item) => item.stop_id === stop.id);
+                const isLastStop = index === stops.length - 1;
+                const isFinalMorningStop = !isEvening && isLastStop;
+                const arrivedAt = isFinalMorningStop ? dt(report.completed_at ?? log?.arrived_at ?? null) : dt(log?.arrived_at ?? null);
+                const boardedAt = dt(log?.boarded_at ?? null);
+                const isFirstEveningStop = isEvening && index === 0;
+                const dropOffAt = isFirstEveningStop ? dt(report.started_at) : dt(log?.drop_off_at ?? null);
+                return (
+                  <li key={stop.id} className="grid grid-cols-[auto_1fr_auto] items-start gap-3 px-4 py-3">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-subtle px-2 text-xs font-semibold text-fg">{stop.sequence ?? "—"}</span>
+                    <div>
+                      <p className="text-sm font-medium text-fg">{stop.name}</p>
+                      <p className="text-xs text-fg-muted">{isEvening ? t("dropoffFromLogs") : isFinalMorningStop ? t("tripCompletionTime") : t("arrivalFromLogs")}</p>
+                    </div>
+                    <div className="text-end font-mono text-sm text-fg">
+                      {isEvening ? (
+                        <TimeCell label={isFirstEveningStop ? t("tripStartedAt") : t("dropoffTime")} value={dropOffAt} />
+                      ) : isFinalMorningStop ? (
+                        <TimeCell label={t("arrivedAt")} value={arrivedAt} />
+                      ) : (
+                        <div className="space-y-1">
+                          <TimeCell label={t("arrivedAt")} value={arrivedAt} />
+                          <TimeCell label={t("boardedAt")} value={boardedAt} />
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          ) : (
+            <p className="px-4 py-6 text-sm text-fg-muted">{t("noStopLogs")}</p>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function Stat({ value, label, tone }: { value: number; label: string; tone?: "success" | "danger" }) {
+  const cls = tone === "success" ? "bg-success-soft text-success-ink" : tone === "danger" ? "bg-danger-soft text-danger-ink" : "bg-subtle text-fg";
+  return (
+    <div className={`rounded-xl px-4 py-3 text-center ${cls}`}>
+      <p className="text-2xl font-bold">{value}</p>
+      <p className="mt-1 text-xs opacity-80">{label}</p>
+    </div>
+  );
+}
+
+function TimeCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-fg-muted">{label}</p>
+      <p>{value}</p>
     </div>
   );
 }

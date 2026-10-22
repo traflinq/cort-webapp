@@ -1,81 +1,61 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
-import { selectCompany, fetchCompanyFeatures, selectCompanyFeatures } from "../../../lib/store/slices/companySlice";
-import { fetchEmployees, selectEmployees, selectEmployeesStatus } from "../../../lib/store/slices/employeeSlice";
-import { useAuth } from "../../../lib/contexts/auth-context";
-import { apiClient } from "../../../lib/services/api-client";
 import { toast } from "sonner";
-import { Card } from "../../components/DashboardComponents";
-import { Button } from "@/app/admin/ui/Button";
+import { useAppDispatch, useAppSelector } from "@/app/lib/store/hooks";
+import { selectCompany, fetchCompanyFeatures, selectCompanyFeatures } from "@/app/lib/store/slices/companySlice";
+import { fetchEmployees, selectEmployees, selectEmployeesStatus } from "@/app/lib/store/slices/employeeSlice";
+import { useAuth } from "@/app/lib/contexts/auth-context";
+import { apiClient } from "@/app/lib/services/api-client";
+import { useConfirm } from "@/app/lib/hooks/useConfirm";
+import { cn } from "@/lib/utils";
 import {
-  Activity,
-  ArrowLeft,
-  Building2,
-  Bus,
-  User,
-  MapPin,
-  Sunrise,
-  Sunset,
-  Users,
-  Phone,
-  Mail,
-  Car,
-  RefreshCw,
-  UserPlus,
-  X,
-  Sparkles,
-  ListOrdered,
-  UserMinus,
-} from "lucide-react";
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  DataTable,
+  Dialog,
+  DialogContent,
+  EmptyState,
+  ErrorState,
+  Field,
+  KpiCard,
+  KpiGrid,
+  PageHeader,
+  PageSkeleton,
+  Select,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  useFormatters,
+  usePageBreadcrumbs,
+  type DataTableColumn,
+} from "@/app/ui";
+import { Activity, Building2, Car, ListOrdered, MapPin, Settings2, Sparkles, Sunrise, Sunset, User, UserMinus, UserPlus, Users } from "lucide-react";
 import { RouteDetailsEditor } from "../components/RouteDetailsEditor";
 import { RouteStopsEditor } from "../components/RouteStopsEditor";
 import { RouteOverviewMap } from "../components/RouteOverviewMap";
-import { getOfficeStops } from "../../../lib/utils/routeStops";
+import { getOfficeStops } from "@/app/lib/utils/routeStops";
+import { useCompanyBasePath } from "../../lib/use-company-base-path";
+import { stopsForDirection, type CompanyRouteStop, type RouteDirection } from "../lib/route-types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-type RouteStop = {
-  id: number;
-  route_id: number;
-  name: string;
-  sequence_order: number;
-  morning_sequence?: number | null;
-  evening_sequence?: number | null;
-  morning_eta?: string | null;
-  evening_eta?: string | null;
-  lat?: number | null;
-  lng?: number | null;
-  stop_type?: "PICKUP" | "OFFICE";
-};
 
 type EmployeeAssignment = {
   user_id: string;
   route_id?: number | null;
   pickup_stop_id?: number | null;
   office_stop_id?: number | null;
-  users?: {
-    id: string;
-    full_name: string;
-    email: string;
-    phone: string;
-    department?: string | null;
-  } | null;
-  route_stops?: {
-    id: number;
-    name: string;
-    sequence_order: number;
-  } | null;
+  users?: { id: string; full_name: string; email: string; phone: string; department?: string | null } | null;
+  route_stops?: { id: number; name: string; sequence_order: number } | null;
   /** The assigned office stop — populated when the route has multiple OFFICE-type stops. */
-  office_route_stops?: {
-    id?: number;
-    name: string;
-  } | null;
+  office_route_stops?: { id?: number; name: string } | null;
 };
 
 type RouteDetail = {
@@ -86,99 +66,64 @@ type RouteDetail = {
   assigned_driver_id?: string | null;
   vehicles?: { id?: number; plate_number: string; model: string | null; capacity?: number | null; seat_capacity?: number | null } | null;
   users?: { id: string; full_name: string; phone: string } | null;
-  route_stops: RouteStop[];
+  route_stops: CompanyRouteStop[];
   employee_route_assignments?: EmployeeAssignment[];
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+type TabKey = "overview" | "details" | "stops" | "employees";
 
-function formatTime(value?: string | null) {
-  if (!value) return null;
-  if (value.includes("T")) {
-    const timePart = value.split("T")[1]?.slice(0, 5);
-    if (timePart) return timePart;
-  }
-  if (/^\d{2}:\d{2}(:\d{2})?$/.test(value)) return value.slice(0, 5);
-  return value;
-}
+// ─── Stop timeline ───────────────────────────────────────────────────────────
 
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
-function StopTimeline({ stops, direction }: { stops: RouteStop[]; direction: "MORNING" | "EVENING" }) {
+function StopTimeline({ stops, direction }: { stops: CompanyRouteStop[]; direction: RouteDirection }) {
   const t = useTranslations("company.routes");
+  const { formatTime } = useFormatters();
   const officeStopIds = new Set(getOfficeStops(stops).map((s) => s.id));
-  const sorted = [...stops]
-    .filter((s) =>
-      direction === "MORNING" ? s.morning_sequence != null : s.evening_sequence != null
-    )
-    .sort((a, b) =>
-      direction === "MORNING"
-        ? (a.morning_sequence ?? 0) - (b.morning_sequence ?? 0)
-        : (a.evening_sequence ?? 0) - (b.evening_sequence ?? 0)
-    );
+  const sorted = stopsForDirection(stops, direction);
 
-  if (sorted.length === 0) {
-    return <p className="text-xs text-[var(--text-muted)] italic">{t("noStopsConfigured")}</p>;
-  }
+  if (sorted.length === 0) return <p className="text-xs italic text-fg-muted">{t("noStopsConfigured")}</p>;
 
   return (
-    <div className="relative">
-      <div className="absolute start-3.5 top-4 bottom-4 w-px bg-[var(--border-light)]" />
-      <div className="space-y-3">
-        {sorted.map((stop, idx) => {
-          const eta =
-            direction === "MORNING" ? formatTime(stop.morning_eta) : formatTime(stop.evening_eta);
-          const isOffice = officeStopIds.has(stop.id);
-
-          return (
-            <div key={stop.id} className="flex items-start gap-3">
-              <div
-                className={cx(
-                  "relative z-10 mt-0.5 w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 text-xs font-bold",
-                  isOffice
-                    ? "border-red-500 bg-red-500 text-white"
-                    : "border-[var(--border-default)] bg-[var(--bg-card)] text-[var(--text-muted)]"
-                )}
-              >
-                {isOffice
-                  ? <Building2 className="w-3.5 h-3.5" />
-                  : ((direction === "MORNING" ? stop.morning_sequence : stop.evening_sequence) ?? idx + 1)}
-              </div>
-              <div className="flex-1 min-w-0 pb-1">
-                <div className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-1.5 flex-wrap">
-                  {stop.name}
-                  {isOffice && (
-                    <>
-                      <span className="text-[10px] font-bold uppercase tracking-wide bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
-                        Office
-                      </span>
-                      <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
-                        {direction === "MORNING" ? "AM last" : "PM first"}
-                      </span>
-                    </>
-                  )}
-                </div>
-                {eta && (
-                  <div className="text-xs text-[var(--text-muted)]">
-                    {isOffice
-                      ? (direction === "MORNING" ? "Arrival" : "Departure")
-                      : (direction === "MORNING" ? t("pickup") : t("dropoff"))}
-                    : {eta}
-                  </div>
-                )}
+    <ol className="relative space-y-3">
+      <span aria-hidden="true" className="absolute bottom-4 start-3.5 top-4 w-px bg-line" />
+      {sorted.map((stop, idx) => {
+        const eta = direction === "MORNING" ? stop.morning_eta : stop.evening_eta;
+        const isOffice = officeStopIds.has(stop.id);
+        return (
+          <li key={stop.id} className="flex items-start gap-3">
+            <span
+              className={cn(
+                "relative z-10 mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold",
+                isOffice ? "border-brand bg-brand text-white" : "border-line bg-card text-fg-muted",
+              )}
+              aria-hidden="true"
+            >
+              {isOffice ? <Building2 className="size-3.5" /> : ((direction === "MORNING" ? stop.morning_sequence : stop.evening_sequence) ?? idx + 1)}
+            </span>
+            <div className="min-w-0 flex-1 pb-1">
+              <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-fg">
+                {stop.name}
                 {isOffice && (
-                  <div className="text-[10px] text-red-600/80 mt-0.5">Employees cannot be assigned here</div>
+                  <>
+                    <Badge tone="brand" size="sm">
+                      {t("office")}
+                    </Badge>
+                    <Badge tone="neutral" size="sm">
+                      {direction === "MORNING" ? t("officeAmLast") : t("officePmFirst")}
+                    </Badge>
+                  </>
                 )}
-              </div>
+              </p>
+              {eta && (
+                <p className="text-xs text-fg-muted">
+                  {isOffice ? (direction === "MORNING" ? t("arrival") : t("departure")) : direction === "MORNING" ? t("pickup") : t("dropoff")}: {formatTime(eta)}
+                </p>
+              )}
+              {isOffice && <p className="mt-0.5 text-[11px] text-fg-muted">{t("officeNoAssignment")}</p>}
             </div>
-          );
-        })}
-      </div>
-    </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -188,6 +133,8 @@ export default function RouteDetailPage() {
   const params = useParams();
   const t = useTranslations("company.routes");
   const tCommon = useTranslations("common");
+  const { companyPath } = useCompanyBasePath();
+  const confirm = useConfirm();
   const dispatch = useAppDispatch();
   const company = useAppSelector(selectCompany);
   const features = useAppSelector(selectCompanyFeatures);
@@ -197,8 +144,7 @@ export default function RouteDetailPage() {
   const isTrialUser = !!user?.is_trial;
   const routeId = params.id ? +params.id : null;
 
-  const canManageShuttle = isTrialUser
-    || (features.find((f) => f.feature_key === "shuttle_self_managed")?.is_enabled ?? false);
+  const canManageShuttle = isTrialUser || (features.find((f) => f.feature_key === "shuttle_self_managed")?.is_enabled ?? false);
 
   useEffect(() => {
     if (company?.id) dispatch(fetchCompanyFeatures(Number(company.id)));
@@ -211,40 +157,52 @@ export default function RouteDetailPage() {
   const [optimizing, setOptimizing] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
   const [mapRefreshKey, setMapRefreshKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<"overview" | "stops">("overview");
+  const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assigning, setAssigning] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
-  const [selectedStopId, setSelectedStopId] = useState<number | "">("");
-  const [selectedOfficeStopId, setSelectedOfficeStopId] = useState<number | "">("");
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedStopId, setSelectedStopId] = useState("");
+  const [selectedOfficeStopId, setSelectedOfficeStopId] = useState("");
+
+  usePageBreadcrumbs(route ? [{ label: route.name }] : null);
 
   useEffect(() => {
-    if (company?.id && employeeStatus === "idle") {
-      dispatch(fetchEmployees(company.id.toString()));
-    }
+    if (company?.id && employeeStatus === "idle") dispatch(fetchEmployees(company.id.toString()));
   }, [company?.id, employeeStatus, dispatch]);
 
-  const load = useCallback(async () => {
-    if (!routeId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await apiClient.request<RouteDetail>(`/routes/${routeId}`);
-      setRoute(data);
-      setMapRefreshKey((k) => k + 1);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : tCommon("errors.failedToLoadRoute"));
-    } finally {
-      setLoading(false);
-    }
-  }, [routeId, tCommon]);
-
+  // `loading` means the initial load; reloads after mutations (`load()`) keep the page in place.
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!routeId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiClient.request<RouteDetail>(`/routes/${routeId}`);
+        if (cancelled) return;
+        setRoute(data);
+        setError(null);
+        setMapRefreshKey((k) => k + 1);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : tCommon("errors.failedToLoadRoute"));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [routeId, tCommon, reloadKey]);
+  const load = useCallback(() => setReloadKey((k) => k + 1), []);
 
   async function handleGenerateTrips() {
     if (!routeId) return;
+    const ok = await confirm({
+      title: t("confirmGenerate.title"),
+      message: t("confirmGenerate.message"),
+      consequences: [t("confirmGenerate.consequence1"), t("confirmGenerate.consequence2")],
+      confirmLabel: t("generateTrips"),
+    });
+    if (!ok) return;
     setGeneratingTrips(true);
     try {
       const today = new Date();
@@ -262,6 +220,13 @@ export default function RouteDetailPage() {
 
   async function handleOptimizeRoute() {
     if (!routeId) return;
+    const ok = await confirm({
+      title: t("confirmOptimize.title"),
+      message: t("confirmOptimize.message"),
+      consequences: [t("confirmOptimize.consequence1"), t("confirmOptimize.consequence2")],
+      confirmLabel: t("optimizeRoute"),
+    });
+    if (!ok) return;
     setOptimizing(true);
     try {
       await apiClient.optimizeCompanyRoute(routeId);
@@ -274,11 +239,20 @@ export default function RouteDetailPage() {
     }
   }
 
-  async function handleRemoveEmployee(userId: string) {
-    if (!confirm(t("confirmRemoveEmployee"))) return;
-    setRemovingUserId(userId);
+  async function handleRemoveEmployee(assignment: EmployeeAssignment) {
+    const emp = assignment.users;
+    if (!emp?.id) return;
+    const ok = await confirm({
+      title: t("confirmRemoveEmployee.title", { name: emp.full_name }),
+      message: t("confirmRemoveEmployee.message"),
+      consequences: [t("confirmRemoveEmployee.consequence1"), t("confirmRemoveEmployee.consequence2")],
+      destructive: true,
+      confirmLabel: t("removeEmployee"),
+    });
+    if (!ok) return;
+    setRemovingUserId(emp.id);
     try {
-      await apiClient.removeEmployeeFromRoute(userId);
+      await apiClient.removeEmployeeFromRoute(emp.id);
       toast.success(t("employeeRemovedSuccess"));
       load();
     } catch (err) {
@@ -288,10 +262,23 @@ export default function RouteDetailPage() {
     }
   }
 
-  async function handleAssignEmployee() {
+  const employees = useMemo(() => route?.employee_route_assignments ?? [], [route]);
+  const stops = useMemo(() => route?.route_stops ?? [], [route]);
+  // A route may have multiple OFFICE-type stops (multi-office shuttle support). Not assignable as pickup.
+  const officeStopsList = useMemo(() => getOfficeStops(stops), [stops]);
+  const officeStopIds = useMemo(() => new Set(officeStopsList.map((s) => s.id)), [officeStopsList]);
+  const hasMultipleOffices = officeStopsList.length > 1;
+  const pickupStops = useMemo(() => stops.filter((s) => !officeStopIds.has(s.id)), [stops, officeStopIds]);
+  const vehicle = route?.vehicles ?? null;
+  const driver = route?.users ?? null;
+  const capacity = vehicle?.capacity ?? vehicle?.seat_capacity ?? null;
+  const utilizationPct = capacity ? Math.min(100, Math.round((employees.length / capacity) * 100)) : null;
+
+  async function handleAssignEmployee(e: React.FormEvent) {
+    e.preventDefault();
     if (!routeId || !selectedUserId) return;
     if (hasMultipleOffices && !selectedOfficeStopId) {
-      toast.error("Please select which office this employee is assigned to");
+      toast.error(t("selectOfficeRequired"));
       return;
     }
     setAssigning(true);
@@ -315,493 +302,312 @@ export default function RouteDetailPage() {
     }
   }
 
-  const employees = route?.employee_route_assignments ?? [];
-  const stops = route?.route_stops ?? [];
-  // A route may have multiple OFFICE-type stops (multi-office shuttle support). Not assignable as pickup.
-  const officeStopsList = getOfficeStops(stops);
-  const officeStopIds = new Set(officeStopsList.map((s) => s.id));
-  const hasMultipleOffices = officeStopsList.length > 1;
-  const pickupStops = stops.filter((s) => !officeStopIds.has(s.id));
-  const vehicle = route?.vehicles ?? null;
-  const driver = route?.users ?? null;
+  const employeeColumns = useMemo<DataTableColumn<EmployeeAssignment>[]>(
+    () => [
+      {
+        key: "name",
+        header: t("passengers"),
+        cell: (a) => (
+          <div className="flex items-center gap-3">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-bold text-brand-ink" aria-hidden="true">
+              {a.users?.full_name?.charAt(0)?.toUpperCase() ?? "?"}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-medium text-fg">{a.users?.full_name ?? tCommon("status.unknown")}</p>
+              {a.users?.department && <p className="truncate text-xs text-fg-muted">{a.users.department}</p>}
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "contact",
+        header: t("contact"),
+        hideBelow: "md",
+        cell: (a) => (
+          <div className="text-xs text-fg-secondary">
+            {a.users?.email && (
+              <p className="truncate" dir="ltr">
+                {a.users.email}
+              </p>
+            )}
+            {a.users?.phone && (
+              <p className="text-fg-muted" dir="ltr">
+                {a.users.phone}
+              </p>
+            )}
+          </div>
+        ),
+      },
+      {
+        key: "pickup",
+        header: t("pickupStop"),
+        cell: (a) =>
+          a.route_stops ? (
+            <Badge tone="neutral" size="sm" icon={<MapPin aria-hidden="true" />}>
+              {a.route_stops.name}
+            </Badge>
+          ) : (
+            <span className="text-fg-muted">—</span>
+          ),
+      },
+      ...(hasMultipleOffices
+        ? [
+            {
+              key: "office",
+              header: t("office"),
+              cell: (a: EmployeeAssignment) =>
+                a.office_route_stops ? (
+                  <Badge tone="brand" size="sm" icon={<Building2 aria-hidden="true" />}>
+                    {a.office_route_stops.name}
+                  </Badge>
+                ) : (
+                  <span className="text-fg-muted">—</span>
+                ),
+            } satisfies DataTableColumn<EmployeeAssignment>,
+          ]
+        : []),
+    ],
+    [t, tCommon, hasMultipleOffices],
+  );
 
-  // utilization
-  const capacity = vehicle?.capacity ?? vehicle?.seat_capacity ?? null;
-  const utilizationPct = capacity ? Math.min(100, Math.round((employees.length / capacity) * 100)) : null;
-
-  if (!company) {
+  if (!company) return <EmptyState title={tCommon("errors.noCompanySelected")} />;
+  if (loading && !route) return <PageSkeleton />;
+  if (error) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-sm text-[var(--text-muted)]">{tCommon("errors.noCompanySelected")}</div>
-      </div>
+      <Card>
+        <ErrorState
+          title={tCommon("errors.failedToLoadRoute")}
+          message={error}
+          onRetry={() => {
+            setLoading(true);
+            load();
+          }}
+        />
+      </Card>
+    );
+  }
+  if (!route) {
+    return (
+      <Card>
+        <EmptyState title={t("routeNotFound")} />
+      </Card>
     );
   }
 
+  const assignButton = (
+    <Button onClick={() => setShowAssignModal(true)} leftIcon={<UserPlus />}>
+      {t("assignEmployee")}
+    </Button>
+  );
+
   return (
-    <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
-      <div className="flex items-center gap-3">
-        <Link href="/company/routes">
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <ArrowLeft className="w-3.5 h-3.5" />
-            {t("backToRoutes")}
-          </Button>
-        </Link>
-      </div>
-
-      {loading ? (
-        <Card className="py-16 text-center">
-          <RefreshCw className="w-5 h-5 mx-auto mb-3 animate-spin text-[var(--text-muted)]" />
-          <div className="text-sm text-[var(--text-muted)]">{t("loadingRoute")}</div>
-        </Card>
-      ) : error ? (
-        <Card className="py-12 text-center">
-          <div className="text-sm text-red-500">{error}</div>
-        </Card>
-      ) : !route ? (
-        <Card className="py-12 text-center">
-          <div className="text-sm text-[var(--text-muted)]">{t("routeNotFound")}</div>
-        </Card>
-      ) : (
-        <>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)] mb-1">
-                {t("routeDetailLabel")}
-              </div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-[var(--text-primary)] flex items-center gap-3">
-                <Bus className="w-7 h-7 text-[var(--cort-orange)]" />
-                {route.name}
-              </h1>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {canManageShuttle && (
-                <>
-                  <Button
-                    variant="outline"
-                    className="gap-2"
-                    disabled={generatingTrips}
-                    onClick={handleGenerateTrips}
-                  >
-                    {generatingTrips ? t("generatingTrips") : t("generateTrips")}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="gap-2"
-                    disabled={optimizing}
-                    onClick={handleOptimizeRoute}
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    {optimizing ? t("optimizingRoute") : t("optimizeRoute")}
-                  </Button>
-                  <Button
-                    variant="default"
-                    className="gap-2 bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white"
-                    onClick={() => setShowAssignModal(true)}
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    {t("assignEmployee")}
-                  </Button>
-                </>
-              )}
-              <Link href={`/company/routes/${routeId}/track`}>
-                <Button variant="outline" className="gap-2">
-                  <Activity className="w-4 h-4" />
-                  {t("trackLive")}
-                </Button>
-              </Link>
-            </div>
-          </div>
-
-          {canManageShuttle && (
-            <div className="flex gap-2 border-b border-[var(--border-light)]">
-              <button
-                type="button"
-                onClick={() => setActiveTab("overview")}
-                className={cx(
-                  "px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors",
-                  activeTab === "overview"
-                    ? "border-[var(--cort-orange)] text-[var(--cort-orange)]"
-                    : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                )}
-              >
-                {t("overviewTab")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("stops")}
-                className={cx(
-                  "px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors inline-flex items-center gap-1.5",
-                  activeTab === "stops"
-                    ? "border-[var(--cort-orange)] text-[var(--cort-orange)]"
-                    : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                )}
-              >
-                <ListOrdered className="w-4 h-4" />
-                {t("manageStops")}
-              </button>
-            </div>
-          )}
-
-          {activeTab === "stops" && canManageShuttle ? (
-            <RouteStopsEditor routeId={route.id} stops={stops} onUpdated={load} />
-          ) : (
+    <div className="space-y-6">
+      <PageHeader
+        back={{ href: companyPath("/company/routes"), label: t("backToRoutes") }}
+        title={route.name}
+        description={t("routeNumber", { id: route.id })}
+        actions={
           <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[
-              {
-                label: t("passengers"),
-                value: employees.length,
-                icon: <Users className="w-4 h-4" />,
-                color: "text-[var(--cort-orange)]",
-              },
-              {
-                label: t("stops"),
-                value: stops.filter((s) => s.morning_sequence != null).length,
-                icon: <MapPin className="w-4 h-4" />,
-                color: "text-emerald-400",
-              },
-              {
-                label: t("vehicle"),
-                value: vehicle?.plate_number ?? "—",
-                icon: <Car className="w-4 h-4" />,
-                color: "text-blue-400",
-              },
-              {
-                label: utilizationPct !== null ? t("utilization", { count: `${employees.length}/${capacity}` }) : t("driver"),
-                value: utilizationPct !== null ? `${utilizationPct}%` : (driver?.full_name ?? t("unassigned")),
-                icon: <User className="w-4 h-4" />,
-                color: utilizationPct !== null && utilizationPct > 85 ? "text-red-400" : "text-purple-400",
-              },
-            ].map((stat) => (
-              <Card key={stat.label} className="!p-4 flex items-center gap-3">
-                <div className={cx("p-2 rounded-xl bg-[var(--bg-subtle)]", stat.color)}>{stat.icon}</div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                    {stat.label}
-                  </div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] truncate">{stat.value}</div>
-                </div>
-              </Card>
-            ))}
-          </div>
+            {canManageShuttle && (
+              <>
+                <Button variant="outline" onClick={() => void handleGenerateTrips()} loading={generatingTrips}>
+                  {t("generateTrips")}
+                </Button>
+                <Button variant="outline" onClick={() => void handleOptimizeRoute()} loading={optimizing} leftIcon={<Sparkles />}>
+                  {t("optimizeRoute")}
+                </Button>
+                {assignButton}
+              </>
+            )}
+            <Button asChild variant={canManageShuttle ? "outline" : "primary"}>
+              <Link href={companyPath(`/company/routes/${route.id}/track`)}>
+                <Activity aria-hidden="true" />
+                {t("trackLive")}
+              </Link>
+            </Button>
+          </>
+        }
+        tabs={
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
+            <TabsList aria-label={t("routeDetails")}>
+              <TabsTrigger value="overview" icon={<MapPin />}>
+                {t("overviewTab")}
+              </TabsTrigger>
+              <TabsTrigger value="details" icon={<Settings2 />}>
+                {t("vehicleAndDriver")}
+              </TabsTrigger>
+              {canManageShuttle && (
+                <TabsTrigger value="stops" icon={<ListOrdered />} count={stops.length}>
+                  {t("manageStops")}
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="employees" icon={<Users />} count={employees.length}>
+                {t("passengers")}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        }
+      />
+
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
+        <TabsContent value="overview" className="mt-0 space-y-6">
+          <KpiGrid cols={4}>
+            <KpiCard label={t("passengers")} value={employees.length} icon={<Users />} tone="brand" />
+            <KpiCard label={t("stops")} value={stops.filter((s) => s.morning_sequence != null).length} icon={<MapPin />} tone="success" />
+            <KpiCard label={t("vehicle")} value={vehicle?.plate_number ?? "—"} icon={<Car />} tone="info" hint={vehicle?.model ?? undefined} />
+            {utilizationPct !== null ? (
+              <KpiCard label={t("utilization", { count: `${employees.length}/${capacity}` })} value={`${utilizationPct}%`} icon={<User />} tone={utilizationPct > 85 ? "danger" : "purple"} />
+            ) : (
+              <KpiCard label={t("driver")} value={driver?.full_name ?? t("unassigned")} icon={<User />} tone="purple" />
+            )}
+          </KpiGrid>
 
           <RouteOverviewMap routeId={route.id} stops={stops} refreshKey={mapRefreshKey} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left: Employees */}
-            <div className="lg:col-span-2">
-              <Card className="!p-0 overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-light)]">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-[var(--cort-orange)]" />
-                    <span className="font-semibold text-[var(--text-primary)]">
-                      {t("passengersOnThisRoute")}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {(
+              [
+                { dir: "MORNING", label: t("morningRoute"), Icon: Sunrise, key: "morning_sequence" },
+                { dir: "EVENING", label: t("eveningRoute"), Icon: Sunset, key: "evening_sequence" },
+              ] as const
+            ).map(({ dir, label, Icon, key }) => (
+              <Card key={dir}>
+                <CardHeader
+                  title={
+                    <span className="flex items-center gap-2">
+                      <Icon className="size-4 text-fg-muted" aria-hidden="true" />
+                      {label}
                     </span>
-                    <span className="rounded-full bg-[var(--cort-orange)]/10 px-2 py-0.5 text-xs font-bold text-[var(--cort-orange)]">
-                      {employees.length}
-                    </span>
-                  </div>
-                  {capacity && (
-                    <div className="text-xs text-[var(--text-muted)]">
-                      {t("capacity", { current: employees.length, max: capacity })}
-                      <div className="mt-1 h-1.5 w-20 rounded-full bg-[var(--bg-subtle)] overflow-hidden">
-                        <div
-                          className={cx(
-                            "h-full rounded-full transition-all",
-                            utilizationPct! > 85 ? "bg-red-500" : utilizationPct! > 60 ? "bg-amber-500" : "bg-emerald-500"
-                          )}
-                          style={{ width: `${utilizationPct}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {employees.length === 0 ? (
-                  <div className="py-16 text-center">
-                    <Users className="w-8 h-8 mx-auto mb-3 text-[var(--text-muted)] opacity-40" />
-                    <div className="text-sm text-[var(--text-muted)]">{t("noEmployeesAssigned")}</div>
-                    {canManageShuttle && (
-                      <Button
-                        variant="outline"
-                        className="mt-4 gap-2"
-                        onClick={() => setShowAssignModal(true)}
-                      >
-                        <UserPlus className="w-4 h-4" />
-                        {t("assignAnEmployee")}
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="divide-y divide-[var(--border-light)]">
-                    {employees.map((assignment) => {
-                      const emp = assignment.users;
-                      const pickupStop = assignment.route_stops;
-                      return (
-                        <div
-                          key={assignment.user_id}
-                          className="flex items-center gap-4 px-6 py-3.5 hover:bg-[var(--bg-subtle)] transition-colors"
-                        >
-                          {/* Avatar */}
-                          <div className="w-9 h-9 rounded-full bg-[var(--cort-orange)]/10 flex items-center justify-center flex-shrink-0">
-                            <span className="text-sm font-bold text-[var(--cort-orange)]">
-                              {emp?.full_name?.charAt(0)?.toUpperCase() ?? "?"}
-                            </span>
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm text-[var(--text-primary)] truncate">
-                              {emp?.full_name ?? tCommon("status.unknown")}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-                              {emp?.department && (
-                                <span className="text-xs text-[var(--text-muted)]">{emp.department}</span>
-                              )}
-                              {emp?.phone && (
-                                <span className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
-                                  <Phone className="w-2.5 h-2.5" />
-                                  {emp.phone}
-                                </span>
-                              )}
-                              {emp?.email && (
-                                <span className="flex items-center gap-1 text-xs text-[var(--text-muted)] truncate max-w-[200px]">
-                                  <Mail className="w-2.5 h-2.5 flex-shrink-0" />
-                                  {emp.email}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {pickupStop && (
-                            <div className="flex items-center gap-1.5 flex-shrink-0 rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] px-2.5 py-1 text-xs text-[var(--text-secondary)]">
-                              <MapPin className="w-3 h-3 text-[var(--cort-orange)]" />
-                              <span className="font-medium">{pickupStop.name}</span>
-                            </div>
-                          )}
-
-                          {hasMultipleOffices && assignment.office_route_stops && (
-                            <div className="flex items-center gap-1.5 flex-shrink-0 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs text-red-700">
-                              <Building2 className="w-3 h-3" />
-                              <span className="font-medium">{assignment.office_route_stops.name}</span>
-                            </div>
-                          )}
-
-                          {canManageShuttle && emp?.id && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1.5 h-8 text-red-500 border-red-200 hover:bg-red-50"
-                              disabled={removingUserId === emp.id}
-                              onClick={() => handleRemoveEmployee(emp.id)}
-                            >
-                              <UserMinus className="w-3.5 h-3.5" />
-                              {removingUserId === emp.id ? t("removingEmployee") : t("removeEmployee")}
-                            </Button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </Card>
-            </div>
-
-            {/* Right: Route info */}
-            <div className="flex flex-col gap-4">
-              {canManageShuttle && company?.id ? (
-                <RouteDetailsEditor
-                  routeId={route.id}
-                  companyId={Number(company.id)}
-                  name={route.name}
-                  vehicle={vehicle}
-                  driver={driver}
-                  assignedVehicleId={route.assigned_vehicle_id}
-                  assignedDriverId={route.assigned_driver_id}
-                  onUpdated={load}
+                  }
+                  description={t("stopsCount", { count: stops.filter((s) => s[key] != null).length })}
                 />
-              ) : (
-                <Card className="!p-5">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
-                    {t("vehicleAndDriver")}
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-[var(--bg-subtle)] text-blue-400">
-                        <Car className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs text-[var(--text-muted)]">{t("vehicle")}</div>
-                        <div className="text-sm font-semibold text-[var(--text-primary)]">
-                          {vehicle ? `${vehicle.plate_number}${vehicle.model ? ` · ${vehicle.model}` : ""}` : t("notAssigned")}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-[var(--bg-subtle)] text-purple-400">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs text-[var(--text-muted)]">{t("driver")}</div>
-                        <div className="text-sm font-semibold text-[var(--text-primary)]">
-                          {driver?.full_name ?? t("notAssigned")}
-                        </div>
-                        {driver?.phone && (
-                          <div className="text-xs text-[var(--text-muted)]">{driver.phone}</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              )}
-
-              {canManageShuttle && (
-                <Button
-                  variant="outline"
-                  className="gap-2 w-full"
-                  onClick={() => setActiveTab("stops")}
-                >
-                  <ListOrdered className="w-4 h-4" />
-                  {t("manageStops")}
-                </Button>
-              )}
-
-              {/* Morning stops */}
-              <Card className="!p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Sunrise className="w-4 h-4 text-amber-500" />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-amber-600">
-                    {t("morningRoute")}
-                  </span>
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {t("stopsCountParen", { count: stops.filter((s) => s.morning_sequence != null).length })}
-                  </span>
-                </div>
-                <StopTimeline stops={stops} direction="MORNING" />
+                <CardContent>
+                  <StopTimeline stops={stops} direction={dir} />
+                </CardContent>
               </Card>
-
-              {/* Evening stops */}
-              <Card className="!p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Sunset className="w-4 h-4 text-indigo-500" />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
-                    {t("eveningRoute")}
-                  </span>
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {t("stopsCountParen", { count: stops.filter((s) => s.evening_sequence != null).length })}
-                  </span>
-                </div>
-                <StopTimeline stops={stops} direction="EVENING" />
-              </Card>
-            </div>
+            ))}
           </div>
-          </>
-          )}
-        </>
-      )}
+        </TabsContent>
 
-      {showAssignModal && createPortal(
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onClick={() => setShowAssignModal(false)}
+        <TabsContent value="details" className="mt-0">
+          <div className="max-w-xl">
+            <RouteDetailsEditor
+              routeId={route.id}
+              companyId={Number(company.id)}
+              name={route.name}
+              vehicle={vehicle}
+              driver={driver}
+              assignedVehicleId={route.assigned_vehicle_id}
+              assignedDriverId={route.assigned_driver_id}
+              canEdit={canManageShuttle}
+              onUpdated={load}
+            />
+          </div>
+        </TabsContent>
+
+        {canManageShuttle && (
+          <TabsContent value="stops" className="mt-0">
+            <RouteStopsEditor routeId={route.id} stops={stops} onUpdated={load} />
+          </TabsContent>
+        )}
+
+        <TabsContent value="employees" className="mt-0">
+          <Card>
+            <CardHeader
+              title={t("passengersOnThisRoute")}
+              description={capacity ? t("capacity", { current: employees.length, max: capacity }) : undefined}
+              actions={canManageShuttle ? assignButton : undefined}
+            >
+              {capacity && utilizationPct !== null && (
+                <div className="mt-2 h-1.5 w-40 overflow-hidden rounded-full bg-subtle" role="progressbar" aria-valuenow={utilizationPct} aria-valuemin={0} aria-valuemax={100}>
+                  <div className={cn("h-full rounded-full", utilizationPct > 85 ? "bg-danger" : utilizationPct > 60 ? "bg-warning" : "bg-success")} style={{ width: `${utilizationPct}%` }} />
+                </div>
+              )}
+            </CardHeader>
+            <DataTable<EmployeeAssignment>
+              columns={employeeColumns}
+              rows={employees}
+              rowKey={(a) => a.user_id}
+              loading={loading}
+              empty={{
+                icon: <Users aria-hidden="true" />,
+                title: t("noEmployeesAssigned"),
+                description: canManageShuttle ? undefined : t("contactOperations"),
+                action: canManageShuttle ? (
+                  <Button variant="outline" onClick={() => setShowAssignModal(true)} leftIcon={<UserPlus />}>
+                    {t("assignAnEmployee")}
+                  </Button>
+                ) : undefined,
+              }}
+              rowActions={
+                canManageShuttle
+                  ? (a) => [
+                      {
+                        label: t("removeEmployee"),
+                        icon: <UserMinus />,
+                        destructive: true,
+                        disabled: removingUserId === a.users?.id,
+                        onSelect: () => void handleRemoveEmployee(a),
+                      },
+                    ]
+                  : undefined
+              }
+            />
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={showAssignModal} onOpenChange={(open) => !assigning && setShowAssignModal(open)}>
+        <DialogContent
+          size="sm"
+          title={t("assignEmployeeTitle")}
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setShowAssignModal(false)} disabled={assigning}>
+                {tCommon("actions.cancel")}
+              </Button>
+              <Button type="submit" form="assign-employee-form" disabled={!selectedUserId} loading={assigning}>
+                {t("confirmAssignment")}
+              </Button>
+            </>
+          }
         >
-          <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <Card className="!p-0 shadow-2xl border-[var(--border-light)] overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-light)] bg-[var(--bg-subtle)]">
-                <h3 className="font-bold text-[var(--text-primary)]">{t("assignEmployeeTitle")}</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowAssignModal(false)}
-                  className="p-1 rounded-lg hover:bg-[var(--border-light)] text-[var(--text-muted)] transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">
-                    {t("selectEmployee")}
-                  </label>
-                  <select
-                    value={selectedUserId}
-                    onChange={(e) => setSelectedUserId(e.target.value)}
-                    className="w-full h-10 rounded-lg border border-[var(--border-input)] bg-[var(--bg-input)] px-3 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none transition-all"
-                  >
-                    <option value="">{t("chooseEmployee")}</option>
-                    {allEmployees
-                      .filter((emp) => !employees.some((assigned) => assigned.users?.id === emp.id))
-                      .map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.full_name}{emp.department ? ` (${emp.department})` : ""}
-                        </option>
-                      ))}
-                  </select>
-                  {allEmployees.length === 0 && employeeStatus !== "loading" && (
-                    <p className="text-xs text-amber-500 mt-1">{t("noCompanyEmployees")}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">
-                    {t("pickupStop")}{" "}
-                    <span className="text-[var(--text-muted)] font-normal">{t("pickupStopOptional")}</span>
-                  </label>
-                  <select
-                    value={selectedStopId}
-                    onChange={(e) => setSelectedStopId(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full h-10 rounded-lg border border-[var(--border-input)] bg-[var(--bg-input)] px-3 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none transition-all"
-                  >
-                    <option value="">{t("noneAutomatic")}</option>
-                    {pickupStops.map((stop) => (
-                      <option key={stop.id} value={stop.id}>
-                        {stop.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[11px] text-[var(--text-muted)] mt-1">
-                    Office stop is excluded — employees board at pickups only.
-                  </p>
-                </div>
-
-                {hasMultipleOffices && (
-                  <div>
-                    <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">
-                      Office
-                    </label>
-                    <select
-                      value={selectedOfficeStopId}
-                      onChange={(e) => setSelectedOfficeStopId(e.target.value ? Number(e.target.value) : "")}
-                      className="w-full h-10 rounded-lg border border-[var(--border-input)] bg-[var(--bg-input)] px-3 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none transition-all"
-                    >
-                      <option value="">Select office</option>
-                      {officeStopsList.map((stop) => (
-                        <option key={stop.id} value={stop.id}>
-                          {stop.name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[11px] text-[var(--text-muted)] mt-1">
-                      This route has multiple offices — choose which one this employee is assigned to.
-                    </p>
-                  </div>
-                )}
-              </div>
-              <div className="px-6 py-4 border-t border-[var(--border-light)] bg-[var(--bg-subtle)] flex justify-end gap-3">
-                <Button variant="outline" onClick={() => setShowAssignModal(false)}>
-                  {tCommon("actions.cancel")}
-                </Button>
-                <Button
-                  disabled={!selectedUserId || assigning}
-                  onClick={handleAssignEmployee}
-                  className="bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white"
-                >
-                  {assigning ? t("assigningEmployee") : t("confirmAssignment")}
-                </Button>
-              </div>
-            </Card>
-          </div>
-        </div>,
-        document.body
-      )}
+          <form id="assign-employee-form" onSubmit={handleAssignEmployee} className="space-y-4">
+            <Field label={t("selectEmployee")} required hint={allEmployees.length === 0 && employeeStatus !== "loading" ? t("noCompanyEmployees") : undefined}>
+              <Select placeholder={t("chooseEmployee")} value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}>
+                {allEmployees
+                  .filter((emp) => !employees.some((assigned) => assigned.users?.id === emp.id))
+                  .map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.full_name}
+                      {emp.department ? ` (${emp.department})` : ""}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+            <Field label={`${t("pickupStop")} ${t("pickupStopOptional")}`} hint={t("officeExcludedHint")}>
+              <Select placeholder={t("noneAutomatic")} value={selectedStopId} onChange={(e) => setSelectedStopId(e.target.value)}>
+                {pickupStops.map((stop) => (
+                  <option key={stop.id} value={stop.id}>
+                    {stop.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            {hasMultipleOffices && (
+              <Field label={t("office")} required hint={t("multipleOfficesHint")}>
+                <Select placeholder={t("selectOffice")} value={selectedOfficeStopId} onChange={(e) => setSelectedOfficeStopId(e.target.value)}>
+                  {officeStopsList.map((stop) => (
+                    <option key={stop.id} value={stop.id}>
+                      {stop.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

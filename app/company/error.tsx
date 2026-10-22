@@ -2,42 +2,16 @@
 
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { ErrorState } from "@/app/ui";
 
-export default function CompanyError({
-    error,
-    reset,
-}: {
-    error: Error & { digest?: string };
-    reset: () => void;
-}) {
-    const t = useTranslations("company.error");
-    const tCommon = useTranslations("common.errors");
+export default function CompanyError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const t = useTranslations("company.error");
+  const tCommon = useTranslations("common.errors");
 
-    useEffect(() => {
-        console.error("[Company Error Boundary]", error);
-    }, [error]);
+  useEffect(() => {
+    console.error("[Company Error Boundary]", error);
+  }, [error]);
 
-    return (
-        <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="flex flex-col items-center gap-4 max-w-md text-center px-4">
-                <div className="h-14 w-14 rounded-full bg-red-500/10 flex items-center justify-center">
-                    <svg className="h-7 w-7 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-                    </svg>
-                </div>
-                <div>
-                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("title")}</h2>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">
-                        {error.message || tCommon("generic")}
-                    </p>
-                </div>
-                <button
-                    onClick={reset}
-                    className="px-4 py-2 text-sm font-medium text-[var(--text-primary)] bg-orange rounded-lg hover:bg-orange/90 transition-colors"
-                >
-                    {t("tryAgain")}
-                </button>
-            </div>
-        </div>
-    );
+  // Never surface the raw error message to end users; the digest is in the console.
+  return <ErrorState title={t("title")} message={tCommon("generic")} onRetry={reset} retryLabel={t("tryAgain")} className="min-h-[60vh]" />;
 }

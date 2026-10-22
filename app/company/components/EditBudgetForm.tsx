@@ -1,111 +1,74 @@
 "use client";
 
-import React, { useState } from 'react';
-import { useTranslations } from 'next-intl';
-import { useAppDispatch } from '../../lib/store/hooks';
-import { fetchDashboardStats } from '../../lib/store/slices/dashboardSlice';
-import { apiClient } from '../../lib/services/api-client';
-import { CreditCard, Loader2 } from 'lucide-react';
+import { useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
+import { Button, Field, InlineError, Input } from "@/app/ui";
+import { useAppDispatch } from "../../lib/store/hooks";
+import { clearDashboardCache, fetchDashboardStats } from "../../lib/store/slices/dashboardSlice";
+import { apiClient } from "../../lib/services/api-client";
 
 interface EditBudgetFormProps {
-    companyId: string;
-    currentBudget: number;
-    onSuccess: () => void;
-    onCancel: () => void;
+  companyId: string;
+  currentBudget: number | null;
+  onSuccess: () => void;
+  onCancel: () => void;
 }
 
 export default function EditBudgetForm({ companyId, currentBudget, onSuccess, onCancel }: EditBudgetFormProps) {
-    const t = useTranslations('company.dashboard');
-    const tEmployees = useTranslations('company.employees');
-    const tCommon = useTranslations('common');
-    const dispatch = useAppDispatch();
-    const [budget, setBudget] = useState<string>(currentBudget.toString());
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+  const t = useTranslations("company.dashboard");
+  const tEmployees = useTranslations("company.employees");
+  const tCommon = useTranslations("common");
+  const dispatch = useAppDispatch();
+  const [budget, setBudget] = useState<string>(currentBudget ? String(currentBudget) : "");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError(null);
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const newBudget = Number.parseInt(budget.replace(/,/g, ""), 10);
+    if (Number.isNaN(newBudget) || newBudget < 0) {
+      setError(tCommon("validation.validPositiveNumber"));
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await apiClient.updateCompany(companyId, { monthly_budget: newBudget });
+      dispatch(clearDashboardCache());
+      dispatch(fetchDashboardStats(companyId));
+      toast.success(tEmployees("saveBudget"));
+      onSuccess();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : tEmployees("failedUpdateBudget"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-        const newBudget = parseInt(budget.replace(/,/g, ''), 10);
-
-        if (isNaN(newBudget) || newBudget < 0) {
-            setError(tCommon('validation.validPositiveNumber'));
-            return;
-        }
-
-        setIsSubmitting(true);
-        try {
-            await apiClient.updateCompany(companyId, { monthly_budget: newBudget });
-            dispatch(fetchDashboardStats(companyId));
-            onSuccess();
-        } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : tEmployees('failedUpdateBudget'));
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-                <div className="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm border border-red-500/20 flex items-start gap-2">
-                    <div className="w-1 h-1 rounded-full bg-rose-500 mt-2 shrink-0" />
-                    {error}
-                </div>
-            )}
-
-            <div>
-                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
-                    {t('monthlyBudgetLabel')}
-                </label>
-                <div className="relative">
-                    <div className="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none text-[var(--text-muted)]">
-                        <CreditCard className="w-4 h-4" />
-                    </div>
-                    <input
-                        type="text"
-                        required
-                        min="0"
-                        value={budget}
-                        onChange={(e) => {
-                            const val = e.target.value.replace(/[^0-9]/g, '');
-                            setBudget(val);
-                        }}
-                        className="w-full ps-10 pe-3 py-2 bg-[var(--bg-card)] border border-[var(--border-input)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-[#fe8503]/20 focus:border-[#fe8503] transition-shadow transition-colors ltr-content"
-                        placeholder={t('budgetPlaceholder')}
-                        dir="ltr"
-                    />
-                </div>
-                <p className="text-xs text-[var(--text-muted)] mt-1">
-                    {tEmployees('budgetHint')}
-                </p>
-            </div>
-
-            <div className="flex gap-3 pt-4 border-t border-[var(--border-input)]">
-                <button
-                    type="button"
-                    onClick={onCancel}
-                    disabled={isSubmitting}
-                    className="flex-1 px-4 py-2 border border-[var(--border-input)] text-[var(--text-secondary)] rounded-xl hover:bg-[var(--row-hover)] font-medium transition-colors"
-                >
-                    {tCommon('actions.cancel')}
-                </button>
-                <button
-                    type="submit"
-                    disabled={isSubmitting || !budget}
-                    className="flex-1 px-4 py-2 bg-[#fe8503] text-[var(--text-primary)] rounded-xl hover:bg-[#f07a00] font-medium transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {isSubmitting ? (
-                        <>
-                            <Loader2 className="w-4 h-4 animate-spin me-2" />
-                            {tEmployees('saving')}
-                        </>
-                    ) : (
-                        tEmployees('saveBudget')
-                    )}
-                </button>
-            </div>
-        </form>
-    );
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && <InlineError>{error}</InlineError>}
+      <Field label={t("monthlyBudgetLabel")} hint={tEmployees("budgetHint")} required>
+        <Input
+          type="text"
+          inputMode="numeric"
+          required
+          value={budget}
+          onChange={(e) => setBudget(e.target.value.replace(/[^0-9]/g, ""))}
+          placeholder={t("budgetPlaceholder")}
+          dir="ltr"
+          mono
+        />
+      </Field>
+      <div className="flex justify-end gap-2 border-t border-line pt-4">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+          {tCommon("actions.cancel")}
+        </Button>
+        <Button type="submit" loading={isSubmitting} disabled={!budget}>
+          {tEmployees("saveBudget")}
+        </Button>
+      </div>
+    </form>
+  );
 }

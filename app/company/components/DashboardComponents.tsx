@@ -1,5 +1,10 @@
 'use client';
 
+/**
+ * LEGACY — used only by the sales demo pages (app/company/demo), which are out of scope for the redesign.
+ * The real dashboard is built on app/ui (app/company/page.tsx). Do not import this in new code.
+ */
+
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { useCompanyLocale } from '../lib/locale-context';

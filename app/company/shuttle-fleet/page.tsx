@@ -1,18 +1,28 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { useCompanyBasePath } from "../lib/use-company-base-path";
 
 /** Legacy path — fleet is unified at /company/fleet */
 export default function ShuttleFleetRedirectPage() {
+  return (
+    <Suspense fallback={null}>
+      <Redirect />
+    </Suspense>
+  );
+}
+
+function Redirect() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { companyPath } = useCompanyBasePath();
 
   useEffect(() => {
-    const tab = typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("tab")
-      : null;
-    router.replace(tab ? `/company/fleet?tab=${tab}` : "/company/fleet");
-  }, [router]);
+    const tab = searchParams.get("tab");
+    router.replace(companyPath(tab ? `/company/fleet?tab=${tab}` : "/company/fleet"));
+  }, [router, searchParams, companyPath]);
 
   return null;
 }

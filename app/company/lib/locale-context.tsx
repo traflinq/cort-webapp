@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import { usePathname } from "next/navigation";
 import {
@@ -45,6 +45,8 @@ function applyDocumentLocale(locale: Locale) {
   document.cookie = `${LOCALE_COOKIE}=${locale};path=/;max-age=31536000;SameSite=Lax`;
 }
 
+const subscribeNoop = () => () => {};
+
 function resolveInitialLocale(onSaudiRoute: boolean): Locale {
   if (!onSaudiRoute) return defaultLocale;
   if (typeof window === "undefined") return "ar";
@@ -55,17 +57,19 @@ export function CompanyLocaleProvider({ children }: { children: React.ReactNode 
   const pathname = usePathname();
   const onSaudiRoute = isSaudiRoute(pathname);
   const [locale, setLocaleState] = useState<Locale>(() => resolveInitialLocale(onSaudiRoute));
-  const [mounted, setMounted] = useState(false);
+  // Re-resolve when moving between the Saudi and default trees (render-time state adjustment, no effect).
+  const [prevSaudi, setPrevSaudi] = useState(onSaudiRoute);
+  if (prevSaudi !== onSaudiRoute) {
+    setPrevSaudi(onSaudiRoute);
+    setLocaleState(resolveInitialLocale(onSaudiRoute));
+  }
+  // The server snapshot renders the fallback provider; the first client render switches to the real one.
+  const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
 
   useEffect(() => {
-    const initial = resolveInitialLocale(onSaudiRoute);
-    setLocaleState(initial);
-    if (typeof window !== "undefined") {
-      localStorage.setItem(LOCALE_STORAGE_KEY, initial);
-    }
-    applyDocumentLocale(initial);
-    setMounted(true);
-  }, [onSaudiRoute]);
+    localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+    applyDocumentLocale(locale);
+  }, [locale]);
 
   const setLocale = useCallback(
     (next: Locale) => {

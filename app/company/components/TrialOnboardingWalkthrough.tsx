@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { Button, Dialog, DialogContent } from "@/app/ui";
+import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Bus, Car, Calendar, Map, Smartphone, UserPlus, Users, Sparkles, Play } from "lucide-react";
@@ -20,12 +22,6 @@ type WalkthroughStep = {
   cta: string;
   href: string | null;
   showNext?: boolean;
-};
-
-type StepCopy = {
-  title: string;
-  body: string;
-  cta: string;
 };
 
 function poolSteps(
@@ -146,21 +142,14 @@ function getPlayStoreUrl(): string | null {
   return process.env.NEXT_PUBLIC_PLAY_STORE_URL || null;
 }
 
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
 type TrialOnboardingWalkthroughProps = {
   forceOpen?: boolean;
   onClose?: () => void;
+  /** Kept for API compatibility; the dialog is centred over the page regardless of the rail state. */
   sidebarCollapsed?: boolean;
 };
 
-export function TrialOnboardingWalkthrough({
-  forceOpen = false,
-  onClose,
-  sidebarCollapsed = false,
-}: TrialOnboardingWalkthroughProps) {
+export function TrialOnboardingWalkthrough({ forceOpen = false, onClose }: TrialOnboardingWalkthroughProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -170,17 +159,11 @@ export function TrialOnboardingWalkthrough({
   const [stepIndex, setStepIndex] = useState(0);
   const [completing, setCompleting] = useState(false);
 
-  const STEPS = useMemo(
-    () => buildSteps(user?.trial_modules, t, companyPath),
-    [user?.trial_modules, t, companyPath],
-  );
+  const STEPS = useMemo(() => buildSteps(user?.trial_modules, t, companyPath), [user?.trial_modules, t, companyPath]);
 
   const manuallyOpened = forceOpen || searchParams.get("walkthrough") === "1";
   const normalizedPath = pathname ? stripSaudiPrefix(pathname) : "";
-
-  const shouldShow =
-    manuallyOpened ||
-    (user?.is_trial && !user.trial_onboarding_completed && normalizedPath === "/company");
+  const shouldShow = manuallyOpened || (!!user?.is_trial && !user.trial_onboarding_completed && normalizedPath === "/company");
 
   const step = STEPS[stepIndex];
   const StepIcon = step.icon;
@@ -206,21 +189,17 @@ export function TrialOnboardingWalkthrough({
     setCompleting(true);
     try {
       await apiClient.completeTrialOnboarding();
-      markTrialOnboardingComplete();
-      onClose?.();
-      clearWalkthroughQuery();
     } catch {
+      /* mark complete locally even if the API call fails, as before */
+    } finally {
       markTrialOnboardingComplete();
       onClose?.();
       clearWalkthroughQuery();
-    } finally {
       setCompleting(false);
     }
   }, [clearWalkthroughQuery, markTrialOnboardingComplete, onClose]);
 
-  const handleNext = () => {
-    setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
-  };
+  const handleNext = () => setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
 
   const handlePrimary = async () => {
     if (isLast) {
@@ -231,134 +210,82 @@ export function TrialOnboardingWalkthrough({
       router.push(step.href);
       return;
     }
-    setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
+    handleNext();
   };
 
-  const handleSkip = async () => {
-    await finish();
+  // Dismissable only when opened on purpose; a first-run walkthrough is completed or skipped through its own buttons.
+  const handleOpenChange = (open: boolean) => {
+    if (!open && manuallyOpened) dismiss();
   };
-
-  useEffect(() => {
-    if (!shouldShow) return;
-    const main = document.querySelector("[data-company-main]");
-    if (!(main instanceof HTMLElement)) return;
-    const previousOverflow = main.style.overflow;
-    main.style.overflow = "hidden";
-    return () => {
-      main.style.overflow = previousOverflow;
-    };
-  }, [shouldShow]);
-
-  if (!shouldShow) return null;
 
   return (
-    <div
-      className={cx(
-        "fixed top-0 end-0 bottom-0 z-[100] flex items-center justify-center bg-black/70 px-4 py-8 backdrop-blur-sm",
-        "start-0",
-        sidebarCollapsed ? "md:start-[6rem]" : "md:start-[19rem]",
-      )}
-    >
-      <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-[#0f172a] p-8 shadow-2xl text-white">
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <div className="text-xs font-bold uppercase tracking-widest text-[#f47f00]">
-            {t("setupProgress", { current: stepIndex + 1, total: STEPS.length })}
-          </div>
-          {manuallyOpened ? (
-            <button
-              type="button"
-              onClick={dismiss}
-              className="text-xs text-white/40 hover:text-white/70 transition-colors"
-            >
-              {t("close")}
-            </button>
-          ) : (
-            !forceOpen &&
-            stepIndex > 0 && (
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="text-xs text-white/40 hover:text-white/70 transition-colors"
-              >
+    <Dialog open={shouldShow} onOpenChange={handleOpenChange}>
+      <DialogContent
+        size="lg"
+        hideClose={!manuallyOpened}
+        title={step.title}
+        description={t("setupProgress", { current: stepIndex + 1, total: STEPS.length })}
+        onEscapeKeyDown={(e) => {
+          if (!manuallyOpened) e.preventDefault();
+        }}
+        onPointerDownOutside={(e) => {
+          if (!manuallyOpened) e.preventDefault();
+        }}
+        footer={
+          <>
+            {stepIndex > 0 && (
+              <Button variant="outline" onClick={() => setStepIndex((i) => Math.max(0, i - 1))} className="me-auto">
+                {t("back")}
+              </Button>
+            )}
+            {!manuallyOpened && !forceOpen && stepIndex > 0 && (
+              <Button variant="ghost" onClick={() => void finish()} disabled={completing}>
                 {t("skipForNow")}
-              </button>
-            )
-          )}
-        </div>
-
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f47f00]/15 text-[#f47f00] mb-5">
-          <StepIcon size={24} />
-        </div>
-
-        <h2 className="text-2xl font-bold tracking-tight">{step.title}</h2>
-        <p className="mt-3 text-sm leading-relaxed text-white/60">{step.body}</p>
-
-        {step.id === "app" && (appStoreUrl || playStoreUrl) && (
-          <div className="mt-5 flex flex-wrap gap-3">
-            {appStoreUrl && (
-              <Link
-                href={appStoreUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/5"
-              >
-                {t("appStore")}
-              </Link>
+              </Button>
             )}
-            {playStoreUrl && (
-              <Link
-                href={playStoreUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/5"
-              >
-                {t("googlePlay")}
-              </Link>
-            )}
-          </div>
-        )}
-
-        <div className="mt-8 flex items-center gap-3">
-          {stepIndex > 0 && (
-            <button
-              type="button"
-              onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
-              className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-white/70 hover:bg-white/5"
-            >
-              {t("back")}
-            </button>
-          )}
-          <div className="ms-auto flex items-center gap-3">
             {step.showNext && (
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={completing}
-                className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/5 disabled:opacity-60"
-              >
+              <Button variant="outline" onClick={handleNext} disabled={completing}>
                 {t("next")}
-              </button>
+              </Button>
             )}
-            <button
-              type="button"
-              onClick={handlePrimary}
-              disabled={completing}
-              className="rounded-xl bg-[#f47f00] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#f47f00]/90 disabled:opacity-60"
-            >
+            <Button onClick={() => void handlePrimary()} loading={completing}>
               {completing ? t("saving") : step.cta}
-            </button>
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-soft text-brand-ink">
+            <StepIcon size={24} aria-hidden="true" />
           </div>
-        </div>
+          <p className="text-sm leading-relaxed text-fg-secondary">{step.body}</p>
 
-        <div className="mt-6 flex gap-2">
-          {STEPS.map((s, i) => (
-            <div
-              key={s.id}
-              className={`h-1.5 flex-1 rounded-full transition-colors ${i <= stepIndex ? "bg-[#f47f00]" : "bg-white/10"}`}
-            />
-          ))}
+          {step.id === "app" && (appStoreUrl || playStoreUrl) && (
+            <div className="flex flex-wrap gap-2">
+              {appStoreUrl && (
+                <Button asChild variant="outline" size="sm">
+                  <Link href={appStoreUrl} target="_blank" rel="noopener noreferrer">
+                    {t("appStore")}
+                  </Link>
+                </Button>
+              )}
+              {playStoreUrl && (
+                <Button asChild variant="outline" size="sm">
+                  <Link href={playStoreUrl} target="_blank" rel="noopener noreferrer">
+                    {t("googlePlay")}
+                  </Link>
+                </Button>
+              )}
+            </div>
+          )}
+
+          <ol className="flex gap-1.5" aria-label={t("setupProgress", { current: stepIndex + 1, total: STEPS.length })}>
+            {STEPS.map((s, i) => (
+              <li key={s.id} aria-current={i === stepIndex ? "step" : undefined} className={cn("h-1.5 flex-1 rounded-full transition-colors", i <= stepIndex ? "bg-brand" : "bg-subtle")} />
+            ))}
+          </ol>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
