@@ -74,13 +74,46 @@ export default function AdminReportsPage() {
 
 function AdminReportsContent() {
   const [range, setRange] = React.useState<DateRange | null>(null);
+  const [companyId, setCompanyId] = React.useState("");
+  // Loaded locally so the picker always lists every company. No report data is requested until one is chosen.
+  const [companies, setCompanies] = React.useState<{ id: number; name: string }[]>([]);
+  const [companiesLoading, setCompaniesLoading] = React.useState(true);
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiClient.getCompanies({ limit: 1000 });
+        if (cancelled) return;
+        setCompanies([...res.data.data].sort((a, b) => a.name.localeCompare(b.name)));
+      } catch {
+        // The picker stays empty; the empty state explains what to do.
+      } finally {
+        if (!cancelled) setCompaniesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Reports"
-        description="Completed chauffeur trips and shuttle logs across every company."
-        actions={<DateRangePicker value={range} onChange={setRange} allowClear label="Report period" />}
+        description="Completed chauffeur trips and shuttle logs. Select a company to load its reports."
+        actions={
+          <>
+            <Select aria-label="Company" width="auto" value={companyId} onChange={(e) => setCompanyId(e.target.value)} disabled={companiesLoading} className="min-w-44">
+              <option value="">{companiesLoading ? "Loading companies…" : "Select a company"}</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+            <DateRangePicker value={range} onChange={setRange} allowClear label="Report period" />
+          </>
+        }
       />
 
       <Tabs defaultValue="chauffeur">
@@ -89,10 +122,10 @@ function AdminReportsContent() {
           <TabsTrigger value="shuttle">Shuttle logs</TabsTrigger>
         </TabsList>
         <TabsContent value="chauffeur">
-          <ChauffeurReportsTab range={range} />
+          <ChauffeurReportsTab range={range} companyId={companyId} />
         </TabsContent>
         <TabsContent value="shuttle">
-          <ShuttleLogsTab range={range} />
+          <ShuttleLogsTab range={range} companyId={companyId} />
         </TabsContent>
       </Tabs>
     </div>
@@ -103,22 +136,24 @@ function AdminReportsContent() {
  * Fetches one page of a report. `loading` is derived from the request key so no state is set
  * synchronously inside the effect, and stale responses are ignored.
  */
-function usePagedReport<T>(fetcher: (page: number, start?: string, end?: string) => Promise<unknown>, range: DateRange | null) {
+function usePagedReport<T>(fetcher: (page: number, start?: string, end?: string) => Promise<unknown>, range: DateRange | null, companyId: string) {
   const [page, setPage] = React.useState(1);
   const start = range?.start || undefined;
   const end = range?.end || undefined;
-  const key = `${page}|${start ?? ""}|${end ?? ""}`;
+  const enabled = companyId !== "";
+  const key = `${companyId}|${page}|${start ?? ""}|${end ?? ""}`;
   const [state, setState] = React.useState<ListState<T>>({ key: "", rows: [], pagination: { page: 1, totalPages: 1, total: 0 }, error: null });
   const [retryTick, setRetryTick] = React.useState(0);
 
   // Changing the period goes back to page 1 (render-time adjustment).
-  const [prevRange, setPrevRange] = React.useState(range);
-  if (prevRange !== range) {
-    setPrevRange(range);
+  const [prevScope, setPrevScope] = React.useState({ range, companyId });
+  if (prevScope.range !== range || prevScope.companyId !== companyId) {
+    setPrevScope({ range, companyId });
     setPage(1);
   }
 
   React.useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     (async () => {
       try {
@@ -134,15 +169,14 @@ function usePagedReport<T>(fetcher: (page: number, start?: string, end?: string)
     return () => {
       cancelled = true;
     };
-  }, [fetcher, page, start, end, key, retryTick]);
+  }, [fetcher, page, start, end, key, retryTick, enabled]);
 
-  const loading = state.key !== key;
-  return { ...state, loading, page, setPage, retry: () => setRetryTick((t) => t + 1) };
+  const loading = enabled && state.key !== key;
+  return { ...state, enabled, loading, page, setPage, retry: () => setRetryTick((t) => t + 1) };
 }
 
 /* ── Chauffeur ─────────────────────────────────────────────────────────── */
 
-const fetchChauffeur = (page: number, startDate?: string, endDate?: string) => apiClient.getAllChauffeurReports({ page, limit: PAGE_SIZE, startDate, endDate });
 
 const chauffeurColumns: DataTableColumn<ChauffeurReport>[] = [
   { key: "completed_at", header: "Completed", width: "11rem", cell: (r) => <span className="whitespace-nowrap text-fg-secondary">{formatDateTime(r.completed_at)}</span> },
@@ -194,8 +228,12 @@ const chauffeurColumns: DataTableColumn<ChauffeurReport>[] = [
   { key: "total_cost", header: "Total", align: "right", mono: true, cell: (r) => <span className="font-medium">{formatCurrency(r.total_cost)}</span> },
 ];
 
-function ChauffeurReportsTab({ range }: { range: DateRange | null }) {
-  const { rows, pagination, loading, error, page, setPage, retry } = usePagedReport<ChauffeurReport>(fetchChauffeur, range);
+function ChauffeurReportsTab({ range, companyId }: { range: DateRange | null; companyId: string }) {
+  const fetchChauffeur = React.useCallback(
+    (page: number, startDate?: string, endDate?: string) => apiClient.getAllChauffeurReports({ page, limit: PAGE_SIZE, startDate, endDate, companyId: Number(companyId) }),
+    [companyId],
+  );
+  const { rows, pagination, loading, error, page, setPage, retry, enabled } = usePagedReport<ChauffeurReport>(fetchChauffeur, range, companyId);
   return (
     <Card>
       <DataTable<ChauffeurReport>
@@ -206,7 +244,7 @@ function ChauffeurReportsTab({ range }: { range: DateRange | null }) {
         loading={loading}
         error={error}
         onRetry={retry}
-        empty={{ title: "No chauffeur reports", description: range ? "No completed trips in the selected period." : "Completed chauffeur trips will appear here." }}
+        empty={{ title: enabled ? "No chauffeur reports" : "Select a company", description: !enabled ? "Choose a company above to load its chauffeur reports." : range ? "No completed trips in the selected period." : "Completed chauffeur trips will appear here." }}
         pagination={{ page, totalPages: pagination.totalPages, total: pagination.total, pageSize: PAGE_SIZE, onPageChange: setPage }}
       />
     </Card>
@@ -215,7 +253,6 @@ function ChauffeurReportsTab({ range }: { range: DateRange | null }) {
 
 /* ── Shuttle ───────────────────────────────────────────────────────────── */
 
-const fetchShuttle = (page: number, startDate?: string, endDate?: string) => apiClient.getAllShuttleReports({ page, limit: PAGE_SIZE, startDate, endDate });
 
 function DirectionBadge({ direction }: { direction: string }) {
   const evening = direction === "EVENING";
@@ -226,8 +263,12 @@ function DirectionBadge({ direction }: { direction: string }) {
   );
 }
 
-function ShuttleLogsTab({ range }: { range: DateRange | null }) {
-  const { rows, pagination, loading, error, page, setPage, retry } = usePagedReport<ShuttleReport>(fetchShuttle, range);
+function ShuttleLogsTab({ range, companyId }: { range: DateRange | null; companyId: string }) {
+  const fetchShuttle = React.useCallback(
+    (page: number, startDate?: string, endDate?: string) => apiClient.getAllShuttleReports({ page, limit: PAGE_SIZE, startDate, endDate, companyId: Number(companyId) }),
+    [companyId],
+  );
+  const { rows, pagination, loading, error, page, setPage, retry, enabled } = usePagedReport<ShuttleReport>(fetchShuttle, range, companyId);
   const [statusFilter, setStatusFilter] = React.useState("");
   const [directionFilter, setDirectionFilter] = React.useState("");
   const [expanded, setExpanded] = React.useState<Set<number>>(new Set());
@@ -327,7 +368,7 @@ function ShuttleLogsTab({ range }: { range: DateRange | null }) {
         loading={loading}
         error={error}
         onRetry={retry}
-        empty={{ title: activeFilters > 0 ? "No logs match these filters on this page" : "No shuttle logs", description: range ? "No shuttle trips in the selected period." : "Shuttle trips will appear here." }}
+        empty={{ title: !enabled ? "Select a company" : activeFilters > 0 ? "No logs match these filters on this page" : "No shuttle logs", description: !enabled ? "Choose a company above to load its shuttle logs." : range ? "No shuttle trips in the selected period." : "Shuttle trips will appear here." }}
         expandable={{
           isExpanded: (l) => expanded.has(l.id),
           onToggle: (l) =>

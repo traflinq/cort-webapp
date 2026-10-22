@@ -107,4 +107,5 @@ export interface ReportQueryParams {
     startDate?: string;
     endDate?: string;
     routeId?: number;
+    companyId?: number;
 }

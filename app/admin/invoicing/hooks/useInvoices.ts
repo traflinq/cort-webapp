@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { apiClient, Company } from "../../../lib/services/api-client";
 import { ShuttleContractRoute } from "../../../lib/services/types/pricing";
@@ -13,7 +13,7 @@ import { errorMessage, type Invoice, type InvoicePaymentLogs, type InvoiceStats,
 
 const WEEKLY_DIVISOR = 4.33;
 /** Companies/vendors pickers are capped at this many rows (existing behaviour). */
-export const PICKER_LIMIT = 100;
+export const PICKER_LIMIT = 1000;
 
 function parsePositiveNumber(value: string | null | undefined): number | null {
   if (value == null || value === "") return null;
@@ -208,33 +208,37 @@ export function useInvoices() {
     setCurrentPage(1);
   };
 
-  // Load companies for shuttle invoice generation
+  // Companies feed the ledger filter and the generate dialog. Nothing is pre-selected,
+  // so no per-company request fires until the user picks one.
   useEffect(() => {
     (async () => {
       try {
-        const [compRes, vendRes] = await Promise.all([
-          apiClient.getCompanies({ limit: PICKER_LIMIT }),
-          apiClient.getVendors({ limit: PICKER_LIMIT }),
-        ]);
-        const companyList = compRes.data.data;
-        const vendorList = vendRes.data.data;
-        setCompanies(companyList);
-        setAllVendors(vendorList);
+        const compRes = await apiClient.getCompanies({ limit: PICKER_LIMIT });
+        setCompanies(compRes.data.data);
         setCompaniesTruncated((compRes.data.pagination?.total ?? 0) > PICKER_LIMIT);
-        setVendorsTruncated((vendRes.data.pagination?.total ?? 0) > PICKER_LIMIT);
-        if (companyList.length > 0 && !selectedCompanyId) {
-          setSelectedCompanyId(String(companyList[0].id));
-        }
-        if (vendorList.length > 0 && !selectedVendorId) {
-          setSelectedVendorId(String(vendorList[0].id));
-        }
       } catch (e) {
-        console.error("Failed to load companies/vendors for shuttle invoices", e);
-        toast.error(errorMessage(e, "Could not load companies and vendors for invoice generation."));
+        console.error("Failed to load companies for invoicing", e);
+        toast.error(errorMessage(e, "Could not load companies."));
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Vendors are only needed for the "vendor car" option in the generate dialog, so load them on first use.
+  const vendorsRequested = useRef(false);
+  useEffect(() => {
+    if (!isVendorCar || vendorsRequested.current) return;
+    vendorsRequested.current = true;
+    (async () => {
+      try {
+        const vendRes = await apiClient.getVendors({ limit: PICKER_LIMIT });
+        setAllVendors(vendRes.data.data);
+        setVendorsTruncated((vendRes.data.pagination?.total ?? 0) > PICKER_LIMIT);
+      } catch (e) {
+        vendorsRequested.current = false;
+        toast.error(errorMessage(e, "Could not load vendors."));
+      }
+    })();
+  }, [isVendorCar]);
 
   // Load shuttle contract routes when company changes
   useEffect(() => {
@@ -473,6 +477,10 @@ export function useInvoices() {
   const handleGenerateShuttleInvoice = async () => {
     if (!selectedCompanyId) {
       toast.error("Please select a company.");
+      return;
+    }
+    if (isVendorCar && !selectedVendorId) {
+      toast.error("Please select a vendor.");
       return;
     }
 

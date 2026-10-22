@@ -33,7 +33,7 @@ export function GenerateInvoiceDialog({ inv }: { inv: InvoicesController }) {
             required
             hint={inv.companiesTruncated ? `Showing the first ${PICKER_LIMIT} companies only.` : undefined}
           >
-            <Select value={inv.selectedCompanyId} onChange={(e) => inv.setSelectedCompanyId(e.target.value)}>
+            <Select value={inv.selectedCompanyId} onChange={(e) => inv.setSelectedCompanyId(e.target.value)} placeholder="Select a company">
               {inv.companies.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -279,7 +279,7 @@ export function GenerateInvoiceDialog({ inv }: { inv: InvoicesController }) {
             {inv.isVendorCar && (
               <FormGrid cols={2}>
                 <Field label="Vendor" hint={inv.vendorsTruncated ? `Showing the first ${PICKER_LIMIT} vendors only.` : undefined}>
-                  <Select value={inv.selectedVendorId} onChange={(e) => inv.setSelectedVendorId(e.target.value)}>
+                  <Select value={inv.selectedVendorId} onChange={(e) => inv.setSelectedVendorId(e.target.value)} placeholder="Select a vendor">
                     {inv.allVendors.map((v) => (
                       <option key={v.id} value={v.id}>
                         {v.name}

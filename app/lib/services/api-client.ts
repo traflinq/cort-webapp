@@ -1305,6 +1305,7 @@ class ApiClient {
         if (params.limit) query.append('limit', params.limit.toString());
         if (params.startDate) query.append('startDate', params.startDate);
         if (params.endDate) query.append('endDate', params.endDate);
+        if (params.companyId) query.append('companyId', params.companyId.toString());
 
         const queryString = query.toString();
         const endpoint = `/companies/reports/all-chauffeur${queryString ? `?${queryString}` : ''}`;
@@ -1332,6 +1333,7 @@ class ApiClient {
         if (params.limit) query.append('limit', params.limit.toString());
         if (params.startDate) query.append('startDate', params.startDate);
         if (params.endDate) query.append('endDate', params.endDate);
+        if (params.companyId) query.append('companyId', params.companyId.toString());
         if (params.routeId) query.append('routeId', params.routeId.toString());
 
         const queryString = query.toString();

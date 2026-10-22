@@ -115,7 +115,7 @@ export const fetchPricingCompanies = createAsyncThunk(
     'adminPricing/fetchPricingCompanies',
     async (_, { rejectWithValue }) => {
         try {
-            const response = await apiClient.getCompanies({ limit: 100 });
+            const response = await apiClient.getCompanies({ limit: 1000 });
             return response.data.data;
         } catch (error: any) {
             return rejectWithValue(error.message || 'Failed to fetch companies');
@@ -560,9 +560,6 @@ const adminPricingSlice = createSlice({
             .addCase(fetchPricingCompanies.fulfilled, (state, action) => {
                 state.companies = action.payload;
                 state.lastFetched = Date.now();
-                if (action.payload.length > 0 && !state.selectedCompanyId) {
-                    state.selectedCompanyId = String(action.payload[0].id);
-                }
             })
             // Fetch Fuel Price
             .addCase(fetchSystemFuelPrice.fulfilled, (state, action) => {
