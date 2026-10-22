@@ -37,14 +37,18 @@ function ShellFrame({ pathname, children }: { pathname: string; children: React.
   const asideRef = React.useRef<HTMLElement>(null);
   // After navigating, the pointer is still over the rail; ignore it until it leaves and comes back.
   const suppressed = React.useRef(false);
+  const pointerInside = React.useRef(false);
+  const mounted = React.useRef(false);
 
   const openRail = () => {
+    pointerInside.current = true;
     if (suppressed.current) return;
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
     setHovered(true);
   };
   // Short grace period so brushing past the edge doesn't make the rail flicker shut.
   const closeRail = () => {
+    pointerInside.current = false;
     suppressed.current = false;
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
     closeTimer.current = window.setTimeout(() => setHovered(false), 120);
@@ -58,7 +62,10 @@ function ShellFrame({ pathname, children }: { pathname: string; children: React.
     setFocused(false);
   }
   React.useEffect(() => {
-    suppressed.current = true;
+    // Only swallow hover when the pointer is already over the rail (i.e. the user just clicked a link there).
+    // Otherwise (first load, or navigating from the page content) the first hover must open it.
+    suppressed.current = mounted.current && pointerInside.current;
+    mounted.current = true;
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
     const el = document.activeElement;
     if (el instanceof HTMLElement && asideRef.current?.contains(el)) el.blur();
