@@ -31,13 +31,13 @@ export function useChartTheme(): ChartTheme {
       theme === "dark"
         ? {
             colors: CHART_COLORS_DARK,
-            grid: "rgba(255,255,255,0.07)",
-            axis: "rgba(255,255,255,0.40)",
-            text: "#ffffff",
-            mutedText: "rgba(255,255,255,0.55)",
-            surface: "#0d1120",
-            tooltipBg: "#111827",
-            tooltipBorder: "rgba(255,255,255,0.12)",
+            grid: "rgba(255,255,255,0.06)",
+            axis: "rgba(237,237,239,0.42)",
+            text: "#ededef",
+            mutedText: "rgba(237,237,239,0.58)",
+            surface: "#121214",
+            tooltipBg: "#1a1a1e",
+            tooltipBorder: "rgba(255,255,255,0.14)",
             status: { good: "#10b981", warning: "#f59e0b", bad: "#ef4444", info: "#3b82f6" },
           }
         : {
