@@ -18,6 +18,8 @@ type SearchableSelectProps = {
   emptyMessage?: string;
   className?: string;
   disabled?: boolean;
+  /** Which side of the input the list opens on. */
+  placement?: "bottom" | "top";
 };
 
 export function SearchableSelect({
@@ -28,6 +30,7 @@ export function SearchableSelect({
   emptyMessage = "No results found.",
   className,
   disabled = false,
+  placement = "bottom",
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -157,7 +160,7 @@ export function SearchableSelect({
       </div>
 
       {isOpen && !disabled && (
-        <div className="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-hidden rounded-md border border-border bg-white shadow-lg">
+        <div className={`absolute left-0 z-50 max-h-60 w-full overflow-hidden rounded-md border border-border bg-white shadow-lg ${placement === "top" ? "bottom-full mb-1" : "top-full mt-1"}`}>
           <ul className="max-h-60 overflow-y-auto py-1">
             {filteredOptions.length === 0 ? (
               <li className="px-3 py-2 text-sm text-muted">{emptyMessage}</li>

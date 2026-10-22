@@ -5,7 +5,7 @@ import { ClipboardList, Flag, Pencil, Play, Square } from "lucide-react";
 import { ChauffeurBooking, type PaymentSummary, type PaymentTransaction } from "../../../../lib/services/api-client";
 import { displayDriverEmail } from "../../../../lib/utils/driverEmailDisplay";
 import { SearchableSelect } from "../../../../components/SearchableSelect";
-import { Badge, Button, Drawer, DrawerContent, Field, FormGrid, Label, Select, Spinner, StatusBadge } from "../../../ui";
+import { Badge, Button, Drawer, DrawerContent, FormGrid, Label, Spinner, StatusBadge } from "../../../ui";
 import { formatDate, formatDateTime, humanize } from "../../../lib/format";
 import { BOOKING_STATUS_OVERRIDES } from "./booking-status";
 import { PaymentForm } from "./PaymentForm";
@@ -90,6 +90,15 @@ export function BookingDetailDrawer({
   onDailyLogsOpen,
   onRecalculateOpen,
 }: BookingDetailDrawerProps) {
+  const driverOptions = useMemo(
+    () =>
+      availableDrivers.map((driver) => ({
+        value: driver.id,
+        label: `${driver.full_name} (${displayDriverEmail(driver.email)})${driver.drivers_profile?.driver_type ? ` · ${humanize(driver.drivers_profile.driver_type)}` : ""}`,
+        searchText: `${driver.full_name} ${driver.email}`,
+      })),
+    [availableDrivers],
+  );
   const vehicleOptions = useMemo(
     () =>
       availableCars.map((car) => ({
@@ -300,15 +309,19 @@ export function BookingDetailDrawer({
                       />
                       {availableCars.length === 0 && <p className="text-xs text-fg-muted">No available vehicles found.</p>}
                     </div>
-                    <Field label="Driver" hint={availableDrivers.length === 0 ? "No available drivers found." : undefined}>
-                      <Select value={selectedDriverId} onChange={(e) => setSelectedDriverId(e.target.value)} placeholder="Select a driver" disabled={availableDrivers.length === 0}>
-                        {availableDrivers.map((driver) => (
-                          <option key={driver.id} value={driver.id}>
-                            {driver.full_name} ({displayDriverEmail(driver.email)}){driver.drivers_profile?.driver_type ? ` · ${humanize(driver.drivers_profile.driver_type)}` : ""}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Driver</Label>
+                      <SearchableSelect
+                        value={selectedDriverId}
+                        onChange={setSelectedDriverId}
+                        options={driverOptions}
+                        placeholder="Search by name or email…"
+                        emptyMessage="No drivers match your search."
+                        disabled={availableDrivers.length === 0}
+                        placement="top"
+                      />
+                      {availableDrivers.length === 0 && <p className="text-xs text-fg-muted">No available drivers found.</p>}
+                    </div>
                   </FormGrid>
                 )}
               </Section>
