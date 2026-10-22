@@ -3,7 +3,7 @@
  * Consumed by: Sidebar, TopBar breadcrumbs, CommandPalette, the login redirect,
  * and the Staff & Permissions labels. Add a page here and it appears everywhere.
  */
-import type { LucideIcon } from "lucide-react";
+import type { PortalNavGroup, PortalNavItem } from "@/app/ui/shell/nav-types";
 import {
   ArrowLeftRight,
   BarChart3,
@@ -35,27 +35,14 @@ import {
 import { UserRole, type PermissionKey } from "../../lib/types/auth-types";
 import { normalizeStaffPermissions, staffHasCrud } from "../../lib/utils/staff-permissions";
 
-export type NavItem = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
+export type NavItem = PortalNavItem & {
   /** Read permission that gates the item for internal staff. Omit = super admin only. */
   permission?: PermissionKey;
   /** Internal staff can see this even without a permission key (e.g. tracker test). */
   allowInternalStaff?: boolean;
-  /** Only rendered outside production builds. */
-  devOnly?: boolean;
-  /** Not a sensible landing page after login (dev tools, audit). */
-  utility?: boolean;
-  description?: string;
-  keywords?: string[];
 };
 
-export type NavGroup = {
-  id: string;
-  label: string;
-  items: NavItem[];
-};
+export type NavGroup = PortalNavGroup<NavItem>;
 
 const SHUTTLE_AUDIT_HREF = "/admin/routes/shuttle-audit";
 

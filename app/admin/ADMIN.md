@@ -1,9 +1,11 @@
 # Admin portal conventions
 
-## Design system (2026-10 redesign)
+## Design system (2026-10 redesign, shared with the company portal)
 
-All admin UI is built from `app/admin/ui` (import `from "@/app/admin/ui"`). Tokens live in
-`app/globals.css`; use the semantic utilities, never raw palette classes or hex:
+The design system lives in `app/ui` (import `from "@/app/ui"`); `@/app/admin/ui` and the old deep paths
+are re-export stubs kept for existing imports. See `app/ui/README.md` for the portal-wide rules
+(shared theme, UiLabels/i18n, locale-aware formatters, RTL). Tokens live in `app/globals.css`; use the
+semantic utilities, never raw palette classes or hex:
 
 | Use | Not |
 |---|---|
@@ -74,10 +76,13 @@ Super-admin-only routes use `SuperAdminPage` (e.g. Staff & Permissions).
 
 ## Theme
 
-- Light/dark toggle in the top bar and account menu. Stored in `localStorage` key `cort-admin-theme` (default: light);
-  `useAdminTheme()` exposes `theme`, `setTheme`, `toggle`.
-- Dark mode uses a neutral graphite palette scoped to the admin portal (`html:not([data-theme="light"]):has(.admin-portal)` in `globals.css`); company/vendor keep the shared dark tokens. Chart colours mirror it in `ui/chart-theme.ts`.
-- Sidebar is a hover/focus-to-expand icon rail that overlays the page (no persisted state).
+- Light/dark toggle in the top bar and account menu. One key for every portal: `localStorage["cort-portal-theme"]`
+  (default light; the old `cort-admin-theme` / `cort-theme` values are migrated once). `usePortalTheme()` (alias
+  `useAdminTheme()`) exposes `theme`, `setTheme`, `toggle`; `PortalThemeScript` in `app/layout.tsx` paints before hydration.
+- Dark mode uses a neutral graphite palette scoped to design-system portals (`html:not([data-theme="light"]):has(.portal, .admin-portal)`
+  in `globals.css`); the vendor portal keeps the shared dark tokens. Chart colours mirror it in `app/ui/chart-theme.ts`.
+- The frame (`PortalShell` in `app/ui/shell`) is shared with the company portal: hover/focus-to-expand icon rail that overlays
+  the page (no persisted state), mobile drawer, top bar. `AdminShell` only builds the nav groups, account props, bell and ⌘K palette.
 - The old `admin-theme.css` dark-mode bridge and `admin-styles.ts` helpers were removed; every page uses the tokens above.
 
 ## Known flagged items (not changed on purpose)

@@ -1,409 +1,269 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { AlertCircle, Car, CheckCircle2, CreditCard, Plus, Route, Users, Wallet } from "lucide-react";
+import { Button, CardSkeleton, Drawer, DrawerContent, Dialog, DialogContent, ErrorState, KpiCard, KpiGrid, KpiSkeleton, PageHeader, RefreshButton, useFormatters } from "@/app/ui";
 import { useAppDispatch, useAppSelector } from "../lib/store/hooks";
-import { fetchDashboardStats, selectDashboardStats, selectDashboardStatus } from "../lib/store/slices/dashboardSlice";
+import { clearDashboardCache, fetchDashboardStats, selectDashboardStats, selectDashboardStatus } from "../lib/store/slices/dashboardSlice";
 import { selectCompany } from "../lib/store/slices/companySlice";
 import { useAuth } from "../lib/contexts/auth-context";
-import { useState, useEffect } from "react";
 import { apiClient } from "../lib/services/api-client";
-import { useCompanyLocale } from "./lib/locale-context";
-import { formatLocaleDate } from "../lib/i18n/format";
-import Modal from "./bookings/components/Modal";
+import { useCompanyBasePath } from "./lib/use-company-base-path";
 import CreateBookingForm from "./bookings/components/CreateBookingForm";
 import EditBudgetForm from "./components/EditBudgetForm";
-import {
-  TakingCareSection,
-  NothingToDoSection,
-  ValueDeliveredSection,
-  CostVisibilitySection,
-  EmployeeUsageSection,
-  SmartInsightsSection,
-  AdoptionHealthSection,
-  ServiceUsageSection,
-
-  PremiumTeaser,
-  OutstandingAmountRow
-} from "./components/DashboardComponents";
-import DashboardSkeleton from "./components/DashboardSkeleton";
 import LiveMobilityCenter from "./components/LiveMobilityCenter";
 import CostLeakageDetector from "./components/CostLeakageDetector";
+import { CostVisibilityCard } from "./components/dashboard/CostVisibilityCard";
+import { EmployeeUsageCard } from "./components/dashboard/EmployeeUsageCard";
+import { InsightsCard } from "./components/dashboard/InsightsCard";
+import { ServiceSplitCard } from "./components/dashboard/ServiceSplitCard";
+import { OutstandingInvoicesDialog } from "./components/dashboard/OutstandingInvoicesDialog";
+import { parseTrend } from "./components/dashboard/helpers";
 
 type RosterChanges = {
   added_count: number;
   removed_count: number;
   top_route: { route_id: number; route_name: string; added_count: number } | null;
 };
+const EMPTY_ROSTER: RosterChanges = { added_count: 0, removed_count: 0, top_route: null };
 
 export default function CompanyDashboardPage() {
   const dispatch = useAppDispatch();
   const company = useAppSelector(selectCompany);
-  const dashboardStats = useAppSelector(selectDashboardStats);
+  const stats = useAppSelector(selectDashboardStats);
   const status = useAppSelector(selectDashboardStatus);
-  const t = useTranslations('company.dashboard');
-  const tErrors = useTranslations('common.errors');
-  const tCommon = useTranslations('common');
-  const { locale } = useCompanyLocale();
-  const loading = status === 'loading';
-  const error = status === 'failed' ? tErrors('failedToLoadStats') : null;
+  const t = useTranslations("company.dashboard");
+  const tErrors = useTranslations("common.errors");
+  const tCommon = useTranslations("common");
+  const { formatCurrency, formatDate } = useFormatters();
+  const { companyPath } = useCompanyBasePath();
   const { user } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [budgetOpen, setBudgetOpen] = useState(false);
+  const [invoicesOpen, setInvoicesOpen] = useState(false);
+  const [fetchedRoster, setRosterChanges] = useState<RosterChanges>(EMPTY_ROSTER);
   const companyId = user?.company_id?.toString();
-  const [rosterChanges, setRosterChanges] = useState<RosterChanges>({
-    added_count: 0,
-    removed_count: 0,
-    top_route: null,
-  });
 
   useEffect(() => {
-    if (companyId) {
-      dispatch(fetchDashboardStats(companyId));
-    }
+    if (companyId) dispatch(fetchDashboardStats(companyId));
   }, [dispatch, companyId]);
 
-  // Calculate services breakdown (percentages)
-  // Prefer servicesEnabled from dashboard stats (authoritative, always fresh),
-  // fall back to company profile while stats are loading.
-  const isChauffeurEnabled =
-    dashboardStats?.servicesEnabled?.chauffeur_enabled ??
-    company?.services_enabled?.chauffeur_enabled ??
-    false;
-  const isShuttleEnabled =
-    dashboardStats?.servicesEnabled?.shuttle_enabled ??
-    company?.services_enabled?.shuttle_enabled ??
-    false;
+  // Prefer servicesEnabled from dashboard stats (authoritative), fall back to the company profile while loading.
+  const hasChauffeur = stats?.servicesEnabled?.chauffeur_enabled ?? company?.services_enabled?.chauffeur_enabled ?? false;
+  const hasShuttle = stats?.servicesEnabled?.shuttle_enabled ?? company?.services_enabled?.shuttle_enabled ?? false;
+  const rosterChanges = hasShuttle ? fetchedRoster : EMPTY_ROSTER;
 
   useEffect(() => {
-    if (!isShuttleEnabled) {
-      setRosterChanges({ added_count: 0, removed_count: 0, top_route: null });
-      return;
-    }
+    if (!hasShuttle) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const data = await apiClient.request<RosterChanges>('/company/roster-changes');
+    apiClient
+      .request<RosterChanges>("/company/roster-changes")
+      .then((data) => {
         if (!cancelled) setRosterChanges(data);
-      } catch {
-        if (!cancelled) setRosterChanges({ added_count: 0, removed_count: 0, top_route: null });
-      }
-    })();
+      })
+      .catch(() => {
+        if (!cancelled) setRosterChanges(EMPTY_ROSTER);
+      });
     return () => {
       cancelled = true;
     };
-  }, [isShuttleEnabled]);
+  }, [hasShuttle]);
 
-  const totalServices = (isChauffeurEnabled ? (dashboardStats?.chauffeur.totalBookings || 0) : 0) + (isShuttleEnabled ? (dashboardStats?.shuttle.monthlyTrips || 0) : 0);
-  const chauffeurPct = totalServices > 0 ? Math.round(((dashboardStats?.chauffeur.totalBookings || 0) / totalServices) * 100) : 0;
-  const shuttlePct = totalServices > 0 ? Math.round(((dashboardStats?.shuttle.monthlyTrips || 0) / totalServices) * 100) : 0;
-
-  // Generate real insights
-  const generateInsights = () => {
-    if (!dashboardStats) return [];
-    const insights = [];
-    if (isChauffeurEnabled) {
-      if (dashboardStats.chauffeur.spendTrend.startsWith('-')) {
-        insights.push(t('insightSpendingDown', { percent: dashboardStats.chauffeur.spendTrend.replace('-', '') }));
-      } else if (dashboardStats.chauffeur.spendTrend !== "0%") {
-        insights.push(t('insightSpendingUp', { percent: dashboardStats.chauffeur.spendTrend.replace('+', '') }));
-      }
-
-      if (dashboardStats.chauffeur.topPassengers.length > 0) {
-        insights.push(t('insightTopPassenger', { name: dashboardStats.chauffeur.topPassengers[0].name }));
-      }
-    }
-
-    if (dashboardStats.employees.departmentUsage.length > 0) {
-      insights.push(t('insightTopDepartment', {
-        name: dashboardStats.employees.departmentUsage[0].name,
-        percent: dashboardStats.employees.departmentUsage[0].percentage,
-      }));
-    }
-
-    if (isShuttleEnabled && dashboardStats.shuttle.monthlyTrips > 0) {
-      insights.push(t('insightShuttleTrips', {
-        trips: dashboardStats.shuttle.monthlyTrips,
-        routes: dashboardStats.shuttle.totalRoutes,
-      }));
-    }
-
-    if (insights.length === 0) {
-      insights.push(t('insightStartUsing'));
-    }
-    return insights;
+  const refresh = () => {
+    if (!companyId) return;
+    dispatch(clearDashboardCache());
+    dispatch(fetchDashboardStats(companyId));
   };
 
-  // Transform API data to DashboardData interface
-  const data = dashboardStats ? {
-    takingCare: {
-      unassignedBookings: isChauffeurEnabled ? (dashboardStats.chauffeur.unassignedBookings || 0) : 0,
-      ridesCompleted: isChauffeurEnabled ? dashboardStats.chauffeur.completedThisMonth : 0,
-      completedTrend: isChauffeurEnabled ? (dashboardStats.chauffeur.completedTrend || "0%") : "0%",
-    },
-    nothingToDo: {
-      pendingApprovals: isChauffeurEnabled ? (dashboardStats.chauffeur.unassignedBookings || 0) : 0,
-      delayedRides: 0,
-      unresolvedIssues: 0,
-      isAllClear: !isChauffeurEnabled || (dashboardStats.chauffeur.unassignedBookings || 0) === 0,
-    },
-    valueDelivered: {
-      estimatedSavings: isChauffeurEnabled ? (dashboardStats.chauffeur.totalSavings || 0) : 0,
-      activeRides: isChauffeurEnabled ? (dashboardStats.chauffeur.activeRides || 0) : 0,
-      shuttleTrips: isShuttleEnabled ? ((dashboardStats.shuttle as any)?.monthlyTrips || 0) : 0,
-      avgTripCost: isChauffeurEnabled && dashboardStats.chauffeur.completedThisMonth > 0
-        ? Math.round(dashboardStats.chauffeur.totalSpend / dashboardStats.chauffeur.completedThisMonth)
-        : 0,
-      avgTripTotalSpendLifetime: isChauffeurEnabled ? (dashboardStats.chauffeur.totalSpendAllTime || 0) : 0,
-      shuttleTotalTripsLifetime: isShuttleEnabled ? (dashboardStats.shuttle.totalTripsAllTime || 0) : 0,
-    },
-    cost: {
-      totalSpendMTD: isChauffeurEnabled ? dashboardStats.chauffeur.totalSpend : 0,
-      spendTrend: isChauffeurEnabled ? (dashboardStats.chauffeur.spendTrend || "0%") : "0%",
-      costPerEmployee: isChauffeurEnabled && dashboardStats.employees.active > 0
-        ? Math.round(dashboardStats.chauffeur.totalSpend / dashboardStats.employees.active)
-        : 0,
-      budget: dashboardStats.monthlyBudget || 1500000,
-    },
-    employeeUsage: {
-      activeEmployees: dashboardStats.employees.active,
-      totalEmployees: dashboardStats.employees.total,
-      avgRidesPerEmployee: isChauffeurEnabled && dashboardStats.employees.active > 0
-        ? parseFloat((dashboardStats.chauffeur.totalBookings / dashboardStats.employees.active).toFixed(1))
-        : 0,
-      departmentUsage: dashboardStats.employees.departmentUsage || [],
-      topPassenger: isChauffeurEnabled && dashboardStats.chauffeur.topPassengers[0] ? {
-        name: dashboardStats.chauffeur.topPassengers[0].name,
-        rides: dashboardStats.chauffeur.topPassengers[0].trips,
-        department: "N/A"
-      } : { name: "N/A", rides: 0, department: "N/A" },
-    },
-    smartInsights: generateInsights(),
-    seasonality: {
-      highDemandDay: isChauffeurEnabled ? (dashboardStats.seasonality?.highDemandDay || t('analysisPending')) : t('analysisPending'),
-      lowDemandDay: isChauffeurEnabled ? (dashboardStats.seasonality?.lowDemandDay || t('analysisPending')) : t('analysisPending'),
-    },
-    adminHealth: {
-      registeredVsActiveRatio: dashboardStats.employees.total > 0 ? parseFloat((dashboardStats.employees.active / dashboardStats.employees.total).toFixed(2)) : 0,
-      deptAdoptionRate: dashboardStats.employees.departmentUsage.length > 0 ? 100 : 0, // Simple placeholder logic
-      bookingVsActualRatio: 1,
-    },
-    services: {
-      chauffeur: isChauffeurEnabled ? chauffeurPct : 0,
-      shuttles: isShuttleEnabled ? shuttlePct : 0,
-      events: 0,
-      eventShuttle: 0,
-    },
-    mobility: dashboardStats.mobility ?? {
-      activeRides: 0,
-      employeesTraveling: 0,
-      shuttlesRunning: 0,
-      chauffeurRides: 0,
-      upcomingBookings: 0
-    },
-    costLeakage: dashboardStats.costLeakage ?? { aiInsightsEnabled: false, totalPotentialSavingPkr: 0, insights: [] }
-  } : null;
+  const insights = useMemo(() => {
+    if (!stats) return [];
+    const list: string[] = [];
+    if (hasChauffeur) {
+      const trend = parseTrend(stats.chauffeur.spendTrend);
+      if (trend !== null && trend < 0) list.push(t("insightSpendingDown", { percent: `${Math.abs(trend)}%` }));
+      else if (trend !== null && trend > 0) list.push(t("insightSpendingUp", { percent: `${trend}%` }));
+      if (stats.chauffeur.topPassengers.length > 0) list.push(t("insightTopPassenger", { name: stats.chauffeur.topPassengers[0].name }));
+    }
+    if (stats.employees.departmentUsage.length > 0) {
+      list.push(t("insightTopDepartment", { name: stats.employees.departmentUsage[0].name, percent: stats.employees.departmentUsage[0].percentage }));
+    }
+    if (hasShuttle && stats.shuttle.monthlyTrips > 0) list.push(t("insightShuttleTrips", { trips: stats.shuttle.monthlyTrips, routes: stats.shuttle.totalRoutes }));
+    if (list.length === 0) list.push(t("insightStartUsing"));
+    return list;
+  }, [stats, hasChauffeur, hasShuttle, t]);
 
-  // Real data overrides where possible (example)
-  const today = new Date();
+  const loading = status === "loading" && !stats;
+  const firstName = user?.full_name?.split(" ")[0] || tCommon("misc.admin");
+  const todayBookings = hasChauffeur ? (stats?.alerts.upcomingBookings ?? 0) : 0;
 
-  // Use upcoming bookings from stats as proxy for today/actionable items (only relevant when chauffeur is on)
-  const todayBookingsCount = isChauffeurEnabled ? (dashboardStats?.alerts.upcomingBookings || 0) : 0;
+  const header = (
+    <PageHeader
+      title={`${t("welcomeBack")} ${firstName}`}
+      description={`${formatDate(new Date())} · ${hasChauffeur ? t("upcomingBookings", { count: todayBookings }) : t("servicesActive")}`}
+      actions={
+        <>
+          <RefreshButton label={tCommon("ui.refresh")} loading={status === "loading"} onClick={refresh} />
+          {hasChauffeur && (
+            <Button leftIcon={<Plus />} onClick={() => setBookingOpen(true)}>
+              {tCommon("actions.newBooking")}
+            </Button>
+          )}
+        </>
+      }
+    />
+  );
 
   if (loading) {
     return (
-      <DashboardSkeleton />
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          {error}
+      <div className="space-y-6">
+        {header}
+        <KpiGrid cols={4}>
+          {[0, 1, 2, 3].map((i) => (
+            <KpiSkeleton key={i} />
+          ))}
+        </KpiGrid>
+        <CardSkeleton lines={6} />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <CardSkeleton lines={4} />
+          <CardSkeleton lines={4} />
         </div>
       </div>
     );
   }
 
-  if (!company || !data) {
+  if (status === "failed" || !stats || !company) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-sm text-[var(--text-muted)]">{tErrors('noCompanyData')}</div>
+      <div className="space-y-6">
+        {header}
+        <ErrorState title={tErrors("failedToLoadStats")} message={!stats && status !== "failed" ? tErrors("noCompanyData") : undefined} onRetry={refresh} />
       </div>
     );
   }
 
-  const hasShuttle = isShuttleEnabled;
-  const hasChauffeur = isChauffeurEnabled;
-  const isDualService = hasChauffeur && hasShuttle;
-
-  const analyticsGridClass =
-    "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 auto-rows-[minmax(180px,auto)] sm:auto-rows-[minmax(220px,auto)] grid-flow-dense min-w-0";
-
-  const smartInsightsClass = hasShuttle && !hasChauffeur
-    ? "lg:col-span-1 xl:col-span-2 dashboard-section dashboard-section-delay-5"
-    : "lg:col-span-2 dashboard-section dashboard-section-delay-5";
-
-  const costVisibilityClass = hasChauffeur && !hasShuttle
-    ? "lg:col-span-2 xl:col-span-2 dashboard-section dashboard-section-delay-4"
-    : "lg:col-span-2 dashboard-section dashboard-section-delay-4";
-
-  const adoptionHealthClass = hasChauffeur && !hasShuttle
-    ? "xl:col-span-2 dashboard-section dashboard-section-delay-3"
-    : "xl:col-span-1 dashboard-section dashboard-section-delay-3";
+  const ch = stats.chauffeur;
+  const completedTrend = parseTrend(ch.completedTrend);
+  const spendTrend = parseTrend(ch.spendTrend);
+  const avgTripCost = hasChauffeur && ch.completedThisMonth > 0 ? Math.round(ch.totalSpend / ch.completedThisMonth) : 0;
+  const costPerEmployee = hasChauffeur && stats.employees.active > 0 ? Math.round(ch.totalSpend / stats.employees.active) : 0;
+  const outstanding = hasChauffeur ? (ch.outstandingAmount ?? 0) : 0;
+  const outstandingInvoices = ch.outstandingInvoices ?? [];
+  const budget = stats.monthlyBudget && stats.monthlyBudget > 0 ? stats.monthlyBudget : null;
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-6 pb-12 relative max-w-[1600px] mx-auto w-full min-w-0">
+    <div className="space-y-6">
+      {header}
 
-      {/* Welcome Header */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 dashboard-section dashboard-section-delay-1 relative z-10 has-[.invoice-tooltip-trigger:hover]:z-[200]">
-        {/* Welcome Banner - Premium Background Image (Dark Theme - No Fade) */}
-        <div className="lg:col-span-2 relative rounded-[1.5rem] sm:rounded-[2rem] bg-[#0c1a3d] p-5 sm:p-6 md:p-8 shadow-[0_1px_4px_rgba(0,0,0,0.18)] border border-[var(--border-default)] overflow-hidden flex flex-col justify-center min-h-[180px] sm:min-h-[200px] md:min-h-[220px] hover:shadow-[0_2px_10px_rgba(0,0,0,0.24)] transition-all duration-200 group">
-
-          {/* Background Image Layer */}
-          <div
-            className="absolute inset-0 bg-no-repeat"
-            style={{
-              backgroundImage: "url('/image.png')",
-              backgroundSize: "cover",
-              backgroundPosition: "center", // Resetting to center to ensure it covers everything smoothly
-            }}
-          ></div>
-
-          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between h-full">
-            <div className="flex flex-col justify-center mt-auto sm:mt-0">
-              <div className="flex items-center gap-2 text-white text-opacity-70 mb-1">
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
-                  {formatLocaleDate(today, locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                </span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-white mb-2 leading-tight">
-                {t('welcomeBack')}{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
-                  {user?.full_name?.split(' ')[0] || tCommon('misc.admin')}
-                </span>
-              </h1>
-              <p className="text-white text-opacity-80 max-w-xl text-sm sm:text-base md:text-lg">
-                {hasChauffeur
-                  ? t('upcomingBookings', { count: todayBookingsCount })
-                  : t('servicesActive')
-                }
-              </p>
-            </div>
-
-            {hasChauffeur && (
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="group relative flex items-center justify-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-[var(--cort-orange-hover)] hover:-translate-y-0.5 shadow-lg active:translate-y-0 active:shadow-md whitespace-nowrap w-full sm:w-auto"
-              >
-                <svg className="w-4 h-4 text-white transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                </svg>
-                <span>{tCommon('actions.newBooking')}</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Quick Status - "Nothing specific for you to do" */}
-        <div className="lg:col-span-1 h-full relative overflow-visible">
-          <NothingToDoSection 
-            data={data.nothingToDo} 
-            outstandingAmount={dashboardStats?.chauffeur.outstandingAmount}
-            invoices={dashboardStats?.chauffeur.outstandingInvoices}
+      <KpiGrid cols={4}>
+        {hasChauffeur && (
+          <KpiCard
+            label={t("unassignedBookings")}
+            value={ch.unassignedBookings ?? 0}
+            icon={<AlertCircle />}
+            tone={(ch.unassignedBookings ?? 0) > 0 ? "warning" : "success"}
+            emphasis={(ch.unassignedBookings ?? 0) > 0 ? "brand" : "none"}
+            hint={(ch.unassignedBookings ?? 0) > 0 ? t("requiresAttention") : t("allCaughtUp")}
+            href={companyPath("/company/bookings")}
           />
-        </div>
-      </div>
-
-      {/* Value Delivered - Hero Row */}
-      {(hasChauffeur || hasShuttle) && (
-        <div className="w-full dashboard-section dashboard-section-delay-3">
-          <ValueDeliveredSection data={data.valueDelivered} rosterChanges={rosterChanges} hasChauffeur={hasChauffeur} hasShuttle={hasShuttle} />
-        </div>
-      )}
-
-      {/* Live Mobility Command Center - NEW */}
-      <div className="w-full dashboard-section dashboard-section-delay-3">
-        <LiveMobilityCenter data={data.mobility} />
-      </div>
-
-      {/* 2. Main Analytics Grid */}
-      <div className={analyticsGridClass}>
-
-        {/* We're Taking Care of This */}
+        )}
         {hasChauffeur && (
-          <div className="xl:col-span-1 dashboard-section dashboard-section-delay-2">
-            <TakingCareSection data={data.takingCare} />
-          </div>
+          <KpiCard
+            label={t("ridesCompleted")}
+            value={ch.completedThisMonth}
+            icon={<CheckCircle2 />}
+            tone="success"
+            delta={completedTrend !== null ? { value: completedTrend, label: t("vsLastMonth") } : undefined}
+            hint={t("totalTripsLifetime") + `: ${ch.completedAllTime ?? 0}`}
+          />
         )}
-
-        {/* Employee Usage - Wider card */}
-        <div className="xl:col-span-1 dashboard-section dashboard-section-delay-3">
-          <EmployeeUsageSection data={data.employeeUsage} />
-        </div>
-
-        {/* Cost Visibility */}
         {hasChauffeur && (
-          <div className={costVisibilityClass}>
-            <CostVisibilitySection
-              data={data.cost}
-              onEditBudget={() => setIsBudgetModalOpen(true)}
-            />
-          </div>
+          <KpiCard
+            label={t("totalSpendMtd")}
+            value={formatCurrency(ch.totalSpend)}
+            icon={<CreditCard />}
+            tone="brand"
+            delta={spendTrend !== null ? { value: spendTrend, label: t("vsLastMonth"), invert: true } : undefined}
+            hint={`${t("avgTripCost")}: ${formatCurrency(avgTripCost)}`}
+          />
         )}
-
-        {/* Smart Insights */}
-        {(hasChauffeur || hasShuttle) && (
-          <div className={smartInsightsClass}>
-            <SmartInsightsSection insights={data.smartInsights} seasonality={data.seasonality} />
-          </div>
+        {hasChauffeur && (
+          <KpiCard
+            label={t("outstandingBalance")}
+            value={formatCurrency(outstanding)}
+            icon={<Wallet />}
+            tone={outstanding > 0 ? "danger" : "success"}
+            emphasis={outstanding > 0 ? "danger" : "none"}
+            hint={outstanding > 0 ? t("invoicesCount", { count: outstandingInvoices.length }) : t("noPendingActions")}
+            onClick={outstanding > 0 && outstandingInvoices.length > 0 ? () => setInvoicesOpen(true) : undefined}
+          />
         )}
-
-        {isDualService && (
-          <div className="xl:col-span-1 dashboard-section dashboard-section-delay-4">
-            <ServiceUsageSection data={data.services} hasChauffeur={hasChauffeur} hasShuttle={hasShuttle} />
-          </div>
+        {hasChauffeur && <KpiCard label={t("activeChauffeurRides")} value={ch.activeRides ?? 0} icon={<Car />} tone="brand" hint={t("inProgress")} />}
+        {hasShuttle && (
+          <KpiCard label={t("shuttleTrips")} value={stats.shuttle.monthlyTrips} icon={<Route />} tone="info" hint={`${t("totalRunsMtd")} · ${t("totalTripsLifetime")}: ${stats.shuttle.totalTripsAllTime ?? 0}`} href={companyPath("/company/routes")} />
         )}
+        {hasShuttle && (
+          <KpiCard
+            label={t("peopleAddedToRoutes")}
+            value={rosterChanges.added_count}
+            icon={<Users />}
+            tone="purple"
+            hint={rosterChanges.top_route ? t("topRouteAdded", { id: rosterChanges.top_route.route_id, name: rosterChanges.top_route.route_name, count: rosterChanges.top_route.added_count }) : t("peopleRemovedThisMonth", { count: rosterChanges.removed_count })}
+          />
+        )}
+        <KpiCard
+          label={t("activePassengers")}
+          value={
+            <>
+              {stats.employees.active}
+              <span className="text-sm font-normal text-fg-muted"> / {stats.employees.total}</span>
+            </>
+          }
+          icon={<Users />}
+          tone="neutral"
+          href={companyPath("/company/employees")}
+        />
+      </KpiGrid>
 
-        <div className={adoptionHealthClass}>
-          <AdoptionHealthSection data={data.adminHealth} />
-        </div>
+      <LiveMobilityCenter data={stats.mobility ?? { activeRides: 0, employeesTraveling: 0, shuttlesRunning: 0, chauffeurRides: 0, upcomingBookings: 0 }} />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {hasChauffeur && <CostVisibilityCard data={{ totalSpendMTD: ch.totalSpend, spendTrend: ch.spendTrend, costPerEmployee, budget }} onEditBudget={() => setBudgetOpen(true)} />}
+        <EmployeeUsageCard
+          data={{
+            activeEmployees: stats.employees.active,
+            totalEmployees: stats.employees.total,
+            avgRidesPerEmployee: hasChauffeur && stats.employees.active > 0 ? Number((ch.totalBookings / stats.employees.active).toFixed(1)) : 0,
+            topPassenger: hasChauffeur && ch.topPassengers[0] ? { name: ch.topPassengers[0].name, rides: ch.topPassengers[0].trips } : null,
+            departmentUsage: stats.employees.departmentUsage ?? [],
+          }}
+          hasChauffeur={hasChauffeur}
+        />
+        <InsightsCard insights={insights} seasonality={{ highDemandDay: stats.seasonality?.highDemandDay ?? null, lowDemandDay: stats.seasonality?.lowDemandDay ?? null }} hasChauffeur={hasChauffeur} />
+        {hasChauffeur && hasShuttle && (
+          <ServiceSplitCard
+            data={[
+              { key: "chauffeur", label: t("chauffeur"), value: ch.totalBookings || 0 },
+              { key: "shuttle", label: t("shuttle"), value: stats.shuttle.monthlyTrips || 0 },
+            ]}
+          />
+        )}
       </div>
 
-      {/* Power Insights (Optimization) - Enhanced with Cost Leakage Detector */}
-      {(hasChauffeur || hasShuttle) && (
-        <div className="dashboard-section dashboard-section-delay-5">
-          <CostLeakageDetector data={data.costLeakage} />
-        </div>
-      )}
+      {(hasChauffeur || hasShuttle) && <CostLeakageDetector data={stats.costLeakage ?? { aiInsightsEnabled: false, totalPotentialSavingPkr: 0, insights: [] }} />}
 
-      {/* Premium Teaser */}
-      <PremiumTeaser />
+      <Drawer open={bookingOpen} onOpenChange={setBookingOpen}>
+        <DrawerContent side="end" size="xl" title={t("createNewBooking")}>
+          <CreateBookingForm onSuccess={() => setBookingOpen(false)} onCancel={() => setBookingOpen(false)} />
+        </DrawerContent>
+      </Drawer>
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={t('createNewBooking')}
-      >
-        <CreateBookingForm
-          onSuccess={() => setIsModalOpen(false)}
-          onCancel={() => setIsModalOpen(false)}
-        />
-      </Modal>
+      <Dialog open={budgetOpen} onOpenChange={setBudgetOpen}>
+        <DialogContent title={t("editMonthlyBudget")} size="sm">
+          {companyId && <EditBudgetForm companyId={companyId} currentBudget={budget} onSuccess={() => setBudgetOpen(false)} onCancel={() => setBudgetOpen(false)} />}
+        </DialogContent>
+      </Dialog>
 
-      <Modal
-        isOpen={isBudgetModalOpen}
-        onClose={() => setIsBudgetModalOpen(false)}
-        title={t('editMonthlyBudget')}
-      >
-        <EditBudgetForm
-          companyId={companyId!}
-          currentBudget={data.cost.budget}
-          onSuccess={() => setIsBudgetModalOpen(false)}
-          onCancel={() => setIsBudgetModalOpen(false)}
-        />
-      </Modal>
+      <OutstandingInvoicesDialog open={invoicesOpen} onOpenChange={setInvoicesOpen} invoices={outstandingInvoices} total={outstanding} />
     </div>
   );
 }

@@ -31,7 +31,7 @@ const DEFAULT_BRAND = {
  */
 export function AuthShell({ title, description, children, footer, brand = DEFAULT_BRAND, copyright = "Traflinq. All rights reserved.", corner }: AuthShellProps) {
   return (
-    <div className="admin-portal flex min-h-screen bg-page text-fg">
+    <div className="portal admin-portal flex min-h-screen bg-page text-fg">
       <aside className="relative hidden w-[42%] max-w-xl flex-col justify-between overflow-hidden bg-navy p-10 text-white lg:flex">
         <div
           aria-hidden="true"

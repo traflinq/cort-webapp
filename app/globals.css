@@ -138,7 +138,7 @@
     --text-muted: rgba(15,23,42,0.45);
 }
 
-/* ── Admin design-system tokens (super-admin redesign) ─────────── */
+/* ── Portal design-system tokens (shared by admin + company) ──── */
 :root {
     --ring: #fe8503;
     --bg-elevated: #111827;
@@ -218,16 +218,16 @@
     --chart-axis: rgba(15,23,42,0.45);
 }
 
-/* Super Admin portal (and its auth pages): plain white page in light theme. Scoped so company/vendor keep their tint. */
+/* Portals on the design system (admin, company, and their auth pages): plain white page in light theme. Scoped so vendor keeps its tint. */
 /* Applied on <html> while an admin page is mounted (:has), so the body, overscroll area and portalled dialogs are white too. */
-html[data-theme="light"]:has(.admin-portal) {
+html[data-theme="light"]:has(.portal, .admin-portal) {
     --bg-page: #ffffff;
     --bg-header: #ffffff;
 }
 
-/* Super Admin portal, dark mode: neutral graphite palette with clear elevation steps.
-   Scoped so the company/vendor portals keep the shared dark tokens above. */
-html:not([data-theme="light"]):has(.admin-portal) {
+/* Design-system portals, dark mode: neutral graphite palette with clear elevation steps.
+   Scoped so the vendor portal keeps the shared dark tokens above. */
+html:not([data-theme="light"]):has(.portal, .admin-portal) {
     --bg-page: #0a0a0b;
     --bg-card: #121214;
     --bg-card-hover: #17171a;

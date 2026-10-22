@@ -10,10 +10,7 @@ import { useCompanyBasePath } from "../lib/use-company-base-path";
 import { Languages } from "lucide-react";
 import { AuthShell } from "../../admin/components/AuthShell";
 import { PasswordInput } from "../../admin/components/PasswordInput";
-import { Button } from "../../admin/ui/Button";
-import { Field } from "../../admin/ui/Field";
-import { Input } from "../../admin/ui/Input";
-import { InlineError } from "../../admin/ui/ErrorState";
+import { Button, Field, InlineError, Input } from "@/app/ui";
 
 export default function CompanyLoginPage() {
   const router = useRouter();
@@ -59,7 +56,7 @@ export default function CompanyLoginPage() {
   }
 
   return (
-    <div data-theme="light">
+    <div className="portal">
       <AuthShell
         title={t("title")}
         description={t("subtitle")}

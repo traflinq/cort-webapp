@@ -3,16 +3,28 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Provider } from "react-redux";
+import { ConfirmProvider, PortalThemeProvider, TooltipProvider } from "@/app/ui";
 import { CompanyShell } from "./ui/CompanyShell";
-import { CompanyThemeProvider } from "./lib/theme-context";
 import { CompanyLocaleProvider } from "./lib/locale-context";
+import { CompanyUiProviders } from "./components/CompanyUiProviders";
 import { companyStore } from "../lib/store/company-store";
 import { ProtectedRoute } from "../lib/components/protected-route";
 import { UserRole } from "../lib/types/auth-types";
 import { getCompanyLoginPath, isSaudiRoute, stripSaudiPrefix } from "../lib/i18n/saudi-route";
 
-function CompanyLoginWrapper({ children }: { children: ReactNode }) {
-  return <CompanyLocaleProvider>{children}</CompanyLocaleProvider>;
+/** Public pages (login, trial redirect, impersonation exchange): light theme, no shell. */
+function CompanyPublicWrapper({ children }: { children: ReactNode }) {
+  return (
+    <CompanyLocaleProvider>
+      <CompanyUiProviders>
+        <TooltipProvider delayDuration={300} skipDelayDuration={200}>
+          <div data-theme="light" className="portal company-portal">
+            {children}
+          </div>
+        </TooltipProvider>
+      </CompanyUiProviders>
+    </CompanyLocaleProvider>
+  );
 }
 
 function CompanyAppWrapper({ children }: { children: ReactNode }) {
@@ -25,9 +37,17 @@ function CompanyAppWrapper({ children }: { children: ReactNode }) {
     >
       <Provider store={companyStore}>
         <CompanyLocaleProvider>
-          <CompanyThemeProvider>
-            <CompanyShell>{children}</CompanyShell>
-          </CompanyThemeProvider>
+          <PortalThemeProvider>
+            <CompanyUiProviders>
+              <TooltipProvider delayDuration={300} skipDelayDuration={200}>
+                <ConfirmProvider>
+                  <div className="portal company-portal">
+                    <CompanyShell>{children}</CompanyShell>
+                  </div>
+                </ConfirmProvider>
+              </TooltipProvider>
+            </CompanyUiProviders>
+          </PortalThemeProvider>
         </CompanyLocaleProvider>
       </Provider>
     </ProtectedRoute>
@@ -36,9 +56,7 @@ function CompanyAppWrapper({ children }: { children: ReactNode }) {
 
 function isPublicCompanyPath(pathname: string | null): boolean {
   if (!pathname) return false;
-
   const normalized = isSaudiRoute(pathname) ? stripSaudiPrefix(pathname) : pathname;
-
   return (
     pathname === "/sa" ||
     pathname === "/sa/" ||
@@ -53,10 +71,6 @@ function isPublicCompanyPath(pathname: string | null): boolean {
 
 export default function CompanyLayoutClient({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-
-  if (isPublicCompanyPath(pathname)) {
-    return <CompanyLoginWrapper>{children}</CompanyLoginWrapper>;
-  }
-
+  if (isPublicCompanyPath(pathname)) return <CompanyPublicWrapper>{children}</CompanyPublicWrapper>;
   return <CompanyAppWrapper>{children}</CompanyAppWrapper>;
 }

@@ -1,449 +1,387 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { UserPlus, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
-import { selectCompany } from "../../lib/store/slices/companySlice";
-import { fetchEmployees, selectEmployees, selectEmployeesStatus, updateEmployee, deactivateEmployee } from "../../lib/store/slices/employeeSlice";
-import { useAuth } from "../../lib/contexts/auth-context";
-import { apiClient } from "../../lib/services/api-client";
-import { Card } from "../components/DashboardComponents";
-import { AccountCredentialsReveal, SaveCredentialsNote } from "../components/AccountCredentialsReveal";
-import { PageHeader, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
-import TablePageSkeleton from "../components/TablePageSkeleton";
-import TableSkeleton from "@/app/components/ui/TableSkeleton";
-import {
-  getPhoneValidationError,
-  PHONE_MAX_LENGTH,
-  PHONE_PLACEHOLDER,
-  sanitizePhoneInput,
-} from "../../lib/utils/phone";
 import { toast } from "sonner";
+import { Pencil, Power, UserPlus, Users } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "@/app/lib/store/hooks";
+import { selectCompany } from "@/app/lib/store/slices/companySlice";
+import { fetchEmployees, selectEmployees, selectEmployeesStatus, updateEmployee, deactivateEmployee, type Employee } from "@/app/lib/store/slices/employeeSlice";
+import { useAuth } from "@/app/lib/contexts/auth-context";
+import { apiClient } from "@/app/lib/services/api-client";
+import { useConfirm } from "@/app/lib/hooks/useConfirm";
+import { getPhoneValidationError, PHONE_MAX_LENGTH, sanitizePhoneInput } from "@/app/lib/utils/phone";
+import {
+  Button,
+  Card,
+  CardContent,
+  DataTable,
+  Dialog,
+  DialogContent,
+  EmptyState,
+  Field,
+  FilterBar,
+  FilterField,
+  FormGrid,
+  InlineError,
+  Input,
+  PageHeader,
+  Select,
+  StatusBadge,
+  type ActionMenuItem,
+  type DataTableColumn,
+} from "@/app/ui";
+import { AccountCredentialsReveal, SaveCredentialsNote } from "../components/AccountCredentialsReveal";
 
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
+const PAGE_SIZE = 25;
 
-function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className={cx(
-        "h-9 rounded-lg border border-[var(--border-light)] bg-[var(--bg-card)] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/20 focus:border-[var(--cort-orange)] transition-all text-[var(--text-primary)] shadow-sm",
-        props.className,
-      )}
-    />
-  );
-}
+type EmployeeForm = { full_name: string; email: string; phone: string; department: string; employee_id: string };
+const EMPTY_FORM: EmployeeForm = { full_name: "", email: "", phone: "", department: "", employee_id: "" };
 
 export default function EmployeesPage() {
   const t = useTranslations("company.employees");
   const tCredentials = useTranslations("company.credentials");
   const tCommon = useTranslations("common");
   const dispatch = useAppDispatch();
+  const confirm = useConfirm();
   const { user } = useAuth();
   const isTrialUser = !!user?.is_trial;
   const maxEmployees = user?.trial_modules === "both" ? 6 : 3;
   const company = useAppSelector(selectCompany);
   const employees = useAppSelector(selectEmployees);
   const status = useAppSelector(selectEmployeesStatus);
-  const loading = status === 'loading';
+  const loading = status === "loading";
 
-  const [lastFetchedParams, setLastFetchedParams] = useState<string>("");
-
+  const lastFetchedParams = useRef<string>("");
   useEffect(() => {
     if (!company?.id) return;
-
-    if (company.id.toString() === lastFetchedParams && status !== 'idle') return;
-
-    setLastFetchedParams(company.id.toString());
+    if (company.id.toString() === lastFetchedParams.current && status !== "idle") return;
+    lastFetchedParams.current = company.id.toString();
     dispatch(fetchEmployees(company.id.toString()));
-  }, [dispatch, company?.id, lastFetchedParams, status]);
+  }, [dispatch, company?.id, status]);
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editPhone, setEditPhone] = useState<string>("");
-  const [editEmail, setEditEmail] = useState<string>("");
+  // Filters (client-side over the full roster the slice already fetches)
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
 
-  const [showAddEmployee, setShowAddEmployee] = useState(false);
-  const [employeeSaving, setEmployeeSaving] = useState(false);
-  const [employeeFormError, setEmployeeFormError] = useState<string | null>(null);
-  const [employeeCreated, setEmployeeCreated] = useState(false);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return employees.filter((e) => {
+      if (statusFilter && e.status.toUpperCase() !== statusFilter) return false;
+      if (!q) return true;
+      return [e.full_name, e.email, e.phone, e.employee_id, e.department].some((v) => v?.toLowerCase().includes(q));
+    });
+  }, [employees, search, statusFilter]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = useMemo(() => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE), [filtered, safePage]);
+  const activeFilters = (search ? 1 : 0) + (statusFilter ? 1 : 0);
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("");
+    setPage(1);
+  };
+
+  // Edit dialog
+  const [editing, setEditing] = useState<Employee | null>(null);
+  const [editPhone, setEditPhone] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+
+  // Add dialog
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [created, setCreated] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string; full_name: string } | null>(null);
-  const [employeeForm, setEmployeeForm] = useState({
-    full_name: "",
-    email: "",
-    phone: "",
-    department: "",
-    employee_id: "",
-  });
+  const [form, setForm] = useState<EmployeeForm>(EMPTY_FORM);
 
   const atEmployeeLimit = isTrialUser && employees.length >= maxEmployees;
+  const trialHint = isTrialUser ? t("trialBanner", { used: employees.length, max: maxEmployees }) : undefined;
 
-  function closeAddEmployeeModal() {
-    setShowAddEmployee(false);
-    setEmployeeCreated(false);
+  const phoneMessages = { required: tCommon("validation.phoneRequired"), invalid: tCommon("validation.phoneInvalid") };
+
+  function closeAdd() {
+    setShowAdd(false);
+    setCreated(false);
     setCreatedCredentials(null);
-    setEmployeeFormError(null);
-    setEmployeeForm({ full_name: "", email: "", phone: "", department: "", employee_id: "" });
+    setFormError(null);
+    setForm(EMPTY_FORM);
   }
 
-  async function handleAddEmployee(e: React.FormEvent) {
+  async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!company?.id) return;
-    const phoneError = getPhoneValidationError(employeeForm.phone, {
-      messages: {
-        required: tCommon("validation.phoneRequired"),
-        invalid: tCommon("validation.phoneInvalid"),
-      },
-    });
+    const phoneError = getPhoneValidationError(form.phone, { messages: phoneMessages });
     if (phoneError) {
-      setEmployeeFormError(phoneError);
+      setFormError(phoneError);
       return;
     }
-    setEmployeeSaving(true);
-    setEmployeeFormError(null);
+    setSaving(true);
+    setFormError(null);
     try {
-      const created = await apiClient.createEmployee({
-        full_name: employeeForm.full_name.trim(),
-        email: employeeForm.email.trim(),
-        phone: employeeForm.phone.trim(),
-        department: employeeForm.department.trim() || undefined,
-        employee_id: employeeForm.employee_id.trim() || undefined,
+      const res = await apiClient.createEmployee({
+        full_name: form.full_name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        department: form.department.trim() || undefined,
+        employee_id: form.employee_id.trim() || undefined,
         company_id: Number(company.id),
       });
-      const password = created.data?.password ?? (created.data as { generatedPassword?: string })?.generatedPassword;
-      if (password) {
-        setCreatedCredentials({
-          email: employeeForm.email.trim(),
-          password,
-          full_name: employeeForm.full_name.trim(),
-        });
-      }
-      setEmployeeCreated(true);
+      const password = res.data?.password ?? (res.data as { generatedPassword?: string })?.generatedPassword;
+      if (password) setCreatedCredentials({ email: form.email.trim(), password, full_name: form.full_name.trim() });
+      setCreated(true);
       dispatch(fetchEmployees(company.id.toString()));
       toast.success(t("employeeCreatedSuccess"));
     } catch (err) {
-      setEmployeeFormError(err instanceof Error ? err.message : t("failedCreateEmployee"));
+      setFormError(err instanceof Error ? err.message : t("failedCreateEmployee"));
     } finally {
-      setEmployeeSaving(false);
+      setSaving(false);
     }
   }
 
-  if (!company) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-sm text-[var(--text-muted)]">{tCommon("errors.noCompanySelected")}</div>
-      </div>
-    );
-  }
-
-  function startEdit(employee: typeof employees[0]) {
-    setEditingId(employee.id);
+  function startEdit(employee: Employee) {
+    setEditing(employee);
     setEditPhone(employee.phone || "");
     setEditEmail(employee.email);
+    setEditError(null);
   }
 
-  function cancelEdit() {
-    setEditingId(null);
-    setEditPhone("");
-    setEditEmail("");
-  }
-
-  async function saveEdit(employee: typeof employees[0]) {
-    if (!editingId) return;
-    const phoneError = getPhoneValidationError(editPhone, {
-      messages: {
-        required: tCommon("validation.phoneRequired"),
-        invalid: tCommon("validation.phoneInvalid"),
-      },
-    });
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    const phoneError = getPhoneValidationError(editPhone, { messages: phoneMessages });
     if (phoneError) {
-      toast.error(phoneError);
+      setEditError(phoneError);
       return;
     }
-    const result = await dispatch(updateEmployee({
-      employeeId: employee.id,
-      data: { phone: editPhone, email: editEmail }
-    }));
+    setEditSaving(true);
+    const result = await dispatch(updateEmployee({ employeeId: editing.id, data: { phone: editPhone, email: editEmail } }));
+    setEditSaving(false);
     if (updateEmployee.fulfilled.match(result)) {
       toast.success(t("updatedSuccess"));
       if (company?.id) dispatch(fetchEmployees(company.id.toString()));
+      setEditing(null);
     } else {
-      toast.error((result.payload as string) || tCommon("errors.failedToUpdateEmployee"));
+      setEditError((result.payload as string) || tCommon("errors.failedToUpdateEmployee"));
     }
-    cancelEdit();
   }
 
-  async function handleDeactivate(employee: typeof employees[0]) {
+  async function handleToggleStatus(employee: Employee) {
     const isActive = employee.status.toLowerCase() === "active";
-    if (confirm(t("confirmStatusChange", {
-      action: isActive ? tCommon("actions.deactivate") : tCommon("actions.activate"),
-      name: employee.full_name,
-    }))) {
-      const result = await dispatch(deactivateEmployee({
-        employeeId: employee.id,
-        isActive: !isActive
-      }));
-      if (deactivateEmployee.fulfilled.match(result)) {
-        toast.success(t("statusChanged", {
-          name: employee.full_name,
-          status: !isActive ? t("activated") : t("deactivated"),
-        }));
-      } else {
-        toast.error((result.payload as string) || tCommon("errors.failedToUpdateEmployeeStatus"));
-      }
+    const ok = await confirm({
+      title: isActive ? t("deactivateUser") : t("activateUser"),
+      message: t("confirmStatusChange", { action: isActive ? tCommon("actions.deactivate") : tCommon("actions.activate"), name: employee.full_name }),
+      consequences: [isActive ? t("deactivateConsequence") : t("activateConsequence")],
+      confirmLabel: isActive ? t("deactivateUser") : t("activateUser"),
+      destructive: isActive,
+    });
+    if (!ok) return;
+    const result = await dispatch(deactivateEmployee({ employeeId: employee.id, isActive: !isActive }));
+    if (deactivateEmployee.fulfilled.match(result)) {
+      toast.success(t("statusChanged", { name: employee.full_name, status: !isActive ? t("activated") : t("deactivated") }));
+    } else {
+      toast.error((result.payload as string) || tCommon("errors.failedToUpdateEmployeeStatus"));
     }
+  }
+
+  const columns: DataTableColumn<Employee>[] = [
+    { key: "employee_id", header: t("employeeId"), mono: true, hideBelow: "md", cell: (e) => <span className="text-fg-muted">{e.employee_id || "—"}</span> },
+    { key: "full_name", header: t("fullName"), cell: (e) => <span className="font-medium text-fg">{e.full_name}</span> },
+    { key: "phone", header: t("phone"), hideBelow: "sm", cell: (e) => <span dir="ltr" className="text-fg-secondary">{e.phone || "—"}</span> },
+    { key: "email", header: t("email"), hideBelow: "lg", cell: (e) => <span dir="ltr" className="text-fg-secondary">{e.email || "—"}</span> },
+    { key: "department", header: t("department"), hideBelow: "lg", cell: (e) => <span className="text-fg-muted">{e.department || "—"}</span> },
+    { key: "status", header: t("status"), cell: (e) => <StatusBadge status={e.status} /> },
+  ];
+
+  const rowActions = (e: Employee): ActionMenuItem[] => {
+    const isActive = e.status.toLowerCase() === "active";
+    return [
+      { label: t("editDetails"), icon: <Pencil />, onSelect: () => startEdit(e) },
+      { label: isActive ? t("deactivateUser") : t("activateUser"), icon: <Power />, destructive: isActive, separatorBefore: true, onSelect: () => void handleToggleStatus(e) },
+    ];
+  };
+
+  if (!company) {
+    return <EmptyState title={tCommon("errors.noCompanySelected")} />;
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
-      <PageHeader label={t("label")} title={t("title")} />
+    <div className="space-y-6">
+      <PageHeader
+        title={t("title")}
+        description={isTrialUser ? t("trialInfoDescription") : t("infoDescription")}
+        actions={
+          <Button leftIcon={<UserPlus />} onClick={() => setShowAdd(true)} disabled={atEmployeeLimit} title={atEmployeeLimit ? trialHint : undefined}>
+            {t("addEmployee")}
+          </Button>
+        }
+      />
 
       {isTrialUser && (
-        <div className="alert-banner-warning">
-          {t("trialBanner", { used: employees.length, max: maxEmployees })}
+        <div role="status" className="rounded-lg border border-brand-line bg-brand-soft px-4 py-2.5 text-sm text-fg">
+          {trialHint}
         </div>
       )}
 
-      <Card className={`min-h-[500px] ${TABLE_CARD_CLASS}`}>
-        <div className={TABLE_TOP_BAR_CLASS}>
-          <div className="flex items-start justify-between gap-4 w-full">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-[var(--cort-orange)]/10 border border-[var(--cort-orange)]/20 rounded-lg text-[var(--cort-orange)]">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </div>
-              <div>
-                <div className="text-sm font-bold text-[var(--text-primary)]">
-                  {isTrialUser ? t("trialInfoTitle") : t("infoTitle")}
-                </div>
-                <div className="text-sm text-[var(--text-muted)] mt-0.5 leading-relaxed max-w-3xl">
-                  {isTrialUser ? t("trialInfoDescription") : t("infoDescription")}
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowAddEmployee(true)}
-              disabled={atEmployeeLimit}
-              title={atEmployeeLimit ? t("trialBanner", { used: employees.length, max: maxEmployees }) : undefined}
-              className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[var(--cort-orange)] px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <UserPlus className="w-4 h-4" />
-              {t("addEmployee")}
-            </button>
-          </div>
-        </div>
+      <Card>
+        <CardContent className="border-b border-line py-3">
+          <FilterBar
+            search={{
+              value: search,
+              onChange: (v) => {
+                setSearch(v);
+                setPage(1);
+              },
+              placeholder: t("searchPlaceholder"),
+            }}
+            activeCount={activeFilters}
+            onClear={clearFilters}
+          >
+            <FilterField label={t("status")}>
+              <Select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
+                placeholder={t("allStatuses")}
+                className="h-8 text-xs"
+              >
+                <option value="ACTIVE">{tCommon("status.active")}</option>
+                <option value="INACTIVE">{tCommon("status.inactive")}</option>
+              </Select>
+            </FilterField>
+          </FilterBar>
+        </CardContent>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm text-start">
-            <thead>
-              <tr className="border-b border-[var(--border-light)]">
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("employeeId")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("fullName")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("phone")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("email")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("department")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("status")}</th>
-                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("actions")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-light)]/50">
-              {loading && employees.length === 0 ? (
-                <TableSkeleton columns={7} rows={8} />
-              ) : employees.length === 0 && !loading ? (
-                <tr>
-                  <td colSpan={7} className={`${TABLE_CELL_CLASS} py-12 text-center text-[var(--text-muted)]`}>
-                    {t("noEmployees")}
-                  </td>
-                </tr>
-              ) : (
-                employees.map((e) => {
-                  const isEditing = editingId === e.id;
-                  return (
-                    <tr key={e.id} className={`group transition-colors ${isEditing ? 'bg-[var(--cort-orange)]/5' : 'hover:bg-[var(--surface-subtle)]/80'}`}>
-                      <td className={`${TABLE_CELL_CLASS} font-mono text-xs text-[var(--text-muted)]`}>{e.employee_id || "—"}</td>
-                      <td className={`${TABLE_CELL_CLASS} font-bold text-[var(--text-primary)]`}>{e.full_name}</td>
-                      <td className={TABLE_CELL_CLASS}>
-                        {isEditing ? (
-                          <TextInput
-                            type="tel"
-                            inputMode="numeric"
-                            maxLength={PHONE_MAX_LENGTH}
-                            value={editPhone}
-                            onChange={(ev) => setEditPhone(sanitizePhoneInput(ev.target.value))}
-                            placeholder={tCommon("validation.phonePlaceholder")}
-                          />
-                        ) : (
-                          <span className="text-[var(--text-secondary)] font-medium">{e.phone || "—"}</span>
-                        )}
-                      </td>
-                      <td className={TABLE_CELL_CLASS}>
-                        {isEditing ? (
-                          <TextInput
-                            value={editEmail}
-                            onChange={(ev) => setEditEmail(ev.target.value)}
-                            placeholder={t("email")}
-                          />
-                        ) : (
-                          <span className="text-[var(--text-secondary)]">{e.email || "—"}</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-[var(--text-muted)]">{e.department || "—"}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${e.status.toLowerCase() === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                          'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                          }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full me-1.5 ${e.status.toLowerCase() === 'active' ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
-                          {e.status}
-                        </span>
-                      </td>
-                      <td className={`${TABLE_CELL_CLASS} text-end`}>
-                        <div className="flex items-center justify-end gap-2">
-                          {isEditing ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => saveEdit(e)}
-                                className="inline-flex h-8 items-center justify-center rounded-lg bg-[var(--cort-orange)] px-3 text-xs font-bold text-[var(--text-primary)] shadow-sm hover:bg-[var(--cort-orange-hover)] transition-colors"
-                              >
-                                {tCommon("actions.save")}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={cancelEdit}
-                                className="inline-flex h-8 items-center justify-center rounded-lg border border-[var(--border-input)] bg-[var(--bg-subtle)] px-3 text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
-                              >
-                                {tCommon("actions.cancel")}
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => startEdit(e)}
-                                className="p-1.5 text-[var(--text-muted)] hover:text-[var(--cort-orange)] hover:bg-[var(--cort-orange)]/10 rounded-lg transition-colors"
-                                title={t("editDetails")}
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeactivate(e)}
-                                className={`p-1.5 rounded-lg transition-colors ${e.status.toLowerCase() === 'active' ? 'text-[var(--text-muted)] hover:text-rose-400 hover:bg-rose-500/10' : 'text-[var(--text-muted)] hover:text-emerald-400 hover:bg-emerald-500/10'}`}
-                                title={e.status.toLowerCase() === "active" ? t("deactivateUser") : t("activateUser")}
-                              >
-                                {e.status.toLowerCase() === "active" ? (
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-                                ) : (
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                )}
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable<Employee>
+          caption={t("title")}
+          columns={columns}
+          rows={pageRows}
+          rowKey={(e) => e.id}
+          loading={loading && employees.length === 0}
+          empty={{
+            icon: <Users aria-hidden="true" />,
+            title: activeFilters > 0 ? t("noMatches") : t("noEmployees"),
+            action:
+              activeFilters > 0 ? (
+                <Button size="sm" variant="outline" onClick={clearFilters}>
+                  {t("clearFilters")}
+                </Button>
+              ) : undefined,
+          }}
+          rowActions={rowActions}
+          pagination={{ page: safePage, totalPages, total: filtered.length, pageSize: PAGE_SIZE, onPageChange: setPage }}
+        />
       </Card>
 
-      {showAddEmployee && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-[var(--text-primary)]">
-                {employeeCreated ? t("employeeCreatedTitle") : t("addEmployee")}
-              </h2>
-              <button type="button" onClick={closeAddEmployeeModal} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* Edit details */}
+      <Dialog open={!!editing} onOpenChange={(open) => !open && !editSaving && setEditing(null)}>
+        <DialogContent
+          title={t("editDetails")}
+          description={editing?.full_name}
+          footer={
+            <>
+              <Button variant="outline" type="button" onClick={() => setEditing(null)} disabled={editSaving}>
+                {tCommon("actions.cancel")}
+              </Button>
+              <Button type="submit" form="employee-edit-form" loading={editSaving}>
+                {tCommon("actions.save")}
+              </Button>
+            </>
+          }
+        >
+          <form id="employee-edit-form" onSubmit={saveEdit} className="space-y-4">
+            <Field label={t("email")} required>
+              <Input type="email" dir="ltr" value={editEmail} onChange={(ev) => setEditEmail(ev.target.value)} required />
+            </Field>
+            <Field label={t("phone")} required hint={tCommon("validation.phoneInvalid")}>
+              <Input
+                type="tel"
+                dir="ltr"
+                inputMode="numeric"
+                maxLength={PHONE_MAX_LENGTH}
+                value={editPhone}
+                onChange={(ev) => setEditPhone(sanitizePhoneInput(ev.target.value))}
+                placeholder={tCommon("validation.phonePlaceholder")}
+                required
+              />
+            </Field>
+            {editError && <InlineError>{editError}</InlineError>}
+          </form>
+        </DialogContent>
+      </Dialog>
 
-            {employeeCreated ? (
-              <div className="space-y-5">
-                {createdCredentials ? (
-                  <AccountCredentialsReveal
-                    email={createdCredentials.email}
-                    password={createdCredentials.password}
-                    fullName={createdCredentials.full_name}
-                    subtitle={tCredentials("employeeAppSubtitle")}
-                    accountTypeKey="employee"
-                  />
-                ) : (
-                  <SaveCredentialsNote accountTypeKey="employee" />
-                )}
-                <div className="flex justify-end pt-2">
-                  <button
-                    type="button"
-                    onClick={closeAddEmployeeModal}
-                    className="bg-[var(--cort-orange)] text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm font-bold hover:bg-[var(--cort-orange-hover)] transition-colors"
-                  >
-                    {tCredentials("done")}
-                  </button>
-                </div>
-              </div>
+      {/* Add employee */}
+      <Dialog open={showAdd} onOpenChange={(open) => !open && !saving && closeAdd()}>
+        <DialogContent
+          title={created ? t("employeeCreatedTitle") : t("addEmployee")}
+          footer={
+            created ? (
+              <Button type="button" onClick={closeAdd}>
+                {tCredentials("done")}
+              </Button>
             ) : (
-              <form onSubmit={handleAddEmployee} className="space-y-4">
-                <SaveCredentialsNote accountTypeKey="employee" />
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("fullName")} *</label>
-                    <TextInput required value={employeeForm.full_name} onChange={(e) => setEmployeeForm((f) => ({ ...f, full_name: e.target.value }))} placeholder={t("namePlaceholder")} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("employeeId")}</label>
-                    <TextInput value={employeeForm.employee_id} onChange={(e) => setEmployeeForm((f) => ({ ...f, employee_id: e.target.value }))} placeholder={t("employeeIdPlaceholder")} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("department")}</label>
-                    <TextInput value={employeeForm.department} onChange={(e) => setEmployeeForm((f) => ({ ...f, department: e.target.value }))} placeholder={t("departmentPlaceholder")} />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("email")} *</label>
-                    <TextInput required type="email" value={employeeForm.email} onChange={(e) => setEmployeeForm((f) => ({ ...f, email: e.target.value }))} placeholder={t("emailPlaceholder")} />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("phone")}</label>
-                    <TextInput
-                      type="tel"
-                      inputMode="numeric"
-                      maxLength={PHONE_MAX_LENGTH}
-                      value={employeeForm.phone}
-                      onChange={(e) => setEmployeeForm((f) => ({ ...f, phone: sanitizePhoneInput(e.target.value) }))}
-                      placeholder={PHONE_PLACEHOLDER}
-                    />
-                  </div>
-                </div>
-                {employeeFormError && (
-                  <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                    {employeeFormError}
-                  </div>
-                )}
-                <div className="flex justify-end gap-3 pt-2">
-                  <button type="button" onClick={closeAddEmployeeModal} className="border border-[var(--border-light)] text-[var(--text-secondary)] px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--surface-subtle)] transition-colors">
-                    {tCommon("actions.cancel")}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={employeeSaving || !employeeForm.full_name.trim() || !employeeForm.email.trim()}
-                    className="inline-flex items-center gap-2 bg-[var(--cort-orange)] text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm font-bold hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 transition-colors"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    {employeeSaving ? t("addingEmployee") : t("addEmployee")}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>,
-        document.body,
-      )}
+              <>
+                <Button variant="outline" type="button" onClick={closeAdd} disabled={saving}>
+                  {tCommon("actions.cancel")}
+                </Button>
+                <Button type="submit" form="employee-add-form" leftIcon={<UserPlus />} loading={saving} disabled={!form.full_name.trim() || !form.email.trim()}>
+                  {t("addEmployee")}
+                </Button>
+              </>
+            )
+          }
+        >
+          {created ? (
+            createdCredentials ? (
+              <AccountCredentialsReveal
+                email={createdCredentials.email}
+                password={createdCredentials.password}
+                fullName={createdCredentials.full_name}
+                subtitle={tCredentials("employeeAppSubtitle")}
+                accountTypeKey="employee"
+              />
+            ) : (
+              <SaveCredentialsNote accountTypeKey="employee" />
+            )
+          ) : (
+            <form id="employee-add-form" onSubmit={handleAdd} className="space-y-4">
+              <SaveCredentialsNote accountTypeKey="employee" />
+              <FormGrid cols={2}>
+                <Field label={t("fullName")} required className="sm:col-span-2">
+                  <Input required value={form.full_name} onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} placeholder={t("namePlaceholder")} />
+                </Field>
+                <Field label={t("employeeId")}>
+                  <Input value={form.employee_id} onChange={(e) => setForm((f) => ({ ...f, employee_id: e.target.value }))} placeholder={t("employeeIdPlaceholder")} />
+                </Field>
+                <Field label={t("department")}>
+                  <Input value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))} placeholder={t("departmentPlaceholder")} />
+                </Field>
+                <Field label={t("email")} required className="sm:col-span-2">
+                  <Input required type="email" dir="ltr" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder={t("emailPlaceholder")} />
+                </Field>
+                <Field label={t("phone")} required className="sm:col-span-2" hint={tCommon("validation.phoneInvalid")}>
+                  <Input
+                    type="tel"
+                    dir="ltr"
+                    inputMode="numeric"
+                    maxLength={PHONE_MAX_LENGTH}
+                    value={form.phone}
+                    onChange={(e) => setForm((f) => ({ ...f, phone: sanitizePhoneInput(e.target.value) }))}
+                    placeholder={tCommon("validation.phonePlaceholder")}
+                    required
+                  />
+                </Field>
+              </FormGrid>
+              {formError && <InlineError>{formError}</InlineError>}
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

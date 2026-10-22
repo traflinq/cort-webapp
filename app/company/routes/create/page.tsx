@@ -3,609 +3,529 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Building2, MapPin, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
-import { selectCompany, fetchCompanyFeatures, selectCompanyFeatures, selectCompanyFeaturesStatus } from "../../../lib/store/slices/companySlice";
-import { useAuth } from "../../../lib/contexts/auth-context";
-import { apiClient, canServeShuttle } from "../../../lib/services/api-client";
-import { PoolDriver, PoolVehicle } from "../../../lib/services/types/multi-mode";
-import StopAddressSearch from "@/app/admin/ui/StopAddressSearch";
-import type { MapMarker, MapPolyline } from "@/app/admin/ui/Map";
+import { useAppDispatch, useAppSelector } from "@/app/lib/store/hooks";
+import { selectCompany, fetchCompanyFeatures, selectCompanyFeatures, selectCompanyFeaturesStatus } from "@/app/lib/store/slices/companySlice";
+import { useAuth } from "@/app/lib/contexts/auth-context";
+import { apiClient, canServeShuttle } from "@/app/lib/services/api-client";
+import type { PoolDriver, PoolVehicle } from "@/app/lib/services/types/multi-mode";
+import StopAddressSearch from "@/app/ui/StopAddressSearch";
+import type { MapMarker, MapPolyline } from "@/app/ui/Map";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  EmptyState,
+  Field,
+  FormGrid,
+  IconButton,
+  Input,
+  Label,
+  PageHeader,
+  PageSkeleton,
+  Select,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  usePageBreadcrumbs,
+} from "@/app/ui";
+import { useCompanyBasePath } from "../../lib/use-company-base-path";
+import { MAP_COLORS } from "../lib/map-colors";
 
-const Map = dynamic(() => import("@/app/admin/ui/Map"), { ssr: false });
+const Map = dynamic(() => import("@/app/ui/Map"), { ssr: false });
 
 type PinMode = "pickup" | "office";
 
 interface Stop {
-    id: string;
-    name: string;
-    lat: number;
-    lng: number;
-    morningEta: string;
-    eveningEta: string;
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  morningEta: string;
+  eveningEta: string;
 }
 
-const inputCls = "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm";
-const labelCls = "block text-xs font-semibold text-gray-500 mb-1";
-const cancelBtnCls = "rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50";
-const saveBtnCls = "rounded-lg bg-[#0c225e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0c225e]/90 disabled:opacity-60";
+function makeStop(name: string, lat: number, lng: number, morningEta: string, eveningEta: string): Stop {
+  return { id: crypto.randomUUID(), name, lat, lng, morningEta, eveningEta };
+}
 
-function makeStop(
-    name: string,
-    lat: number,
-    lng: number,
-    morningEta: string,
-    eveningEta: string,
-): Stop {
-    return { id: crypto.randomUUID(), name, lat, lng, morningEta, eveningEta };
+function SectionTitle({ children, extra }: { children: React.ReactNode; extra?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">{children}</h2>
+      {extra}
+    </div>
+  );
 }
 
 export default function CompanyCreateRoutePage() {
-    const router = useRouter();
-    const dispatch = useAppDispatch();
-    const company = useAppSelector(selectCompany);
-    const features = useAppSelector(selectCompanyFeatures);
-    const featuresStatus = useAppSelector(selectCompanyFeaturesStatus);
-    const { user } = useAuth();
-    const isTrialUser = !!user?.is_trial;
-    const companyId = Number(company?.id);
+  const t = useTranslations("company.routes.create");
+  const tRoutes = useTranslations("company.routes");
+  const tCommon = useTranslations("common");
+  const router = useRouter();
+  const { companyPath } = useCompanyBasePath();
+  const dispatch = useAppDispatch();
+  const company = useAppSelector(selectCompany);
+  const features = useAppSelector(selectCompanyFeatures);
+  const featuresStatus = useAppSelector(selectCompanyFeaturesStatus);
+  const { user } = useAuth();
+  const isTrialUser = !!user?.is_trial;
+  const companyId = Number(company?.id);
 
-    const canManageShuttle = isTrialUser
-        || (features.find((f) => f.feature_key === "shuttle_self_managed")?.is_enabled ?? false);
+  usePageBreadcrumbs([{ label: t("title") }]);
 
-    useEffect(() => {
-        if (companyId) dispatch(fetchCompanyFeatures(companyId));
-    }, [companyId, dispatch]);
+  const canManageShuttle = isTrialUser || (features.find((f) => f.feature_key === "shuttle_self_managed")?.is_enabled ?? false);
 
-    useEffect(() => {
-        if (!companyId || isTrialUser || featuresStatus !== "succeeded" || canManageShuttle) return;
-        router.replace("/company/routes");
-    }, [companyId, isTrialUser, featuresStatus, canManageShuttle, router]);
+  useEffect(() => {
+    if (companyId) dispatch(fetchCompanyFeatures(companyId));
+  }, [companyId, dispatch]);
 
-    const [name, setName] = useState("");
-    const [assignedVehicleId, setAssignedVehicleId] = useState("");
-    const [assignedDriverId, setAssignedDriverId] = useState("");
-    /** A route may have multiple company office stops (multi-office shuttle support). */
-    const [officeStops, setOfficeStops] = useState<Stop[]>([]);
-    const [pickupStops, setPickupStops] = useState<Stop[]>([]);
-    const [pinMode, setPinMode] = useState<PinMode>("office");
-    const [routePolyline, setRoutePolyline] = useState<[number, number][]>([]);
-    const [saving, setSaving] = useState(false);
-    const [vehicles, setVehicles] = useState<PoolVehicle[]>([]);
-    const [drivers, setDrivers] = useState<PoolDriver[]>([]);
+  useEffect(() => {
+    if (!companyId || isTrialUser || featuresStatus !== "succeeded" || canManageShuttle) return;
+    router.replace(companyPath("/company/routes"));
+  }, [companyId, isTrialUser, featuresStatus, canManageShuttle, router, companyPath]);
 
-    const polylineDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [name, setName] = useState("");
+  const [assignedVehicleId, setAssignedVehicleId] = useState("");
+  const [assignedDriverId, setAssignedDriverId] = useState("");
+  /** A route may have multiple company office stops (multi-office shuttle support). */
+  const [officeStops, setOfficeStops] = useState<Stop[]>([]);
+  const [pickupStops, setPickupStops] = useState<Stop[]>([]);
+  const [pinMode, setPinMode] = useState<PinMode>("office");
+  const [routePolyline, setRoutePolyline] = useState<[number, number][]>([]);
+  const [saving, setSaving] = useState(false);
+  const [vehicles, setVehicles] = useState<PoolVehicle[]>([]);
+  const [drivers, setDrivers] = useState<PoolDriver[]>([]);
+  const polylineDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const orderedStops = useMemo(
-        () => [...pickupStops, ...officeStops],
-        [pickupStops, officeStops],
-    );
+  /** Ordered for API: pickups first, offices last. */
+  const orderedStops = useMemo(() => [...pickupStops, ...officeStops], [pickupStops, officeStops]);
 
-    useEffect(() => {
-        if (!companyId) return;
-        apiClient.getPoolVehicles(companyId).then((r) => setVehicles(r.data)).catch(() => {});
-        apiClient.getPoolDrivers(companyId).then((r) => {
-            setDrivers(r.data.filter((d) => canServeShuttle(d.driver_type)));
-        }).catch(() => {});
-    }, [companyId]);
+  useEffect(() => {
+    if (!companyId) return;
+    apiClient
+      .getPoolVehicles(companyId)
+      .then((r) => setVehicles(r.data))
+      .catch(() => toast.error(tRoutes("failedLoadFleetOptions")));
+    apiClient
+      .getPoolDrivers(companyId)
+      .then((r) => setDrivers(r.data.filter((d) => canServeShuttle(d.driver_type))))
+      .catch(() => toast.error(tRoutes("failedLoadFleetOptions")));
+  }, [companyId, tRoutes]);
 
-    const fetchPreviewPolyline = useCallback(async (currentStops: Stop[]) => {
-        if (currentStops.length < 2) {
-            setRoutePolyline([]);
-            return;
-        }
-        try {
-            const data = await apiClient.previewCompanyRoutePolyline(
-                currentStops.map((s) => ({ lat: s.lat, lng: s.lng })),
-            );
-            setRoutePolyline(data.points.map((p) => [p.lat, p.lng] as [number, number]));
-        } catch {
-            setRoutePolyline(currentStops.map((s) => [s.lat, s.lng] as [number, number]));
-        }
-    }, []);
-
-    const schedulePolylineUpdate = useCallback(
-        (updatedStops: Stop[]) => {
-            if (polylineDebounceRef.current) clearTimeout(polylineDebounceRef.current);
-            polylineDebounceRef.current = setTimeout(() => fetchPreviewPolyline(updatedStops), 600);
-        },
-        [fetchPreviewPolyline],
-    );
-
-    const applyOffice = useCallback((stop: Stop) => {
-        setOfficeStops((prev) => {
-            const next = [...prev, stop];
-            schedulePolylineUpdate([...pickupStops, ...next]);
-            return next;
-        });
-        toast.success("Company office added");
-    }, [pickupStops, schedulePolylineUpdate]);
-
-    const applyPickup = useCallback((stop: Stop) => {
-        setPickupStops((prev) => {
-            const updated = [...prev, stop];
-            schedulePolylineUpdate([...updated, ...officeStops]);
-            return updated;
-        });
-        toast.success(`Pickup "${stop.name}" added`);
-    }, [officeStops, schedulePolylineUpdate]);
-
-    const handleAddressSelect = useCallback(
-        ({ name: stopName, lat, lng }: { name: string; lat: number; lng: number }) => {
-            if (pinMode === "office") {
-                applyOffice(makeStop(stopName, lat, lng, "09:00", "18:00"));
-            } else {
-                applyPickup(makeStop(stopName, lat, lng, "08:00", "18:30"));
-            }
-        },
-        [pinMode, applyOffice, applyPickup],
-    );
-
-    const handleMapClick = useCallback(
-        (lat: number, lng: number) => {
-            if (pinMode === "office") {
-                applyOffice(makeStop(`Office ${officeStops.length + 1}`, lat, lng, "09:00", "18:00"));
-            } else {
-                applyPickup(makeStop(`Pickup ${pickupStops.length + 1}`, lat, lng, "08:00", "18:30"));
-            }
-        },
-        [pinMode, pickupStops.length, officeStops.length, applyOffice, applyPickup],
-    );
-
-    const handleRemovePickup = (id: string) => {
-        setPickupStops((prev) => {
-            const updated = prev.filter((s) => s.id !== id);
-            schedulePolylineUpdate([...updated, ...officeStops]);
-            return updated;
-        });
-    };
-
-    const handleRemoveOffice = (id: string) => {
-        setOfficeStops((prev) => {
-            const updated = prev.filter((s) => s.id !== id);
-            schedulePolylineUpdate([...pickupStops, ...updated]);
-            return updated;
-        });
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!companyId) {
-            toast.error("Company not loaded");
-            return;
-        }
-        if (!name.trim()) {
-            toast.error("Route name is required");
-            return;
-        }
-        if (officeStops.length < 1) {
-            toast.error("Set at least one company office — it is required");
-            return;
-        }
-        if (pickupStops.length < 1) {
-            toast.error("Add at least one employee pickup stop");
-            return;
-        }
-        setSaving(true);
-        try {
-            await apiClient.createCompanyRoute({
-                name: name.trim(),
-                company_id: companyId,
-                assigned_vehicle_id: assignedVehicleId ? Number(assignedVehicleId) : undefined,
-                assigned_driver_id: assignedDriverId || undefined,
-                stops: [
-                    ...pickupStops.map((stop, index) => ({
-                        name: stop.name,
-                        lat: stop.lat,
-                        lng: stop.lng,
-                        morning_eta: stop.morningEta,
-                        evening_eta: stop.eveningEta,
-                        sequence_order: index + 1,
-                        stop_type: "PICKUP" as const,
-                    })),
-                    ...officeStops.map((stop, index) => ({
-                        name: stop.name,
-                        lat: stop.lat,
-                        lng: stop.lng,
-                        morning_eta: stop.morningEta,
-                        evening_eta: stop.eveningEta,
-                        sequence_order: pickupStops.length + index + 1,
-                        stop_type: "OFFICE" as const,
-                    })),
-                ],
-            });
-            toast.success("Route created successfully!");
-            router.push("/company/routes");
-        } catch (err: unknown) {
-            toast.error(err instanceof Error ? err.message : "Failed to create route");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const mapMarkers: MapMarker[] = [
-        ...pickupStops.map((s, index) => ({
-            id: s.id,
-            position: [s.lat, s.lng] as [number, number],
-            label: `${index + 1}. ${s.name}`,
-            color: "#6366f1",
-        })),
-        ...officeStops.map((s) => ({
-            id: s.id,
-            position: [s.lat, s.lng] as [number, number],
-            label: `Office · ${s.name}`,
-            color: "#ef4444",
-        })),
-    ];
-
-    const mapPolylines: MapPolyline[] =
-        routePolyline.length >= 2
-            ? [{ positions: routePolyline, color: "#0C225E" }]
-            : orderedStops.length > 1
-            ? [{ positions: orderedStops.map((s) => [s.lat, s.lng] as [number, number]), color: "#2563eb" }]
-            : [];
-
-    const mapCenter: [number, number] | undefined = officeStops[0]
-        ? [officeStops[0].lat, officeStops[0].lng]
-        : pickupStops[0]
-        ? [pickupStops[0].lat, pickupStops[0].lng]
-        : undefined;
-
-    if (!company?.services_enabled?.shuttle_enabled) {
-        return (
-            <div className="p-6 text-center text-sm text-gray-500">
-                Shuttle service is not enabled for your company.
-            </div>
-        );
+  const fetchPreviewPolyline = useCallback(async (currentStops: Stop[]) => {
+    if (currentStops.length < 2) {
+      setRoutePolyline([]);
+      return;
     }
-
-    if (!canManageShuttle) {
-        if (featuresStatus === "loading" || featuresStatus === "idle") {
-            return (
-                <div className="p-6 text-center text-sm text-gray-500">
-                    Loading…
-                </div>
-            );
-        }
-        return (
-            <div className="p-6 text-center text-sm text-gray-500">
-                Route creation is not available for your account. Contact Traflinq to enable self-managed shuttle.
-            </div>
-        );
+    try {
+      const data = await apiClient.previewCompanyRoutePolyline(currentStops.map((s) => ({ lat: s.lat, lng: s.lng })));
+      setRoutePolyline(data.points.map((p) => [p.lat, p.lng] as [number, number]));
+    } catch {
+      setRoutePolyline(currentStops.map((s) => [s.lat, s.lng] as [number, number]));
     }
+  }, []);
 
+  const schedulePolylineUpdate = useCallback(
+    (updatedStops: Stop[]) => {
+      if (polylineDebounceRef.current) clearTimeout(polylineDebounceRef.current);
+      polylineDebounceRef.current = setTimeout(() => fetchPreviewPolyline(updatedStops), 600);
+    },
+    [fetchPreviewPolyline],
+  );
+
+  const applyOffice = useCallback(
+    (stop: Stop) => {
+      setOfficeStops((prev) => {
+        const next = [...prev, stop];
+        schedulePolylineUpdate([...pickupStops, ...next]);
+        return next;
+      });
+      toast.success(t("officeAdded"));
+    },
+    [pickupStops, schedulePolylineUpdate, t],
+  );
+
+  const applyPickup = useCallback(
+    (stop: Stop) => {
+      setPickupStops((prev) => {
+        const updated = [...prev, stop];
+        schedulePolylineUpdate([...updated, ...officeStops]);
+        return updated;
+      });
+      toast.success(t("pickupAdded", { name: stop.name }));
+    },
+    [officeStops, schedulePolylineUpdate, t],
+  );
+
+  const handleAddressSelect = useCallback(
+    ({ name: stopName, lat, lng }: { name: string; lat: number; lng: number }) => {
+      if (pinMode === "office") applyOffice(makeStop(stopName, lat, lng, "09:00", "18:00"));
+      else applyPickup(makeStop(stopName, lat, lng, "08:00", "18:30"));
+    },
+    [pinMode, applyOffice, applyPickup],
+  );
+
+  const handleMapClick = useCallback(
+    (lat: number, lng: number) => {
+      if (pinMode === "office") applyOffice(makeStop(t("defaultOfficeName", { n: officeStops.length + 1 }), lat, lng, "09:00", "18:00"));
+      else applyPickup(makeStop(t("defaultPickupName", { n: pickupStops.length + 1 }), lat, lng, "08:00", "18:30"));
+    },
+    [pinMode, pickupStops.length, officeStops.length, applyOffice, applyPickup, t],
+  );
+
+  const handleRemovePickup = useCallback(
+    (id: string) => {
+      setPickupStops((prev) => {
+        const updated = prev.filter((s) => s.id !== id);
+        schedulePolylineUpdate([...updated, ...officeStops]);
+        return updated;
+      });
+    },
+    [officeStops, schedulePolylineUpdate],
+  );
+
+  const handleRemoveOffice = useCallback(
+    (id: string) => {
+      setOfficeStops((prev) => {
+        const updated = prev.filter((s) => s.id !== id);
+        schedulePolylineUpdate([...pickupStops, ...updated]);
+        return updated;
+      });
+    },
+    [pickupStops, schedulePolylineUpdate],
+  );
+
+  const handlePickupChange = useCallback((id: string, field: keyof Stop, value: string) => {
+    setPickupStops((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
+  }, []);
+
+  const handleOfficeChange = useCallback((id: string, field: keyof Stop, value: string) => {
+    setOfficeStops((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
+  }, []);
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!companyId) {
+      toast.error(tCommon("errors.noCompanyData"));
+      return;
+    }
+    if (!name.trim()) {
+      toast.error(tRoutes("routeNameRequired"));
+      return;
+    }
+    if (officeStops.length < 1) {
+      toast.error(t("officeRequired"));
+      return;
+    }
+    if (pickupStops.length < 1) {
+      toast.error(t("pickupRequired"));
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiClient.createCompanyRoute({
+        name: name.trim(),
+        company_id: companyId,
+        assigned_vehicle_id: assignedVehicleId ? Number(assignedVehicleId) : undefined,
+        assigned_driver_id: assignedDriverId || undefined,
+        stops: [
+          ...pickupStops.map((stop, index) => ({
+            name: stop.name,
+            lat: stop.lat,
+            lng: stop.lng,
+            morning_eta: stop.morningEta,
+            evening_eta: stop.eveningEta,
+            sequence_order: index + 1,
+            stop_type: "PICKUP" as const,
+          })),
+          ...officeStops.map((stop, index) => ({
+            name: stop.name,
+            lat: stop.lat,
+            lng: stop.lng,
+            morning_eta: stop.morningEta,
+            evening_eta: stop.eveningEta,
+            sequence_order: pickupStops.length + index + 1,
+            stop_type: "OFFICE" as const,
+          })),
+        ],
+      });
+      toast.success(t("created"));
+      router.push(companyPath("/company/routes"));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : t("createFailed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const mapMarkers: MapMarker[] = [
+    ...pickupStops.map((s, index) => ({ id: s.id, position: [s.lat, s.lng] as [number, number], label: `${index + 1}. ${s.name}`, color: MAP_COLORS.pickup })),
+    ...officeStops.map((s) => ({ id: s.id, position: [s.lat, s.lng] as [number, number], label: `${tRoutes("office")} · ${s.name}`, color: MAP_COLORS.office })),
+  ];
+
+  const mapPolylines: MapPolyline[] =
+    routePolyline.length >= 2
+      ? [{ positions: routePolyline, color: MAP_COLORS.route }]
+      : orderedStops.length > 1
+        ? [{ positions: orderedStops.map((s) => [s.lat, s.lng] as [number, number]), color: MAP_COLORS.fallback, dashArray: "6 6" }]
+        : [];
+
+  const mapCenter: [number, number] | undefined = officeStops[0]
+    ? [officeStops[0].lat, officeStops[0].lng]
+    : pickupStops[0]
+      ? [pickupStops[0].lat, pickupStops[0].lng]
+      : undefined;
+
+  if (!company?.services_enabled?.shuttle_enabled) {
     return (
-        <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col p-6 max-w-[1600px] mx-auto">
-            <div className="flex justify-between items-center shrink-0">
-                <div>
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">Create Shuttle Route</h1>
-                    <p className="text-sm text-[var(--text-muted)] mt-1">
-                        Add one company office, or more if this route serves multiple offices.
-                    </p>
-                </div>
-                <div className="flex gap-2">
-                    <button type="button" onClick={() => router.back()} className={cancelBtnCls}>Cancel</button>
-                    <button type="button" onClick={handleSubmit} disabled={saving} className={saveBtnCls}>
-                        {saving ? "Saving…" : "Save Route"}
-                    </button>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-default)] p-4 flex flex-col gap-4 overflow-y-auto">
-                    <div>
-                        <label className={labelCls}>Route name *</label>
-                        <input required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="e.g. Gulshan — Office" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                        <div>
-                            <label className={labelCls}>Vehicle</label>
-                            <select className={inputCls} value={assignedVehicleId} onChange={(e) => setAssignedVehicleId(e.target.value)}>
-                                <option value="">Select…</option>
-                                {vehicles.map((v) => (
-                                    <option key={v.id} value={v.id}>{v.plate_number}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className={labelCls}>Driver</label>
-                            <select className={inputCls} value={assignedDriverId} onChange={(e) => setAssignedDriverId(e.target.value)}>
-                                <option value="">Select…</option>
-                                {drivers.map((d) => (
-                                    <option key={d.user_id} value={d.user_id}>{d.users?.full_name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Pin mode */}
-                    <div className="flex rounded-lg border border-gray-200 p-0.5 bg-gray-50">
-                        <button
-                            type="button"
-                            onClick={() => setPinMode("office")}
-                            className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-semibold transition-colors ${
-                                pinMode === "office"
-                                    ? "bg-red-500 text-white shadow-sm"
-                                    : "text-gray-600 hover:bg-white"
-                            }`}
-                        >
-                            <Building2 className="w-3.5 h-3.5" />
-                            Set office
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setPinMode("pickup")}
-                            className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-semibold transition-colors ${
-                                pinMode === "pickup"
-                                    ? "bg-indigo-600 text-white shadow-sm"
-                                    : "text-gray-600 hover:bg-white"
-                            }`}
-                        >
-                            <MapPin className="w-3.5 h-3.5" />
-                            Add pickup
-                        </button>
-                    </div>
-
-                    <div>
-                        <label className={labelCls}>
-                            {pinMode === "office" ? "Search company office address" : "Search employee pickup"}
-                        </label>
-                        <StopAddressSearch
-                            onSelect={handleAddressSelect}
-                            placeholder={
-                                pinMode === "office"
-                                    ? "Search office / HQ address…"
-                                    : "Search pickup location…"
-                            }
-                            clearOnSelect
-                        />
-                        <p className="text-xs text-gray-400 mt-1.5">
-                            Or click the map to pin the {pinMode === "office" ? "office" : "pickup"}.
-                        </p>
-                    </div>
-
-                    {/* Office — prominent */}
-                    <section>
-                        <div className="flex items-center gap-2 mb-2">
-                            <Building2 className="w-4 h-4 text-red-500" />
-                            <h3 className="font-semibold text-sm text-red-700">
-                                Company Office{officeStops.length !== 1 ? "s" : ""}
-                                {officeStops.length > 0 && (
-                                    <span className="ml-1.5 text-xs text-red-400 font-normal">({officeStops.length})</span>
-                                )}
-                            </h3>
-                            <span className="text-[10px] font-bold uppercase tracking-wide bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
-                                At least 1 required
-                            </span>
-                        </div>
-
-                        {officeStops.length === 0 ? (
-                            <div className="rounded-xl border-2 border-dashed border-red-200 bg-red-50/50 p-4 text-center">
-                                <Building2 className="w-8 h-8 text-red-300 mx-auto mb-2" />
-                                <p className="text-sm font-medium text-red-800">No office set yet</p>
-                                <p className="text-xs text-red-600/80 mt-1">
-                                    Switch to <strong>Set office</strong>, then search or click the map.
-                                </p>
-                                <p className="text-[11px] text-red-500 mt-2">
-                                    Add one office, or more if this route serves multiple offices.
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {officeStops.map((stop) => (
-                                    <div key={stop.id} className="rounded-xl border-2 border-red-300 bg-red-50 p-3 shadow-sm">
-                                        <div className="flex items-start gap-2 mb-2">
-                                            <span className="w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0">
-                                                <Building2 className="w-3.5 h-3.5" />
-                                            </span>
-                                            <div className="flex-1 min-w-0">
-                                                <input
-                                                    className={`${inputCls} font-semibold`}
-                                                    value={stop.name}
-                                                    onChange={(e) =>
-                                                        setOfficeStops((prev) =>
-                                                            prev.map((s) =>
-                                                                s.id === stop.id ? { ...s, name: e.target.value } : s,
-                                                            ),
-                                                        )
-                                                    }
-                                                />
-                                                <div className="flex flex-wrap gap-1.5 mt-2">
-                                                    <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
-                                                        Office stop
-                                                    </span>
-                                                    <span className="text-[10px] font-bold uppercase tracking-wide bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded">
-                                                        No employee assignment
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRemoveOffice(stop.id)}
-                                                className="p-1 text-red-500"
-                                                title="Remove office"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2 mt-1 pl-9">
-                                            <div>
-                                                <label className="text-[10px] text-red-700/70">AM arrival</label>
-                                                <input
-                                                    type="time"
-                                                    className={inputCls}
-                                                    value={stop.morningEta}
-                                                    onChange={(e) =>
-                                                        setOfficeStops((prev) =>
-                                                            prev.map((s) =>
-                                                                s.id === stop.id ? { ...s, morningEta: e.target.value } : s,
-                                                            ),
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] text-red-700/70">PM departure</label>
-                                                <input
-                                                    type="time"
-                                                    className={inputCls}
-                                                    value={stop.eveningEta}
-                                                    onChange={(e) =>
-                                                        setOfficeStops((prev) =>
-                                                            prev.map((s) =>
-                                                                s.id === stop.id ? { ...s, eveningEta: e.target.value } : s,
-                                                            ),
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-
-                    {/* Pickups */}
-                    <section>
-                        <div className="flex items-center gap-2 mb-2">
-                            <MapPin className="w-4 h-4 text-indigo-500" />
-                            <h3 className="font-semibold text-sm">
-                                Employee pickups
-                                <span className="ml-1.5 text-xs text-gray-400 font-normal">
-                                    ({pickupStops.length})
-                                </span>
-                            </h3>
-                        </div>
-
-                        {pickupStops.length === 0 ? (
-                            <p className="text-sm text-gray-400 italic text-center py-4 border border-dashed border-gray-200 rounded-lg">
-                                No pickups yet — use <strong>Add pickup</strong> or the map.
-                            </p>
-                        ) : (
-                            <div className="space-y-2">
-                                {pickupStops.map((stop, index) => (
-                                    <div
-                                        key={stop.id}
-                                        className="flex items-start gap-2 rounded-lg border border-[var(--border-light)] p-2 bg-gray-50"
-                                    >
-                                        <span className="w-6 h-6 mt-1 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 bg-indigo-500">
-                                            {index + 1}
-                                        </span>
-                                        <div className="flex-1 min-w-0">
-                                            <input
-                                                className={inputCls}
-                                                value={stop.name}
-                                                onChange={(e) =>
-                                                    setPickupStops((prev) =>
-                                                        prev.map((s) =>
-                                                            s.id === stop.id
-                                                                ? { ...s, name: e.target.value }
-                                                                : s,
-                                                        ),
-                                                    )
-                                                }
-                                            />
-                                            <div className="grid grid-cols-2 gap-1 mt-1">
-                                                <div>
-                                                    <label className="text-[10px] text-gray-500">AM pickup</label>
-                                                    <input
-                                                        type="time"
-                                                        className={inputCls}
-                                                        value={stop.morningEta}
-                                                        onChange={(e) =>
-                                                            setPickupStops((prev) =>
-                                                                prev.map((s) =>
-                                                                    s.id === stop.id
-                                                                        ? { ...s, morningEta: e.target.value }
-                                                                        : s,
-                                                                ),
-                                                            )
-                                                        }
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="text-[10px] text-gray-500">PM dropoff</label>
-                                                    <input
-                                                        type="time"
-                                                        className={inputCls}
-                                                        value={stop.eveningEta}
-                                                        onChange={(e) =>
-                                                            setPickupStops((prev) =>
-                                                                prev.map((s) =>
-                                                                    s.id === stop.id
-                                                                        ? { ...s, eveningEta: e.target.value }
-                                                                        : s,
-                                                                ),
-                                                            )
-                                                        }
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleRemovePickup(stop.id)}
-                                            className="p-1 text-red-500"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-
-                    {officeStops.length > 0 && pickupStops.length > 0 && (
-                        <section className="rounded-lg border border-gray-200 bg-white p-3 text-xs space-y-2">
-                            <p className="font-semibold text-gray-700">Route order on save</p>
-                            <div>
-                                <span className="font-bold text-amber-700">Morning → </span>
-                                <span className="text-gray-600">
-                                    {pickupStops.map((s) => s.name).join(" → ")}
-                                    {" → "}
-                                    <span className="font-semibold text-red-600">
-                                        {officeStops.map((s) => s.name).join(", ")}
-                                    </span>
-                                </span>
-                            </div>
-                            <div>
-                                <span className="font-bold text-violet-700">Evening → </span>
-                                <span className="text-gray-600">
-                                    <span className="font-semibold text-red-600">
-                                        {officeStops.map((s) => s.name).join(", ")}
-                                    </span>
-                                    {" → "}
-                                    {[...pickupStops].reverse().map((s) => s.name).join(" → ")}
-                                </span>
-                            </div>
-                            <p className="text-[10px] text-gray-400">
-                                Pickup order is auto-optimized on save; evening is the reverse of morning.
-                                {officeStops.length > 1 && " Multiple offices are placed after pickups — adjust exact positions from Manage Stops after creating the route."}
-                            </p>
-                        </section>
-                    )}
-                </div>
-
-                <div className="lg:col-span-2 rounded-xl border border-[var(--border-default)] overflow-hidden min-h-[400px] relative">
-                    <div className="absolute top-3 left-3 z-[500] flex gap-2 pointer-events-none">
-                        <span className="bg-white/95 border border-red-200 text-red-700 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shadow-sm flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-red-500" /> Office
-                        </span>
-                        <span className="bg-white/95 border border-indigo-200 text-indigo-700 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shadow-sm flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-indigo-500" /> Pickups
-                        </span>
-                    </div>
-                    <Map
-                        markers={mapMarkers}
-                        polylines={mapPolylines}
-                        onMapClick={handleMapClick}
-                        center={mapCenter}
-                        height="100%"
-                    />
-                </div>
-            </div>
-        </div>
+      <Card>
+        <EmptyState title={tRoutes("shuttleDisabled")} description={tRoutes("shuttleDisabledDescription")} />
+      </Card>
     );
+  }
+
+  if (!canManageShuttle) {
+    if (featuresStatus === "loading" || featuresStatus === "idle") return <PageSkeleton />;
+    return (
+      <Card>
+        <EmptyState title={t("notAvailable")} description={t("notAvailableDescription")} />
+      </Card>
+    );
+  }
+
+  const missing: string[] = [];
+  if (!name.trim()) missing.push(t("missing.name"));
+  if (officeStops.length === 0) missing.push(t("missing.office"));
+  if (pickupStops.length < 1) missing.push(t("missing.pickup"));
+  const canSave = missing.length === 0;
+
+  const driverOptions = drivers.map((d) => (
+    <option key={d.user_id} value={d.user_id}>
+      {d.users?.full_name}
+      {d.users?.phone ? ` · ${d.users.phone}` : ""}
+    </option>
+  ));
+  const vehicleOptions = vehicles.map((v) => (
+    <option key={v.id} value={v.id}>
+      {v.plate_number}
+      {v.model ? ` · ${v.model}` : ""}
+    </option>
+  ));
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <PageHeader
+        back={{ href: companyPath("/company/routes"), label: tRoutes("backToRoutes") }}
+        title={t("title")}
+        description={t("description")}
+        actions={
+          <>
+            <Button type="button" variant="outline" onClick={() => router.push(companyPath("/company/routes"))} disabled={saving}>
+              {tCommon("actions.cancel")}
+            </Button>
+            <Button type="submit" disabled={!canSave} loading={saving}>
+              {t("save")}
+            </Button>
+          </>
+        }
+        meta={
+          !canSave ? (
+            <>
+              <span className="text-xs text-fg-muted">{t("stillNeed")}</span>
+              {missing.map((item) => (
+                <Badge key={item} tone="warning" size="sm">
+                  {item}
+                </Badge>
+              ))}
+            </>
+          ) : (
+            <Badge tone="success" size="sm" dot>
+              {t("readyToSave")}
+            </Badge>
+          )
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+        <Card className="lg:order-1">
+          <CardContent className="space-y-6">
+            <section className="space-y-3">
+              <SectionTitle>{t("sections.name")}</SectionTitle>
+              <Field label={tRoutes("routeName")} required>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("namePlaceholder")} />
+              </Field>
+            </section>
+
+            <section className="space-y-3">
+              <SectionTitle>{t("sections.addStops")}</SectionTitle>
+              <Tabs value={pinMode} onValueChange={(v) => setPinMode(v as PinMode)}>
+                <TabsList variant="pills" className="w-full" aria-label={t("pinModeLabel")}>
+                  <TabsTrigger value="office" icon={<Building2 />} className="flex-1 justify-center">
+                    {t("setOffice")}
+                  </TabsTrigger>
+                  <TabsTrigger value="pickup" icon={<MapPin />} className="flex-1 justify-center">
+                    {t("addPickup")}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <div className="flex flex-col gap-1.5">
+                <Label>{pinMode === "office" ? t("searchOffice") : t("searchPickup")}</Label>
+                <StopAddressSearch
+                  onSelect={handleAddressSelect}
+                  placeholder={pinMode === "office" ? t("searchOfficePlaceholder") : t("searchPickupPlaceholder")}
+                  clearOnSelect
+                />
+                <p className="text-xs text-fg-muted">{pinMode === "office" ? t("clickMapOffice") : t("clickMapPickup")}</p>
+              </div>
+            </section>
+
+            <section className="space-y-2">
+              <SectionTitle
+                extra={
+                  <Badge tone="warning" size="sm">
+                    {t("atLeastOneRequired")}
+                  </Badge>
+                }
+              >
+                {t("sections.offices", { count: officeStops.length })}
+              </SectionTitle>
+              {officeStops.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-line bg-subtle p-4 text-center">
+                  <p className="text-sm font-medium text-fg">{t("noOfficeYet")}</p>
+                  <p className="mt-1 text-xs text-fg-muted">{t("noOfficeHint")}</p>
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {officeStops.map((stop) => (
+                    <li key={stop.id} className="rounded-lg border border-brand-line bg-brand-soft/40 p-3">
+                      <div className="mb-2 flex items-start gap-2">
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand text-white" aria-hidden="true">
+                          <Building2 className="size-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <Field label={t("officeName")}>
+                            <Input value={stop.name} onChange={(e) => handleOfficeChange(stop.id, "name", e.target.value)} className="h-8 font-medium" />
+                          </Field>
+                          <p className="mt-1 text-[11px] text-fg-muted">{t("officeBoardingNote")}</p>
+                        </div>
+                        <IconButton label={t("removeOffice", { name: stop.name })} size="icon-sm" variant="ghost" onClick={() => handleRemoveOffice(stop.id)}>
+                          <Trash2 />
+                        </IconButton>
+                      </div>
+                      <FormGrid cols={2} className="gap-2 ps-10">
+                        <Field label={t("morningArrival")}>
+                          <Input type="time" value={stop.morningEta} onChange={(e) => handleOfficeChange(stop.id, "morningEta", e.target.value)} className="h-8" />
+                        </Field>
+                        <Field label={t("eveningDeparture")}>
+                          <Input type="time" value={stop.eveningEta} onChange={(e) => handleOfficeChange(stop.id, "eveningEta", e.target.value)} className="h-8" />
+                        </Field>
+                      </FormGrid>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="space-y-2">
+              <SectionTitle>{t("sections.pickups", { count: pickupStops.length })}</SectionTitle>
+              {pickupStops.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-line py-6 text-center text-sm text-fg-muted">{t("noPickupsYet")}</p>
+              ) : (
+                <ul className="space-y-2">
+                  {pickupStops.map((stop, index) => (
+                    <li key={stop.id} className="rounded-lg border border-line bg-subtle p-3">
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-info text-xs font-semibold text-white" aria-hidden="true">
+                          {index + 1}
+                        </span>
+                        <Input
+                          aria-label={t("pickupNameLabel", { n: index + 1 })}
+                          value={stop.name}
+                          onChange={(e) => handlePickupChange(stop.id, "name", e.target.value)}
+                          className="h-8 flex-1"
+                        />
+                        <IconButton label={t("removePickup", { name: stop.name })} size="icon-sm" variant="ghost" onClick={() => handleRemovePickup(stop.id)}>
+                          <Trash2 />
+                        </IconButton>
+                      </div>
+                      <FormGrid cols={2} className="gap-2 ps-8">
+                        <Field label={t("morningTime")}>
+                          <Input type="time" value={stop.morningEta} onChange={(e) => handlePickupChange(stop.id, "morningEta", e.target.value)} className="h-8" />
+                        </Field>
+                        <Field label={t("eveningTime")}>
+                          <Input type="time" value={stop.eveningEta} onChange={(e) => handlePickupChange(stop.id, "eveningEta", e.target.value)} className="h-8" />
+                        </Field>
+                      </FormGrid>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="space-y-3">
+              <div>
+                <SectionTitle>{t("sections.fleet")}</SectionTitle>
+                <p className="mt-0.5 text-xs text-fg-muted">{t("fleetHint")}</p>
+              </div>
+              <FormGrid cols={2} className="gap-3">
+                <Field label={tRoutes("driver")}>
+                  <Select placeholder={tRoutes("noneUnassigned")} value={assignedDriverId} onChange={(e) => setAssignedDriverId(e.target.value)}>
+                    {driverOptions}
+                  </Select>
+                </Field>
+                <Field label={tRoutes("vehicle")}>
+                  <Select placeholder={tRoutes("noneUnassigned")} value={assignedVehicleId} onChange={(e) => setAssignedVehicleId(e.target.value)}>
+                    {vehicleOptions}
+                  </Select>
+                </Field>
+              </FormGrid>
+            </section>
+
+            {officeStops.length > 0 && pickupStops.length > 0 && (
+              <section className="rounded-lg border border-line bg-subtle p-3 text-xs text-fg-secondary">
+                <p className="mb-2 font-semibold text-fg">{t("orderOnSave")}</p>
+                <p>
+                  <span className="font-medium">{tRoutes("morning")} → </span>
+                  {pickupStops.map((s) => s.name).join(" → ")} → {officeStops.map((s) => s.name).join(", ")}
+                </p>
+                <p className="mt-1">
+                  <span className="font-medium">{tRoutes("evening")} → </span>
+                  {officeStops.map((s) => s.name).join(", ")} → {[...pickupStops].reverse().map((s) => s.name).join(" → ")}
+                </p>
+                <p className="mt-2 text-fg-muted">
+                  {t("orderHint")}
+                  {officeStops.length > 1 && ` ${t("multiOfficeHint")}`}
+                </p>
+              </section>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden lg:sticky lg:top-20 lg:order-2 lg:col-span-2">
+          <CardHeader
+            title={t("map")}
+            description={orderedStops.length >= 2 ? t("mapRoadFollowing") : t("mapClickToPin")}
+            actions={
+              <ul className="flex items-center gap-3 text-[11px] font-medium text-fg-secondary" aria-label={t("mapLegend")}>
+                <li className="inline-flex items-center gap-1.5">
+                  <span className="size-2.5 rounded-full" style={{ backgroundColor: MAP_COLORS.office }} aria-hidden="true" /> {tRoutes("office")}
+                </li>
+                <li className="inline-flex items-center gap-1.5">
+                  <span className="size-2.5 rounded-full" style={{ backgroundColor: MAP_COLORS.pickup }} aria-hidden="true" /> {t("pickups")}
+                </li>
+              </ul>
+            }
+          />
+          <div className="h-[320px] sm:h-[420px] lg:h-[calc(100vh-16rem)] lg:min-h-[420px]">
+            <Map height="100%" onMapClick={handleMapClick} markers={mapMarkers} polylines={mapPolylines} center={mapCenter} />
+          </div>
+        </Card>
+      </div>
+    </form>
+  );
 }
