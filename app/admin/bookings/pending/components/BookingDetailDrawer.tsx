@@ -306,6 +306,7 @@ export function BookingDetailDrawer({
                         placeholder="Search by plate, make or model…"
                         emptyMessage="No vehicles match your search."
                         disabled={availableCars.length === 0}
+                        placement="top"
                       />
                       {availableCars.length === 0 && <p className="text-xs text-fg-muted">No available vehicles found.</p>}
                     </div>
