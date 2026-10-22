@@ -3,6 +3,8 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import Fuse from "fuse.js";
 import { ChevronDown, Search, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { inputBase } from "../admin/ui/styles";
 
 export type SearchableSelectOption = {
   value: string;
@@ -124,7 +126,7 @@ export function SearchableSelect({
   return (
     <div ref={wrapperRef} className={`relative w-full ${className ?? ""}`}>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-muted" />
         <input
           ref={inputRef}
           type="text"
@@ -139,7 +141,7 @@ export function SearchableSelect({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          className="h-10 w-full rounded-md border border-border bg-white py-2 pl-9 pr-16 text-sm outline-none focus:ring-2 focus:ring-blue/40 disabled:cursor-not-allowed disabled:opacity-50"
+          className={cn(inputBase, "h-10 pl-9 pr-16")}
         />
         <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
           {value && !disabled && (
@@ -147,23 +149,23 @@ export function SearchableSelect({
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={handleClear}
-              className="rounded p-0.5 text-muted hover:bg-surface hover:text-ink"
+              className="rounded p-0.5 text-fg-muted hover:bg-subtle hover:text-fg"
               aria-label="Clear selection"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
           <ChevronDown
-            className={`h-4 w-4 text-muted transition-transform ${isOpen ? "rotate-180" : ""}`}
+            className={`h-4 w-4 text-fg-muted transition-transform ${isOpen ? "rotate-180" : ""}`}
           />
         </div>
       </div>
 
       {isOpen && !disabled && (
-        <div className={`absolute left-0 z-50 max-h-60 w-full overflow-hidden rounded-md border border-border bg-white shadow-lg ${placement === "top" ? "bottom-full mb-1" : "top-full mt-1"}`}>
+        <div className={`absolute left-0 z-50 max-h-60 w-full overflow-hidden rounded-lg border border-line bg-card text-fg shadow-lg ${placement === "top" ? "bottom-full mb-1" : "top-full mt-1"}`}>
           <ul className="max-h-60 overflow-y-auto py-1">
             {filteredOptions.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-muted">{emptyMessage}</li>
+              <li className="px-3 py-2 text-sm text-fg-muted">{emptyMessage}</li>
             ) : (
               filteredOptions.map((opt, index) => (
                 <li
@@ -173,10 +175,10 @@ export function SearchableSelect({
                   onMouseEnter={() => setHighlightedIndex(index)}
                   className={`cursor-pointer px-3 py-2 text-sm transition-colors ${
                     opt.value === value
-                      ? "bg-blue/10 text-blue font-medium"
+                      ? "bg-brand-soft text-brand-ink font-medium"
                       : index === highlightedIndex
-                        ? "bg-surface text-ink"
-                        : "text-ink hover:bg-surface"
+                        ? "bg-subtle text-fg"
+                        : "text-fg hover:bg-subtle"
                   }`}
                 >
                   {opt.label}
