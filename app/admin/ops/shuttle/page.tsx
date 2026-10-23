@@ -583,7 +583,13 @@ function OpsShuttleContent() {
                 }
               />
               <div style={{ height: "clamp(300px, 55vh, 600px)" }}>
-                <Map center={mapCenter} zoom={13} markers={mapMarkers} polylines={mapPolylines} height="100%" />
+                {selectedCompanyId ? (
+                  <Map center={mapCenter} zoom={13} markers={mapMarkers} polylines={mapPolylines} height="100%" />
+                ) : (
+                  <div className="flex h-full items-center justify-center bg-surface-subtle">
+                    <EmptyState icon={<MapPin aria-hidden="true" />} title="No company selected" description="Select a company above to view the live shuttle map." />
+                  </div>
+                )}
               </div>
               {selectedTrip && (
                 <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-4 py-2 text-[11px] text-fg-muted" aria-label="Map legend">
