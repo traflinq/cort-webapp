@@ -692,6 +692,8 @@
       "streak": "Streak",
       "recentShuttleTrips": "Recent Shuttle Trips",
       "dir": "Dir",
+      "vehicle": "Vehicle",
+      "driver": "Driver",
       "occupancy": "Occupancy",
       "detour": "Detour",
       "idleMin": "Idle (min)",

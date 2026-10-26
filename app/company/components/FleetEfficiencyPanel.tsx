@@ -24,6 +24,7 @@ type ShuttleMetric = {
   id: number;
   shuttle_trip_id: number;
   route_id: number | null;
+  vehicle_id: number | null;
   trip_date: string;
   direction: string;
   occupancy_pct: string | null;
@@ -32,6 +33,8 @@ type ShuttleMetric = {
   fuel_variance_pct: string | null;
   actual_distance_km: string | null;
   planned_distance_km: string | null;
+  vehicles: { plate_number: string; make: string | null; model: string | null } | null;
+  shuttle_trips: { users: { full_name: string } | null } | null;
 };
 
 type RouteComparison = {
@@ -433,6 +436,8 @@ export function FleetEfficiencyPanel() {
                       <tr className="border-b border-[var(--border-light)]">
                         <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t('date')}</th>
                         <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t('dir')}</th>
+                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t('vehicle')}</th>
+                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t('driver')}</th>
                         <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-end">{t('occupancy')}</th>
                         <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-end">{t('detour')}</th>
                         <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-end">{t('idleMin')}</th>
@@ -445,6 +450,13 @@ export function FleetEfficiencyPanel() {
                         <tr key={m.id} className={`group transition-colors ${selectedTripForMap === m.shuttle_trip_id ? 'bg-[var(--cort-orange)]/5' : 'hover:bg-[var(--surface-subtle)]/80'}`}>
                           <td className="px-6 py-4 text-[var(--text-secondary)]">{new Date(m.trip_date).toLocaleDateString()}</td>
                           <td className="px-6 py-4 text-[var(--text-muted)]">{m.direction}</td>
+                          <td className="px-6 py-4">
+                            <div className="font-medium text-[var(--text-primary)]">{m.vehicles?.plate_number ?? '—'}</div>
+                            {(m.vehicles?.make || m.vehicles?.model) && (
+                              <div className="text-xs text-[var(--text-muted)]">{[m.vehicles?.make, m.vehicles?.model].filter(Boolean).join(' ')}</div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-[var(--text-secondary)]">{m.shuttle_trips?.users?.full_name ?? '—'}</td>
                           <td className={`px-6 py-4 text-right font-medium ${m.occupancy_pct && parseFloat(m.occupancy_pct) < 50 ? 'text-[var(--cort-orange)]' : 'text-[var(--text-primary)]'}`}>
                             {pct(m.occupancy_pct)}
                           </td>
