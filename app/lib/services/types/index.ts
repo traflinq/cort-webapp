@@ -85,6 +85,7 @@ export type {
     CreateVendorPaymentRequest,
     VendorPaymentTransaction,
     UpdateVendorPaymentRequest,
+    CreateVendorAdvanceRequest,
 } from './vendors';
 
 // Bookings

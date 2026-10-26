@@ -11,6 +11,7 @@ export interface VendorLogRow {
   vehicle?: string | null;
   vendor_name?: string | null;
   passenger?: string | null;
+  company?: string | null;
   driver?: string | null;
   details?: string | null;
   booking_id?: number | null;

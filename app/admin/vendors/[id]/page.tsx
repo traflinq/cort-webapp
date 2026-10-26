@@ -38,6 +38,7 @@ import {
 import { formatCurrency, formatNumber } from "../../lib/format";
 import { useVendorLogColumns } from "../components/log-columns";
 import { SettlementDrawer } from "../components/SettlementDrawer";
+import { VendorAdvances } from "../components/VendorAdvances";
 import { RecordPaymentDialog } from "../components/RecordPaymentDialog";
 import { isPaidStatus, paymentTargetFor, PAYMENT_STATUS_OPTIONS, type PaymentTarget, type VendorLogRow } from "../components/types";
 
@@ -120,7 +121,9 @@ function VendorDetailsContent() {
     dispatch(fetchVendorLogs(buildLogParams(1, 10)));
   }, [dispatch, vendorId, statsParams, buildLogParams]);
 
+  const [advancesKey, setAdvancesKey] = useState(0);
   const refresh = useCallback(() => {
+    setAdvancesKey((k) => k + 1);
     dispatch(fetchVendorStats(statsParams));
     dispatch(fetchVendorLogs(buildLogParams(logsPagination.page, logsPagination.limit)));
   }, [dispatch, statsParams, buildLogParams, logsPagination.page, logsPagination.limit]);
@@ -175,6 +178,8 @@ function VendorDetailsContent() {
         <KpiCard label="Outstanding" value={formatCurrency(outstanding)} icon={<Wallet />} tone={outstanding > 0 ? "warning" : "success"} emphasis={outstanding > 0 ? "brand" : "none"} loading={!stats && loading} />
         <KpiCard label="Settled to date" value={formatCurrency(settled)} icon={<Banknote />} tone="success" loading={!stats && loading} />
       </KpiGrid>
+
+      <VendorAdvances vendorId={vendorId} refreshKey={advancesKey} canEdit={canEditPayments} onChanged={refresh} />
 
       <Card>
         <CardContent className="border-b border-line py-3">

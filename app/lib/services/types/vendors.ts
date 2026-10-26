@@ -107,6 +107,8 @@ export interface VendorStats {
     total_rides: number;
     total_cost: number;
     total_outstanding: number;
+    /** Paid to the vendor but not yet linked to an invoice. */
+    advance_balance?: number;
 }
 
 export interface VendorStatsResponse {
@@ -210,7 +212,9 @@ export interface UpdateVendorPaymentRequest {
 
 export interface VendorPaymentTransaction {
     id: number;
-    booking_id: number;
+    booking_id?: number | null;
+    invoice_id?: number | null;
+    vendor_id?: number | null;
     amount: number;
     payment_type: string;
     payment_method?: string;
@@ -222,4 +226,12 @@ export interface VendorPaymentTransaction {
         full_name: string;
         email: string;
     };
+}
+
+export interface CreateVendorAdvanceRequest {
+    vendor_id: number;
+    amount: number;
+    payment_method?: string;
+    notes?: string;
+    payment_date?: string;
 }

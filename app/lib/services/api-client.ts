@@ -26,7 +26,7 @@ import {
     CreateVendorRequest, QueryVendorParams, Vendor, VendorResponse, UpdateVendorRequest,
     CreateVendorContractRequest, QueryVendorContractParams, VendorContract, VendorContractResponse, UpdateVendorContractRequest,
     QueryVendorLogsParams, QueryVendorStatsParams, VendorLogsResponse, VendorStatsResponse, CreateVendorPaymentRequest, VendorPaymentTransaction,
-    UpdateVendorPaymentRequest,
+    UpdateVendorPaymentRequest, CreateVendorAdvanceRequest,
     // Drivers
     CreateDriverRequest, QueryDriverParams, Driver, DriverResponse, UpdateDriverRequest, UpdateDriverStatusRequest, RideReview,
     // Pricing / Contracts
@@ -749,6 +749,22 @@ class ApiClient {
 
     async getVendorPaymentHistory(bookingId: number): Promise<VendorPaymentTransaction[]> {
         return this.request<VendorPaymentTransaction[]>(`/vendors/payments/${bookingId}`);
+    }
+
+    async createVendorAdvance(data: CreateVendorAdvanceRequest): Promise<VendorPaymentTransaction> {
+        return this.request<VendorPaymentTransaction>('/vendors/advances', { method: 'POST', body: JSON.stringify(data) });
+    }
+
+    async getVendorAdvances(vendorId: number): Promise<VendorPaymentTransaction[]> {
+        return this.request<VendorPaymentTransaction[]>(`/vendors/advances/vendor/${vendorId}`);
+    }
+
+    async deleteVendorAdvance(id: number): Promise<{ id: number }> {
+        return this.request<{ id: number }>(`/vendors/advances/${id}`, { method: 'DELETE' });
+    }
+
+    async linkVendorAdvance(id: number, data: { invoice_id: number; amount?: number }): Promise<VendorPaymentTransaction> {
+        return this.request<VendorPaymentTransaction>(`/vendors/advances/${id}/link`, { method: 'POST', body: JSON.stringify(data) });
     }
 
     async getVendorInvoicePaymentHistory(invoiceId: number): Promise<VendorPaymentTransaction[]> {
