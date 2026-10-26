@@ -86,16 +86,6 @@ export function BookingList({
     },
     { key: "city", header: "City", hideBelow: "lg", cell: (b) => <span className="text-fg">{b.city || "—"}</span> },
     {
-      key: "pickup",
-      header: "Pickup",
-      hideBelow: "xl",
-      cell: (b) => (
-        <span className="block max-w-[14rem] truncate text-fg-secondary" title={b.pickup_address || undefined}>
-          {b.pickup_address || "—"}
-        </span>
-      ),
-    },
-    {
       key: "driver",
       header: "Driver",
       hideBelow: "md",
