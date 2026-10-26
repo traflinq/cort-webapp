@@ -12,9 +12,11 @@ import {
   PageHeader,
   Select,
   StatusBadge,
+  statusTone,
   type ActionMenuItem,
   type DataTableColumn,
 } from "../../ui";
+import { cn } from "@/lib/utils";
 import { formatCurrency, formatDate } from "../../lib/format";
 import { INVOICE_STATUSES, type Invoice, type InvoiceStatus } from "../types";
 import type { InvoicesController } from "../hooks/useInvoices";
@@ -23,6 +25,16 @@ import { InvoiceStatsCards } from "./InvoiceStatsCards";
 import { GenerateInvoiceDialog } from "./GenerateInvoiceDialog";
 import { SettleInvoiceDialog } from "./SettleInvoiceDialog";
 import { PaymentHistoryDialog } from "./PaymentHistoryDialog";
+
+const SELECT_TONE: Record<ReturnType<typeof statusTone>, string> = {
+  neutral: "border-neutral-line bg-neutral-soft text-neutral-ink",
+  brand: "border-brand-line bg-brand-soft text-brand-ink",
+  success: "border-success-line bg-success-soft text-success-ink",
+  warning: "border-warning-line bg-warning-soft text-warning-ink",
+  danger: "border-danger-line bg-danger-soft text-danger-ink",
+  info: "border-info-line bg-info-soft text-info-ink",
+  purple: "border-purple-line bg-purple-soft text-purple-ink",
+};
 
 type InvoicingLedgerProps = {
   inv: InvoicesController;
@@ -104,12 +116,10 @@ export function InvoicingLedger({ inv }: InvoicingLedgerProps) {
       header: "Status",
       cell: (row) =>
         inv.canUpdate ? (
-          <div className="flex items-center gap-2">
-            <StatusBadge status={row.status || "DRAFT"} />
           <Select
             width="auto"
             aria-label={`Status of invoice ${row.invoice_number}`}
-            className="h-8 text-xs"
+            className={cn("h-8 text-xs font-medium", SELECT_TONE[statusTone(row.status || "DRAFT")])}
             value={row.status || "DRAFT"}
             onChange={(e) => inv.handleStatusUpdate(row.id, row.invoice_number, e.target.value)}
           >
@@ -119,7 +129,6 @@ export function InvoicingLedger({ inv }: InvoicingLedgerProps) {
               </option>
             ))}
           </Select>
-          </div>
         ) : (
           <StatusBadge status={row.status || "DRAFT"} />
         ),
