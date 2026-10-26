@@ -104,6 +104,8 @@ export function InvoicingLedger({ inv }: InvoicingLedgerProps) {
       header: "Status",
       cell: (row) =>
         inv.canUpdate ? (
+          <div className="flex items-center gap-2">
+            <StatusBadge status={row.status || "DRAFT"} />
           <Select
             width="auto"
             aria-label={`Status of invoice ${row.invoice_number}`}
@@ -117,6 +119,7 @@ export function InvoicingLedger({ inv }: InvoicingLedgerProps) {
               </option>
             ))}
           </Select>
+          </div>
         ) : (
           <StatusBadge status={row.status || "DRAFT"} />
         ),
