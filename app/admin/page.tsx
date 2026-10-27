@@ -12,6 +12,7 @@ import { AdminCan } from "../lib/abilities/AdminAbilityProvider";
 import { FuelPriceAlert } from "./components/FuelPriceAlert";
 import { BreakdownCharts } from "./ui/dashboard/DashboardCharts";
 import { DashboardTables } from "./ui/dashboard/DashboardTables";
+import { NotStartedRides } from "./ui/dashboard/NotStartedRides";
 import { ServiceComparison } from "./ui/dashboard/ServiceComparison";
 import { SuperAdminAiBriefing } from "./ui/dashboard/SuperAdminAiBriefing";
 import {
@@ -146,6 +147,8 @@ function AdminDashboardContent() {
           </Button>
         </div>
       )}
+
+      <NotStartedRides rides={stats.notStartedShuttleRides ?? []} />
 
       <section className="space-y-4">
         <SectionHeader title="Financial performance" description="Revenue, cost of goods sold and margin for the period." />

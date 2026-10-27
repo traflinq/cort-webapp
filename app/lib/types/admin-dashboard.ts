@@ -30,6 +30,7 @@ export interface SuperAdminDashboardStats {
     overdueInvoices: OverdueInvoice[];
     revenueBreakdown: BreakdownItem[];
     problemReports: ProblemReport[];
+    notStartedShuttleRides?: NotStartedShuttleRide[];
 }
 
 export interface OverdueInvoice {
@@ -70,4 +71,17 @@ export interface FuelMonthComparison {
     currentLabel: string;
     previousLabel: string;
     rows: { name: string; current: number; previous: number }[];
+}
+
+export interface NotStartedShuttleRide {
+    tripId: number;
+    direction: 'MORNING' | 'EVENING';
+    routeName: string;
+    companyName: string | null;
+    driverId: string | null;
+    driverName: string | null;
+    driverPhone: string | null;
+    vehiclePlate: string | null;
+    scheduledTime: string;
+    minutesLate: number;
 }
