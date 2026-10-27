@@ -28,6 +28,7 @@ import {
     Label,
     PageHeader,
     Select,
+    Switch,
     Tabs,
     TabsList,
     TabsTrigger,
@@ -103,6 +104,7 @@ function CreateRoutePageContent() {
     const [assignedDriverId, setAssignedDriverId] = useState('');
     const [eveningVehicleId, setEveningVehicleId] = useState('');
     const [eveningDriverId, setEveningDriverId] = useState('');
+    const [isActive, setIsActive] = useState(true);
     /** A route may have multiple company office stops (multi-office shuttle support). */
     const [officeStops, setOfficeStops] = useState<Stop[]>([]);
     const [pickupStops, setPickupStops] = useState<Stop[]>([]);
@@ -211,6 +213,7 @@ function CreateRoutePageContent() {
             await dispatch(createAdminRoute({
                 name,
                 company_id: Number(companyId),
+                is_active: isActive,
                 assigned_vehicle_id: assignedVehicleId ? Number(assignedVehicleId) : undefined,
                 assigned_driver_id: assignedDriverId || undefined,
                 evening_vehicle_id: eveningVehicleId ? Number(eveningVehicleId) : undefined,
@@ -337,6 +340,12 @@ function CreateRoutePageContent() {
                                     ))}
                                 </Select>
                             </Field>
+                            <Switch
+                                checked={isActive}
+                                onCheckedChange={setIsActive}
+                                label="Active"
+                                description="Only active routes get shuttle trips created each day. Turn off to save the route without generating rides."
+                            />
                         </section>
 
                         <section className="space-y-3">

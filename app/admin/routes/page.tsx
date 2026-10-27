@@ -24,7 +24,7 @@ import { AdminCan, useAdminAbility } from '@/app/lib/abilities/AdminAbilityProvi
 import { ADMIN_SUBJECTS } from '@/app/lib/abilities/admin-subjects';
 import { useAuth } from '@/app/lib/contexts/auth-context';
 import { useAppDispatch, useAppSelector } from '@/app/lib/store/hooks';
-import { fetchAdminRoutes, selectAdminRoutes, selectAdminRoutesStatus, type Route } from '@/app/lib/store/slices/adminRoutesSlice';
+import { fetchAdminRoutes, selectAdminRoutes, selectAdminRoutesStatus, routeStatus, type Route } from '@/app/lib/store/slices/adminRoutesSlice';
 import { fetchAdminCompanies, selectAdminCompanies, selectAdminCompaniesStatus } from '@/app/lib/store/slices/adminCompaniesSlice';
 import { initials } from './RouteCommandBar';
 
@@ -228,7 +228,7 @@ function RouteTile({ route }: { route: Route }) {
                 <div className="space-y-3 p-4">
                     <div className="flex items-start justify-between gap-2">
                         <h2 className="truncate font-semibold text-fg">{route.name}</h2>
-                        <StatusBadge status={route.status} size="sm" />
+                        <StatusBadge status={routeStatus(route)} size="sm" />
                     </div>
 
                     <div className="flex items-center gap-3">

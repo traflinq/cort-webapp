@@ -14,7 +14,8 @@ import {
     selectCurrentRoute,
     selectAdminRoutesStatus,
     selectAdminRoutesActionStatus,
-    clearCurrentRoute
+    clearCurrentRoute,
+    routeStatus,
 } from '@/app/lib/store/slices/adminRoutesSlice';
 import { fetchAdminDrivers, selectAdminDrivers } from '@/app/lib/store/slices/adminDriversSlice';
 import { fetchAdminVehicles, selectAdminVehicles } from '@/app/lib/store/slices/adminVehiclesSlice';
@@ -47,6 +48,7 @@ import {
     PageHeader,
     Select,
     StatusBadge,
+    Switch,
     Tabs,
     TabsContent,
     TabsList,
@@ -110,6 +112,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
         evening_vehicle_id: '',
         evening_driver_id: '',
         evening_lock_time: '',
+        is_active: true,
     });
     const [currentAssignedVehicle, setCurrentAssignedVehicle] = useState<VehicleOption | null>(null);
     const [currentEveningVehicle, setCurrentEveningVehicle] = useState<VehicleOption | null>(null);
@@ -173,7 +176,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
 
     // Hydrate the edit form whenever the route's editable fields change.
     const routeFieldsKey = route
-        ? [route.id, route.assigned_vehicle_id, route.assigned_driver_id, route.evening_vehicle_id, route.evening_driver_id, route.name, route.evening_lock_time].join('|')
+        ? [route.id, route.assigned_vehicle_id, route.assigned_driver_id, route.evening_vehicle_id, route.evening_driver_id, route.name, route.evening_lock_time, route.is_active].join('|')
         : '';
     const [prevRouteFieldsKey, setPrevRouteFieldsKey] = useState(routeFieldsKey);
     if (prevRouteFieldsKey !== routeFieldsKey) {
@@ -186,6 +189,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                 evening_vehicle_id: route.evening_vehicle_id?.toString() || '',
                 evening_driver_id: route.evening_driver_id?.toString() || '',
                 evening_lock_time: toClockHHmm(route.evening_lock_time) || '',
+                is_active: route.is_active !== false,
             });
         }
     }
@@ -279,6 +283,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
             evening_vehicle_id: route.evening_vehicle_id?.toString() || '',
             evening_driver_id: route.evening_driver_id?.toString() || '',
             evening_lock_time: toClockHHmm(route.evening_lock_time) || '',
+            is_active: route.is_active !== false,
         });
     };
 
@@ -543,6 +548,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                         : null,
                     evening_driver_id: editForm.evening_driver_id || null,
                     evening_lock_time: editForm.evening_lock_time.trim() || null,
+                    is_active: editForm.is_active,
                 },
             })).unwrap();
 
@@ -734,7 +740,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                     back={{ href: '/admin/routes', label: 'Back to routes' }}
                     title={route.name}
                     description={`${companyName} · ${stopCount} ${stopCount === 1 ? 'stop' : 'stops'}`}
-                    meta={<StatusBadge status={route.status} />}
+                    meta={<StatusBadge status={routeStatus(route)} />}
                     actions={
                         canEditRoutes && !isEditing ? (
                             <>
@@ -792,6 +798,11 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                             {!isEditing ? (
                                 <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
                                     <DetailField label="Company" value={companyName} />
+                                    <DetailField
+                                        label="Daily rides"
+                                        value={route.is_active === false ? 'Paused' : 'Created daily'}
+                                        hint={route.is_active === false ? 'Inactive: no trips are generated for this route' : undefined}
+                                    />
                                     <DetailField label="Morning driver" value={morningDriver} />
                                     <DetailField label="Morning vehicle" value={morningVehicle} />
                                     <DetailField label="Evening driver" value={eveningDriver} />
@@ -810,6 +821,14 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                                     <Field label="Company">
                                         <Input value={companyName} readOnly disabled />
                                     </Field>
+                                    <div className="sm:col-span-2 lg:col-span-2">
+                                        <Switch
+                                            checked={editForm.is_active}
+                                            onCheckedChange={(v) => setEditForm({ ...editForm, is_active: v })}
+                                            label="Active"
+                                            description="Only active routes get shuttle trips created each day. Deactivating also cancels today's and upcoming scheduled trips."
+                                        />
+                                    </div>
                                     <Field label="Morning driver">
                                         <Select placeholder="None" value={editForm.assigned_driver_id} onChange={(e) => setEditForm({ ...editForm, assigned_driver_id: e.target.value })}>
                                             {driverOptions}
