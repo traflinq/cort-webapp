@@ -23,6 +23,33 @@ export interface RouteStop {
     completion_geofence_geojson?: string | null;
 }
 
+export interface RoutePoint {
+    lat: number;
+    lng: number;
+    address?: string;
+}
+
+export interface DirectionPoints {
+    start?: RoutePoint | null;
+    end?: RoutePoint | null;
+}
+
+/** Per-direction driver start/end points (null clears one). */
+export type RouteDirectionPoints = Partial<Record<'MORNING' | 'EVENING', DirectionPoints>>;
+
+export interface RouteDirectionConfig {
+    direction: 'MORNING' | 'EVENING';
+    /** Decimal columns arrive as strings in JSON. */
+    start_lat: string | number | null;
+    start_lng: string | number | null;
+    start_address: string | null;
+    start_leg_km: string | number | null;
+    end_lat: string | number | null;
+    end_lng: string | number | null;
+    end_address: string | null;
+    end_leg_km: string | number | null;
+}
+
 export interface Route {
     id: number;
     name: string;
@@ -33,6 +60,7 @@ export interface Route {
     /** PKT HH:MM — evening return trips cannot start before this time */
     evening_lock_time?: string | null;
     route_stops?: RouteStop[];
+    route_direction_configs?: RouteDirectionConfig[];
     company?: {
         id: number;
         name: string;
@@ -78,6 +106,7 @@ export interface CreateRouteRequest {
     assigned_driver_id?: string | null;
     evening_vehicle_id?: number | null;
     evening_driver_id?: string | null;
+    direction_points?: RouteDirectionPoints;
     stops: {
         name: string;
         lat: number;
@@ -98,6 +127,7 @@ export type UpdateRouteRequest = Partial<
     >
 > & {
     evening_lock_time?: string | null;
+    direction_points?: RouteDirectionPoints;
 };
 
 // Employee Assignment Interface
