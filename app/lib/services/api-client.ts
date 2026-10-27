@@ -1283,6 +1283,21 @@ class ApiClient {
         });
     }
 
+    /** One-day override of the route's driver start point for this trip (affects planned km). */
+    async setShuttleTripStartPoint(
+        tripId: number,
+        data: { lat: number; lng: number; address?: string },
+    ): Promise<any> {
+        return this.request<any>(`/shuttle-trips/${tripId}/start-point`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async clearShuttleTripStartPoint(tripId: number): Promise<any> {
+        return this.request<any>(`/shuttle-trips/${tripId}/start-point`, { method: 'DELETE' });
+    }
+
     async getActiveBookingLocations(): Promise<any> {
         return this.request<any>(`/admin/bookings/active-locations`);
     }

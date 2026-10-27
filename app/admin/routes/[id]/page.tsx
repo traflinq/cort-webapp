@@ -22,6 +22,7 @@ import { fetchAdminVehicles, selectAdminVehicles } from '@/app/lib/store/slices/
 import StopAddressSearch from '@/app/admin/ui/StopAddressSearch';
 import RosteringTab from './components/RosteringTab';
 import ManageStopsTab from './components/ManageStopsTab';
+import { DirectionPointsEditor, DirectionPointsSummary, emptyPoints, pointsFromConfigs, type PointsForm } from './components/DirectionPointsEditor';
 import { Info, Plus, Save, Trash2, Users, X, ListOrdered, Sparkles, Building2, Sun, Sunset, Pencil, MapPin, Route as RouteIcon } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
@@ -114,6 +115,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
         evening_lock_time: '',
         is_active: true,
     });
+    const [pointsForm, setPointsForm] = useState<PointsForm>(emptyPoints);
     const [currentAssignedVehicle, setCurrentAssignedVehicle] = useState<VehicleOption | null>(null);
     const [currentEveningVehicle, setCurrentEveningVehicle] = useState<VehicleOption | null>(null);
 
@@ -285,6 +287,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
             evening_lock_time: toClockHHmm(route.evening_lock_time) || '',
             is_active: route.is_active !== false,
         });
+        setPointsForm(pointsFromConfigs(route.route_direction_configs));
     };
 
     const handleCancelEdit = () => {
@@ -549,6 +552,11 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                     evening_driver_id: editForm.evening_driver_id || null,
                     evening_lock_time: editForm.evening_lock_time.trim() || null,
                     is_active: editForm.is_active,
+                    // null clears a point; the server recomputes the leg km
+                    direction_points: {
+                        MORNING: { start: pointsForm.MORNING.start },
+                        EVENING: { end: pointsForm.EVENING.end },
+                    },
                 },
             })).unwrap();
 
@@ -812,6 +820,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                                         value={format12h(route.evening_lock_time) || 'Not set'}
                                         hint="Evening return cannot start before this"
                                     />
+                                    <DirectionPointsSummary configs={route.route_direction_configs} />
                                 </dl>
                             ) : (
                                 <FormGrid cols={3}>
@@ -863,6 +872,14 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                                             )}
                                         </div>
                                     </Field>
+                                    <div className="sm:col-span-2 lg:col-span-3">
+                                        <p className="mb-2 text-sm font-semibold text-fg">Driver start &amp; end points</p>
+                                        <p className="mb-3 text-xs text-fg-muted">
+                                            Adds the driver&apos;s own driving to and from the route to the planned distance, so it matches the km the driver actually drives.
+                                            Leave unset to use a flat +10% estimate.
+                                        </p>
+                                        <DirectionPointsEditor value={pointsForm} onChange={setPointsForm} />
+                                    </div>
                                 </FormGrid>
                             )}
                         </CardContent>

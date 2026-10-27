@@ -15,6 +15,7 @@ import { apiClient } from '@/app/lib/services/api-client';
 import { DriverType } from '@/app/lib/services/types/drivers';
 import type { MapMarker, MapPolyline } from '@/app/admin/ui/Map';
 import { PermissionGate } from '@/app/admin/components/PermissionGate';
+import { DirectionPointsEditor, emptyPoints, type PointsForm } from '../[id]/components/DirectionPointsEditor';
 import {
     Badge,
     Button,
@@ -105,6 +106,7 @@ function CreateRoutePageContent() {
     const [eveningVehicleId, setEveningVehicleId] = useState('');
     const [eveningDriverId, setEveningDriverId] = useState('');
     const [isActive, setIsActive] = useState(true);
+    const [pointsForm, setPointsForm] = useState<PointsForm>(emptyPoints);
     /** A route may have multiple company office stops (multi-office shuttle support). */
     const [officeStops, setOfficeStops] = useState<Stop[]>([]);
     const [pickupStops, setPickupStops] = useState<Stop[]>([]);
@@ -218,6 +220,10 @@ function CreateRoutePageContent() {
                 assigned_driver_id: assignedDriverId || undefined,
                 evening_vehicle_id: eveningVehicleId ? Number(eveningVehicleId) : undefined,
                 evening_driver_id: eveningDriverId || undefined,
+                direction_points: {
+                    MORNING: { start: pointsForm.MORNING.start ?? undefined },
+                    EVENING: { end: pointsForm.EVENING.end ?? undefined },
+                },
                 stops: [
                     ...pickupStops.map((stop, index) => ({
                         name: stop.name,
@@ -494,6 +500,14 @@ function CreateRoutePageContent() {
                                     </Select>
                                 </Field>
                             </FormGrid>
+                        </section>
+
+                        <section className="space-y-2">
+                            <SectionTitle>Driver start &amp; end points (optional)</SectionTitle>
+                            <p className="text-xs text-fg-muted">
+                                Adds the driver&apos;s own driving to and from the route to the planned distance, so it matches the km actually driven. Unset uses a flat +10% estimate.
+                            </p>
+                            <DirectionPointsEditor value={pointsForm} onChange={setPointsForm} />
                         </section>
 
                         {officeStops.length > 0 && pickupStops.length > 0 && (
