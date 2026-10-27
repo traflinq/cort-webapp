@@ -13,6 +13,7 @@ import { FuelPriceAlert } from "./components/FuelPriceAlert";
 import { BreakdownCharts } from "./ui/dashboard/DashboardCharts";
 import { DashboardTables } from "./ui/dashboard/DashboardTables";
 import { NotStartedRides } from "./ui/dashboard/NotStartedRides";
+import { ShuttleDailyEfficiency } from "./ui/dashboard/ShuttleDailyEfficiency";
 import { ServiceComparison } from "./ui/dashboard/ServiceComparison";
 import { SuperAdminAiBriefing } from "./ui/dashboard/SuperAdminAiBriefing";
 import {
@@ -195,6 +196,7 @@ function AdminDashboardContent() {
 
       <section className="space-y-4">
         <SectionHeader title="Operations" />
+        <ShuttleDailyEfficiency rows={stats.shuttleDailyEfficiency ?? []} />
         <DashboardTables
           revenueByClient={stats.revenueByClient}
           fuelExpenses={stats.fuelExpenses}

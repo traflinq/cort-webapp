@@ -31,6 +31,7 @@ export interface SuperAdminDashboardStats {
     revenueBreakdown: BreakdownItem[];
     problemReports: ProblemReport[];
     notStartedShuttleRides?: NotStartedShuttleRide[];
+    shuttleDailyEfficiency?: ShuttleDailyEfficiency[];
 }
 
 export interface OverdueInvoice {
@@ -84,4 +85,15 @@ export interface NotStartedShuttleRide {
     vehiclePlate: string | null;
     scheduledTime: string;
     minutesLate: number;
+}
+
+export interface ShuttleDailyEfficiency {
+    date: string;
+    trips: number;
+    boarded: number;
+    seatCapacity: number;
+    occupancyPct: number | null;
+    fuelExpectedLitres: number;
+    fuelActualLitres: number;
+    fuelVariancePct: number | null;
 }
