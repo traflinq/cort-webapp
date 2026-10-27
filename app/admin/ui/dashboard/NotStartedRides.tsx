@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Phone } from "lucide-react";
+import { AlertTriangle, ArrowRight, ChevronDown, Phone } from "lucide-react";
 import { Badge, Button } from "..";
 import type { NotStartedShuttleRide } from "../../../lib/types/admin-dashboard";
 
@@ -12,8 +12,13 @@ function late(min: number) {
 }
 
 /** Highlighted daily alert: today's shuttle rides whose departure time passed without the driver starting. */
+const COLLAPSED_COUNT = 3;
+
 export function NotStartedRides({ rides }: { rides: NotStartedShuttleRide[] }) {
+  const [expanded, setExpanded] = React.useState(false);
   if (rides.length === 0) return null;
+  const visible = expanded ? rides : rides.slice(0, COLLAPSED_COUNT);
+  const hidden = rides.length - COLLAPSED_COUNT;
   return (
     <section role="alert" className="overflow-hidden rounded-xl border border-danger-line bg-danger-soft">
       <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -34,7 +39,7 @@ export function NotStartedRides({ rides }: { rides: NotStartedShuttleRide[] }) {
         </Button>
       </div>
       <ul className="divide-y divide-danger-line border-t border-danger-line bg-surface">
-        {rides.map((r) => (
+        {visible.map((r) => (
           <li key={r.tripId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2.5 text-sm">
             <div className="min-w-0">
               <p className="truncate font-medium text-fg">{r.driverName ?? "No driver assigned"}</p>
@@ -59,6 +64,17 @@ export function NotStartedRides({ rides }: { rides: NotStartedShuttleRide[] }) {
           </li>
         ))}
       </ul>
+      {hidden > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="flex w-full items-center justify-center gap-1.5 border-t border-danger-line bg-surface px-4 py-2 text-sm font-medium text-fg-secondary hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {expanded ? "Show less" : `Show ${hidden} more`}
+          <ChevronDown className={`size-4 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+        </button>
+      )}
     </section>
   );
 }
