@@ -23,6 +23,9 @@ export interface RouteStop {
     completion_geofence_geojson?: string | null;
 }
 
+/** The route table has no status column; active-ness comes from is_active (default true). */
+export const routeStatus = (r: { is_active?: boolean }): 'ACTIVE' | 'INACTIVE' => (r.is_active === false ? 'INACTIVE' : 'ACTIVE');
+
 export interface RoutePoint {
     lat: number;
     lng: number;
@@ -55,6 +58,8 @@ export interface Route {
     name: string;
     company_id: number | null;
     status: 'ACTIVE' | 'INACTIVE';
+    /** Inactive routes get no daily shuttle trips. Missing = active. */
+    is_active?: boolean;
     created_at: string;
     updated_at: string;
     /** PKT HH:MM — evening return trips cannot start before this time */
@@ -101,6 +106,7 @@ export interface Route {
 
 export interface CreateRouteRequest {
     name: string;
+    is_active?: boolean;
     company_id: number;
     assigned_vehicle_id?: number | null;
     assigned_driver_id?: string | null;
@@ -127,6 +133,7 @@ export type UpdateRouteRequest = Partial<
     >
 > & {
     evening_lock_time?: string | null;
+    is_active?: boolean;
     direction_points?: RouteDirectionPoints;
 };
 
