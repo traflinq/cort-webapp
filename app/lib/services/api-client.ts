@@ -2245,6 +2245,13 @@ class ApiClient {
         }>(`/admin/reports/dashboard${query}`);
     }
 
+    async resolveProblemReport(id: number, note: string) {
+        return this.request<{ id: number; resolved_at: string | null; resolution_note: string | null; alreadyResolved: boolean }>(
+            `/admin/reports/problems/${id}/resolve`,
+            { method: 'POST', body: JSON.stringify({ note }) },
+        );
+    }
+
     async getShuttleEfficiency(startDate?: string, endDate?: string) {
         const params = new URLSearchParams();
         if (startDate) params.append('startDate', startDate);

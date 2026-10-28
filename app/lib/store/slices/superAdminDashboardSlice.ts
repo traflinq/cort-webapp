@@ -60,6 +60,11 @@ const superAdminDashboardSlice = createSlice({
         invalidateDashboardCache: (state) => {
             state.lastFetched = null;
         },
+        removeProblemReport: (state, action: PayloadAction<number>) => {
+            if (state.stats) {
+                state.stats.problemReports = state.stats.problemReports.filter((r) => r.id !== action.payload);
+            }
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -79,5 +84,5 @@ const superAdminDashboardSlice = createSlice({
     },
 });
 
-export const { setDateRange, clearDashboardState, invalidateDashboardCache } = superAdminDashboardSlice.actions;
+export const { setDateRange, clearDashboardState, invalidateDashboardCache, removeProblemReport } = superAdminDashboardSlice.actions;
 export default superAdminDashboardSlice.reducer;

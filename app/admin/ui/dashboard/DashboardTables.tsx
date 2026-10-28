@@ -1,10 +1,15 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
-import { ArrowUpRight, Fuel, MessageSquare, Users, Wrench } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Fuel, MessageSquare, Users, Wrench } from "lucide-react";
 import type { ComponentType } from "react";
 import type { BreakdownItem, FuelMonthComparison, OverdueInvoice, ProblemReport } from "../../../lib/types/admin-dashboard";
 import { Badge, Button, Card, CardHeader, DataTable, StatusBadge, type DataTableColumn } from "..";
+import { ResolveProblemDialog } from "./ResolveProblemDialog";
+import { useAppDispatch } from "../../../lib/store/hooks";
+import { removeProblemReport } from "../../../lib/store/slices/superAdminDashboardSlice";
+import { useAdminAbility } from "../../../lib/abilities/AdminAbilityProvider";
 import { formatCurrency, formatDate, formatDateTime, humanize, initials } from "../../lib/format";
 
 interface DashboardTablesProps {
@@ -96,7 +101,7 @@ const overdueColumns: DataTableColumn<OverdueInvoice>[] = [
   { key: "total_amount", header: "Outstanding", align: "right", mono: true, cell: (inv) => <span className="font-semibold text-danger-ink">{formatCurrency(inv.total_amount)}</span> },
 ];
 
-const reportColumns: DataTableColumn<ProblemReport>[] = [
+const buildReportColumns = (onResolve: ((r: ProblemReport) => void) | null): DataTableColumn<ProblemReport>[] => [
   { key: "created_at", header: "When", width: "11rem", cell: (r) => <span className="whitespace-nowrap text-fg-secondary">{formatDateTime(r.created_at)}</span> },
   {
     key: "reporter",
@@ -116,11 +121,31 @@ const reportColumns: DataTableColumn<ProblemReport>[] = [
   },
   { key: "issue_type", header: "Type", hideBelow: "md", cell: (r) => <Badge tone="neutral">{r.issue_type ? humanize(r.issue_type) : "—"}</Badge> },
   { key: "message", header: "Message", cell: (r) => <p className="line-clamp-2 max-w-md text-fg-secondary" title={r.message}>{r.message}</p> },
+  ...(onResolve
+    ? [
+        {
+          key: "actions",
+          header: "",
+          align: "right" as const,
+          width: "7rem",
+          cell: (r: ProblemReport) => (
+            <Button variant="outline" size="sm" onClick={() => onResolve(r)} leftIcon={<CheckCircle2 />}>
+              Resolve
+            </Button>
+          ),
+        },
+      ]
+    : []),
 ];
 
 export function DashboardTables({ revenueByClient, fuelExpenses, fuelMonthComparison, repairExpenses, overdueInvoices, problemReports }: DashboardTablesProps) {
   const overdue = overdueInvoices ?? [];
   const reports = problemReports ?? [];
+  const dispatch = useAppDispatch();
+  const ability = useAdminAbility();
+  const canResolve = ability.can("update", "Dashboard");
+  const [resolving, setResolving] = React.useState<ProblemReport | null>(null);
+  const reportColumns = React.useMemo(() => buildReportColumns(canResolve ? setResolving : null), [canResolve]);
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-3">
@@ -177,7 +202,7 @@ export function DashboardTables({ revenueByClient, fuelExpenses, fuelMonthCompar
               </Badge>
             </span>
           }
-          description="Reported from the driver and employee apps"
+          description="Open reports from the driver and employee apps. Resolving one notifies the reporter and closes it."
         />
         <div className="max-h-96 overflow-y-auto">
           <DataTable<ProblemReport>
@@ -191,6 +216,8 @@ export function DashboardTables({ revenueByClient, fuelExpenses, fuelMonthCompar
           />
         </div>
       </Card>
+
+      <ResolveProblemDialog report={resolving} onClose={() => setResolving(null)} onResolved={(id) => dispatch(removeProblemReport(id))} />
     </div>
   );
 }
