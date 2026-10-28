@@ -1,4 +1,5 @@
 import { LoginRequest, LoginResponse, ProfileResponse, SignupRequest, StaffPermissions } from '../types/auth-types';
+import type { ShuttleEfficiencyResponse } from '../types/admin-dashboard';
 import {
     PaginatedResponse,
     DeleteRecordResult,
@@ -2242,6 +2243,14 @@ class ApiClient {
             }[];
             alerts: any[];
         }>(`/admin/reports/dashboard${query}`);
+    }
+
+    async getShuttleEfficiency(startDate?: string, endDate?: string) {
+        const params = new URLSearchParams();
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+        const query = params.toString() ? `?${params.toString()}` : '';
+        return this.request<ShuttleEfficiencyResponse>(`/admin/reports/shuttle-efficiency${query}`);
     }
 
     async generateSuperAdminAiInsights(
