@@ -764,6 +764,10 @@ class ApiClient {
         return this.request<{ id: number }>(`/vendors/advances/${id}`, { method: 'DELETE' });
     }
 
+    async linkVendorAdvancesBulk(data: { advance_ids: number[]; invoice_id: number }): Promise<{ invoice_id: number; linked: number; total: number }> {
+        return this.request<{ invoice_id: number; linked: number; total: number }>('/vendors/advances/link-bulk', { method: 'POST', body: JSON.stringify(data) });
+    }
+
     async linkVendorAdvance(id: number, data: { invoice_id: number; amount?: number }): Promise<VendorPaymentTransaction> {
         return this.request<VendorPaymentTransaction>(`/vendors/advances/${id}/link`, { method: 'POST', body: JSON.stringify(data) });
     }

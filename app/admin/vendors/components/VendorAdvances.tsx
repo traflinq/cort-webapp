@@ -28,7 +28,8 @@ export function VendorAdvances({ vendorId, refreshKey, canEdit, onChanged }: Ven
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [recordOpen, setRecordOpen] = React.useState(false);
-  const [linkTarget, setLinkTarget] = React.useState<VendorPaymentTransaction | null>(null);
+  const [linkTargets, setLinkTargets] = React.useState<VendorPaymentTransaction[]>([]);
+  const [selected, setSelected] = React.useState<(string | number)[]>([]);
 
   const [retryTick, setRetryTick] = React.useState(0);
 
@@ -86,7 +87,7 @@ export function VendorAdvances({ vendorId, refreshKey, canEdit, onChanged }: Ven
       width: "1%",
       cell: (a) => (
         <div className="flex items-center justify-end gap-1">
-          <Button size="sm" variant="outline" leftIcon={<Link2 />} disabled={!canEdit} onClick={() => setLinkTarget(a)}>
+          <Button size="sm" variant="outline" leftIcon={<Link2 />} disabled={!canEdit} onClick={() => setLinkTargets([a])}>
             Link to invoice
           </Button>
           <IconButton label="Delete advance" variant="ghost" disabled={!canEdit} onClick={() => void remove(a)}>
@@ -127,9 +128,21 @@ export function VendorAdvances({ vendorId, refreshKey, canEdit, onChanged }: Ven
         onRetry={() => setRetryTick((t) => t + 1)}
         density="compact"
         empty={{ title: "No unlinked advances" }}
+        selectable={canEdit}
+        selectedKeys={selected}
+        onSelectedKeysChange={setSelected}
+        bulkActions={(keys) => (
+          <Button
+            size="sm"
+            leftIcon={<Link2 />}
+            onClick={() => setLinkTargets(advances.filter((a) => keys.includes(a.id)))}
+          >
+            Link {keys.length} selected to invoice
+          </Button>
+        )}
       />
       <RecordAdvanceDialog vendorId={vendorId} open={recordOpen} onOpenChange={setRecordOpen} onDone={changed} />
-      <LinkAdvanceDialog vendorId={vendorId} advance={linkTarget} onOpenChange={(o) => !o && setLinkTarget(null)} onDone={changed} />
+      <LinkAdvanceDialog vendorId={vendorId} advances={linkTargets} onOpenChange={(o) => !o && setLinkTargets([])} onDone={() => { setSelected([]); changed(); }} />
     </Card>
   );
 }
@@ -199,18 +212,36 @@ function RecordAdvanceForm({ vendorId, onCancel, onDone }: { vendorId: number; o
   );
 }
 
-function LinkAdvanceDialog({ vendorId, advance, onOpenChange, onDone }: { vendorId: number; advance: VendorPaymentTransaction | null; onOpenChange: (o: boolean) => void; onDone: () => void }) {
+function LinkAdvanceDialog({ vendorId, advances, onOpenChange, onDone }: { vendorId: number; advances: VendorPaymentTransaction[]; onOpenChange: (o: boolean) => void; onDone: () => void }) {
+  const total = advances.reduce((sum, a) => sum + Number(a.amount), 0);
+  const many = advances.length > 1;
   return (
-    <Dialog open={!!advance} onOpenChange={onOpenChange}>
-      <DialogContent size="sm" title="Link advance to invoice" description={advance ? `Advance of ${formatCurrency(Number(advance.amount))}` : undefined}>
-        {advance && <LinkAdvanceForm key={advance.id} vendorId={vendorId} advance={advance} onCancel={() => onOpenChange(false)} onDone={() => { onOpenChange(false); onDone(); }} />}
+    <Dialog open={advances.length > 0} onOpenChange={onOpenChange}>
+      <DialogContent
+        size="sm"
+        title="Link advance to invoice"
+        description={advances.length ? (many ? `${advances.length} advances · ${formatCurrency(total)} in total` : `Advance of ${formatCurrency(total)}`) : undefined}
+      >
+        {advances.length > 0 && (
+          <LinkAdvanceForm
+            key={advances.map((a) => a.id).join("-")}
+            vendorId={vendorId}
+            advances={advances}
+            onCancel={() => onOpenChange(false)}
+            onDone={() => {
+              onOpenChange(false);
+              onDone();
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
 }
 
-function LinkAdvanceForm({ vendorId, advance, onCancel, onDone }: { vendorId: number; advance: VendorPaymentTransaction; onCancel: () => void; onDone: () => void }) {
-  const advanceAmount = Number(advance.amount);
+function LinkAdvanceForm({ vendorId, advances, onCancel, onDone }: { vendorId: number; advances: VendorPaymentTransaction[]; onCancel: () => void; onDone: () => void }) {
+  const many = advances.length > 1;
+  const advanceAmount = advances.reduce((sum, a) => sum + Number(a.amount), 0);
   const [invoices, setInvoices] = React.useState<VendorLogRow[] | null>(null);
   const [invoiceId, setInvoiceId] = React.useState("");
   const [amount, setAmount] = React.useState(String(advanceAmount));
@@ -222,7 +253,7 @@ function LinkAdvanceForm({ vendorId, advance, onCancel, onDone }: { vendorId: nu
     (async () => {
       try {
         const res = await apiClient.getVendorLogs({ vendor_id: vendorId, page: 1, limit: 200 });
-        const rows = ((res.data?.data ?? []) as unknown as VendorLogRow[]);
+        const rows = (res.data?.data ?? []) as unknown as VendorLogRow[];
         if (!cancelled) setInvoices(rows.filter((r) => r.type === "SHUTTLE" && r.invoice_id && Number(r.amount_remaining || 0) > 0));
       } catch (e) {
         if (!cancelled) {
@@ -242,21 +273,30 @@ function LinkAdvanceForm({ vendorId, advance, onCancel, onDone }: { vendorId: nu
   const onSelect = (id: string) => {
     setInvoiceId(id);
     const inv = invoices?.find((i) => String(i.invoice_id) === id);
-    if (inv) setAmount(String(Math.min(advanceAmount, Number(inv.amount_remaining || 0))));
+    if (inv && !many) setAmount(String(Math.min(advanceAmount, Number(inv.amount_remaining || 0))));
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const value = parseFloat(amount);
     if (!invoiceId) return setError("Choose an invoice.");
-    if (Number.isNaN(value) || value <= 0) return setError("Enter a valid amount greater than zero.");
-    if (value > advanceAmount) return setError(`Amount can't exceed the advance of ${formatCurrency(advanceAmount)}.`);
-    if (value > room) return setError(`Amount can't exceed the invoice's remaining ${formatCurrency(room)}.`);
     setSubmitting(true);
     setError(null);
     try {
-      await apiClient.linkVendorAdvance(advance.id, { invoice_id: Number(invoiceId), amount: value });
-      toast.success("Advance linked to invoice");
+      if (many) {
+        if (advanceAmount > room) {
+          setError(`The selected advances total ${formatCurrency(advanceAmount)}, more than the invoice's remaining ${formatCurrency(room)}. Select fewer advances.`);
+          return;
+        }
+        await apiClient.linkVendorAdvancesBulk({ advance_ids: advances.map((a) => a.id), invoice_id: Number(invoiceId) });
+        toast.success(`${advances.length} advances linked to invoice`);
+      } else {
+        const value = parseFloat(amount);
+        if (Number.isNaN(value) || value <= 0) return setError("Enter a valid amount greater than zero.");
+        if (value > advanceAmount) return setError(`Amount can't exceed the advance of ${formatCurrency(advanceAmount)}.`);
+        if (value > room) return setError(`Amount can't exceed the invoice's remaining ${formatCurrency(room)}.`);
+        await apiClient.linkVendorAdvance(advances[0].id, { invoice_id: Number(invoiceId), amount: value });
+        toast.success("Advance linked to invoice");
+      }
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to link advance.");
@@ -276,16 +316,31 @@ function LinkAdvanceForm({ vendorId, advance, onCancel, onDone }: { vendorId: nu
           ))}
         </Select>
       </Field>
-      <Field label="Amount to apply (PKR)" hint={amount && Number(amount) < advanceAmount ? `The remaining ${formatCurrency(advanceAmount - Number(amount))} stays as an advance.` : undefined}>
-        <Input type="number" min={1} step="0.01" mono value={amount} onChange={(e) => setAmount(e.target.value)} />
-      </Field>
+      {many ? (
+        <ul className="space-y-1 rounded-lg border border-line bg-subtle p-3 text-sm">
+          {advances.map((a) => (
+            <li key={a.id} className="flex justify-between gap-3">
+              <span className="text-fg-secondary">{formatDateTime(a.payment_date)}</span>
+              <span className="font-mono tabular-nums text-fg">{formatCurrency(Number(a.amount))}</span>
+            </li>
+          ))}
+          <li className="flex justify-between gap-3 border-t border-line pt-1 font-medium">
+            <span>Total applied</span>
+            <span className="font-mono tabular-nums">{formatCurrency(advanceAmount)}</span>
+          </li>
+        </ul>
+      ) : (
+        <Field label="Amount to apply (PKR)" hint={amount && Number(amount) < advanceAmount ? `The remaining ${formatCurrency(advanceAmount - Number(amount))} stays as an advance.` : undefined}>
+          <Input type="number" min={1} step="0.01" mono value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </Field>
+      )}
       {error && <InlineError>{error}</InlineError>}
       <div className="flex justify-end gap-2 pt-1">
         <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
           Cancel
         </Button>
         <Button type="submit" loading={submitting} disabled={!invoices}>
-          Link advance
+          {many ? `Link ${advances.length} advances` : "Link advance"}
         </Button>
       </div>
     </form>
