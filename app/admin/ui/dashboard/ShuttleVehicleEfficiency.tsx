@@ -12,6 +12,11 @@ import { formatNumber } from "../../lib/format";
 const fuelTone = (v: number | null): BadgeTone => (v == null ? "neutral" : v > 10 ? "danger" : v > 5 ? "warning" : "success");
 const seatTone = (v: number | null): BadgeTone => (v == null ? "neutral" : v < 50 ? "danger" : v < 70 ? "warning" : "success");
 
+const occBadge = (pct: number | null) => <Badge tone={seatTone(pct)}>{pct == null ? "—" : `${pct.toFixed(0)}%`}</Badge>;
+const varBadge = (pct: number | null) => (
+  <Badge tone={fuelTone(pct)}>{pct == null ? "—" : `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`}</Badge>
+);
+
 const columns: DataTableColumn<Row>[] = [
   {
     key: "vehicle",
@@ -23,38 +28,30 @@ const columns: DataTableColumn<Row>[] = [
       </div>
     ),
   },
-  { key: "trips", header: "Trips", align: "right", mono: true, width: "5rem", cell: (r) => formatNumber(r.trips) },
   {
-    key: "seats",
-    header: "Seats used",
+    key: "trips",
+    header: "Trips (AM / PM)",
     align: "right",
     mono: true,
-    cell: (r) => `${formatNumber(r.boarded)} / ${formatNumber(r.seatCapacity)}`,
+    cell: (r) => (
+      <span title={`${r.morning.trips} morning, ${r.evening.trips} evening`}>
+        {formatNumber(r.trips)} <span className="text-xs text-fg-muted">({r.morning.trips} / {r.evening.trips})</span>
+      </span>
+    ),
   },
-  {
-    key: "occ",
-    header: "Occupancy",
-    align: "right",
-    width: "7rem",
-    cell: (r) => <Badge tone={seatTone(r.occupancyPct)}>{r.occupancyPct == null ? "—" : `${r.occupancyPct.toFixed(0)}%`}</Badge>,
-  },
+  { key: "occ-am", header: "Occupancy AM", align: "right", cell: (r) => occBadge(r.morning.occupancyPct) },
+  { key: "occ-pm", header: "Occupancy PM", align: "right", cell: (r) => occBadge(r.evening.occupancyPct) },
+  { key: "occ", header: "Occupancy overall", align: "right", cell: (r) => occBadge(r.occupancyPct) },
+  { key: "var-am", header: "Fuel var. AM", align: "right", hideBelow: "md", cell: (r) => varBadge(r.morning.fuelVariancePct) },
+  { key: "var-pm", header: "Fuel var. PM", align: "right", hideBelow: "md", cell: (r) => varBadge(r.evening.fuelVariancePct) },
+  { key: "var", header: "Fuel var. overall", align: "right", cell: (r) => varBadge(r.fuelVariancePct) },
   {
     key: "fuel",
     header: "Fuel actual / expected (L)",
     align: "right",
     mono: true,
+    hideBelow: "lg",
     cell: (r) => `${r.fuelActualLitres.toFixed(1)} / ${r.fuelExpectedLitres.toFixed(1)}`,
-  },
-  {
-    key: "var",
-    header: "Fuel variance",
-    align: "right",
-    width: "7rem",
-    cell: (r) => (
-      <Badge tone={fuelTone(r.fuelVariancePct)}>
-        {r.fuelVariancePct == null ? "—" : `${r.fuelVariancePct > 0 ? "+" : ""}${r.fuelVariancePct.toFixed(1)}%`}
-      </Badge>
-    ),
   },
 ];
 
@@ -96,7 +93,7 @@ export function ShuttleVehicleEfficiency() {
             Shuttle efficiency by vehicle
           </span>
         }
-        description="Seat occupancy and fuel variance per car. Red: fuel over +10% or occupancy under 50%."
+        description="Seat occupancy and fuel variance per car, split into morning (AM) and evening (PM) trips. Red: fuel over +10% or occupancy under 50%."
         actions={<DateRangePicker label="Efficiency period" size="sm" align="end" value={range} onChange={(next) => next && setRange(next)} />}
       />
       <div className="max-h-96 overflow-y-auto">

@@ -86,10 +86,7 @@ export interface NotStartedShuttleRide {
     minutesLate: number;
 }
 
-export interface ShuttleVehicleEfficiency {
-    vehicleId: number | null;
-    plateNumber: string | null;
-    vehicleName: string | null;
+export interface ShuttleEfficiencyTotals {
     trips: number;
     boarded: number;
     seatCapacity: number;
@@ -97,6 +94,15 @@ export interface ShuttleVehicleEfficiency {
     fuelExpectedLitres: number;
     fuelActualLitres: number;
     fuelVariancePct: number | null;
+}
+
+/** Combined totals, plus the same figures split by trip direction. */
+export interface ShuttleVehicleEfficiency extends ShuttleEfficiencyTotals {
+    vehicleId: number | null;
+    plateNumber: string | null;
+    vehicleName: string | null;
+    morning: ShuttleEfficiencyTotals;
+    evening: ShuttleEfficiencyTotals;
 }
 
 export interface ShuttleEfficiencyResponse {
