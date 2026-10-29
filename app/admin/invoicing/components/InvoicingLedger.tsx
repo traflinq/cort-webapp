@@ -9,7 +9,6 @@ import {
   DataTable,
   FilterBar,
   FilterField,
-  PageHeader,
   Select,
   StatusBadge,
   statusTone,
@@ -162,16 +161,6 @@ export function InvoicingLedger({ inv }: InvoicingLedgerProps) {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Invoicing"
-        description="General ledger of company invoices, payments and PDFs."
-        actions={
-          <Button leftIcon={<FilePlus2 />} onClick={() => inv.setShowShuttleModal(true)} disabled={!inv.canUpdate}>
-            Generate shuttle invoice
-          </Button>
-        }
-      />
-
       <InvoiceStatsCards stats={inv.stats} error={inv.statsError} />
 
       <Card>

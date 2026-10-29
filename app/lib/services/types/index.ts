@@ -156,6 +156,10 @@ export type {
 export type {
     QueryInvoiceParams,
     Invoice,
+    QueryInvoiceProfitabilityParams,
+    InvoiceProfitabilityRow,
+    InvoiceProfitabilityTotals,
+    InvoiceProfitabilityResponse,
 } from './invoices';
 
 // Reports

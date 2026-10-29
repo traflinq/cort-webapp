@@ -56,7 +56,7 @@ import {
     // Reports
     ChauffeurReport, ShuttleReport, ReportQueryParams,
     // Invoices
-    QueryInvoiceParams, Invoice,
+    QueryInvoiceParams, Invoice, QueryInvoiceProfitabilityParams, InvoiceProfitabilityResponse,
     // Expenses
     Expense, CreateExpenseRequest, UpdateExpenseRequest, ExpenseFilterParams, ExpensesListResult,
 } from './types';
@@ -1453,6 +1453,20 @@ class ApiClient {
         const endpoint = `/invoices${queryString ? `?${queryString}` : ''}`;
 
         return this.request<PaginatedResponse<Invoice>>(endpoint);
+    }
+
+    async getInvoiceProfitability(params: QueryInvoiceProfitabilityParams = {}): Promise<{ data: InvoiceProfitabilityResponse }> {
+        const query = new URLSearchParams();
+        if (params.page) query.append('page', String(params.page));
+        if (params.limit) query.append('limit', String(params.limit));
+        if (params.company_id) query.append('company_id', String(params.company_id));
+        if (params.startDate) query.append('startDate', params.startDate);
+        if (params.endDate) query.append('endDate', params.endDate);
+
+        const queryString = query.toString();
+        const endpoint = `/invoices/profitability${queryString ? `?${queryString}` : ''}`;
+
+        return this.request<{ data: InvoiceProfitabilityResponse }>(endpoint);
     }
 
     async getInvoiceStats(companyId?: number): Promise<any> {
