@@ -21,11 +21,17 @@ export interface TopBarProps {
   onOpenMenu: () => void;
   onOpenPalette: () => void;
   theme: "light" | "dark";
-  onToggleTheme: () => void;
+  onToggleTheme: (origin?: { x: number; y: number }) => void;
   user: { email?: string | null; name?: string | null } | null;
   isSuperAdmin: boolean;
   onLogout: () => void;
   showDesignSystemLink?: boolean;
+}
+
+/** Viewport center of an element — the origin of the theme switch's circular reveal. */
+function centerOf(el: Element) {
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -68,7 +74,7 @@ export function TopBar({ onOpenMenu, onOpenPalette, theme, onToggleTheme, user, 
 
         <DeleteRequestsBell variant="icon" />
 
-        <IconButton label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} onClick={onToggleTheme}>
+        <IconButton label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} onClick={(e) => onToggleTheme(centerOf(e.currentTarget))}>
           {theme === "dark" ? <Sun /> : <Moon />}
         </IconButton>
 
@@ -93,7 +99,7 @@ export function TopBar({ onOpenMenu, onOpenPalette, theme, onToggleTheme, user, 
               <span className="mt-1 block text-[11px] font-normal text-fg-muted">{isSuperAdmin ? "Super admin" : "Internal staff"}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onToggleTheme}>
+            <DropdownMenuItem onSelect={(e) => onToggleTheme(e.target instanceof Element ? centerOf(e.target) : undefined)}>
               {theme === "dark" ? <Sun /> : <Moon />}
               {theme === "dark" ? "Light theme" : "Dark theme"}
             </DropdownMenuItem>

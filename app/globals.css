@@ -218,6 +218,14 @@
     --chart-axis: rgba(15,23,42,0.45);
 }
 
+/* Super Admin theme switch: the new theme is revealed as a growing circle (clip-path animated
+   from JS in setAdminThemeAnimated), so turn off the default cross-fade. */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
 /* Super Admin portal (and its auth pages): plain white page in light theme. Scoped so company/vendor keep their tint. */
 /* Applied on <html> while an admin page is mounted (:has), so the body, overscroll area and portalled dialogs are white too. */
 html[data-theme="light"]:has(.admin-portal) {
