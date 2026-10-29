@@ -38,6 +38,7 @@ import {
     CardHeader,
     Field,
     FormGrid,
+    IconButton,
     Input,
     SectionHeader,
     focusRing,
@@ -168,69 +169,67 @@ function SortableStopCard({
             ref={setNodeRef}
             style={style}
             className={cn(
-                'group rounded-lg border bg-card p-3 shadow-[var(--shadow-card)]',
-                isOffice ? 'border-brand-line bg-brand-soft/30' : 'border-line',
-                isDragging && 'opacity-40',
+                'group flex items-center gap-2 rounded-lg border bg-card py-2 pl-1.5 pr-2 transition-shadow',
+                isOffice ? 'border-brand-line' : 'border-line hover:border-line-strong',
+                isDragging ? 'relative z-10 opacity-60 shadow-[var(--shadow-card-hover)]' : 'shadow-[var(--shadow-card)]',
             )}
         >
-            <div className="flex items-start gap-2">
-                <button
-                    type="button"
-                    className={cn(
-                        'mt-0.5 shrink-0 rounded-md p-1 text-fg-muted',
-                        dragDisabled ? 'cursor-not-allowed opacity-40' : 'cursor-grab hover:bg-subtle active:cursor-grabbing',
-                        focusRing,
-                    )}
-                    aria-label={`Reorder ${stop.name}`}
-                    disabled={dragDisabled}
-                    {...attributes}
-                    {...listeners}
-                >
-                    <GripVertical className="size-4" aria-hidden="true" />
-                </button>
-                <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-fg">
-                                <span
-                                    className={cn(
-                                        'flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white',
-                                        isOffice ? 'bg-brand' : 'bg-info',
-                                    )}
-                                    aria-hidden="true"
-                                >
-                                    {isOffice ? <Building2 className="size-3" /> : index + 1}
-                                </span>
-                                <span className="truncate">{stop.name}</span>
-                                {isOffice && <Badge tone="brand" size="sm">Office</Badge>}
-                            </div>
-                            <div className="mt-1.5 pl-8 text-xs text-fg-muted">
-                                {column === 'MORNING' ? 'Morning' : 'Evening'} {time}
-                                {isOffice ? ' · People board at pickups only' : ''}
-                            </div>
-                        </div>
-                        {canEdit && (
-                            <div className="flex shrink-0 gap-1 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100">
-                                <Button variant="ghost" size="sm" onClick={onEdit} leftIcon={<Pencil />}>
-                                    Edit
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={onRemove}
-                                    disabled={isOffice}
-                                    loading={isRemoving}
-                                    leftIcon={<Trash2 />}
-                                    className="text-danger-ink hover:bg-danger-soft hover:text-danger-ink"
-                                    title={isOffice ? 'Office stops cannot be removed' : undefined}
-                                >
-                                    Remove
-                                </Button>
-                            </div>
-                        )}
-                    </div>
+            <button
+                type="button"
+                className={cn(
+                    'shrink-0 rounded-md p-1 text-fg-muted',
+                    dragDisabled ? 'cursor-not-allowed opacity-30' : 'cursor-grab hover:bg-subtle hover:text-fg active:cursor-grabbing',
+                    focusRing,
+                )}
+                aria-label={`Reorder ${stop.name}`}
+                disabled={dragDisabled}
+                {...attributes}
+                {...listeners}
+            >
+                <GripVertical className="size-4" aria-hidden="true" />
+            </button>
+            <span
+                className={cn(
+                    'flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
+                    isOffice ? 'bg-brand text-white' : 'bg-info-soft text-info-ink',
+                )}
+                aria-hidden="true"
+            >
+                {isOffice ? <Building2 className="size-3.5" /> : index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-medium text-fg">{stop.name}</span>
+                    {isOffice && <Badge tone="brand" size="sm">Office</Badge>}
                 </div>
+                {isOffice && <p className="text-xs text-fg-muted">People board at pickups only</p>}
             </div>
+            <span
+                className={cn(
+                    'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium tabular-nums',
+                    time === '—' ? 'text-fg-muted' : 'bg-subtle text-fg-secondary',
+                )}
+                title={`${column === 'MORNING' ? 'Morning' : 'Evening'} time`}
+            >
+                {time === '—' ? 'No time' : time}
+            </span>
+            {canEdit && (
+                <div className="flex shrink-0 items-center md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+                    <IconButton label={`Edit ${stop.name}`} size="icon-xs" onClick={onEdit}>
+                        <Pencil />
+                    </IconButton>
+                    <IconButton
+                        label={isOffice ? 'Office stops cannot be removed' : `Remove ${stop.name}`}
+                        size="icon-xs"
+                        onClick={onRemove}
+                        disabled={isOffice}
+                        loading={isRemoving}
+                        className="text-danger-ink hover:bg-danger-soft hover:text-danger-ink"
+                    >
+                        <Trash2 />
+                    </IconButton>
+                </div>
+            )}
         </li>
     );
 }
@@ -604,20 +603,30 @@ export default function ManageStopsTab({ route, canEdit, onStopMutated }: Manage
                             ? 'Drag stops to reorder — pickups and offices. You set the full order. Press Save to keep it.'
                             : 'Drag stops to reorder — pickups only. Office is pinned (morning last, evening first). Press Save to keep it.'
                 }
-                actions={
-                    orderDirty ? (
-                        <>
-                            <Badge tone="warning" dot>Pending — not saved</Badge>
-                            <Button variant="outline" onClick={handleDiscardOrder} disabled={isSavingOrder}>
-                                Discard
-                            </Button>
-                            <Button onClick={() => void handleSaveOrder()} loading={isSavingOrder} leftIcon={<Save />}>
-                                Save order
-                            </Button>
-                        </>
-                    ) : undefined
-                }
             />
+
+            {/* Sticky (below the 56px top bar) so the save prompt stays in view while dragging down a long list. */}
+            {orderDirty && (
+                <div
+                    role="status"
+                    className="sticky top-16 z-20 flex flex-wrap items-center gap-3 rounded-xl border border-warning-line bg-warning-soft px-4 py-2.5 shadow-[var(--shadow-card-hover)]"
+                >
+                    <span className="size-2 shrink-0 rounded-full bg-warning" aria-hidden="true" />
+                    <p className="flex-1 text-sm font-medium text-warning-ink">
+                        Unsaved order changes
+                        <span className="font-normal">
+                            {' · '}
+                            {morningDirty && eveningDirty ? 'morning and evening' : morningDirty ? 'morning' : 'evening'}
+                        </span>
+                    </p>
+                    <Button variant="outline" size="sm" onClick={handleDiscardOrder} disabled={isSavingOrder}>
+                        Discard
+                    </Button>
+                    <Button size="sm" onClick={() => void handleSaveOrder()} loading={isSavingOrder} leftIcon={<Save />}>
+                        Save order
+                    </Button>
+                </div>
+            )}
 
             {editingStopId && (
                 <Card>
@@ -679,17 +688,21 @@ export default function ManageStopsTab({ route, canEdit, onStopMutated }: Manage
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {columns.map(({ column, stops, absent, title, Icon, announcements }) => (
                     <Card key={column} className="overflow-hidden bg-subtle">
-                        <div className="flex items-center gap-2 border-b border-line bg-card px-4 py-3">
-                            <span className="flex size-8 items-center justify-center rounded-full bg-brand-soft text-brand-ink" aria-hidden="true">
+                        <div className="flex items-center gap-2.5 border-b border-line bg-card px-4 py-3">
+                            <span className="flex size-8 items-center justify-center rounded-lg bg-brand-soft text-brand-ink" aria-hidden="true">
                                 <Icon className="size-4" />
                             </span>
-                            <div>
+                            <div className="min-w-0 flex-1">
                                 <h4 className="text-sm font-semibold text-fg">{title}</h4>
                                 <p className="text-xs text-fg-muted">
-                                    {stops.length} stop{stops.length !== 1 ? 's' : ''}
+                                    {column === 'MORNING' ? 'Pickups → office' : 'Office → drops'}
                                     {absent.length > 0 && ` · ${absent.length} not on route`}
                                 </p>
                             </div>
+                            <Badge tone="neutral" size="sm">{stops.length} {stops.length === 1 ? 'stop' : 'stops'}</Badge>
+                            {(column === 'MORNING' ? morningDirty : eveningDirty) && (
+                                <Badge tone="warning" size="sm" dot>Edited</Badge>
+                            )}
                         </div>
                         <DndContext
                             sensors={sensors}

@@ -28,29 +28,21 @@ export function pointsFromConfigs(configs?: RouteDirectionConfig[]): PointsForm 
 
 const KM = (v: unknown) => (v == null ? null : `${Number(v).toFixed(1)} km`);
 
-/** Read-only summary of where the driver starts/ends each direction and the km that adds to planned distance. */
-export function DirectionPointsSummary({ configs }: { configs?: RouteDirectionConfig[] }) {
-    const rows = (['MORNING', 'EVENING'] as const).flatMap((dir) => {
-        const c = configs?.find((x) => x.direction === dir);
-        const label = dir === 'MORNING' ? 'Morning' : 'Evening';
-        return [
-            // Morning ends at the office and evening starts there, so only these two ends can differ.
-            dir === 'MORNING'
-                ? { key: 'MORNING-s', label: `${label} driver start`, addr: c?.start_address, has: c?.start_lat != null, km: KM(c?.start_leg_km) }
-                : { key: 'EVENING-e', label: `${label} driver end`, addr: c?.end_address, has: c?.end_lat != null, km: KM(c?.end_leg_km) },
-        ];
-    });
-    return (
-        <>
-            {rows.map((r) => (
-                <div key={r.key}>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">{r.label}</dt>
-                    <dd className="mt-1 text-sm font-medium text-fg">{r.has ? r.addr || 'Pinned location' : 'Not set'}</dd>
-                    {r.has && <dd className="mt-0.5 text-xs text-fg-muted">{r.km ? `Adds ${r.km} to planned distance` : 'Distance not calculated yet'}</dd>}
-                </div>
-            ))}
-        </>
-    );
+/**
+ * The one driver end that can differ per direction: morning start (before the first pickup) or
+ * evening end (after the last drop). Morning ends and evening starts at the office.
+ * Returns null when unset; `hint` explains the km it adds to planned distance.
+ */
+export function driverEndPoint(configs: RouteDirectionConfig[] | undefined, dir: 'MORNING' | 'EVENING') {
+    const c = configs?.find((x) => x.direction === dir);
+    const has = dir === 'MORNING' ? c?.start_lat != null : c?.end_lat != null;
+    if (!has) return null;
+    const address = dir === 'MORNING' ? c?.start_address : c?.end_address;
+    const km = KM(dir === 'MORNING' ? c?.start_leg_km : c?.end_leg_km);
+    return {
+        address: address || 'Pinned location',
+        hint: km ? `Adds ${km} to planned distance` : 'Distance not calculated yet',
+    };
 }
 
 function PointField({ label, hint, value, onChange }: { label: string; hint: string; value: RoutePoint | null; onChange: (p: RoutePoint | null) => void }) {

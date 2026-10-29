@@ -148,7 +148,7 @@ export function GalleryContent() {
         }
         actions={
           <>
-            <Button variant="outline" leftIcon={theme === "dark" ? <Sun /> : <Moon />} onClick={toggle}>
+            <Button variant="outline" leftIcon={theme === "dark" ? <Sun /> : <Moon />} onClick={(e) => toggle({ x: e.clientX, y: e.clientY })}>
               {theme === "dark" ? "Light theme" : "Dark theme"}
             </Button>
             <Button leftIcon={<Plus />} onClick={() => toast.success("Saved", { description: "Example success toast" })}>

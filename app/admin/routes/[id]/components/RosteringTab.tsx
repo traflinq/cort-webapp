@@ -1,17 +1,19 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { UserMinus, UserPlus, Users } from 'lucide-react';
+import { MapPin, UserMinus, UserPlus, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import {
     Badge,
     Button,
     Card,
     CardContent,
+    CardHeader,
     CardSkeleton,
     EmptyState,
     Field,
     FormGrid,
+    IconButton,
     SearchInput,
     SectionHeader,
     Select,
@@ -148,6 +150,32 @@ export default function RosteringTab({ route, canEdit }: { route: Route; canEdit
         });
     }, [assignments, search]);
 
+    // Group riders by pickup, in morning boarding order, so ops can read "who boards where".
+    const groups = useMemo(() => {
+        const byStop = new Map<number | null, typeof visible>();
+        for (const a of visible) {
+            const key = a.pickup_stop_id ?? null;
+            byStop.set(key, [...(byStop.get(key) ?? []), a]);
+        }
+        const order = (key: number | null) => {
+            const s = key != null ? stopById.get(key) : undefined;
+            return s ? (s.morning_sequence ?? s.sequence_order ?? 0) : Number.MAX_SAFE_INTEGER;
+        };
+        return [...byStop.entries()]
+            .sort(([a], [b]) => order(a) - order(b))
+            .map(([key, riders]) => {
+                const stop = key != null ? stopById.get(key) : undefined;
+                return {
+                    key: key ?? 'none',
+                    name: riders[0]?.route_stops?.name ?? stop?.name ?? 'Unknown pickup',
+                    time: format12h(stop?.morning_eta ?? null),
+                    seq: stop ? (stop.morning_sequence ?? stop.sequence_order) : null,
+                    riders,
+                };
+            });
+    }, [visible, stopById]);
+
+    const pickupCount = new Set(assignments.map((a) => a.pickup_stop_id)).size;
     const isLoading = assignmentStatus === 'loading' && assignments.length === 0;
     const isAssigning = assignmentStatus === 'loading' && !isLoading;
 
@@ -156,10 +184,18 @@ export default function RosteringTab({ route, canEdit }: { route: Route; canEdit
             <SectionHeader
                 title="Who normally rides this route"
                 description="This is the standing roster. Day-of moves live on Today's shuttle plan."
+                actions={
+                    assignments.length > 0 ? (
+                        <Badge tone="neutral">
+                            {assignments.length} {assignments.length === 1 ? 'rider' : 'riders'} · {pickupCount} {pickupCount === 1 ? 'pickup' : 'pickups'}
+                        </Badge>
+                    ) : undefined
+                }
             />
 
             {canEdit && (
                 <Card>
+                    <CardHeader title="Add a rider" description="Pick an employee and where they board." />
                     <CardContent>
                         <FormGrid cols={hasMultipleOffices ? 4 : 3} className="items-end">
                             <Field label="Employee">
@@ -234,47 +270,51 @@ export default function RosteringTab({ route, canEdit }: { route: Route; canEdit
                     />
                 </Card>
             ) : (
-                <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {visible.map((assignment) => {
-                        const name = assignment.users?.full_name ?? 'Employee';
-                        const stop = assignment.pickup_stop_id ? stopById.get(assignment.pickup_stop_id) : undefined;
-                        const pickupName = assignment.route_stops?.name ?? stop?.name ?? 'Pickup';
-                        const officeName = assignment.office_route_stops?.name ?? null;
-                        const time = format12h(stop?.morning_eta ?? null);
-                        return (
-                            <li key={assignment.user_id}>
-                                <Card className="flex h-full items-start gap-3 p-4">
-                                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-ink" aria-hidden="true">
-                                        {initials(name)}
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="truncate font-semibold text-fg">{name}</div>
-                                        {assignment.users?.email && (
-                                            <div className="truncate text-xs text-fg-muted">{assignment.users.email}</div>
-                                        )}
-                                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                            <Badge tone="neutral">{pickupName}</Badge>
-                                            {hasMultipleOffices && officeName && <Badge tone="purple">{officeName}</Badge>}
-                                            {time && <span className="text-xs text-fg-muted">{time}</span>}
-                                        </div>
-                                    </div>
-                                    {canEdit && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="shrink-0 text-danger-ink hover:bg-danger-soft hover:text-danger-ink"
-                                            onClick={() => void handleRemove(assignment.user_id, name)}
-                                            loading={removingUserId === assignment.user_id}
-                                            leftIcon={<UserMinus />}
-                                        >
-                                            Remove
-                                        </Button>
-                                    )}
-                                </Card>
-                            </li>
-                        );
-                    })}
-                </ul>
+                <div className="space-y-3">
+                    {groups.map((group) => (
+                        <Card key={group.key} className="overflow-hidden">
+                            <div className="flex items-center gap-3 border-b border-line bg-subtle px-4 py-2.5">
+                                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-info-soft text-[11px] font-semibold text-info-ink" aria-hidden="true">
+                                    {group.seq ?? <MapPin className="size-3" />}
+                                </span>
+                                <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-fg">{group.name}</h3>
+                                {group.time && <span className="text-xs tabular-nums text-fg-muted">{group.time}</span>}
+                                <Badge tone="neutral" size="sm">{group.riders.length}</Badge>
+                            </div>
+                            <ul className="divide-y divide-line">
+                                {group.riders.map((assignment) => {
+                                    const name = assignment.users?.full_name ?? 'Employee';
+                                    const officeName = assignment.office_route_stops?.name ?? null;
+                                    return (
+                                        <li key={assignment.user_id} className="group flex items-center gap-3 px-4 py-2.5">
+                                            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[11px] font-semibold text-brand-ink" aria-hidden="true">
+                                                {initials(name)}
+                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="truncate text-sm font-medium text-fg">{name}</div>
+                                                {assignment.users?.email && (
+                                                    <div className="truncate text-xs text-fg-muted">{assignment.users.email}</div>
+                                                )}
+                                            </div>
+                                            {hasMultipleOffices && officeName && <Badge tone="purple" size="sm">{officeName}</Badge>}
+                                            {canEdit && (
+                                                <IconButton
+                                                    label={`Remove ${name} from this route`}
+                                                    size="icon-xs"
+                                                    className="shrink-0 text-danger-ink hover:bg-danger-soft hover:text-danger-ink md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-visible:opacity-100"
+                                                    onClick={() => void handleRemove(assignment.user_id, name)}
+                                                    loading={removingUserId === assignment.user_id}
+                                                >
+                                                    <UserMinus />
+                                                </IconButton>
+                                            )}
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </Card>
+                    ))}
+                </div>
             )}
         </div>
     );

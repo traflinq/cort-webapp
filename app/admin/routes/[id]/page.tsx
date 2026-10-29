@@ -22,8 +22,8 @@ import { fetchAdminVehicles, selectAdminVehicles } from '@/app/lib/store/slices/
 import StopAddressSearch from '@/app/admin/ui/StopAddressSearch';
 import RosteringTab from './components/RosteringTab';
 import ManageStopsTab from './components/ManageStopsTab';
-import { DirectionPointsEditor, DirectionPointsSummary, emptyPoints, pointsFromConfigs, type PointsForm } from './components/DirectionPointsEditor';
-import { Info, Plus, Save, Trash2, Users, X, ListOrdered, Sparkles, Building2, Sun, Sunset, Pencil, MapPin, Route as RouteIcon } from 'lucide-react';
+import { DirectionPointsEditor, driverEndPoint, emptyPoints, pointsFromConfigs, type PointsForm } from './components/DirectionPointsEditor';
+import { Car, Info, Plus, Save, Trash2, Users, X, ListOrdered, Sparkles, Building2, Sun, Sunset, Pencil, MapPin, Route as RouteIcon } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -57,7 +57,7 @@ import {
     Tooltip,
     usePageBreadcrumbs,
 } from '@/app/admin/ui';
-import { MAP_COLORS, format12h, toClockHHmm } from '../RouteCommandBar';
+import { MAP_COLORS, format12h, initials, toClockHHmm } from '../RouteCommandBar';
 import { getOfficeStops } from '@/app/lib/utils/routeStops';
 import {
     hasValidOfficeGeofence,
@@ -72,13 +72,94 @@ type PolylineResponse = { points: { lat: number; lng: number }[] };
 type DetailTab = 'overview' | 'stops' | 'rostering';
 type VehicleOption = { id: number; plate_number?: string; model?: string };
 
-function DetailField({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+/** Compact label/value tile for the summary strip at the top of Route details. */
+function SummaryStat({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
     return (
-        <div>
-            <dt className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">{label}</dt>
-            <dd className="mt-1 text-sm font-medium text-fg">{value}</dd>
-            {hint && <dd className="mt-0.5 text-xs text-fg-muted">{hint}</dd>}
+        <div className="min-w-0 rounded-lg border border-line bg-subtle px-3.5 py-3">
+            <dt className="text-xs text-fg-muted">{label}</dt>
+            <dd className="mt-1 truncate text-sm font-semibold text-fg">{children}</dd>
+            {hint && <dd className="mt-0.5 truncate text-xs text-fg-muted">{hint}</dd>}
         </div>
+    );
+}
+
+type CrewVehicle = { plate_number?: string; model?: string } | null | undefined;
+
+/** One direction's usual crew (driver, vehicle, driver start/end point) as a labelled panel. */
+function ShiftPanel({
+    title,
+    subtitle,
+    icon,
+    driver,
+    vehicle,
+    inheritsFromMorning,
+    pointLabel,
+    point,
+}: {
+    title: string;
+    subtitle: string;
+    icon: React.ReactNode;
+    driver: string | null;
+    vehicle: CrewVehicle;
+    /** Field is unset (not merely missing) so the morning crew is reused. */
+    inheritsFromMorning?: { driver: boolean; vehicle: boolean };
+    pointLabel: string;
+    point: { address: string; hint: string } | null;
+}) {
+    const empty = (inherit?: boolean) =>
+        inherit ? <span className="text-fg-muted">Same as morning</span> : <span className="text-warning-ink">Not assigned</span>;
+    return (
+        <section className="rounded-xl border border-line">
+            <header className="flex items-center gap-2.5 border-b border-line px-4 py-3">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-brand-soft text-brand-ink [&_svg]:size-4" aria-hidden="true">
+                    {icon}
+                </span>
+                <div>
+                    <h4 className="text-sm font-semibold text-fg">{title}</h4>
+                    <p className="text-xs text-fg-muted">{subtitle}</p>
+                </div>
+            </header>
+            <dl className="divide-y divide-line">
+                <div className="flex min-h-12 items-center gap-3 px-4 py-2">
+                    <dt className="w-24 shrink-0 text-xs text-fg-muted">Driver</dt>
+                    <dd className="flex min-w-0 items-center gap-2 text-sm text-fg">
+                        {driver ? (
+                            <>
+                                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[10px] font-semibold text-brand-ink" aria-hidden="true">
+                                    {initials(driver)}
+                                </span>
+                                <span className="truncate font-medium">{driver}</span>
+                            </>
+                        ) : empty(inheritsFromMorning?.driver)}
+                    </dd>
+                </div>
+                <div className="flex min-h-12 items-center gap-3 px-4 py-2">
+                    <dt className="w-24 shrink-0 text-xs text-fg-muted">Vehicle</dt>
+                    <dd className="flex min-w-0 items-center gap-2 text-sm text-fg">
+                        {vehicle?.plate_number ? (
+                            <>
+                                <Car className="size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+                                {vehicle.model && <span className="truncate font-medium">{vehicle.model}</span>}
+                                <span className="shrink-0 rounded border border-line bg-subtle px-1.5 py-px font-mono text-xs">{vehicle.plate_number}</span>
+                            </>
+                        ) : empty(inheritsFromMorning?.vehicle)}
+                    </dd>
+                </div>
+                <div className="flex min-h-12 items-center gap-3 px-4 py-2">
+                    <dt className="w-24 shrink-0 text-xs text-fg-muted">{pointLabel}</dt>
+                    <dd className="min-w-0 text-sm text-fg">
+                        {point ? (
+                            <>
+                                <span className="block truncate font-medium" title={point.address}>{point.address}</span>
+                                <span className="block text-xs text-fg-muted">{point.hint}</span>
+                            </>
+                        ) : (
+                            <span className="text-fg-muted">Not set · +10% estimate</span>
+                        )}
+                    </dd>
+                </div>
+            </dl>
+        </section>
     );
 }
 
@@ -713,15 +794,9 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
     }
 
     const companyName = route.company?.name ?? route.companies?.name ?? 'Company';
-    const formatVehicle = (v?: { plate_number?: string; model?: string } | null) =>
-        v?.plate_number ? [v.model, v.plate_number].filter(Boolean).join(' · ') : null;
-    const morningDriver = route.users?.full_name ?? 'Not set';
-    const morningVehicle = formatVehicle(route.vehicles) ?? 'Not set';
-    const eveningDriver = route.evening_driver?.full_name
-        ?? (route.evening_driver_id ? 'Not set' : 'Same as morning');
-    const eveningVehicle = formatVehicle(route.evening_vehicle)
-        ?? (route.evening_vehicle_id ? 'Not set' : 'Same as morning');
     const stopCount = route.route_stops?.length || 0;
+    const officeCount = officeStopIds.size;
+    const pickupCount = stopCount - officeCount;
     const stopFormOpen = isAddingStop || editingStopId != null;
 
     const directionStops = (route.route_stops ?? [])
@@ -804,24 +879,49 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                         />
                         <CardContent>
                             {!isEditing ? (
-                                <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
-                                    <DetailField label="Company" value={companyName} />
-                                    <DetailField
-                                        label="Daily rides"
-                                        value={route.is_active === false ? 'Paused' : 'Created daily'}
-                                        hint={route.is_active === false ? 'Inactive: no trips are generated for this route' : undefined}
-                                    />
-                                    <DetailField label="Morning driver" value={morningDriver} />
-                                    <DetailField label="Morning vehicle" value={morningVehicle} />
-                                    <DetailField label="Evening driver" value={eveningDriver} />
-                                    <DetailField label="Evening vehicle" value={eveningVehicle} />
-                                    <DetailField
-                                        label="Evening lock time"
-                                        value={format12h(route.evening_lock_time) || 'Not set'}
-                                        hint="Evening return cannot start before this"
-                                    />
-                                    <DirectionPointsSummary configs={route.route_direction_configs} />
-                                </dl>
+                                <div className="space-y-4">
+                                    <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                                        <SummaryStat label="Company">{companyName}</SummaryStat>
+                                        <SummaryStat
+                                            label="Daily rides"
+                                            hint={route.is_active === false ? 'No trips are generated' : undefined}
+                                        >
+                                            {route.is_active === false ? (
+                                                <span className="text-warning-ink">Paused</span>
+                                            ) : (
+                                                'Created daily'
+                                            )}
+                                        </SummaryStat>
+                                        <SummaryStat label="Stops">
+                                            {pickupCount} {pickupCount === 1 ? 'pickup' : 'pickups'}
+                                            <span className="font-normal text-fg-muted"> · {officeCount} {officeCount === 1 ? 'office' : 'offices'}</span>
+                                        </SummaryStat>
+                                        <SummaryStat label="Evening lock" hint="Return can't start before this">
+                                            {format12h(route.evening_lock_time) || <span className="font-normal text-fg-muted">Not set</span>}
+                                        </SummaryStat>
+                                    </dl>
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                        <ShiftPanel
+                                            title="Morning"
+                                            subtitle="Pickups → office"
+                                            icon={<Sun />}
+                                            driver={route.users?.full_name ?? null}
+                                            vehicle={route.vehicles}
+                                            pointLabel="Driver starts"
+                                            point={driverEndPoint(route.route_direction_configs, 'MORNING')}
+                                        />
+                                        <ShiftPanel
+                                            title="Evening"
+                                            subtitle="Office → drops"
+                                            icon={<Sunset />}
+                                            driver={route.evening_driver?.full_name ?? null}
+                                            vehicle={route.evening_vehicle}
+                                            inheritsFromMorning={{ driver: !route.evening_driver_id, vehicle: !route.evening_vehicle_id }}
+                                            pointLabel="Driver ends"
+                                            point={driverEndPoint(route.route_direction_configs, 'EVENING')}
+                                        />
+                                    </div>
+                                </div>
                             ) : (
                                 <FormGrid cols={3}>
                                     <Field label="Route name" required className="sm:col-span-2 lg:col-span-3">
@@ -1048,47 +1148,50 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
                                         description="Add a stop, or switch direction."
                                     />
                                 ) : (
-                                    <ol className="min-h-0 flex-1 space-y-2 overflow-y-auto" aria-label={`${mapDirection === 'MORNING' ? 'Morning' : 'Evening'} stops`}>
-                                        {directionStops.map((stop) => {
+                                    <ol className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1" aria-label={`${mapDirection === 'MORNING' ? 'Morning' : 'Evening'} stops`}>
+                                        {directionStops.map((stop, index) => {
                                             const isOffice = officeStopIds.has(stop.id);
                                             const seq = mapDirection === 'MORNING' ? (stop.morning_sequence ?? stop.sequence_order) : (stop.evening_sequence ?? stop.sequence_order);
                                             const isHighlighted = highlightedStopId === stop.id;
                                             const hasGeofence = isOffice && hasValidOfficeGeofence(parseOfficeGeofenceRing(stop.completion_geofence_geojson));
+                                            const isLast = index === directionStops.length - 1;
+                                            const eta = format12h(mapDirection === 'MORNING' ? stop.morning_eta : stop.evening_eta);
                                             return (
                                                 <li
                                                     key={stop.id}
                                                     id={`overview-stop-${stop.id}`}
                                                     onClick={() => setHighlightedStopId(stop.id)}
-                                                    className={cn(
-                                                        'group rounded-lg border p-3 transition-colors',
-                                                        isHighlighted
-                                                            ? 'border-purple-line bg-purple-soft'
-                                                            : 'border-line bg-subtle hover:border-line-strong',
-                                                    )}
+                                                    className="group relative flex cursor-pointer gap-3"
                                                 >
-                                                    <div className="flex items-start justify-between gap-2">
+                                                    {/* Timeline rail: marker plus a connector down to the next stop */}
+                                                    <div className="flex w-6 shrink-0 flex-col items-center pt-2.5">
+                                                        <span
+                                                            className={cn(
+                                                                'z-[1] flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white ring-4 ring-card',
+                                                                isHighlighted ? 'bg-purple-solid' : isOffice ? 'bg-brand' : 'bg-info',
+                                                            )}
+                                                            aria-hidden="true"
+                                                        >
+                                                            {isOffice ? <Building2 className="size-3" /> : seq}
+                                                        </span>
+                                                        {!isLast && <span className="-mb-2.5 w-px flex-1 bg-line-strong" aria-hidden="true" />}
+                                                    </div>
+                                                    <div
+                                                        className={cn(
+                                                            'mb-1 flex min-w-0 flex-1 items-start justify-between gap-2 rounded-lg px-2.5 py-2 transition-colors',
+                                                            isHighlighted ? 'bg-purple-soft' : 'hover:bg-subtle',
+                                                        )}
+                                                    >
                                                         <div className="min-w-0">
-                                                            <div className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-fg">
-                                                                <span
-                                                                    className={cn(
-                                                                        'flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white',
-                                                                        isOffice ? 'bg-brand' : 'bg-info',
-                                                                    )}
-                                                                    aria-hidden="true"
-                                                                >
-                                                                    {isOffice ? <Building2 className="size-3" /> : seq}
-                                                                </span>
-                                                                <span className="truncate">{stop.name}</span>
+                                                            <div className="truncate text-sm font-medium text-fg">{stop.name}</div>
+                                                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-fg-muted">
+                                                                <span className="tabular-nums">{eta || 'No time set'}</span>
                                                                 {isOffice && (
                                                                     <Badge tone="brand" size="sm">
-                                                                        {hasMultipleOffices ? 'Office' : 'Office — last AM / first PM'}
+                                                                        {hasMultipleOffices ? 'Office' : mapDirection === 'MORNING' ? 'Office · last stop' : 'Office · first stop'}
                                                                     </Badge>
                                                                 )}
-                                                                {hasGeofence && <Badge tone="info" size="sm">Geofence set</Badge>}
-                                                            </div>
-                                                            <div className="mt-1 text-xs text-fg-muted">
-                                                                Morning {format12h(stop.morning_eta) || '—'} · Evening {format12h(stop.evening_eta) || '—'}
-                                                                {isOffice ? ' · People board at pickups only' : ''}
+                                                                {hasGeofence && <Badge tone="info" size="sm">Geofence</Badge>}
                                                             </div>
                                                         </div>
                                                         <div className="flex shrink-0 items-center gap-0.5 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100">
