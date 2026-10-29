@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button, Dialog, DialogContent, Field, FormGrid, Input, Select, focusRing } from "../../../ui";
 import { formatCurrency } from "../../../lib/format";
 import { ChauffeurFuelBillingSection, type ChauffeurFuelMode } from "./ChauffeurFuelBillingSection";
+import { InvoiceParticularsField } from "./InvoiceParticularsField";
 import { DailyLogTable, type DailyLogRow } from "./DailyLogTable";
 
 type Props = {
@@ -38,6 +39,7 @@ export interface RecalculatePayload {
   discount_value?: number;
   fuelMode?: ChauffeurFuelMode;
   selectedFuelPrice?: number;
+  invoice_particulars?: string;
 }
 
 const PACKAGES = [
@@ -79,6 +81,7 @@ export function RecalculateModal({ isOpen, onClose, onSubmit, booking, loading }
   const [discountValue, setDiscountValue] = useState("");
   const [fuelMode, setFuelMode] = useState<ChauffeurFuelMode>("CONTRACT");
   const [selectedFuelPrice, setSelectedFuelPrice] = useState("");
+  const [invoiceParticulars, setInvoiceParticulars] = useState<string | null>(null);
 
   // Pre-fill from the booking each time the dialog opens (render-time adjustment).
   const seedKey = isOpen && booking ? String(booking.id) : null;
@@ -109,6 +112,7 @@ export function RecalculateModal({ isOpen, onClose, onSubmit, booking, loading }
       setDiscountValue("");
       setFuelMode("CONTRACT");
       setSelectedFuelPrice("");
+      setInvoiceParticulars(null);
     }
   }
 
@@ -147,6 +151,7 @@ export function RecalculateModal({ isOpen, onClose, onSubmit, booking, loading }
         payload.discount_type = discountType;
         payload.discount_value = parseFloat(discountValue);
       }
+      if (invoiceParticulars !== null && invoiceParticulars.trim()) payload.invoice_particulars = invoiceParticulars.trim();
       if (fuelMode === "SELECTED") {
         const petrol = Number(selectedFuelPrice);
         if (!selectedFuelPrice || Number.isNaN(petrol) || petrol <= 0) {
@@ -296,6 +301,8 @@ export function RecalculateModal({ isOpen, onClose, onSubmit, booking, loading }
                     This <strong>deletes the existing invoice</strong> and regenerates it with the new values. You will be asked to confirm.
                   </span>
                 </div>
+
+                <InvoiceParticularsField booking={booking} value={invoiceParticulars} onChange={setInvoiceParticulars} />
 
                 <ChauffeurFuelBillingSection
                   companyId={booking.company_id}

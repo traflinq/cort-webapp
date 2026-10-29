@@ -54,6 +54,12 @@ type MapProps = {
   className?: string;
   /** When true, keep panning to `center` even after the user drags (e.g. ride tracking). Default false. */
   followCenter?: boolean;
+  /** Re-fit the camera to all markers whenever they change (no `center` given). Default true;
+   *  pass false for frequently-updating maps (fleet tracking) and frame them with `viewKey`. */
+  autoFit?: boolean;
+  /** Change to re-frame the camera: clears the user's manual pan and fits `fitTo` (or all markers). */
+  viewKey?: number;
+  fitTo?: [number, number][];
 };
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
@@ -191,6 +197,9 @@ export default function Map({
   onMarkerClick,
   className = '',
   followCenter = false,
+  autoFit = true,
+  viewKey,
+  fitTo,
 }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -371,7 +380,7 @@ export default function Map({
     gmMarkersRef.current = nextRefs;
 
     // Auto-fit bounds when no explicit center was given (and user hasn't taken over)
-    if (!center && markers.length > 0 && !userHasPannedRef.current) {
+    if (autoFit && !center && markers.length > 0 && !userHasPannedRef.current) {
       if (markers.length === 1) {
         mapRef.current.panTo({ lat: markers[0].position[0], lng: markers[0].position[1] });
         mapRef.current.setZoom(14);
@@ -383,7 +392,28 @@ export default function Map({
     }
 
     return () => { cancelled = true; };
-  }, [mapReady, markers, center]);
+  }, [mapReady, markers, center, autoFit]);
+
+  // ── Explicit re-frame (viewKey changes) ───────────────────────────────────
+  // Reads the latest points via a ref so marker updates alone never move the camera.
+  const fitPointsRef = useRef<[number, number][]>([]);
+  useEffect(() => {
+    fitPointsRef.current = fitTo?.length ? fitTo : markers.map((m) => m.position);
+  }, [fitTo, markers]);
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || viewKey === undefined) return;
+    userHasPannedRef.current = false;
+    lastPannedCenterRef.current = null;
+    const points = fitPointsRef.current;
+    if (points.length === 1) {
+      mapRef.current.panTo({ lat: points[0][0], lng: points[0][1] });
+      mapRef.current.setZoom(15);
+    } else if (points.length > 1) {
+      const bounds = new google.maps.LatLngBounds();
+      points.forEach(([lat, lng]) => bounds.extend({ lat, lng }));
+      mapRef.current.fitBounds(bounds, 60);
+    }
+  }, [mapReady, viewKey]);
 
   // ── Sync polylines ────────────────────────────────────────────────────────
   useEffect(() => {

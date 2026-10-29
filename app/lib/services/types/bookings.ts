@@ -123,6 +123,7 @@ export interface ChauffeurBooking {
     city?: string; // City of the booking
     service_category?: string;
     pickup_address?: string; // Human readable address
+    destination_cities?: string[]; // Outstation destinations
     no_of_days?: number;
     created_at: string;
     companies?: {

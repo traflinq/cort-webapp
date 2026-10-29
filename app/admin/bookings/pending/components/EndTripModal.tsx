@@ -8,6 +8,7 @@ import { uploadFile } from "../../../../lib/supabase";
 import { Button, Checkbox, Dialog, DialogContent, Field, FormGrid, Input, Select } from "../../../ui";
 import { cn } from "@/lib/utils";
 import { ChauffeurFuelBillingSection, type ChauffeurFuelMode } from "./ChauffeurFuelBillingSection";
+import { InvoiceParticularsField } from "./InvoiceParticularsField";
 import { DailyLogTable, ymdLocal, type DailyLogRow } from "./DailyLogTable";
 
 type Props = {
@@ -66,6 +67,7 @@ export const EndTripModal = memo(function EndTripModal({ isOpen, onClose, onSubm
   const [discountValue, setDiscountValue] = useState("");
   const [fuelMode, setFuelMode] = useState<ChauffeurFuelMode>("CONTRACT");
   const [selectedFuelPrice, setSelectedFuelPrice] = useState("");
+  const [invoiceParticulars, setInvoiceParticulars] = useState<string | null>(null);
   const [useManualStartTime, setUseManualStartTime] = useState(false);
   const [manualStartTime, setManualStartTime] = useState("");
   const [useManualEndTime, setUseManualEndTime] = useState(false);
@@ -91,6 +93,7 @@ export const EndTripModal = memo(function EndTripModal({ isOpen, onClose, onSubm
       setDailyLogs(seedDays(booking, effectiveStart, effectiveEnd));
       setFuelMode("CONTRACT");
       setSelectedFuelPrice("");
+      setInvoiceParticulars(null);
     }
   }
 
@@ -138,6 +141,8 @@ export const EndTripModal = memo(function EndTripModal({ isOpen, onClose, onSubm
       } else {
         data.fuelMode = "CONTRACT";
       }
+
+      if (invoiceParticulars !== null && invoiceParticulars.trim()) data.invoice_particulars = invoiceParticulars.trim();
 
       if (useManualEndTime && manualEndTime) data.end_time = new Date(manualEndTime).toISOString();
       if (useManualStartTime && manualStartTime) data.start_time = new Date(manualStartTime).toISOString();
@@ -228,6 +233,7 @@ export const EndTripModal = memo(function EndTripModal({ isOpen, onClose, onSubm
                     </Field>
                   )}
                 </div>
+                <InvoiceParticularsField booking={booking} value={invoiceParticulars} onChange={setInvoiceParticulars} />
                 <ChauffeurFuelBillingSection
                   companyId={booking.company_id}
                   vehicleModel={booking.vehicle_model}

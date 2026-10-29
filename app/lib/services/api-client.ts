@@ -1134,6 +1134,7 @@ class ApiClient {
         discount_value?: number,
         fuelMode?: 'CONTRACT' | 'SELECTED' | 'SYSTEM',
         selectedFuelPrice?: number,
+        invoice_particulars?: string,
     }): Promise<ChauffeurBookingResponse> {
         return this.request<ChauffeurBookingResponse>(`/admin/bookings/${id}/end`, {
             method: 'PATCH',
@@ -1168,6 +1169,7 @@ class ApiClient {
         discount_value?: number;
         fuelMode?: 'CONTRACT' | 'SELECTED' | 'SYSTEM';
         selectedFuelPrice?: number;
+        invoice_particulars?: string;
     }): Promise<{ success: boolean; invoice_amount: number; invoice_number: string; savings: number }> {
         return this.request(`/admin/bookings/${id}/recalculate`, {
             method: 'PATCH',

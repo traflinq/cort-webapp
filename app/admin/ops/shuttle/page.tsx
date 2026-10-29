@@ -1,9 +1,20 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Bus, MapPin, Navigation, PanelRightOpen, Radio, Square, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  Bus,
+  CheckCircle2,
+  Clock,
+  Crosshair,
+  Maximize2,
+  PanelRightOpen,
+  Radio,
+  Square,
+  Users,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PermissionGate } from "@/app/admin/components/PermissionGate";
 import { AdminCan } from "@/app/lib/abilities/AdminAbilityProvider";
@@ -16,75 +27,60 @@ import {
   Badge,
   Button,
   Card,
-  CardHeader,
   Drawer,
   DrawerContent,
   EmptyState,
   ErrorState,
-  RefreshButton,
   PageHeader,
+  RefreshButton,
+  SearchInput,
   Select,
   Skeleton,
-  Spinner,
   StatusBadge,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   focusRing,
   useChartTheme,
 } from "@/app/admin/ui";
 import { formatRelative, formatTime } from "@/app/admin/lib/format";
 import { todayYmd } from "@/app/admin/lib/dates";
-import { occupancyCounts, SHUTTLE_STATUS_OVERRIDES, TripDetailPanel, type TripEmployee } from "./TripDetailPanel";
+import {
+  SHUTTLE_STATUS_OVERRIDES,
+  TripDetailPanel,
+  type TripEmployee,
+} from "./TripDetailPanel";
+import {
+  currentStopIndex,
+  isDone,
+  isLive,
+  isScheduled,
+  mergePositions,
+  nextStop,
+  pktMinutesNow,
+  stopEta,
+  tripHealth,
+  urgencyRank,
+  type LivePosition,
+  type ShuttleTrip,
+  type TripHealth,
+} from "./fleet";
 
 const Map = dynamic(() => import("@/app/admin/ui/Map"), { ssr: false });
 
-// ---- Types ----------------------------------------------------------------
-
-type RouteStop = {
-  id: number;
-  name: string;
-  sequence_order: number;
-  morning_eta: string | null;
-  evening_eta: string | null;
-  lat: number | null;
-  lng: number | null;
-};
-
-type ShuttleTrip = {
-  id: number;
-  direction: "MORNING" | "EVENING";
-  status: string;
-  started_at: string | null;
-  completed_at: string | null;
-  current_stop_id: number | null;
-  current_stop_status?: string | null;
-  /** Last-known driver GPS position (Redis shuttle:last_coord), embedded by the backend
-   * for STARTED/IN_PROGRESS trips — avoids a separate .../last-location request. */
-  last_lat?: number | null;
-  last_lng?: number | null;
-  last_location_ts?: number | null;
-  routes?: {
-    id: number;
-    name: string;
-    vehicles?: { id: number; plate_number: string; model: string | null } | null;
-    route_stops?: RouteStop[];
-    _count?: { employee_route_assignments?: number };
-  } | null;
-};
+/** Cheap fleet poll (status + last GPS fix). */
+const POSITIONS_POLL_MS = 15_000;
+/** Full trip reload (stops, roster counts, drivers) every Nth poll — ~5 min. */
+const FULL_RELOAD_EVERY = 20;
+/** If the positions endpoint is unavailable, fall back to a full reload every Nth poll — ~1 min. */
+const FALLBACK_RELOAD_EVERY = 4;
 
 type PolylineResponse = {
   points: { lat: number; lng: number }[];
   encodedPolyline: string;
 };
-
-// ---- Helpers ---------------------------------------------------------------
-
-function isActiveShuttleStatus(status: string) {
-  return status === "STARTED" || status === "IN_PROGRESS";
-}
-
-function currentStopNameForTrip(trip: ShuttleTrip) {
-  const stops = trip.routes?.route_stops ?? [];
-  return stops.find((s) => s.id === trip.current_stop_id)?.name ?? null;
-}
+type Filter = "all" | "live" | "issues" | "scheduled" | "done";
+type DirectionFilter = "all" | "MORNING" | "EVENING";
 
 function unwrapList<T>(data: unknown): T[] {
   if (Array.isArray(data)) return data as T[];
@@ -92,7 +88,8 @@ function unwrapList<T>(data: unknown): T[] {
   return Array.isArray(inner) ? (inner as T[]) : [];
 }
 
-// ---- Component -------------------------------------------------------------
+const tripLabel = (trip: ShuttleTrip) =>
+  trip.routes?.name ?? `Trip #${trip.id}`;
 
 export default function OpsShuttlePage() {
   return (
@@ -109,84 +106,42 @@ function OpsShuttleContent() {
   const chart = useChartTheme();
   const { hasCrud } = useAuth();
   const canMutate = hasCrud("ops_shuttle", "update");
-  // Loaded locally (not from the shared admin-companies slice, which may hold only one page of results).
-  const [companies, setCompanies] = useState<{ id: number; name: string }[]>([]);
-  const [companiesLoading, setCompaniesLoading] = useState(true);
-  const [companiesError, setCompaniesError] = useState<string | null>(null);
 
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
+  // Loaded locally (not from the shared admin-companies slice, which may hold only one page of results).
+  const [companies, setCompanies] = useState<{ id: number; name: string }[]>(
+    [],
+  );
+  const [companiesLoading, setCompaniesLoading] = useState(true);
+  /** null = nothing chosen yet: no trips are fetched or polled until a company is picked. */
+  const [companyId, setCompanyId] = useState<number | null>(null);
+
   const [trips, setTrips] = useState<ShuttleTrip[]>([]);
-  // Nothing is fetched until a company is chosen.
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
-  const [lastRefresh, setLastRefresh] = useState<number | null>(null);
+  const [lastSync, setLastSync] = useState<number | null>(null);
+  /** Clock for health checks and relative times; advanced by each poll. */
+  const [now, setNow] = useState(() => Date.now());
+
+  const [filter, setFilter] = useState<Filter>("all");
+  const [direction, setDirection] = useState<DirectionFilter>("all");
+  const [search, setSearch] = useState("");
+
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
   const [polyline, setPolyline] = useState<PolylineResponse | null>(null);
-  const [polylineLoading, setPolylineLoading] = useState(false);
-  const [endingTripId, setEndingTripId] = useState<number | null>(null);
   const [employees, setEmployees] = useState<TripEmployee[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [follow, setFollow] = useState(false);
+  /** Bumped to re-frame the map (initial load, trip selected, "Fit"). */
+  const [viewKey, setViewKey] = useState(0);
+  const [endingTripId, setEndingTripId] = useState<number | null>(null);
 
-  /** Change the selected trip and reset its dependent state in one place. */
-  const selectTrip = useCallback((id: number | null) => {
-    setSelectedTripId(id);
-    setPolyline(null);
-    setEmployees([]);
-    setPolylineLoading(!!id);
-    setEmployeesLoading(!!id);
-  }, []);
-
-  const patchSelectedTrip = useCallback(
-    (patch: Partial<Pick<ShuttleTrip, "current_stop_id" | "current_stop_status" | "status">>) => {
-      if (!selectedTripId) return;
-      setTrips((prev) => prev.map((t) => (t.id === selectedTripId ? { ...t, ...patch } : t)));
-    },
-    [selectedTripId],
+  const companyNames = useMemo(
+    () => new globalThis.Map(companies.map((c) => [c.id, c.name])),
+    [companies],
   );
 
-  const loadEmployees = useCallback(async (tripId: number) => {
-    try {
-      setEmployeesLoading(true);
-      const data = await apiClient.request<TripEmployee[]>(`/shuttle-trips/${tripId}/employees`);
-      setEmployees(unwrapList<TripEmployee>(data));
-    } catch {
-      setEmployees([]);
-    } finally {
-      setEmployeesLoading(false);
-    }
-  }, []);
-
-  const selectedTrip = useMemo(() => trips.find((t) => t.id === selectedTripId) ?? null, [trips, selectedTripId]);
-
-  const {
-    driverCoord,
-    isConnected,
-    currentStopName: liveStopName,
-    nextStopName: liveNextStopName,
-  } = useShuttleTracking({
-    tripId: selectedTripId,
-    initialLat: selectedTrip?.last_lat ?? null,
-    initialLng: selectedTrip?.last_lng ?? null,
-    onStopArrived: (data) => {
-      patchSelectedTrip({ current_stop_id: data.stopId, current_stop_status: "AT_STOP" });
-    },
-    onRideProceeding: () => {
-      patchSelectedTrip({ current_stop_status: "EN_ROUTE" });
-    },
-    onAttendanceMarked: () => {
-      if (selectedTripId) loadEmployees(selectedTripId);
-    },
-    onRideEnded: () => {
-      patchSelectedTrip({ status: "COMPLETED" });
-      if (selectedTripId) loadEmployees(selectedTripId);
-    },
-  });
-
-  const selectedOccupancy = useMemo(() => occupancyCounts(employees), [employees]);
-
-  // ---- Data fetching -------------------------------------------------------
+  // ---- Data: companies ------------------------------------------------------
 
   useEffect(() => {
     let cancelled = false;
@@ -198,8 +153,8 @@ function OpsShuttleContent() {
         const page = (res as { data?: unknown } | null)?.data ?? res;
         const rows = unwrapList<{ id: number; name: string }>(page);
         setCompanies([...rows].sort((a, b) => a.name.localeCompare(b.name)));
-      } catch (err) {
-        if (!cancelled) setCompaniesError(err instanceof Error ? err.message : "Failed to load companies");
+      } catch {
+        /* the picker stays empty; the empty state explains what to do */
       } finally {
         if (!cancelled) setCompaniesLoading(false);
       }
@@ -209,40 +164,148 @@ function OpsShuttleContent() {
     };
   }, []);
 
-  // One effect loads today's trips on company change and on manual refresh. No company, no request.
+  // ---- Data: trips (full) + positions (cheap poll) ---------------------------
+
+  const tripsRef = useRef(trips);
   useEffect(() => {
-    if (!selectedCompanyId) return;
+    tripsRef.current = trips;
+  }, [trips]);
+  /** Drops responses from superseded requests (company switched mid-flight). */
+  const loadSeq = useRef(0);
+  /** Whether the map has been framed on the fleet yet (once per company view). */
+  const [framed, setFramed] = useState(false);
+
+  const loadTrips = useCallback(async () => {
+    if (!companyId) return;
+    const seq = ++loadSeq.current;
+    try {
+      const params = new URLSearchParams({
+        date: todayYmd(),
+        include_completed: "true",
+        company_id: String(companyId),
+      });
+      const data = await apiClient.request<ShuttleTrip[]>(
+        `/shuttle-trips/today?${params.toString()}`,
+      );
+      if (seq !== loadSeq.current) return;
+      setTrips(unwrapList<ShuttleTrip>(data));
+      setError(null);
+      const t = Date.now();
+      setLastSync(t);
+      setNow(t);
+    } catch (err) {
+      if (seq === loadSeq.current)
+        setError(err instanceof Error ? err.message : "Failed to load trips");
+    } finally {
+      if (seq === loadSeq.current) setLoading(false);
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    // Started from a callback: loadTrips only sets state once its request resolves.
+    void Promise.resolve().then(loadTrips);
+  }, [loadTrips]);
+
+  // Positions poll — only while the tab is visible; resumes immediately when it becomes visible.
+  const positionsBroken = useRef(false);
+  useEffect(() => {
+    if (!companyId) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const params = new URLSearchParams({ date: todayYmd(), company_id: String(selectedCompanyId) });
-        const data = await apiClient.request<ShuttleTrip[]>(`/shuttle-trips/today?${params.toString()}`);
-        if (cancelled) return;
-        const list = unwrapList<ShuttleTrip>(data);
-        setTrips(list);
-        setError(null);
-        setLastRefresh(Date.now());
-        setSelectedTripId((prev) => {
-          if (prev != null && list.some((t) => t.id === prev)) return prev;
-          const next = list[0]?.id ?? null;
-          if (next !== prev) {
-            setPolyline(null);
-            setEmployees([]);
-            setPolylineLoading(!!next);
-            setEmployeesLoading(!!next);
-          }
-          return next;
-        });
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load trips");
-      } finally {
-        if (!cancelled) setLoading(false);
+    let ticks = 0;
+    const tick = async () => {
+      if (document.visibilityState !== "visible") return;
+      ticks += 1;
+      if (
+        positionsBroken.current
+          ? ticks % FALLBACK_RELOAD_EVERY === 0
+          : ticks % FULL_RELOAD_EVERY === 0
+      ) {
+        await loadTrips();
+        return;
       }
-    })();
+      if (positionsBroken.current) {
+        setNow(Date.now());
+        return;
+      }
+      try {
+        const params = new URLSearchParams({
+          date: todayYmd(),
+          company_id: String(companyId),
+        });
+        const data = await apiClient.request<LivePosition[]>(
+          `/shuttle-trips/live-positions?${params.toString()}`,
+        );
+        if (cancelled) return;
+        const { trips: merged, needsFullReload } = mergePositions(
+          tripsRef.current,
+          unwrapList<LivePosition>(data),
+        );
+        if (merged !== tripsRef.current) setTrips(merged);
+        if (needsFullReload) void loadTrips();
+        setLastSync(Date.now());
+      } catch {
+        // Older backend without the endpoint, or a blip: degrade to periodic full reloads.
+        positionsBroken.current = true;
+      } finally {
+        if (!cancelled) setNow(Date.now());
+      }
+    };
+    const timer = setInterval(() => void tick(), POSITIONS_POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [selectedCompanyId, reloadKey]);
+  }, [companyId, loadTrips]);
+
+  // ---- Selected trip ---------------------------------------------------------
+
+  const selectedTrip = useMemo(
+    () => trips.find((t) => t.id === selectedTripId) ?? null,
+    [trips, selectedTripId],
+  );
+  const selectedIsLive = !!selectedTrip && isLive(selectedTrip.status);
+
+  const selectTrip = useCallback((id: number | null) => {
+    setSelectedTripId(id);
+    setPolyline(null);
+    setEmployees([]);
+    setEmployeesLoading(!!id);
+    setFollow(false);
+    setViewKey((k) => k + 1);
+  }, []);
+
+  // Stable handler so memoised rows don't re-render on every live GPS tick.
+  const selectedIdRef = useRef(selectedTripId);
+  useEffect(() => {
+    selectedIdRef.current = selectedTripId;
+  }, [selectedTripId]);
+  const handleRowSelect = useCallback(
+    (id: number) => {
+      if (id !== selectedIdRef.current) selectTrip(id);
+      // The panel floats over the map at lg+; smaller screens open it as a drawer.
+      if (!window.matchMedia("(min-width: 1024px)").matches)
+        setDetailOpen(true);
+    },
+    [selectTrip],
+  );
+
+  const loadEmployees = useCallback(async (tripId: number) => {
+    try {
+      const data = await apiClient.request<TripEmployee[]>(
+        `/shuttle-trips/${tripId}/employees`,
+      );
+      setEmployees(unwrapList<TripEmployee>(data));
+    } catch {
+      setEmployees([]);
+    } finally {
+      setEmployeesLoading(false);
+    }
+  }, []);
 
   // Polyline + passengers for the selected trip.
   useEffect(() => {
@@ -250,13 +313,18 @@ function OpsShuttleContent() {
     let cancelled = false;
     (async () => {
       const [poly, emps] = await Promise.allSettled([
-        apiClient.request<PolylineResponse>(`/shuttle-trips/${selectedTripId}/polyline`),
-        apiClient.request<TripEmployee[]>(`/shuttle-trips/${selectedTripId}/employees`),
+        apiClient.request<PolylineResponse>(
+          `/shuttle-trips/${selectedTripId}/polyline`,
+        ),
+        apiClient.request<TripEmployee[]>(
+          `/shuttle-trips/${selectedTripId}/employees`,
+        ),
       ]);
       if (cancelled) return;
       setPolyline(poly.status === "fulfilled" ? poly.value : null);
-      setPolylineLoading(false);
-      setEmployees(emps.status === "fulfilled" ? unwrapList<TripEmployee>(emps.value) : []);
+      setEmployees(
+        emps.status === "fulfilled" ? unwrapList<TripEmployee>(emps.value) : [],
+      );
       setEmployeesLoading(false);
     })();
     return () => {
@@ -264,34 +332,147 @@ function OpsShuttleContent() {
     };
   }, [selectedTripId]);
 
-  const reloadTrips = useCallback(() => {
-    if (!selectedCompanyId) return;
-    setLoading(true);
-    setReloadKey((k) => k + 1);
-  }, [selectedCompanyId]);
+  const patchTrip = useCallback(
+    (id: number | null, patch: Partial<ShuttleTrip>) => {
+      if (!id) return;
+      setTrips((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+      );
+    },
+    [],
+  );
+
+  // Live socket only for the selected *live* trip; everything else moves with the poll.
+  const {
+    driverCoord,
+    isConnected,
+    currentStopName: liveStopName,
+    nextStopName: liveNextStopName,
+  } = useShuttleTracking({
+    tripId: selectedIsLive ? selectedTripId : null,
+    initialLat: selectedTrip?.last_lat ?? null,
+    initialLng: selectedTrip?.last_lng ?? null,
+    onStopArrived: (data) =>
+      patchTrip(selectedTripId, {
+        current_stop_id: data.stopId,
+        current_stop_status: "AT_STOP",
+      }),
+    onRideProceeding: () =>
+      patchTrip(selectedTripId, { current_stop_status: "EN_ROUTE" }),
+    onAttendanceMarked: () => {
+      if (selectedTripId) void loadEmployees(selectedTripId);
+    },
+    onRideEnded: () => {
+      patchTrip(selectedTripId, { status: "COMPLETED" });
+      if (selectedTripId) void loadEmployees(selectedTripId);
+    },
+  });
+
+  // ---- Derived: health, counts, visible list ---------------------------------
+
+  const healthById = useMemo(() => {
+    const nowMin = pktMinutesNow(now);
+    return new globalThis.Map(
+      trips.map((t) => [t.id, tripHealth(t, now, nowMin)]),
+    );
+  }, [trips, now]);
+
+  const directionTrips = useMemo(
+    () =>
+      direction === "all"
+        ? trips
+        : trips.filter((t) => t.direction === direction),
+    [trips, direction],
+  );
+
+  const counts = useMemo(() => {
+    const c = {
+      all: directionTrips.length,
+      live: 0,
+      issues: 0,
+      scheduled: 0,
+      done: 0,
+      riders: 0,
+    };
+    for (const t of directionTrips) {
+      if (isLive(t.status)) {
+        c.live += 1;
+        c.riders += t.routes?._count?.employee_route_assignments ?? 0;
+      } else if (isScheduled(t.status)) c.scheduled += 1;
+      else if (isDone(t.status)) c.done += 1;
+      if (healthById.get(t.id)?.issues.length) c.issues += 1;
+    }
+    return c;
+  }, [directionTrips, healthById]);
+
+  const visibleTrips = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return directionTrips
+      .filter((t) => {
+        const h = healthById.get(t.id);
+        if (filter === "live" && !isLive(t.status)) return false;
+        if (filter === "issues" && !h?.issues.length) return false;
+        if (filter === "scheduled" && !isScheduled(t.status)) return false;
+        if (filter === "done" && !isDone(t.status)) return false;
+        if (!q) return true;
+        const company = t.routes?.company_id
+          ? companyNames.get(t.routes.company_id)
+          : "";
+        return [
+          tripLabel(t),
+          t.routes?.vehicles?.plate_number,
+          t.users?.full_name,
+          company,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(q);
+      })
+      .map((t) => ({
+        trip: t,
+        health: healthById.get(t.id)!,
+        rank: urgencyRank(t, healthById.get(t.id)!),
+      }))
+      .sort(
+        (a, b) =>
+          a.rank[0] - b.rank[0] ||
+          a.rank[1] - b.rank[1] ||
+          tripLabel(a.trip).localeCompare(tripLabel(b.trip)),
+      );
+  }, [directionTrips, healthById, filter, search, companyNames]);
+
+  // ---- Actions -----------------------------------------------------------------
 
   const handleRefresh = useCallback(() => {
-    reloadTrips();
+    if (!companyId) return;
+    setLoading(true);
+    void loadTrips();
     if (selectedTripId) void loadEmployees(selectedTripId);
-  }, [reloadTrips, loadEmployees, selectedTripId]);
+  }, [companyId, loadTrips, loadEmployees, selectedTripId]);
 
   const handleCompanyChange = (value: string) => {
     selectTrip(null);
     setTrips([]);
     setError(null);
-    setLastRefresh(null);
+    setLastSync(null);
     setLoading(!!value);
-    setSelectedCompanyId(value ? Number(value) : null);
+    setFramed(false);
+    positionsBroken.current = false;
+    setCompanyId(value ? Number(value) : null);
   };
 
   const handleForceEndTrip = async (trip: ShuttleTrip) => {
-    if (!canMutate || !isActiveShuttleStatus(trip.status)) return;
-    const label = `${trip.direction === "MORNING" ? "Morning" : "Evening"} · ${trip.routes?.name ?? `Trip #${trip.id}`}`;
+    if (!canMutate || !isLive(trip.status)) return;
+    const label = `${trip.direction === "MORNING" ? "Morning" : "Evening"} · ${tripLabel(trip)}`;
     const ok = await confirm({
       title: "Force end this trip?",
       message: `${label} will be marked as completed now.`,
       description: "Use this only when the driver forgot to end the ride.",
-      consequences: ["The driver app stops tracking this trip", "Passengers not yet dropped off keep their current boarding status", "This cannot be undone"],
+      consequences: [
+        "The driver app stops tracking this trip",
+        "Passengers not yet dropped off keep their current boarding status",
+        "This cannot be undone",
+      ],
       confirmLabel: "Force end trip",
       destructive: true,
     });
@@ -300,7 +481,8 @@ function OpsShuttleContent() {
       setEndingTripId(trip.id);
       await apiClient.completeShuttleTrip(trip.id);
       toast.success(`${label} marked as completed`);
-      reloadTrips();
+      patchTrip(trip.id, { status: "COMPLETED" });
+      void loadTrips();
       if (selectedTripId === trip.id) await loadEmployees(trip.id);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to end trip");
@@ -309,49 +491,115 @@ function OpsShuttleContent() {
     }
   };
 
-  // ---- Map data -------------------------------------------------------
+  // ---- Map data ------------------------------------------------------------------
 
-  const markerColors = useMemo(
-    () => ({ currentStop: chart.colors[0], stop: chart.colors[3], routeActive: chart.colors[1], routeIdle: chart.axis }),
+  const colors = useMemo(
+    () => ({
+      current: chart.colors[0],
+      upcoming: chart.colors[3],
+      passed: chart.axis,
+      routeActive: chart.colors[1],
+      routeIdle: chart.axis,
+    }),
     [chart],
   );
 
-  const stopMarkers: MapMarker[] = useMemo(() => {
-    const stops = selectedTrip?.routes?.route_stops ?? [];
-    return stops
-      .filter((s) => s.lat !== null && s.lng !== null)
+  /** Selected vehicle position: live socket first, then the last polled fix. */
+  const selectedCoord: [number, number] | null = driverCoord
+    ? [driverCoord.lat, driverCoord.lng]
+    : selectedTrip?.last_lat != null && selectedTrip.last_lng != null
+      ? [selectedTrip.last_lat, selectedTrip.last_lng]
+      : null;
+
+  const vehicleMarkers: MapMarker[] = useMemo(
+    () =>
+      trips
+        .filter(
+          (t) =>
+            isLive(t.status) &&
+            t.last_lat != null &&
+            t.last_lng != null &&
+            t.id !== selectedTripId,
+        )
+        .map((t) => ({
+          id: `trip-${t.id}`,
+          type: "shuttle",
+          position: [t.last_lat!, t.last_lng!] as [number, number],
+          label: `${tripLabel(t)} · ${t.routes?.vehicles?.plate_number ?? "—"}`,
+          description: t.users?.full_name ?? undefined,
+        })),
+    [trips, selectedTripId],
+  );
+
+  // Frame the fleet once, as soon as the first vehicle reports a position (render-time adjustment).
+  if (!framed && !selectedTripId && vehicleMarkers.length > 0) {
+    setFramed(true);
+    setViewKey((k) => k + 1);
+  }
+
+  const selectedMarkers: MapMarker[] = useMemo(() => {
+    if (!selectedTrip) return [];
+    const stops = selectedTrip.routes?.route_stops ?? [];
+    const idx = currentStopIndex(selectedTrip);
+    const passedBefore =
+      idx < 0
+        ? 0
+        : selectedTrip.current_stop_status === "EN_ROUTE"
+          ? idx + 1
+          : idx;
+    const done = isDone(selectedTrip.status);
+    const markers: MapMarker[] = stops
+      .filter((s) => s.lat != null && s.lng != null)
       .map((s) => {
-        const etaRaw = selectedTrip?.direction === "MORNING" ? s.morning_eta : s.evening_eta;
+        const i = stops.indexOf(s);
+        const eta = stopEta(selectedTrip, s);
         return {
           id: `stop-${s.id}`,
           position: [s.lat!, s.lng!] as [number, number],
-          label: `${s.name}${etaRaw ? ` · ${formatTime(etaRaw)}` : ""}`,
-          color: s.id === selectedTrip?.current_stop_id ? markerColors.currentStop : markerColors.stop,
+          label: String(i + 1),
+          description: `${s.name}${eta ? ` · ${formatTime(eta)}` : ""}`,
+          color:
+            i === idx && selectedTrip.current_stop_status !== "EN_ROUTE"
+              ? colors.current
+              : done || i < passedBefore
+                ? colors.passed
+                : colors.upcoming,
         };
       });
-  }, [selectedTrip, markerColors]);
+    if (selectedCoord) {
+      markers.push({
+        id: `trip-${selectedTrip.id}`,
+        type: "shuttle",
+        position: selectedCoord,
+        heading: driverCoord?.heading,
+        label: `${tripLabel(selectedTrip)} · ${selectedTrip.routes?.vehicles?.plate_number ?? "—"}`,
+        description: selectedTrip.users?.full_name ?? undefined,
+      });
+    }
+    return markers;
+    // selectedCoord is derived from driverCoord + the trip; listing its parts keeps the memo stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTrip, driverCoord, colors]);
 
-  const driverMarker: MapMarker | null = useMemo(() => {
-    if (!driverCoord) return null;
-    return {
-      id: "driver",
-      type: "shuttle",
-      position: [driverCoord.lat, driverCoord.lng],
-      heading: driverCoord.heading,
-      label: `Driver · ${driverCoord.speed !== undefined ? `${Math.round((driverCoord.speed ?? 0) * 3.6)} km/h` : "live"}`,
-    };
-  }, [driverCoord]);
+  const mapMarkers = useMemo(
+    () => [...vehicleMarkers, ...selectedMarkers],
+    [vehicleMarkers, selectedMarkers],
+  );
 
-  const mapMarkers = useMemo(() => [...stopMarkers, ...(driverMarker ? [driverMarker] : [])], [stopMarkers, driverMarker]);
+  /** What "Fit" frames: the selected trip (stops + bus), else the whole live fleet. */
+  const fitTo = useMemo<[number, number][]>(
+    () =>
+      selectedTrip
+        ? selectedMarkers.map((m) => m.position)
+        : vehicleMarkers.map((m) => m.position),
+    [selectedTrip, selectedMarkers, vehicleMarkers],
+  );
 
   const mapPolylines: MapPolyline[] = useMemo(() => {
     if (!polyline?.points?.length) return [];
-
     let points = polyline.points;
-    const isActiveTrip = selectedTrip?.status === "STARTED" || selectedTrip?.status === "IN_PROGRESS";
-    const shouldGrayDefaultRoute = isActiveTrip && !!driverCoord;
-
-    if (driverCoord) {
+    // While live, draw only the road still ahead of the bus.
+    if (selectedIsLive && driverCoord) {
       let minDist = Infinity;
       let nearestIdx = 0;
       for (let i = 0; i < points.length; i++) {
@@ -365,261 +613,620 @@ function OpsShuttleContent() {
       }
       points = points.slice(nearestIdx);
     }
-
     return [
       {
         positions: points.map((p) => [p.lat, p.lng] as [number, number]),
-        color: shouldGrayDefaultRoute ? markerColors.routeIdle : markerColors.routeActive,
+        color: isDone(selectedTrip?.status ?? "")
+          ? colors.routeIdle
+          : colors.routeActive,
       },
     ];
-  }, [polyline, driverCoord, selectedTrip?.status, markerColors]);
+  }, [polyline, driverCoord, selectedIsLive, selectedTrip?.status, colors]);
 
-  const mapCenter = useMemo((): [number, number] => {
-    if (driverCoord) return [driverCoord.lat, driverCoord.lng];
-    const current = selectedTrip?.routes?.route_stops?.find((s) => s.id === selectedTrip.current_stop_id && s.lat && s.lng);
-    if (current) return [current.lat!, current.lng!];
-    const firstStop = selectedTrip?.routes?.route_stops?.find((s) => s.lat && s.lng);
-    if (firstStop) return [firstStop.lat!, firstStop.lng!];
-    return [24.8607, 67.0011];
-  }, [driverCoord, selectedTrip]);
+  const followCenter =
+    follow && selectedIsLive && selectedCoord ? selectedCoord : undefined;
 
-  // ---- Render ----------------------------------------------------------------
+  // ---- Render --------------------------------------------------------------------
 
-  const selectedIsActive = !!selectedTrip && isActiveShuttleStatus(selectedTrip.status);
+  const selectedHealth = selectedTrip
+    ? healthById.get(selectedTrip.id)
+    : undefined;
+  const live = {
+    connected: isConnected,
+    speedKmh:
+      driverCoord?.speed != null ? Math.round(driverCoord.speed * 3.6) : null,
+    lastSeen:
+      isConnected && driverCoord
+        ? "Live"
+        : selectedTrip?.last_location_ts
+          ? formatRelative(selectedTrip.last_location_ts)
+          : null,
+  };
 
-  const forceEndButton = selectedTrip && canMutate && selectedIsActive && (
-    <Button
-      variant="danger"
-      size="sm"
-      leftIcon={<Square />}
-      loading={endingTripId === selectedTrip.id}
-      onClick={() => handleForceEndTrip(selectedTrip)}
-    >
-      Force end trip
-    </Button>
-  );
+  const forceEndButton =
+    selectedTrip && canMutate && selectedIsLive ? (
+      <Button
+        variant="danger"
+        size="sm"
+        leftIcon={<Square />}
+        loading={endingTripId === selectedTrip.id}
+        onClick={() => void handleForceEndTrip(selectedTrip)}
+      >
+        Force end trip
+      </Button>
+    ) : null;
 
-  const detailPanel = selectedTrip ? (
-    <TripDetailPanel trip={selectedTrip} employees={employees} loading={employeesLoading} liveStopName={liveStopName} liveNextStopName={liveNextStopName} />
-  ) : (
-    <Card className="flex h-full items-center justify-center">
-      <EmptyState compact icon={<Users aria-hidden="true" />} title="Select a trip" description="Boarding details appear here." />
-    </Card>
-  );
+  const panelProps =
+    selectedTrip && selectedHealth
+      ? {
+          trip: selectedTrip,
+          employees,
+          loading: employeesLoading,
+          health: selectedHealth,
+          companyName: selectedTrip.routes?.company_id
+            ? companyNames.get(selectedTrip.routes.company_id)
+            : null,
+          live,
+          liveStopName,
+          liveNextStopName,
+        }
+      : null;
+
+  const syncFresh = lastSync != null && now - lastSync < POSITIONS_POLL_MS * 3;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Live: Shuttle"
-        description="Today's shuttle trips with live driver positions and boarding."
+        description="Every shuttle on the road today. Problems rise to the top."
         meta={
-          <>
-            <Badge tone={selectedIsActive && isConnected ? "success" : "neutral"} dot>
-              {selectedIsActive ? (isConnected ? "Live tracking" : "Connecting…") : "Live"}
+          companyId ? (
+            <Badge tone={syncFresh ? "success" : "neutral"} dot>
+              {lastSync ? `Synced ${formatRelative(lastSync)}` : "Syncing…"}
             </Badge>
-            {lastRefresh && <span className="text-xs text-fg-muted">Updated {formatRelative(lastRefresh)}</span>}
-          </>
+          ) : undefined
         }
         actions={
           <>
             <Select
               aria-label="Company"
               width="auto"
-              value={selectedCompanyId ?? ""}
+              value={companyId ?? ""}
               onChange={(e) => handleCompanyChange(e.target.value)}
               disabled={companiesLoading}
               className="min-w-44"
             >
-              <option value="">{companiesLoading ? "Loading companies…" : "Select a company"}</option>
+              <option value="">
+                {companiesLoading ? "Loading companies…" : "Select a company"}
+              </option>
               {companies.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}
             </Select>
-            <RefreshButton label="Refresh trips" onClick={handleRefresh} loading={loading} disabled={!selectedCompanyId} />
+            <RefreshButton
+              label="Refresh trips"
+              onClick={handleRefresh}
+              loading={loading}
+              disabled={!companyId}
+            />
           </>
         }
       />
 
-      {error && trips.length === 0 && !loading ? (
-        <ErrorState title="Couldn't load today's trips" message={error} onRetry={reloadTrips} />
+      {!companyId ? (
+        <Card>
+          <EmptyState
+            icon={<Bus aria-hidden="true" />}
+            title="Select a company"
+            description="Pick a company to see its shuttles on the map, with live positions and boarding."
+            action={
+              <Select
+                aria-label="Company"
+                value=""
+                onChange={(e) => handleCompanyChange(e.target.value)}
+                disabled={companiesLoading}
+                className="w-64"
+              >
+                <option value="">
+                  {companiesLoading ? "Loading companies…" : "Select a company"}
+                </option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            }
+          />
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          {/* Trip list */}
-          <div className="flex flex-col gap-3 lg:col-span-3 lg:max-h-[calc(100vh-12rem)] lg:overflow-y-auto">
-            {error && (
-              <ErrorState compact message={error} onRetry={reloadTrips} />
-            )}
-            {loading && trips.length === 0 &&
-              Array.from({ length: 3 }).map((_, i) => (
-                <Card key={i} padding="md" className="space-y-2">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-3 w-1/2" />
-                  <Skeleton className="h-3 w-1/3" />
-                </Card>
-              ))}
-            {!selectedCompanyId && (
-              <Card>
-                <EmptyState
-                  compact
-                  icon={<Bus aria-hidden="true" />}
-                  title="Select a company"
-                  description={companiesError ?? "Choose a company above to load today's shuttle trips."}
-                />
-              </Card>
-            )}
-            {selectedCompanyId && !loading && trips.length === 0 && !error && (
-              <Card>
-                <EmptyState compact icon={<Bus aria-hidden="true" />} title="No trips scheduled for today" description="Try another company." />
-              </Card>
-            )}
-            {trips.map((trip) => {
-              const stopName = currentStopNameForTrip(trip);
-              const assignedCount = trip.routes?._count?.employee_route_assignments;
-              const isSelected = selectedTripId === trip.id;
-              const active = isActiveShuttleStatus(trip.status);
-              const showSelectedBoarding = isSelected && active && !employeesLoading && employees.length > 0;
-
-              return (
-                <button
-                  key={trip.id}
-                  type="button"
-                  onClick={() => {
-                    if (!isSelected) selectTrip(trip.id);
-                  }}
-                  aria-pressed={isSelected}
-                  className={cn(
-                    "w-full cursor-pointer rounded-xl border p-4 text-left transition-colors",
-                    isSelected ? "border-brand-line bg-brand-soft/60" : "border-line bg-card hover:border-line-strong",
-                    focusRing,
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex min-w-0 items-start gap-2">
-                      <Bus className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden="true" />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-fg">{trip.routes?.name ?? `Trip #${trip.id}`}</p>
-                        <p className="mt-0.5 text-xs text-fg-muted">
-                          {trip.direction === "MORNING" ? "Morning" : "Evening"} · <span className="font-mono">{trip.routes?.vehicles?.plate_number ?? "—"}</span>
-                        </p>
-                      </div>
-                    </div>
-                    <StatusBadge status={trip.status} size="sm" overrides={SHUTTLE_STATUS_OVERRIDES} />
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-fg-muted">
-                    <span className="flex items-center gap-1">
-                      <MapPin className="size-3" aria-hidden="true" />
-                      {trip.routes?.route_stops?.length ?? 0} stops
-                    </span>
-                    {assignedCount != null && (
-                      <span className="flex items-center gap-1">
-                        <Users className="size-3" aria-hidden="true" />
-                        {assignedCount} passengers
-                      </span>
-                    )}
-                    {trip.started_at && (
-                      <span className="flex items-center gap-1">
-                        <Navigation className="size-3" aria-hidden="true" />
-                        Started {formatTime(trip.started_at)}
-                      </span>
-                    )}
-                  </div>
-
-                  {active && (
-                    <div className="mt-2 space-y-0.5 text-[11px]">
-                      {stopName && (
-                        <p className="flex items-center gap-1 font-medium text-brand-ink">
-                          <MapPin className="size-3" aria-hidden="true" />
-                          {trip.current_stop_status === "EN_ROUTE" ? "En route from" : "At"} {stopName}
-                        </p>
-                      )}
-                      {showSelectedBoarding && (
-                        <p className="text-fg-muted">
-                          Boarded {selectedOccupancy.boarded}/{selectedOccupancy.total}
-                          {selectedOccupancy.absent > 0 ? ` · Absent ${selectedOccupancy.absent}` : ""}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {isSelected && active && (
-                    <div className={cn("mt-2 flex items-center gap-1.5 text-xs font-medium", isConnected ? "text-success-ink" : "text-fg-muted")}>
-                      <Radio className="size-3" aria-hidden="true" />
-                      {isConnected ? "Live tracking active" : "Connecting…"}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
+        <>
+          {/* At-a-glance counts; each one is a shortcut to that filter. */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <StatTile
+              label="On the road"
+              value={counts.live}
+              hint={`${counts.riders} riders`}
+              icon={<Radio />}
+              tone="success"
+              active={filter === "live"}
+              onClick={() => setFilter(filter === "live" ? "all" : "live")}
+            />
+            <StatTile
+              label="Need attention"
+              value={counts.issues}
+              icon={<AlertTriangle />}
+              tone="warning"
+              emphasis={counts.issues > 0}
+              active={filter === "issues"}
+              onClick={() => setFilter(filter === "issues" ? "all" : "issues")}
+            />
+            <StatTile
+              label="Not started"
+              value={counts.scheduled}
+              icon={<Clock />}
+              tone="neutral"
+              active={filter === "scheduled"}
+              onClick={() =>
+                setFilter(filter === "scheduled" ? "all" : "scheduled")
+              }
+            />
+            <StatTile
+              label="Completed"
+              value={counts.done}
+              icon={<CheckCircle2 />}
+              tone="info"
+              active={filter === "done"}
+              onClick={() => setFilter(filter === "done" ? "all" : "done")}
+            />
+            <StatTile
+              label="All trips today"
+              value={counts.all}
+              icon={<Bus />}
+              tone="neutral"
+              active={filter === "all"}
+              onClick={() => setFilter("all")}
+              className="col-span-2 sm:col-span-1"
+            />
           </div>
 
-          {/* Detail panel (inline at lg+) */}
-          <div className="hidden min-h-[320px] lg:col-span-3 lg:block lg:h-[calc(100vh-12rem)]">{detailPanel}</div>
+          {error && trips.length === 0 && !loading ? (
+            <ErrorState
+              title="Couldn't load today's trips"
+              message={error}
+              onRetry={handleRefresh}
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(300px,360px)_1fr]">
+              {/* Trip list */}
+              <Card className="flex min-h-[420px] flex-col lg:h-[calc(100vh-17rem)] lg:min-h-[520px]">
+                <div className="shrink-0 space-y-2.5 border-b border-line p-3">
+                  <SearchInput
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Route, plate, driver, company"
+                    aria-label="Search trips"
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <Tabs
+                      value={direction}
+                      onValueChange={(v) => setDirection(v as DirectionFilter)}
+                    >
+                      <TabsList variant="pills" aria-label="Direction">
+                        <TabsTrigger value="all">All</TabsTrigger>
+                        <TabsTrigger value="MORNING">Morning</TabsTrigger>
+                        <TabsTrigger value="EVENING">Evening</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                    <span className="text-xs tabular-nums text-fg-muted">
+                      {visibleTrips.length} shown
+                    </span>
+                  </div>
+                  {error && (
+                    <p className="text-xs text-danger-ink">
+                      Last refresh failed. Showing the previous data.
+                    </p>
+                  )}
+                </div>
 
-          {/* Map */}
-          <div className="lg:col-span-6">
-            <Card className="overflow-hidden">
-              <CardHeader
-                title={selectedTrip ? selectedTrip.routes?.name ?? `Trip #${selectedTrip.id}` : "Map"}
-                description={
-                  selectedTrip
-                    ? `${selectedTrip.direction === "MORNING" ? "Morning" : "Evening"} route · ${
-                        driverCoord ? `Driver at ${driverCoord.lat.toFixed(5)}, ${driverCoord.lng.toFixed(5)}` : "Waiting for driver location…"
-                      }`
-                    : "Select a trip to see its route."
-                }
-                actions={
-                  <>
-                    {polylineLoading && <Spinner size="sm" label="Loading route" />}
-                    {selectedTrip && (
-                      <Button variant="outline" size="sm" className="lg:hidden" leftIcon={<PanelRightOpen />} onClick={() => setDetailOpen(true)}>
-                        Details
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
+                  {loading && trips.length === 0 ? (
+                    <div className="space-y-2" aria-busy="true">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="space-y-2 rounded-lg border border-line p-3"
+                        >
+                          <Skeleton className="h-4 w-2/3" />
+                          <Skeleton className="h-3 w-1/2" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : visibleTrips.length === 0 ? (
+                    <EmptyState
+                      compact
+                      icon={<Bus aria-hidden="true" />}
+                      title={
+                        trips.length === 0
+                          ? "No shuttle trips today"
+                          : "Nothing matches"
+                      }
+                      description={
+                        trips.length === 0
+                          ? companyId
+                            ? "Try another company."
+                            : undefined
+                          : "Change the filter or search."
+                      }
+                      action={
+                        trips.length > 0 ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setFilter("all");
+                              setDirection("all");
+                              setSearch("");
+                            }}
+                          >
+                            Clear filters
+                          </Button>
+                        ) : undefined
+                      }
+                    />
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {visibleTrips.map(({ trip, health }) => (
+                        <li key={trip.id}>
+                          <TripRow
+                            trip={trip}
+                            health={health}
+                            selected={trip.id === selectedTripId}
+                            onSelect={handleRowSelect}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </Card>
+
+              {/* Map with floating controls and the trip panel */}
+              <div className="relative h-[60vh] min-h-[420px] overflow-hidden rounded-xl border border-line lg:h-[calc(100vh-17rem)] lg:min-h-[520px]">
+                <Map
+                  markers={mapMarkers}
+                  polylines={mapPolylines}
+                  height="100%"
+                  className="!rounded-none !border-0 !shadow-none"
+                  autoFit={false}
+                  viewKey={viewKey}
+                  fitTo={fitTo}
+                  center={followCenter}
+                  followCenter={!!followCenter}
+                  onMarkerClick={(id) => {
+                    if (id.startsWith("trip-")) {
+                      const tripId = Number(id.slice(5));
+                      if (tripId !== selectedTripId) selectTrip(tripId);
+                    }
+                  }}
+                />
+
+                <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap items-center gap-2">
+                  <div className="pointer-events-auto flex items-center gap-1 rounded-lg border border-line bg-card/95 p-1 shadow-[var(--shadow-card)] backdrop-blur">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      leftIcon={<Maximize2 />}
+                      onClick={() => setViewKey((k) => k + 1)}
+                    >
+                      {selectedTrip ? "Fit trip" : "Fit fleet"}
+                    </Button>
+                    {selectedIsLive && (
+                      <Button
+                        variant={follow ? "secondary" : "ghost"}
+                        size="sm"
+                        leftIcon={<Crosshair />}
+                        aria-pressed={follow}
+                        onClick={() => setFollow((f) => !f)}
+                        disabled={!selectedCoord}
+                      >
+                        Follow
                       </Button>
                     )}
-                    {forceEndButton}
-                  </>
-                }
-              />
-              <div style={{ height: "clamp(300px, 55vh, 600px)" }}>
-                {selectedCompanyId ? (
-                  <Map center={mapCenter} zoom={13} markers={mapMarkers} polylines={mapPolylines} height="100%" />
-                ) : (
-                  <div className="flex h-full items-center justify-center bg-surface-subtle">
-                    <EmptyState icon={<MapPin aria-hidden="true" />} title="No company selected" description="Select a company above to view the live shuttle map." />
+                    {selectedTrip && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => selectTrip(null)}
+                      >
+                        Show all
+                      </Button>
+                    )}
+                  </div>
+                  {selectedTrip && (
+                    <ul
+                      className="pointer-events-auto hidden items-center gap-3 rounded-lg border border-line bg-card/95 px-3 py-2 text-[11px] text-fg-muted shadow-[var(--shadow-card)] backdrop-blur sm:flex"
+                      aria-label="Map legend"
+                    >
+                      <LegendDot color={colors.current} label="Current" />
+                      <LegendDot color={colors.upcoming} label="Upcoming" />
+                      <LegendDot color={colors.passed} label="Passed" />
+                    </ul>
+                  )}
+                </div>
+
+                {vehicleMarkers.length === 0 && !selectedTrip && !loading && (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
+                    <span className="rounded-full border border-line bg-card/95 px-3 py-1.5 text-xs text-fg-muted shadow-[var(--shadow-card)]">
+                      No vehicles reporting a location right now
+                    </span>
                   </div>
                 )}
+
+                {/* Trip panel floats over the map at lg+; a drawer below that. */}
+                {panelProps && (
+                  <>
+                    <div className="absolute bottom-3 right-3 top-3 hidden w-[360px] lg:block">
+                      <TripDetailPanel
+                        {...panelProps}
+                        footer={forceEndButton}
+                        onClose={() => selectTrip(null)}
+                        className="shadow-[var(--shadow-card-hover)]"
+                      />
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      leftIcon={<PanelRightOpen />}
+                      className="absolute bottom-3 right-3 shadow-[var(--shadow-card)] lg:hidden"
+                      onClick={() => setDetailOpen(true)}
+                    >
+                      Trip details
+                    </Button>
+                  </>
+                )}
               </div>
-              {selectedTrip && (
-                <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-4 py-2 text-[11px] text-fg-muted" aria-label="Map legend">
-                  <li className="flex items-center gap-1.5">
-                    <span aria-hidden="true" className="size-2.5 rounded-full" style={{ background: markerColors.currentStop }} /> Current stop
-                  </li>
-                  <li className="flex items-center gap-1.5">
-                    <span aria-hidden="true" className="size-2.5 rounded-full" style={{ background: markerColors.stop }} /> Other stops
-                  </li>
-                  <li className="flex items-center gap-1.5">
-                    <span aria-hidden="true" className="h-0.5 w-4 rounded-full" style={{ background: markerColors.routeActive }} /> Route
-                  </li>
-                  <li className="flex items-center gap-1.5">
-                    <span aria-hidden="true" className="h-0.5 w-4 rounded-full" style={{ background: markerColors.routeIdle }} /> Remaining route while live
-                  </li>
-                </ul>
-              )}
-            </Card>
-          </div>
-        </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Detail drawer below lg */}
-      <Drawer open={detailOpen} onOpenChange={setDetailOpen}>
-        <DrawerContent title={selectedTrip?.routes?.name ?? "Trip details"} description="Boarding and stop progress" flush size="md" footer={forceEndButton || undefined}>
-          {selectedTrip && (
-            <TripDetailPanel flush trip={selectedTrip} employees={employees} loading={employeesLoading} liveStopName={liveStopName} liveNextStopName={liveNextStopName} />
-          )}
+      <Drawer open={detailOpen && !!panelProps} onOpenChange={setDetailOpen}>
+        <DrawerContent
+          title={selectedTrip ? tripLabel(selectedTrip) : "Trip details"}
+          description="Driver, stops and boarding"
+          flush
+          size="md"
+          footer={forceEndButton ?? undefined}
+        >
+          {panelProps && <TripDetailPanel flush {...panelProps} />}
         </DrawerContent>
       </Drawer>
     </div>
   );
 }
+
+// ---- Pieces --------------------------------------------------------------------
+
+function StatTile({
+  label,
+  value,
+  hint,
+  icon,
+  tone,
+  active,
+  emphasis,
+  onClick,
+  className,
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+  icon: React.ReactNode;
+  tone: "success" | "warning" | "neutral" | "info";
+  active: boolean;
+  emphasis?: boolean;
+  onClick: () => void;
+  className?: string;
+}) {
+  const toneCls = {
+    success: "bg-success-soft text-success-ink",
+    warning: "bg-warning-soft text-warning-ink",
+    neutral: "bg-subtle text-fg-muted",
+    info: "bg-info-soft text-info-ink",
+  }[tone];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "flex cursor-pointer items-center gap-3 rounded-xl border bg-card p-3 text-left transition-colors",
+        active
+          ? "border-brand ring-1 ring-brand"
+          : emphasis
+            ? "border-warning-line"
+            : "border-line hover:border-line-strong",
+        focusRing,
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4",
+          toneCls,
+        )}
+        aria-hidden="true"
+      >
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span
+          className={cn(
+            "block text-xl font-semibold leading-tight tabular-nums",
+            emphasis ? "text-warning-ink" : "text-fg",
+          )}
+        >
+          {value}
+        </span>
+        <span className="block truncate text-xs text-fg-muted">
+          {label}
+          {hint && <> · {hint}</>}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <li className="flex items-center gap-1.5">
+      <span
+        aria-hidden="true"
+        className="size-2.5 rounded-full"
+        style={{ background: color }}
+      />
+      {label}
+    </li>
+  );
+}
+
+/** One trip in the list. Memoised: the poll keeps unchanged trips' object identity. */
+const TripRow = memo(function TripRow({
+  trip,
+  health,
+  selected,
+  onSelect,
+}: {
+  trip: ShuttleTrip;
+  health: TripHealth;
+  selected: boolean;
+  onSelect: (id: number) => void;
+}) {
+  const stops = trip.routes?.route_stops ?? [];
+  const idx = currentStopIndex(trip);
+  const passed = isDone(trip.status)
+    ? stops.length
+    : idx < 0
+      ? 0
+      : trip.current_stop_status === "EN_ROUTE"
+        ? idx + 1
+        : idx;
+  const target = nextStop(trip);
+  const live = isLive(trip.status);
+  const issue = health.issues[0];
+
+  let progress: string;
+  if (live) {
+    progress =
+      trip.current_stop_status === "AT_STOP" && idx >= 0
+        ? `At ${stops[idx]?.name}`
+        : target
+          ? `→ ${target.name}${stopEta(trip, target) ? ` · ${formatTime(stopEta(trip, target)!)}` : ""}`
+          : "Heading to office";
+  } else if (isScheduled(trip.status)) {
+    const first =
+      trip.direction === "EVENING"
+        ? trip.routes?.office_stop?.evening_eta
+        : stops[0]
+          ? stopEta(trip, stops[0])
+          : null;
+    progress = first ? `Departs ${formatTime(first)}` : "Not started";
+  } else {
+    progress = trip.completed_at
+      ? `Completed ${formatTime(trip.completed_at)}`
+      : "Completed";
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(trip.id)}
+      aria-pressed={selected}
+      className={cn(
+        "w-full cursor-pointer rounded-lg border p-3 text-left transition-colors",
+        selected
+          ? "border-brand-line bg-brand-soft/60"
+          : "border-transparent hover:bg-subtle",
+        issue && !selected && "border-warning-line bg-warning-soft/40",
+        focusRing,
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            "size-2 shrink-0 rounded-full",
+            issue
+              ? "bg-warning"
+              : live
+                ? "bg-success"
+                : isDone(trip.status)
+                  ? "bg-fg-muted/40"
+                  : "bg-line-strong",
+          )}
+          aria-hidden="true"
+        />
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-fg">
+          {tripLabel(trip)}
+        </span>
+        <span className="shrink-0 text-[11px] font-medium text-fg-muted">
+          {trip.direction === "MORNING" ? "AM" : "PM"}
+        </span>
+        <StatusBadge
+          status={trip.status}
+          size="sm"
+          overrides={SHUTTLE_STATUS_OVERRIDES}
+        />
+      </div>
+      <p className="mt-1 truncate pl-4 text-xs text-fg-muted">
+        <span className="font-mono">
+          {trip.routes?.vehicles?.plate_number ?? "No vehicle"}
+        </span>
+        {trip.users?.full_name && <> · {trip.users.full_name}</>}
+      </p>
+      <div className="mt-2 flex items-center gap-2 pl-4">
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate text-xs",
+            live ? "font-medium text-fg-secondary" : "text-fg-muted",
+          )}
+        >
+          {progress}
+        </span>
+        {stops.length > 0 && (
+          <span className="flex shrink-0 items-center gap-1.5 text-[11px] tabular-nums text-fg-muted">
+            <span
+              className="h-1 w-12 overflow-hidden rounded-full bg-line"
+              aria-hidden="true"
+            >
+              <span
+                className={cn(
+                  "block h-full rounded-full",
+                  live ? "bg-success" : "bg-fg-muted/50",
+                )}
+                style={{
+                  width: `${(Math.min(passed, stops.length) / stops.length) * 100}%`,
+                }}
+              />
+            </span>
+            {Math.min(passed, stops.length)}/{stops.length}
+          </span>
+        )}
+        {trip.routes?._count?.employee_route_assignments != null && (
+          <span className="flex shrink-0 items-center gap-0.5 text-[11px] tabular-nums text-fg-muted">
+            <Users className="size-3" aria-hidden="true" />
+            {trip.routes._count.employee_route_assignments}
+          </span>
+        )}
+      </div>
+      {issue && (
+        <p className="mt-1.5 flex items-center gap-1 pl-4 text-xs font-medium text-warning-ink">
+          <AlertTriangle className="size-3" aria-hidden="true" />
+          {health.issues.map((i) => i.label).join(" · ")}
+        </p>
+      )}
+    </button>
+  );
+});
