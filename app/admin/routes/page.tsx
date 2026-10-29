@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeftRight, Bus, Car, MapPin, Plus } from 'lucide-react';
+import { ArrowLeftRight, Bus, Car, ChevronRight, MapPin, Plus, Route as RouteIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
     Badge,
@@ -17,6 +17,9 @@ import {
     PageHeader,
     Select,
     StatusBadge,
+    Tabs,
+    TabsList,
+    TabsTrigger,
     focusRing,
 } from '@/app/admin/ui';
 import { PermissionGate } from '@/app/admin/components/PermissionGate';
@@ -42,6 +45,10 @@ function routeCompanyId(route: Route): number | null {
     return route.company?.id ?? route.companies?.id ?? route.company_id ?? null;
 }
 
+type RouteView = 'all' | 'needs-crew' | 'inactive';
+
+const needsCrew = (route: Route) => !route.users?.full_name || !route.vehicles?.plate_number;
+
 function RoutesPageContent() {
     const dispatch = useAppDispatch();
     const ability = useAdminAbility();
@@ -54,6 +61,7 @@ function RoutesPageContent() {
     const companiesStatus = useAppSelector(selectAdminCompaniesStatus);
     const [selectedCompanyId, setSelectedCompanyId] = useState<number | ''>('');
     const [search, setSearch] = useState('');
+    const [view, setView] = useState<RouteView>('all');
 
     useEffect(() => {
         dispatch(fetchAdminRoutes({}));
@@ -63,22 +71,32 @@ function RoutesPageContent() {
         if (companiesStatus === 'idle') dispatch(fetchAdminCompanies({ limit: 200 }));
     }, [dispatch, companiesStatus]);
 
+    const companyRoutes = useMemo(
+        () => (selectedCompanyId === '' ? [] : routes.filter((r) => routeCompanyId(r) === selectedCompanyId)),
+        [routes, selectedCompanyId],
+    );
+    const companyRouteCount = companyRoutes.length;
+
+    const viewCounts = useMemo<Record<RouteView, number>>(
+        () => ({
+            all: companyRoutes.length,
+            'needs-crew': companyRoutes.filter(needsCrew).length,
+            inactive: companyRoutes.filter((r) => routeStatus(r) === 'INACTIVE').length,
+        }),
+        [companyRoutes],
+    );
+
     const filteredRoutes = useMemo(() => {
-        if (selectedCompanyId === '') return [];
         const q = search.trim().toLowerCase();
-        return routes.filter((route) => {
-            if (routeCompanyId(route) !== selectedCompanyId) return false;
+        return companyRoutes.filter((route) => {
+            if (view === 'needs-crew' && !needsCrew(route)) return false;
+            if (view === 'inactive' && routeStatus(route) !== 'INACTIVE') return false;
             if (!q) return true;
             const driver = route.users?.full_name ?? '';
             const vehicle = `${route.vehicles?.model ?? ''} ${route.vehicles?.plate_number ?? ''}`;
             return [route.name, driver, vehicle].join(' ').toLowerCase().includes(q);
         });
-    }, [routes, selectedCompanyId, search]);
-
-    const companyRouteCount = useMemo(() => {
-        if (selectedCompanyId === '') return 0;
-        return routes.filter((r) => routeCompanyId(r) === selectedCompanyId).length;
-    }, [routes, selectedCompanyId]);
+    }, [companyRoutes, view, search]);
 
     const companySelect = (
         <Select
@@ -143,8 +161,22 @@ function RoutesPageContent() {
                 <CardContent className="py-3">
                     <FilterBar
                         search={selectedCompanyId !== '' ? { value: search, onChange: setSearch, placeholder: 'Search route, driver, plate' } : undefined}
-                        activeCount={search ? 1 : 0}
-                        onClear={() => setSearch('')}
+                        activeCount={(search ? 1 : 0) + (view !== 'all' ? 1 : 0)}
+                        onClear={() => {
+                            setSearch('');
+                            setView('all');
+                        }}
+                        actions={
+                            selectedCompanyId !== '' && (
+                                <Tabs value={view} onValueChange={(v) => setView(v as RouteView)}>
+                                    <TabsList variant="pills" aria-label="Filter routes">
+                                        <TabsTrigger value="all" count={viewCounts.all}>All</TabsTrigger>
+                                        <TabsTrigger value="needs-crew" count={viewCounts['needs-crew']}>Needs crew</TabsTrigger>
+                                        <TabsTrigger value="inactive" count={viewCounts.inactive}>Inactive</TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
+                            )
+                        }
                     >
                         <FilterField label="Company">{companySelect}</FilterField>
                     </FilterBar>
@@ -180,11 +212,20 @@ function RoutesPageContent() {
                 <Card>
                     <EmptyState
                         icon={<Bus aria-hidden="true" />}
-                        title={search ? 'No routes match that search' : 'No routes for this company yet'}
-                        description={search ? 'Try a different name, driver, or plate.' : 'Create a route, then assign usual driver, vehicle, stops, and people.'}
+                        title={search || view !== 'all' ? 'No routes match these filters' : 'No routes for this company yet'}
+                        description={search || view !== 'all' ? 'Try a different name, driver, or plate, or switch back to All.' : 'Create a route, then assign usual driver, vehicle, stops, and people.'}
                         action={
-                            search ? (
-                                <Button variant="outline" size="sm" onClick={() => setSearch('')}>Clear search</Button>
+                            search || view !== 'all' ? (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        setSearch('');
+                                        setView('all');
+                                    }}
+                                >
+                                    Clear filters
+                                </Button>
                             ) : canCreate ? (
                                 <Button asChild size="sm">
                                     <Link href="/admin/routes/create">
@@ -211,62 +252,85 @@ function RoutesPageContent() {
     );
 }
 
+/** First pickup → last office stop, in morning order, e.g. "Nagan Chowrangi → Head office". */
+function routePath(route: Route): string | null {
+    const stops = [...(route.route_stops ?? [])].sort(
+        (a, b) => (a.morning_sequence ?? a.sequence_order) - (b.morning_sequence ?? b.sequence_order),
+    );
+    if (stops.length === 0) return null;
+    const first = stops.find((s) => s.stop_type !== 'OFFICE') ?? stops[0];
+    const office = [...stops].reverse().find((s) => s.stop_type === 'OFFICE') ?? stops[stops.length - 1];
+    return first === office ? first.name : `${first.name} → ${office.name}`;
+}
+
 function RouteTile({ route }: { route: Route }) {
     const driver = route.users?.full_name;
-    const vehicle = route.vehicles?.plate_number
-        ? [route.vehicles.model, route.vehicles.plate_number].filter(Boolean).join(' · ')
-        : null;
-    const missingCrew = !driver || !vehicle;
+    const missingCrew = needsCrew(route);
     const stopCount = route.route_stops?.length || 0;
+    const path = routePath(route);
     const vendor = route.company_vendor_link_id
         ? (route.company_vendor_links?.external_vendors?.name ?? 'External vendor')
         : 'CORT';
 
     return (
-        <Link href={`/admin/routes/${route.id}`} className={cn('block h-full rounded-xl', focusRing)}>
-            <Card interactive className={cn('h-full overflow-hidden border-l-4', missingCrew ? 'border-l-warning' : 'border-l-brand')}>
-                <div className="space-y-3 p-4">
-                    <div className="flex items-start justify-between gap-2">
-                        <h2 className="truncate font-semibold text-fg">{route.name}</h2>
-                        <StatusBadge status={routeStatus(route)} size="sm" />
+        <Link href={`/admin/routes/${route.id}`} className={cn('group block h-full rounded-xl', focusRing)}>
+            <Card interactive className="flex h-full flex-col">
+                <div className="flex items-start gap-3 p-4 pb-3">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-ink" aria-hidden="true">
+                        <RouteIcon className="size-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                            <h2 className="truncate font-semibold text-fg">{route.name}</h2>
+                            <StatusBadge status={routeStatus(route)} size="sm" />
+                        </div>
+                        <p className="mt-0.5 truncate text-xs text-fg-muted" title={path ?? undefined}>
+                            {path ?? 'No stops yet'}
+                        </p>
                     </div>
+                </div>
 
-                    <div className="flex items-center gap-3">
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[11px] font-semibold text-brand-ink" aria-hidden="true">
+                <dl className="mx-4 divide-y divide-line rounded-lg border border-line bg-subtle">
+                    <CrewRow label="Driver" missing={!driver}>
+                        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[10px] font-semibold text-brand-ink" aria-hidden="true">
                             {initials(driver)}
                         </span>
-                        <div className="min-w-0">
-                            <div className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Usual driver</div>
-                            <div className="truncate text-sm text-fg">{driver ?? 'Not set'}</div>
-                        </div>
-                    </div>
+                        <span className="truncate">{driver}</span>
+                    </CrewRow>
+                    <CrewRow label="Vehicle" missing={!route.vehicles?.plate_number}>
+                        <Car className="size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+                        {route.vehicles?.model && <span className="truncate">{route.vehicles.model}</span>}
+                        <span className="shrink-0 rounded border border-line bg-card px-1.5 py-px font-mono text-xs">
+                            {route.vehicles?.plate_number}
+                        </span>
+                    </CrewRow>
+                </dl>
 
-                    <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">Usual vehicle</div>
-                        <div className="mt-0.5 flex items-center gap-2 text-sm text-fg">
-                            <Car className="size-4 shrink-0 text-fg-muted" aria-hidden="true" />
-                            <span className={cn('truncate', vehicle && 'font-mono text-[13px]')}>{vehicle ?? 'Not set'}</span>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Badge tone="neutral" icon={<MapPin aria-hidden="true" />}>
-                            {stopCount} {stopCount === 1 ? 'stop' : 'stops'}
-                        </Badge>
-                        <Badge tone={route.company_vendor_link_id ? 'purple' : 'info'}>{vendor}</Badge>
-                    </div>
-
+                <div className="mt-auto flex items-center gap-2 p-4 pt-3">
+                    <Badge tone="neutral" size="sm" icon={<MapPin aria-hidden="true" />}>
+                        {stopCount} {stopCount === 1 ? 'stop' : 'stops'}
+                    </Badge>
+                    <Badge tone={route.company_vendor_link_id ? 'purple' : 'info'} size="sm">{vendor}</Badge>
                     {missingCrew && (
-                        <p className="rounded-lg border border-warning-line bg-warning-soft px-2.5 py-1.5 text-xs text-warning-ink">
-                            {!driver && !vehicle
-                                ? 'Set a usual driver and vehicle — needed for trips'
-                                : !driver
-                                    ? 'Set a usual driver — needed for trips'
-                                    : 'Set a usual vehicle — needed for trips'}
-                        </p>
+                        <Badge tone="warning" size="sm" dot>Needs crew</Badge>
                     )}
+                    <ChevronRight
+                        className="ml-auto size-4 shrink-0 text-fg-muted transition-transform group-hover:translate-x-0.5 group-hover:text-fg"
+                        aria-hidden="true"
+                    />
                 </div>
             </Card>
         </Link>
+    );
+}
+
+function CrewRow({ label, missing, children }: { label: string; missing: boolean; children: React.ReactNode }) {
+    return (
+        <div className="flex h-11 items-center gap-3 px-3">
+            <dt className="w-14 shrink-0 text-xs font-medium text-fg-muted">{label}</dt>
+            <dd className="flex min-w-0 flex-1 items-center gap-2 text-sm text-fg">
+                {missing ? <span className="text-warning-ink">Not assigned</span> : children}
+            </dd>
+        </div>
     );
 }
