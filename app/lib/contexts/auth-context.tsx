@@ -64,6 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (response.data.user.role === UserRole.COMPANY_VENDOR) {
                 router.push('/vendor');
+            } else if (response.data.user.role === UserRole.CORT_VENDOR) {
+                router.push('/cort-vendor');
             }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Login failed';
@@ -106,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isEmployee = user?.role === UserRole.EMPLOYEE;
     const isDriver = user?.role === UserRole.DRIVER;
     const isCompanyVendor = user?.role === UserRole.COMPANY_VENDOR;
+    const isCortVendor = user?.role === UserRole.CORT_VENDOR;
 
     const hasRole = useCallback((roles: UserRole[]): boolean => {
         if (!user) return false;
@@ -151,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isEmployee,
         isDriver,
         isCompanyVendor,
+        isCortVendor,
         hasRole,
         hasCompanyAccess,
         hasPermission,

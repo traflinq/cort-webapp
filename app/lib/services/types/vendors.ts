@@ -27,6 +27,9 @@ export interface Vendor {
     _count?: {
         vehicles: number;
     };
+    /** CORT_VENDOR portal login (present on GET /vendors/:id when one exists). */
+    user_id?: string | null;
+    users?: { id: string; email: string; status: string | null; created_at: string | null } | null;
 }
 
 export interface VendorResponse {

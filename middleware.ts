@@ -42,7 +42,12 @@ export function middleware(request: NextRequest) {
             return NextResponse.rewrite(new URL("/vendor/login", request.url));
         }
 
-        if (!pathname.startsWith("/vendor") && !pathname.startsWith("/admin") && !pathname.startsWith("/company")) {
+        if (
+            !pathname.startsWith("/vendor") &&
+            !pathname.startsWith("/cort-vendor") &&
+            !pathname.startsWith("/admin") &&
+            !pathname.startsWith("/company")
+        ) {
             return NextResponse.rewrite(new URL(`/vendor${pathname}`, request.url));
         }
     }
@@ -66,7 +71,12 @@ export function middleware(request: NextRequest) {
         // Otherwise, redirects from ProtectedRoute like "/company" will be
         // internally rewritten to "/admin/company" (not a real route),
         // resulting in a 404 ("Lost your way?").
-        if (!pathname.startsWith("/admin") && !pathname.startsWith("/company") && !pathname.startsWith("/vendor")) {
+        if (
+            !pathname.startsWith("/admin") &&
+            !pathname.startsWith("/company") &&
+            !pathname.startsWith("/vendor") &&
+            !pathname.startsWith("/cort-vendor")
+        ) {
             return NextResponse.rewrite(new URL(`/admin${pathname}`, request.url));
         }
     }
@@ -88,6 +98,7 @@ export function middleware(request: NextRequest) {
         if (
             !pathname.startsWith("/company") &&
             !pathname.startsWith("/admin") &&
+            !pathname.startsWith("/cort-vendor") &&
             !pathname.startsWith("/sa")
         ) {
             return NextResponse.rewrite(new URL(`/company${pathname}`, request.url));

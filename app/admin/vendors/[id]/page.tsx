@@ -40,6 +40,7 @@ import { useVendorLogColumns } from "../components/log-columns";
 import { SettlementDrawer } from "../components/SettlementDrawer";
 import { VendorAdvances } from "../components/VendorAdvances";
 import { RecordPaymentDialog } from "../components/RecordPaymentDialog";
+import { VendorPortalAccess } from "../components/VendorPortalAccess";
 import { isPaidStatus, paymentTargetFor, PAYMENT_STATUS_OPTIONS, type PaymentTarget, type VendorLogRow } from "../components/types";
 
 export default function VendorDetailsPage() {
@@ -58,6 +59,7 @@ function VendorDetailsContent() {
   const dispatch = useAppDispatch();
   const ability = useAdminAbility();
   const canEditPayments = ability.can("update", ADMIN_SUBJECTS.vendor_logs);
+  const canManagePortal = ability.can("update", ADMIN_SUBJECTS.vendors);
   const vendorId = Number(params.id);
 
   const logs = useAppSelector(selectVendorLogs) as unknown as VendorLogRow[];
@@ -170,6 +172,7 @@ function VendorDetailsContent() {
         back={{ href: "/admin/vendors", label: "Back to vendors" }}
         title={vendor?.name ?? `Vendor #${vendorId}`}
         description="Trip and shuttle logs, vendor cost and settlements."
+        actions={<VendorPortalAccess vendorId={vendorId} canEdit={canManagePortal} />}
       />
 
       <KpiGrid cols={4}>

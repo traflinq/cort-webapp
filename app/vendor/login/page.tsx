@@ -24,6 +24,9 @@ export default function VendorLoginPage() {
     if (!loading && isAuthenticated && user) {
       if (user.role === UserRole.COMPANY_VENDOR) {
         router.replace("/vendor");
+      } else if (user.role === UserRole.CORT_VENDOR) {
+        // Cort supplier vendors share the vendor domain/login but have their own portal
+        router.replace("/cort-vendor");
       } else {
         // Non-vendor users shouldn't access this portal
         router.replace("/");

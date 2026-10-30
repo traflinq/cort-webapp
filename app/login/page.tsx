@@ -28,6 +28,8 @@ export default function LoginPage() {
                 router.replace("/company");
             } else if (user.role === UserRole.COMPANY_VENDOR) {
                 router.replace("/vendor");
+            } else if (user.role === UserRole.CORT_VENDOR) {
+                router.replace("/cort-vendor");
             } else {
                 router.replace("/");
             }
