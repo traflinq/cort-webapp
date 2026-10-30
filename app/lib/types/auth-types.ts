@@ -6,6 +6,7 @@ export enum UserRole {
     EMPLOYEE = 'EMPLOYEE',
     DRIVER = 'DRIVER',
     COMPANY_VENDOR = 'COMPANY_VENDOR',
+    CORT_VENDOR = 'CORT_VENDOR',
 }
 
 // All granular permission keys — mirrors backend PERMISSION_KEYS constant
@@ -84,6 +85,8 @@ export interface AuthUser {
     permissions?: StaffPermissions | null; // only populated for INTERNAL_STAFF
     external_vendor_id?: number | null;    // only populated for COMPANY_VENDOR
     vendor_links?: VendorLink[];           // only populated for COMPANY_VENDOR
+    vendor_id?: number | null;             // only populated for CORT_VENDOR (Cort supplier vendor)
+    vendor_name?: string | null;           // only populated for CORT_VENDOR
     impersonated_by?: string;              // present only when a super-admin is viewing as this company
 }
 
@@ -163,5 +166,6 @@ export interface AuthContextType extends AuthState {
     isShuttleEnabled: boolean;
     isChauffeurEnabled: boolean;
     isCompanyVendor: boolean;
+    isCortVendor: boolean;
 }
 

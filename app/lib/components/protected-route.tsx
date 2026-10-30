@@ -38,6 +38,8 @@ export function ProtectedRoute({
                 router.push('/admin');
             } else if (user?.role === UserRole.COMPANY_ADMIN || user?.role === UserRole.EMPLOYEE) {
                 router.push('/company');
+            } else if (user?.role === UserRole.CORT_VENDOR) {
+                router.push('/cort-vendor');
             } else {
                 router.push('/');
             }

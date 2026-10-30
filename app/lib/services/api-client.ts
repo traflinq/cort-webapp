@@ -1,5 +1,19 @@
 import { LoginRequest, LoginResponse, ProfileResponse, SignupRequest, StaffPermissions } from '../types/auth-types';
 import type { ShuttleEfficiencyResponse } from '../types/admin-dashboard';
+import type {
+    CortVendorDayTrip,
+    CortVendorDriverRow,
+    CortVendorRouteDetail,
+    CortVendorRouteRow,
+    CortVendorSummary,
+    CortVendorTripDetail,
+    CortVendorTripRow,
+    CortVendorTripsQuery,
+    CortVendorVehicleRow,
+    Paginated,
+    Polyline,
+    ShuttleDirection,
+} from './types/cort-vendor';
 import {
     PaginatedResponse,
     DeleteRecordResult,
@@ -1871,6 +1885,74 @@ class ApiClient {
         return this.request<{ success: boolean; data: VendorRoute }>(`/vendor/routes/${routeId}`, {
             method: 'PATCH',
             body: JSON.stringify(dto),
+        });
+    }
+
+    // ─── CORT_VENDOR portal (Cort supplier vendor, read-only) ───────────────────
+
+    private async cortVendorGet<T>(path: string): Promise<T> {
+        const res = await this.request<{ data: T }>(`/cort-vendor${path}`);
+        return res.data;
+    }
+
+    getCortVendorSummary(date?: string) {
+        return this.cortVendorGet<CortVendorSummary>(`/summary${date ? `?date=${date}` : ''}`);
+    }
+
+    getCortVendorVehicles() {
+        return this.cortVendorGet<CortVendorVehicleRow[]>('/vehicles');
+    }
+
+    getCortVendorDrivers() {
+        return this.cortVendorGet<CortVendorDriverRow[]>('/drivers');
+    }
+
+    getCortVendorRoutes() {
+        return this.cortVendorGet<CortVendorRouteRow[]>('/routes');
+    }
+
+    getCortVendorRoute(routeId: number) {
+        return this.cortVendorGet<CortVendorRouteDetail>(`/routes/${routeId}`);
+    }
+
+    getCortVendorRoutePolyline(routeId: number, direction: ShuttleDirection = 'MORNING') {
+        return this.cortVendorGet<Polyline>(`/routes/${routeId}/polyline?direction=${direction}`);
+    }
+
+    getCortVendorTrips(query: CortVendorTripsQuery = {}) {
+        const params = new URLSearchParams();
+        Object.entries(query).forEach(([k, v]) => {
+            if (v !== undefined && v !== null && v !== '') params.set(k, String(v));
+        });
+        const qs = params.toString();
+        return this.cortVendorGet<Paginated<CortVendorTripRow>>(`/trips${qs ? `?${qs}` : ''}`);
+    }
+
+    getCortVendorDayTrips(date?: string) {
+        return this.cortVendorGet<CortVendorDayTrip[]>(`/trips/today${date ? `?date=${date}` : ''}`);
+    }
+
+    getCortVendorTrip(tripId: number) {
+        return this.cortVendorGet<CortVendorTripDetail>(`/trips/${tripId}`);
+    }
+
+    getCortVendorTripPolyline(tripId: number) {
+        return this.cortVendorGet<Polyline>(`/trips/${tripId}/polyline`);
+    }
+
+    // ─── Admin: vendor portal login ────────────────────────────────────────────
+
+    createVendorPortalLogin(vendorId: number, data: { email: string; password: string }) {
+        return this.request<VendorResponse>(`/vendors/${vendorId}/portal-login`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    updateVendorPortalLogin(vendorId: number, data: { password?: string; status?: 'ACTIVE' | 'INACTIVE' }) {
+        return this.request<VendorResponse>(`/vendors/${vendorId}/portal-login`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
         });
     }
 
