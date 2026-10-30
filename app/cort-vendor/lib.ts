@@ -7,9 +7,21 @@ export function todayISO(offsetDays = 0): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TZ }).format(d);
 }
 
-/** Decodes a Google encoded polyline into [lat, lng] pairs. */
+/**
+ * Decodes a stored trip path into [lat, lng] pairs. `shuttle_trips.actual_path_polyline` holds either
+ * a JSON array of {lat, lng} (written by the metrics job after completion — most trips) or a Google
+ * encoded polyline (written at trip completion before metrics run).
+ */
 export function decodePolyline(encoded: string | null | undefined): [number, number][] {
   if (!encoded) return [];
+  if (encoded.trimStart().startsWith("[")) {
+    try {
+      const pts = JSON.parse(encoded) as { lat: number; lng: number }[];
+      return pts.filter((p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lng)).map((p) => [p.lat, p.lng]);
+    } catch {
+      return [];
+    }
+  }
   const points: [number, number][] = [];
   let index = 0;
   let lat = 0;
