@@ -86,15 +86,22 @@ export default function CortVendorTripDetailPage() {
     return list;
   }, [trip, stops, driverCoord, live]);
 
+  const actualPath = useMemo(() => decodePolyline(trip?.actual_path_polyline), [trip?.actual_path_polyline]);
+
+  // Finished trips frame the stops plus the driven path (which can stray outside the stops).
+  const fitPoints = useMemo(
+    () => [...markers.filter((m) => m.id !== "vehicle").map((m) => m.position), ...actualPath],
+    [markers, actualPath],
+  );
+
   const polylines = useMemo<MapPolyline[]>(() => {
     const lines: MapPolyline[] = [];
     if (planned?.points.length) {
       lines.push({ positions: planned.points.map((p) => [p.lat, p.lng] as [number, number]), color: "#6366f1", weight: 4, opacity: 0.5, dashArray: "8 8" });
     }
-    const actual = decodePolyline(trip?.actual_path_polyline);
-    if (actual.length > 1) lines.push({ positions: actual, color: "#f47f00", weight: 4, opacity: 0.9 });
+    if (actualPath.length > 1) lines.push({ positions: actualPath, color: "#f47f00", weight: 4, opacity: 0.9 });
     return lines;
-  }, [planned, trip]);
+  }, [planned, actualPath]);
 
   if (loading && !trip) return <PageSkeleton />;
   if (error || !trip) return <ErrorState message={error ?? "Trip not found"} onRetry={reload} />;
@@ -193,7 +200,11 @@ export default function CortVendorTripDetailPage() {
               </span>
             }
           />
-          <Map markers={markers} polylines={polylines} height="360px" autoFit followCenter={live && !!driverCoord} />
+          {live ? (
+            <Map markers={markers} polylines={polylines} height="360px" autoFit followCenter={!!driverCoord} />
+          ) : (
+            <Map markers={markers} polylines={polylines} height="360px" autoFit={false} fitTo={fitPoints} viewKey={fitPoints.length} />
+          )}
         </Card>
         <Card>
           <CardHeader title="Stop timeline" description={`${trip.shuttle_trip_stop_logs.length} stops reached`} />
