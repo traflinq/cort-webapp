@@ -27,7 +27,7 @@ export interface DataTableColumn<T> {
   width?: string;
   className?: string;
   headerClassName?: string;
-  /** Monospace + tabular numbers (IDs, plates, amounts). */
+  /** Tabular (fixed-width) digits so numbers line up in the column. */
   mono?: boolean;
   /** Hide the column below this breakpoint. */
   hideBelow?: "sm" | "md" | "lg" | "xl";
@@ -328,7 +328,7 @@ export function DataTable<T>({
                             pad,
                             "align-middle text-fg",
                             alignCls[col.align ?? "left"],
-                            col.mono && "font-mono text-[13px] tabular-nums",
+                            col.mono && "tabular-nums",
                             col.hideBelow && hideCls[col.hideBelow],
                             col.className,
                           )}

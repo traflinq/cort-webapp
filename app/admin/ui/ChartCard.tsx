@@ -52,7 +52,7 @@ export function ChartCard({
     <Card className={cn("flex flex-col", className)}>
       <CardHeader title={title} description={description} actions={actions} flush />
       {legend && <div className="px-5 pb-1">{legend}</div>}
-      <div className="px-3 pb-4" style={{ minHeight: height }}>
+      <div className={cn("px-3 pb-4", empty && !loading && !error && "flex flex-1 flex-col justify-center")} style={{ minHeight: empty && !loading && !error ? undefined : height }}>
         {loading ? (
           <div className="flex h-full flex-col justify-end gap-2 px-2 pt-6" style={{ height }} aria-busy="true">
             <div className="flex h-full items-end gap-2">
@@ -64,7 +64,7 @@ export function ChartCard({
         ) : error ? (
           <ErrorState compact message={error} onRetry={onRetry} />
         ) : empty ? (
-          <EmptyState compact icon={<BarChart3 aria-hidden="true" />} title={emptyTitle} description={emptyDescription} />
+          <EmptyState compact className="py-6" icon={<BarChart3 aria-hidden="true" />} title={emptyTitle} description={emptyDescription} />
         ) : showTable && table ? (
           <div className="overflow-x-auto px-2">{table}</div>
         ) : (

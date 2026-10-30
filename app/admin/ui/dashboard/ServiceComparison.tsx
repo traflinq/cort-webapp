@@ -1,8 +1,8 @@
 "use client";
 
-import { Card, DataTable, type DataTableColumn } from "..";
+import { Card, CardFooter, CardHeader, DataTable, type DataTableColumn } from "..";
 import type { SuperAdminDashboardStats } from "../../../lib/types/admin-dashboard";
-import { formatCurrency } from "../../lib/format";
+import { formatCurrency, formatNumber } from "../../lib/format";
 
 type Row = {
   key: string;
@@ -58,15 +58,25 @@ export function ServiceComparison({ stats }: { stats: SuperAdminDashboardStats }
     },
   ];
   return (
-    <Card>
-      <DataTable<Row>
-        caption="Revenue, cost and profit by service"
-        rows={rows}
-        rowKey={(r) => r.key}
-        columns={columns}
-        density="compact"
-        rowClassName={(r) => (r.total ? "bg-subtle font-semibold" : undefined)}
-      />
+    <Card className="flex h-full flex-col">
+      <CardHeader title="By service" description="Chauffeur and shuttle economics side by side" />
+      <div className="flex-1">
+        <DataTable<Row>
+          caption="Revenue, cost and profit by service"
+          rows={rows}
+          rowKey={(r) => r.key}
+          columns={columns}
+          rowClassName={(r) => (r.total ? "bg-subtle font-semibold" : undefined)}
+        />
+      </div>
+      <CardFooter className="flex-wrap gap-x-6 gap-y-1 text-xs text-fg-muted">
+        <span>
+          Chauffeur rides <span className="font-medium tabular-nums text-fg">{formatNumber(stats.chauffeurRides.current)}</span>
+        </span>
+        <span>
+          Cost per chauffeur ride <span className="font-medium tabular-nums text-fg">{formatCurrency(stats.costPerRide)}</span>
+        </span>
+      </CardFooter>
     </Card>
   );
 }

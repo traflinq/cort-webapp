@@ -55,6 +55,7 @@ export { DataTable, sortRows, type DataTableColumn, type DataTableProps, type So
 export { FilterBar, FilterField, FilterChip, SearchInput } from "./FilterBar";
 export { DateRangePicker, defaultPresets, type DateRange, type DateRangePreset } from "./DateRangePicker";
 export { KpiCard, KpiGrid, type KpiCardProps, type KpiDelta } from "./KpiCard";
+export { StatStrip, type StatItem } from "./StatStrip";
 export { ChartCard, ChartLegend, ChartTooltip, type ChartLegendItem } from "./ChartCard";
 export { useChartTheme, axisProps, gridProps, CHART_COLORS_LIGHT, CHART_COLORS_DARK } from "./chart-theme";
 export { PageHeader, Breadcrumbs, SectionHeader, type Crumb } from "./PageHeader";

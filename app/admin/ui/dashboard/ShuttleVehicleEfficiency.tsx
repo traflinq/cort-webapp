@@ -12,10 +12,9 @@ import { formatNumber } from "../../lib/format";
 const fuelTone = (v: number | null): BadgeTone => (v == null ? "neutral" : v > 10 ? "danger" : v > 5 ? "warning" : "success");
 const seatTone = (v: number | null): BadgeTone => (v == null ? "neutral" : v < 50 ? "danger" : v < 70 ? "warning" : "success");
 
-const occBadge = (pct: number | null) => <Badge tone={seatTone(pct)}>{pct == null ? "—" : `${pct.toFixed(0)}%`}</Badge>;
-const varBadge = (pct: number | null) => (
-  <Badge tone={fuelTone(pct)}>{pct == null ? "—" : `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`}</Badge>
-);
+const dash = <span className="text-fg-muted">—</span>;
+const occBadge = (pct: number | null) => (pct == null ? dash : <Badge tone={seatTone(pct)}>{`${pct.toFixed(0)}%`}</Badge>);
+const varBadge = (pct: number | null) => (pct == null ? dash : <Badge tone={fuelTone(pct)}>{`${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`}</Badge>);
 
 const columns: DataTableColumn<Row>[] = [
   {

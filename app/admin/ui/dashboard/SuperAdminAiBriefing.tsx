@@ -7,7 +7,7 @@ import { apiClient } from "@/app/lib/services/api-client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { focusRing } from "../styles";
-import { Badge, Button, Card, CardContent, CardHeader, EmptyState, LoadingBlock, Tabs, TabsList, TabsTrigger, type BadgeTone } from "..";
+import { Badge, Button, Card, CardContent, CardHeader, LoadingBlock, Tabs, TabsList, TabsTrigger, type BadgeTone } from "..";
 import { humanize } from "../../lib/format";
 
 export type SuperAdminInsightCard = {
@@ -134,6 +134,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
   return (
     <Card>
       <CardHeader
+        flush={!hasRun && !generating}
         title={
           <span className="inline-flex items-center gap-2">
             {mode === "finance" ? <Landmark className="size-4 text-brand-ink" aria-hidden="true" /> : <Sparkles className="size-4 text-brand-ink" aria-hidden="true" />}
@@ -163,16 +164,8 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
           </>
         }
       />
+      {(hasRun || generating) && (
       <CardContent className="space-y-6">
-        {!hasRun && !generating && (
-          <EmptyState
-            compact
-            icon={mode === "finance" ? <Landmark aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
-            title={mode === "finance" ? "No brief generated yet" : "No summary generated yet"}
-            description={mode === "finance" ? "Run the analysis for a CFO-style brief of this period." : "Run the analysis for ops signals and company attention."}
-          />
-        )}
-
         {generating && <LoadingBlock label={mode === "finance" ? "Preparing financial brief…" : "Analysing platform operations…"} />}
 
         {showFinance && !generating && financialBrief && (
@@ -291,6 +284,7 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
           </div>
         )}
       </CardContent>
+      )}
     </Card>
   );
 }

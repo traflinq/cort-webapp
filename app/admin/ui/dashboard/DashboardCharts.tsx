@@ -18,7 +18,7 @@ type BreakdownChartProps = {
 function BreakdownChart({ title, description, data, format, colorIndex, emptyTitle }: BreakdownChartProps) {
   const t = useChartTheme();
   const items = (data ?? []).filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
-  const height = Math.max(160, items.length * 36 + 24);
+  const height = Math.max(120, items.length * 36 + 24);
   return (
     <ChartCard
       title={title}
@@ -38,7 +38,7 @@ function BreakdownChart({ title, description, data, format, colorIndex, emptyTit
             {items.map((i) => (
               <tr key={i.name} className="border-t border-line">
                 <td className="py-1 text-fg">{i.name}</td>
-                <td className="py-1 text-right font-mono tabular-nums text-fg">{format(i.value)}</td>
+                <td className="py-1 text-right tabular-nums text-fg">{format(i.value)}</td>
               </tr>
             ))}
           </tbody>

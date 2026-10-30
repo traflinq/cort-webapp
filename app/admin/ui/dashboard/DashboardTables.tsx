@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowUpRight, CheckCircle2, Fuel, MessageSquare, Users, Wrench } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, ChevronDown, Fuel, MessageSquare, Users, Wrench } from "lucide-react";
 import type { ComponentType } from "react";
 import type { BreakdownItem, FuelMonthComparison, OverdueInvoice, ProblemReport } from "../../../lib/types/admin-dashboard";
 import { Badge, Button, Card, CardHeader, DataTable, StatusBadge, type DataTableColumn } from "..";
@@ -11,6 +11,7 @@ import { useAppDispatch } from "../../../lib/store/hooks";
 import { removeProblemReport } from "../../../lib/store/slices/superAdminDashboardSlice";
 import { useAdminAbility } from "../../../lib/abilities/AdminAbilityProvider";
 import { formatCurrency, formatDate, formatDateTime, humanize, initials } from "../../lib/format";
+import { cn } from "@/lib/utils";
 
 interface DashboardTablesProps {
   revenueByClient: BreakdownItem[];
@@ -98,7 +99,7 @@ const overdueColumns: DataTableColumn<OverdueInvoice>[] = [
   },
   { key: "generated_at", header: "Issued", hideBelow: "sm", cell: (inv) => <span className="text-fg-secondary">{formatDate(inv.generated_at)}</span> },
   { key: "status", header: "Status", cell: (inv) => <StatusBadge status={inv.status} /> },
-  { key: "total_amount", header: "Outstanding", align: "right", mono: true, cell: (inv) => <span className="font-semibold text-danger-ink">{formatCurrency(inv.total_amount)}</span> },
+  { key: "total_amount", header: "Outstanding", align: "right", mono: true, cell: (inv) => <span className="font-medium text-fg">{formatCurrency(inv.total_amount)}</span> },
 ];
 
 const buildReportColumns = (onResolve: ((r: ProblemReport) => void) | null): DataTableColumn<ProblemReport>[] => [
@@ -119,7 +120,7 @@ const buildReportColumns = (onResolve: ((r: ProblemReport) => void) | null): Dat
       </div>
     ),
   },
-  { key: "issue_type", header: "Type", hideBelow: "md", cell: (r) => <Badge tone="neutral">{r.issue_type ? humanize(r.issue_type) : "—"}</Badge> },
+  { key: "issue_type", header: "Type", hideBelow: "md", cell: (r) => (r.issue_type ? <Badge tone="neutral">{humanize(r.issue_type)}</Badge> : <span className="text-fg-muted">—</span>) },
   { key: "message", header: "Message", cell: (r) => <p className="line-clamp-2 max-w-md text-fg-secondary" title={r.message}>{r.message}</p> },
   ...(onResolve
     ? [
@@ -129,7 +130,7 @@ const buildReportColumns = (onResolve: ((r: ProblemReport) => void) | null): Dat
           align: "right" as const,
           width: "7rem",
           cell: (r: ProblemReport) => (
-            <Button variant="outline" size="sm" onClick={() => onResolve(r)} leftIcon={<CheckCircle2 />}>
+            <Button variant="ghost" size="sm" onClick={() => onResolve(r)} leftIcon={<CheckCircle2 />}>
               Resolve
             </Button>
           ),
@@ -138,7 +139,41 @@ const buildReportColumns = (onResolve: ((r: ProblemReport) => void) | null): Dat
     : []),
 ];
 
-export function DashboardTables({ revenueByClient, fuelExpenses, fuelMonthComparison, repairExpenses, overdueInvoices, problemReports }: DashboardTablesProps) {
+/** Top clients, fuel and maintenance rankings in a three-up grid. */
+export function CostTables({ revenueByClient, fuelExpenses, fuelMonthComparison, repairExpenses }: Pick<DashboardTablesProps, "revenueByClient" | "fuelExpenses" | "fuelMonthComparison" | "repairExpenses">) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <RankingTable title="Top clients by revenue" description="Gross revenue in the period" data={revenueByClient} valueLabel="Revenue" icon={Users} emptyTitle="No client revenue yet" />
+      {fuelMonthComparison ? (
+        <FuelMonthTable data={fuelMonthComparison} />
+      ) : (
+        <RankingTable title="Fuel cost" description="By vehicle, period total" data={fuelExpenses} valueLabel="Cost" icon={Fuel} emptyTitle="No fuel records" />
+      )}
+      <RankingTable title="Maintenance cost" description="By vehicle, period total" data={repairExpenses} valueLabel="Cost" icon={Wrench} emptyTitle="No maintenance records" />
+    </div>
+  );
+}
+
+const PREVIEW_ROWS = 5;
+
+/** Footer toggle under a work-queue table; hidden when everything already fits. */
+function ShowMore({ total, expanded, onToggle }: { total: number; expanded: boolean; onToggle: () => void }) {
+  if (total <= PREVIEW_ROWS) return null;
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={expanded}
+      className="flex w-full items-center justify-center gap-1.5 border-t border-line px-4 py-2.5 text-xs font-medium text-fg-muted hover:bg-subtle hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+    >
+      {expanded ? "Show less" : `Show all ${total}`}
+      <ChevronDown className={cn("size-3.5 transition-transform", expanded && "rotate-180")} aria-hidden="true" />
+    </button>
+  );
+}
+
+/** Work queues: overdue invoices and open problem reports. Anchored so the attention tiles can jump here. */
+export function ActionTables({ overdueInvoices, problemReports }: Pick<DashboardTablesProps, "overdueInvoices" | "problemReports">) {
   const overdue = overdueInvoices ?? [];
   const reports = problemReports ?? [];
   const dispatch = useAppDispatch();
@@ -146,19 +181,11 @@ export function DashboardTables({ revenueByClient, fuelExpenses, fuelMonthCompar
   const canResolve = ability.can("update", "Dashboard");
   const [resolving, setResolving] = React.useState<ProblemReport | null>(null);
   const reportColumns = React.useMemo(() => buildReportColumns(canResolve ? setResolving : null), [canResolve]);
+  const [showAllOverdue, setShowAllOverdue] = React.useState(false);
+  const [showAllReports, setShowAllReports] = React.useState(false);
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-3">
-        <RankingTable title="Top clients by revenue" description="Gross revenue in the period" data={revenueByClient} valueLabel="Revenue" icon={Users} emptyTitle="No client revenue yet" />
-        {fuelMonthComparison ? (
-          <FuelMonthTable data={fuelMonthComparison} />
-        ) : (
-          <RankingTable title="Fuel cost" description="By vehicle, period total" data={fuelExpenses} valueLabel="Cost" icon={Fuel} emptyTitle="No fuel records" />
-        )}
-        <RankingTable title="Maintenance cost" description="By vehicle, period total" data={repairExpenses} valueLabel="Cost" icon={Wrench} emptyTitle="No maintenance records" />
-      </div>
-
-      <Card className={overdue.length > 0 ? "border-danger-line" : undefined}>
+      <Card id="overdue-invoices" className="scroll-mt-20 overflow-hidden">
         <CardHeader
           title={
             <span className="inline-flex items-center gap-2">
@@ -178,9 +205,9 @@ export function DashboardTables({ revenueByClient, fuelExpenses, fuelMonthCompar
             </Button>
           }
         />
-        <div className="max-h-96 overflow-y-auto">
+        <div>
           <DataTable<OverdueInvoice>
-            rows={overdue}
+            rows={showAllOverdue ? overdue : overdue.slice(0, PREVIEW_ROWS)}
             rowKey={(inv) => inv.id}
             columns={overdueColumns}
             density="compact"
@@ -189,9 +216,10 @@ export function DashboardTables({ revenueByClient, fuelExpenses, fuelMonthCompar
             empty={{ title: "No overdue invoices", description: "Every invoice older than 30 days is settled." }}
           />
         </div>
+        <ShowMore total={overdue.length} expanded={showAllOverdue} onToggle={() => setShowAllOverdue((v) => !v)} />
       </Card>
 
-      <Card>
+      <Card id="problem-reports" className="scroll-mt-20 overflow-hidden">
         <CardHeader
           title={
             <span className="inline-flex items-center gap-2">
@@ -204,9 +232,9 @@ export function DashboardTables({ revenueByClient, fuelExpenses, fuelMonthCompar
           }
           description="Open reports from the driver and employee apps. Resolving one notifies the reporter and closes it."
         />
-        <div className="max-h-96 overflow-y-auto">
+        <div>
           <DataTable<ProblemReport>
-            rows={reports}
+            rows={showAllReports ? reports : reports.slice(0, PREVIEW_ROWS)}
             rowKey={(r) => r.id}
             columns={reportColumns}
             density="compact"
@@ -215,6 +243,7 @@ export function DashboardTables({ revenueByClient, fuelExpenses, fuelMonthCompar
             empty={{ title: "No open problem reports" }}
           />
         </div>
+        <ShowMore total={reports.length} expanded={showAllReports} onToggle={() => setShowAllReports((v) => !v)} />
       </Card>
 
       <ResolveProblemDialog report={resolving} onClose={() => setResolving(null)} onResolved={(id) => dispatch(removeProblemReport(id))} />
