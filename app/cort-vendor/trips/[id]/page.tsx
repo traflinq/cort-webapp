@@ -7,7 +7,6 @@ import { useParams } from "next/navigation";
 import { Radio } from "lucide-react";
 import {
   Card,
-  CardContent,
   CardHeader,
   DataTable,
   ErrorState,
@@ -23,7 +22,7 @@ import { apiClient } from "../../../lib/services/api-client";
 import { useShuttleTracking } from "../../../lib/hooks/useShuttleTracking";
 import type { CortVendorRouteStop, CortVendorTripDetail, CortVendorTripEmployee, Polyline } from "../../../lib/services/types/cort-vendor";
 import { useLoad } from "../../components/useLoad";
-import { decodePolyline, isLiveStatus, vehicleLabel } from "../../lib";
+import { decodePolyline, isLiveStatus } from "../../lib";
 
 const Map = dynamic(() => import("../../../admin/ui/Map"), { ssr: false });
 
@@ -107,12 +106,14 @@ export default function CortVendorTripDetailPage() {
 
   const stopColumns: DataTableColumn<StopLog>[] = [
     { key: "stop", header: "Stop", cell: (l) => <span className="font-medium text-fg">{l.route_stops.name}</span> },
-    { key: "arrived", header: "Arrived", cell: (l) => formatTime(l.arrived_at) },
-    { key: "departed", header: "Departed", cell: (l) => (l.departed_at ? formatTime(l.departed_at) : "—") },
+    { key: "arrived", header: "Arrived", className: "whitespace-nowrap", cell: (l) => formatTime(l.arrived_at) },
+    { key: "departed", header: "Departed", className: "whitespace-nowrap", cell: (l) => (l.departed_at ? formatTime(l.departed_at) : "—") },
     {
       key: "wait",
       header: "Wait",
       align: "right",
+      hideBelow: "sm",
+      className: "whitespace-nowrap",
       cell: (l) => {
         const min = minutesBetween(l.arrived_at, l.departed_at);
         return min != null ? `${min} min` : "—";
@@ -122,15 +123,15 @@ export default function CortVendorTripDetailPage() {
 
   const employeeColumns: DataTableColumn<CortVendorTripEmployee>[] = [
     { key: "name", header: "Employee", cell: (e) => <span className="font-medium text-fg">{e.users?.full_name ?? "—"}</span> },
-    { key: "phone", header: "Phone", mono: true, hideBelow: "md", cell: (e) => e.users?.phone ?? "—" },
+    { key: "phone", header: "Phone", mono: true, hideBelow: "md", className: "whitespace-nowrap", cell: (e) => e.users?.phone ?? "—" },
     { key: "stop", header: "Stop", cell: (e) => e.route_stops?.name ?? "—" },
     {
       key: "status",
       header: "Attendance",
       cell: (e) => (e.boarding?.status ? <StatusBadge status={e.boarding.status} size="sm" /> : <span className="text-fg-muted">Not marked</span>),
     },
-    { key: "scanned", header: "Boarded at", hideBelow: "lg", cell: (e) => (e.boarding?.scanned_at ? formatTime(e.boarding.scanned_at) : "—") },
-    { key: "dropped", header: "Dropped at", hideBelow: "lg", cell: (e) => (e.boarding?.drop_off_at ? formatTime(e.boarding.drop_off_at) : "—") },
+    { key: "scanned", header: "Boarded at", hideBelow: "lg", cell: (e) => (e.boarding?.scanned_at && e.boarding.status !== "ABSENT" ? formatTime(e.boarding.scanned_at) : "—") },
+    { key: "dropped", header: "Dropped at", hideBelow: "xl", cell: (e) => (e.boarding?.drop_off_at ? formatTime(e.boarding.drop_off_at) : "—") },
   ];
 
   return (
@@ -163,7 +164,7 @@ export default function CortVendorTripDetailPage() {
       <StatStrip
         aria-label="Trip summary"
         items={[
-          { key: "vehicle", label: "Vehicle", value: trip.vehicles?.plate_number ?? "—", hint: vehicleLabel(trip.vehicles) },
+          { key: "vehicle", label: "Vehicle", value: trip.vehicles?.plate_number ?? "—", hint: trip.vehicles ? `${trip.vehicles.make} ${trip.vehicles.model}` : undefined },
           { key: "driver", label: "Driver", value: trip.users?.full_name ?? "—", hint: trip.users?.phone ?? undefined },
           {
             key: "time",
@@ -180,23 +181,20 @@ export default function CortVendorTripDetailPage() {
         ]}
       />
 
-      <Card>
-        <CardHeader
-          title="Map"
-          description={
-            <span className="inline-flex flex-wrap items-center gap-3">
-              <Legend color="#6366f1" dashed label="Planned route" />
-              <Legend color="#f47f00" label="Driven path" />
-              <Legend color="#16a34a" dot label="Stop reached" />
-            </span>
-          }
-        />
-        <CardContent>
-          <Map markers={markers} polylines={polylines} height="480px" autoFit followCenter={live && !!driverCoord} />
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Card className="overflow-hidden">
+          <CardHeader
+            title="Map"
+            description={
+              <span className="inline-flex flex-wrap items-center gap-3">
+                <Legend color="#6366f1" dashed label="Planned route" />
+                <Legend color="#f47f00" label="Driven path" />
+                <Legend color="#16a34a" dot label="Stop reached" />
+              </span>
+            }
+          />
+          <Map markers={markers} polylines={polylines} height="360px" autoFit followCenter={live && !!driverCoord} />
+        </Card>
         <Card>
           <CardHeader title="Stop timeline" description={`${trip.shuttle_trip_stop_logs.length} stops reached`} />
           <DataTable
@@ -207,20 +205,21 @@ export default function CortVendorTripDetailPage() {
             empty={{ title: "No stops reached yet" }}
           />
         </Card>
-        <Card>
-          <CardHeader
-            title="Passengers"
-            description={`${boarded} of ${trip.employees.length} boarded${trip.current_stop_status ? ` · ${humanize(trip.current_stop_status)}` : ""}`}
-          />
-          <DataTable
-            columns={employeeColumns}
-            rows={trip.employees}
-            rowKey={(e) => e.user_id}
-            density="compact"
-            empty={{ title: "No passengers on this trip" }}
-          />
-        </Card>
       </div>
+
+      <Card>
+        <CardHeader
+          title="Passengers"
+          description={`${boarded} of ${trip.employees.length} boarded${live && trip.current_stop_status ? ` · ${humanize(trip.current_stop_status)}` : ""}`}
+        />
+        <DataTable
+          columns={employeeColumns}
+          rows={trip.employees}
+          rowKey={(e) => e.user_id}
+          density="compact"
+          empty={{ title: "No passengers on this trip" }}
+        />
+      </Card>
     </div>
   );
 }
