@@ -18,6 +18,8 @@ export interface Invoice {
     amount_paid?: number | string | null;
     amount_remaining?: number | string | null;
     payment_status?: string | null;
+    include_sst?: boolean;
+    show_stamp?: boolean;
     companies?: {
         name: string;
     }

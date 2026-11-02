@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Eye, FilePlus2, FileText, History, Mail, Trash2, Wallet } from "lucide-react";
+import { Download, Eye, FilePlus2, FileText, History, Mail, Pencil, Trash2, Wallet } from "lucide-react";
 import {
   Badge,
   Button,
@@ -23,6 +23,7 @@ import { PICKER_LIMIT } from "../hooks/useInvoices";
 import { InvoiceStatsCards } from "./InvoiceStatsCards";
 import { GenerateInvoiceDialog } from "./GenerateInvoiceDialog";
 import { SettleInvoiceDialog } from "./SettleInvoiceDialog";
+import { EditInvoiceDialog } from "./EditInvoiceDialog";
 import { PaymentHistoryDialog } from "./PaymentHistoryDialog";
 
 const SELECT_TONE: Record<ReturnType<typeof statusTone>, string> = {
@@ -146,7 +147,8 @@ export function InvoicingLedger({ inv }: InvoicingLedgerProps) {
         disabled: inv.sendingEmailId === row.id || !inv.canUpdate,
         onSelect: () => inv.handleSendEmail(row.id, row.invoice_number),
       },
-      { label: "Record payment", icon: <Wallet />, hidden: !canSettle, separatorBefore: true, onSelect: () => inv.openSettleModal(row) },
+      { label: "Edit invoice", icon: <Pencil />, hidden: !inv.canUpdate, separatorBefore: true, onSelect: () => inv.openEditModal(row) },
+      { label: "Record payment", icon: <Wallet />, hidden: !canSettle, onSelect: () => inv.openSettleModal(row) },
       { label: "Payment history", icon: <History />, hidden: !isShuttle, onSelect: () => inv.openLogsModal(row) },
       {
         label: inv.deletingInvoiceId === row.id ? "Deleting…" : "Delete",
@@ -232,6 +234,7 @@ export function InvoicingLedger({ inv }: InvoicingLedgerProps) {
       </Card>
 
       <GenerateInvoiceDialog inv={inv} />
+      <EditInvoiceDialog inv={inv} />
       <SettleInvoiceDialog inv={inv} />
       <PaymentHistoryDialog inv={inv} />
     </div>

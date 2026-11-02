@@ -114,6 +114,12 @@ export function useInvoices() {
   const [allVendors, setAllVendors] = useState<{ id: number; name: string }[]>([]);
   const [vendorsTruncated, setVendorsTruncated] = useState(false);
 
+  // Edit dialog state
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [editIncludeSst, setEditIncludeSst] = useState(true);
+  const [editShowStamp, setEditShowStamp] = useState(true);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
   // Settle dialog state
   const [showSettleModal, setShowSettleModal] = useState(false);
   const [settlingInvoice, setSettlingInvoice] = useState<Invoice | null>(null);
@@ -598,6 +604,32 @@ export function useInvoices() {
     }
   };
 
+  const openEditModal = (inv: Invoice) => {
+    setEditingInvoice(inv);
+    setEditIncludeSst(inv.include_sst ?? true);
+    setEditShowStamp(inv.show_stamp ?? true);
+  };
+
+  const closeEditModal = () => {
+    if (isSavingEdit) return;
+    setEditingInvoice(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingInvoice) return;
+    setIsSavingEdit(true);
+    try {
+      await apiClient.updateInvoiceSettings(editingInvoice.id, { includeSst: editIncludeSst, showStamp: editShowStamp });
+      refetch();
+      toast.success(`Invoice ${editingInvoice.invoice_number} updated.`);
+      setEditingInvoice(null);
+    } catch (e) {
+      toast.error("Could not update the invoice", { description: errorMessage(e, "Please try again.") });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   const openSettleModal = (inv: Invoice) => {
     setSettlingInvoice(inv);
     setSettleAmount("");
@@ -705,6 +737,8 @@ export function useInvoices() {
     shuttleDiscountType, setShuttleDiscountType, shuttleDiscountValue, setShuttleDiscountValue,
     shuttleRoutes, routeTrips, setRouteTrips, routeQuantities, setRouteQuantities, routeTripDates, setRouteTripDates,
     isVendorCar, setIsVendorCar, selectedVendorId, setSelectedVendorId, vendorCost, setVendorCost, allVendors, vendorsTruncated,
+    // edit
+    editingInvoice, closeEditModal, editIncludeSst, setEditIncludeSst, editShowStamp, setEditShowStamp, isSavingEdit,
     // settle
     showSettleModal, closeSettleModal, settlingInvoice, settleAmount, setSettleAmount, settlePaymentType, setSettlePaymentType,
     settlePaymentMethod, setSettlePaymentMethod, settleNotes, setSettleNotes, settlePaymentDate, setSettlePaymentDate, isSettling,
@@ -712,7 +746,7 @@ export function useInvoices() {
     showLogsModal, closeLogsModal, activeInvoiceLogs, isLoadingLogs,
     // helpers + actions
     formatInvoicePeriod, getInvoicePeriodType, handleSendEmail, downloadPdf, viewPdf, handleStatusUpdate,
-    handleGenerateShuttleInvoice, openSettleModal, handleSettleInvoice, openLogsModal, handleDeleteInvoice,
+    handleGenerateShuttleInvoice, openEditModal, handleSaveEdit, openSettleModal, handleSettleInvoice, openLogsModal, handleDeleteInvoice,
   };
 }
 

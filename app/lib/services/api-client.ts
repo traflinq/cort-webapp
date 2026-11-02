@@ -1527,6 +1527,13 @@ class ApiClient {
         });
     }
 
+    async updateInvoiceSettings(id: number, data: { includeSst?: boolean; showStamp?: boolean }): Promise<any> {
+        return this.request<any>(`/invoices/${id}/settings`, {
+            method: 'PATCH',
+            body: JSON.stringify(data)
+        });
+    }
+
     async deleteInvoice(id: number): Promise<any> {
         return this.request<any>(`/invoices/${id}`, {
             method: 'DELETE',
