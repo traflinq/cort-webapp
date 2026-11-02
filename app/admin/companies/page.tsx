@@ -29,6 +29,7 @@ import { Badge, Button, Card, CardContent, DataTable, Dialog, DialogContent, Fil
 import { CredentialsModal } from "../components/ui/CredentialsModal";
 import { CompanyForm, type CompanyFormData } from "./components/CompanyForm";
 import { PasswordResetModal } from "./components/PasswordResetModal";
+import { companyLabel } from "../lib/format";
 
 /** FLAGGED (kept as-is per decision 2026-10-20): hard-coded impersonation allowlist. */
 const IMPERSONATION_ALLOWED_EMAILS = ["hashir.ahmed@cort.com.pk", "aqeel@cort.com.pk"];
@@ -179,7 +180,7 @@ function CompaniesPageContent() {
       header: "Company",
       cell: (c) => (
         <div className="min-w-0">
-          <div className="font-medium text-fg">{c.name || "Untitled"}</div>
+          <div className="font-medium text-fg">{c.name ? companyLabel(c) : "Untitled"}</div>
           <div className="truncate text-xs text-fg-muted">{c.address || "No address"}</div>
         </div>
       ),

@@ -10,6 +10,7 @@ import { CompanyEmployeesTab } from "./components/CompanyEmployeesTab";
 import { CompanyServicesTab } from "./components/CompanyServicesTab";
 import { PHONE_MAX_LENGTH, PHONE_PLACEHOLDER, sanitizePhoneInput } from "../../../lib/utils/phone";
 import { usePageBreadcrumbs } from "../../ui/shell/breadcrumbs-context";
+import { companyLabel } from "../../lib/format";
 import {
   Badge,
   Button,
@@ -38,7 +39,7 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
 function CompanyDetailsContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const d = useCompanyDetail(id);
-  usePageBreadcrumbs(d.company ? [{ label: d.company.name }] : null);
+  usePageBreadcrumbs(d.company ? [{ label: companyLabel(d.company) }] : null);
 
   if (d.isLoading) return <PageSkeleton />;
 
@@ -58,7 +59,7 @@ function CompanyDetailsContent({ params }: { params: Promise<{ id: string }> }) 
     <div className="space-y-6">
       <PageHeader
         back={{ href: "/admin/companies", label: "Back to companies" }}
-        title={company.name}
+        title={companyLabel(company)}
         description={company.address || "No address on file"}
         meta={
           <>
