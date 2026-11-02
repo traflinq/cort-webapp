@@ -58,7 +58,7 @@ import {
   PageSkeleton,
   Select,
 } from "../ui";
-import { formatCurrency, formatDateTime } from "../lib/format";
+import { companyLabel, formatCurrency, formatDateTime } from "../lib/format";
 import { CONTRACT_DURATION_OPTIONS } from "./components/constants";
 import { FuelPricePanel } from "./components/FuelPricePanel";
 import { ChauffeurRatesTable } from "./components/ChauffeurRatesTable";
@@ -363,7 +363,7 @@ function PricingPageContent() {
             <Select aria-label="Company" value={selectedCompanyId} onChange={(e) => onCompanyChange(e.target.value)} placeholder="Select a company" className="w-full sm:w-64">
               {companies.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {companyLabel(c)}
                 </option>
               ))}
             </Select>

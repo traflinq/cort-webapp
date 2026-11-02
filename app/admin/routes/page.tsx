@@ -30,6 +30,7 @@ import { useAppDispatch, useAppSelector } from '@/app/lib/store/hooks';
 import { fetchAdminRoutes, selectAdminRoutes, selectAdminRoutesStatus, routeStatus, type Route } from '@/app/lib/store/slices/adminRoutesSlice';
 import { fetchAdminCompanies, selectAdminCompanies, selectAdminCompaniesStatus } from '@/app/lib/store/slices/adminCompaniesSlice';
 import { initials } from './RouteCommandBar';
+import { companyLabel } from '@/app/admin/lib/format';
 
 export default function RoutesPage() {
     return (
@@ -107,7 +108,7 @@ function RoutesPageContent() {
             className="min-w-[14rem]"
         >
             {companies.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>{companyLabel(c)}</option>
             ))}
         </Select>
     );

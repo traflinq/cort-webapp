@@ -3,6 +3,7 @@
 import { DateRangePicker, FilterBar, FilterField, Select, type DateRange } from "../../../ui";
 import { BOOKING_STATUS_OPTIONS } from "./booking-status";
 import type { CompanyOption } from "../hooks/usePendingBookings";
+import { companyLabel } from "@/app/admin/lib/format";
 
 type BookingFiltersBarProps = {
   searchQuery: string;
@@ -41,7 +42,7 @@ export function BookingFiltersBar({
         <Select value={companyFilter} onChange={(e) => onCompanyChange(e.target.value)} placeholder="All companies" className="h-8 text-xs">
           {companies.map((company) => (
             <option key={company.id} value={company.id}>
-              {company.name}
+              {companyLabel(company)}
             </option>
           ))}
         </Select>

@@ -36,6 +36,7 @@ import {
     usePageBreadcrumbs,
 } from '@/app/admin/ui';
 import { MAP_COLORS } from '../RouteCommandBar';
+import { companyLabel } from '@/app/admin/lib/format';
 
 const Map = dynamic(() => import('@/app/admin/ui/Map'), { ssr: false });
 
@@ -342,7 +343,7 @@ function CreateRoutePageContent() {
                                     disabled={companiesStatus === 'loading'}
                                 >
                                     {companies.map((c) => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                        <option key={c.id} value={c.id}>{companyLabel(c)}</option>
                                     ))}
                                 </Select>
                             </Field>

@@ -158,3 +158,13 @@ function toNumber(value: number | string | null | undefined): number | null {
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) ? n : null;
 }
+
+/**
+ * Company name for pickers, with the admin-set prefix appended so branches that share
+ * a legal name (e.g. Lahore vs Islamabad) can be told apart: "Gerry's … (Gerrys LHR)".
+ */
+export function companyLabel(company: { name: string; prefix?: string | null }): string {
+  const prefix = company.prefix?.trim();
+  if (!prefix || prefix.toLowerCase() === company.name.trim().toLowerCase()) return company.name;
+  return `${company.name} (${prefix})`;
+}

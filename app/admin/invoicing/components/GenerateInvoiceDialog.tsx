@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Checkbox, Dialog, DialogContent, Field, FormGrid, Input, Select } from "../../ui";
-import { formatCurrency, formatNumber } from "../../lib/format";
+import { companyLabel, formatCurrency, formatNumber } from "../../lib/format";
 import type { InvoicesController } from "../hooks/useInvoices";
 import { PICKER_LIMIT } from "../hooks/useInvoices";
 
@@ -36,7 +36,7 @@ export function GenerateInvoiceDialog({ inv }: { inv: InvoicesController }) {
             <Select value={inv.selectedCompanyId} onChange={(e) => inv.setSelectedCompanyId(e.target.value)} placeholder="Select a company">
               {inv.companies.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {companyLabel(c)}
                 </option>
               ))}
             </Select>

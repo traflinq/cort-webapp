@@ -17,7 +17,7 @@ import {
   StatusBadge,
   type DataTableColumn,
 } from "../../ui";
-import { formatCurrency, formatDate, formatNumber, formatPercent } from "../../lib/format";
+import { companyLabel, formatCurrency, formatDate, formatNumber, formatPercent } from "../../lib/format";
 import type { InvoiceProfitabilityRow } from "../../../lib/services/types";
 import { PICKER_LIMIT } from "../hooks/useInvoices";
 import { PROFITABILITY_PAGE_SIZE, type ProfitabilityController } from "../hooks/useProfitability";
@@ -130,7 +130,7 @@ export function ProfitabilityTab({ profit, companies, companiesTruncated }: Prof
               >
                 {companies.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {companyLabel(c)}
                   </option>
                 ))}
               </Select>

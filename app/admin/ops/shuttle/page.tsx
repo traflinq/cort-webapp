@@ -43,7 +43,7 @@ import {
   focusRing,
   useChartTheme,
 } from "@/app/admin/ui";
-import { formatRelative, formatTime } from "@/app/admin/lib/format";
+import { companyLabel, formatRelative, formatTime } from "@/app/admin/lib/format";
 import { todayYmd } from "@/app/admin/lib/dates";
 import {
   SHUTTLE_STATUS_OVERRIDES,
@@ -701,7 +701,7 @@ function OpsShuttleContent() {
               </option>
               {companies.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {companyLabel(c)}
                 </option>
               ))}
             </Select>
@@ -734,7 +734,7 @@ function OpsShuttleContent() {
                 </option>
                 {companies.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {companyLabel(c)}
                   </option>
                 ))}
               </Select>

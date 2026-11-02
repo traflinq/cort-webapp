@@ -18,7 +18,7 @@ import {
     type DataTableColumn,
     type DateRange,
 } from '@/app/admin/ui';
-import { formatDateTime } from '@/app/admin/lib/format';
+import { companyLabel, formatDateTime } from '@/app/admin/lib/format';
 import { lastNDaysRange } from '@/app/admin/lib/dates';
 import { apiClient } from '@/app/lib/services/api-client';
 import { useAppDispatch, useAppSelector } from '@/app/lib/store/hooks';
@@ -241,7 +241,7 @@ function ShuttleAuditContent() {
                                 }}
                             >
                                 {companies.map((c) => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                    <option key={c.id} value={c.id}>{companyLabel(c)}</option>
                                 ))}
                             </Select>
                         </FilterField>

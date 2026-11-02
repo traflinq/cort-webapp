@@ -17,7 +17,7 @@ export type BookingStats = {
   cancelled: number;
 };
 
-export type CompanyOption = { id: number; name: string };
+export type CompanyOption = { id: number; name: string; prefix?: string | null };
 
 export type AssignableVehicle = { id: number; make: string; model: string; plate_number: string };
 export type AssignableDriver = {

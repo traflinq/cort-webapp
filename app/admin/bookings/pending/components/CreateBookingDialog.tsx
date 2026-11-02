@@ -8,6 +8,7 @@ import StopAddressSearch from "../../../ui/StopAddressSearch";
 import { Button, Checkbox, Dialog, DialogContent, Field, FormGrid, Input, InlineError, LoadingBlock, Select } from "../../../ui";
 import { errorMessage } from "./booking-status";
 import type { CompanyOption } from "../hooks/usePendingBookings";
+import { companyLabel } from "@/app/admin/lib/format";
 
 type Fulfillment = "CORT_MANAGED" | "EXTERNAL_VENDOR" | "SELF_MANAGED";
 
@@ -187,7 +188,7 @@ export function CreateBookingDialog({ open, companies, onClose, onCreated }: Pro
             <Select value={companyId} onChange={(e) => selectCompany(e.target.value)} placeholder="Select a company">
               {companies.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {companyLabel(c)}
                 </option>
               ))}
             </Select>

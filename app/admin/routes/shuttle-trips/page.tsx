@@ -46,6 +46,7 @@ import {
     useLoader,
     type ScheduledTripRow,
 } from '../daily-overrides/plan-types';
+import { companyLabel } from '@/app/admin/lib/format';
 
 type GenerationRoute = {
     id: number;
@@ -605,7 +606,7 @@ function ShuttleTripsSchedulingContent() {
                                 }}
                             >
                                 {companies.map((c) => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                    <option key={c.id} value={c.id}>{companyLabel(c)}</option>
                                 ))}
                             </Select>
                         </FilterField>

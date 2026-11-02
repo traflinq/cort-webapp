@@ -16,7 +16,7 @@ import {
   type DataTableColumn,
 } from "../../ui";
 import { cn } from "@/lib/utils";
-import { formatCurrency, formatDate } from "../../lib/format";
+import { companyLabel, formatCurrency, formatDate } from "../../lib/format";
 import { INVOICE_STATUSES, type Invoice, type InvoiceStatus } from "../types";
 import type { InvoicesController } from "../hooks/useInvoices";
 import { PICKER_LIMIT } from "../hooks/useInvoices";
@@ -57,7 +57,7 @@ export function InvoicingLedger({ inv }: InvoicingLedgerProps) {
     {
       key: "company",
       header: "Company",
-      cell: (row) => <span className="text-fg">{row.companies?.name || <span className="text-fg-muted">Unknown</span>}</span>,
+      cell: (row) => <span className="text-fg">{row.companies ? companyLabel(row.companies) : <span className="text-fg-muted">Unknown</span>}</span>,
     },
     {
       key: "period",
@@ -177,7 +177,7 @@ export function InvoicingLedger({ inv }: InvoicingLedgerProps) {
               >
                 {inv.companies.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {companyLabel(c)}
                   </option>
                 ))}
               </Select>

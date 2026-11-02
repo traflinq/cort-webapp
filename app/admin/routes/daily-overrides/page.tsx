@@ -41,6 +41,7 @@ import {
     type RosterEntry,
     type RouteOption,
 } from './plan-types';
+import { companyLabel } from '@/app/admin/lib/format';
 
 const Map = dynamic(() => import('@/app/admin/ui/Map'), { ssr: false });
 
@@ -736,7 +737,7 @@ function DailyOverridesContent() {
                             onChange={(e) => void changeCompany(e.target.value ? Number(e.target.value) : '')}
                         >
                             {companies.map((c: Company) => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
+                                <option key={c.id} value={c.id}>{companyLabel(c)}</option>
                             ))}
                         </Select>
                     }

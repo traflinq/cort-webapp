@@ -8,7 +8,7 @@ export interface Invoice {
   generated_at: string;
   total_amount: number | string;
   status: string;
-  companies?: { name: string } | null;
+  companies?: { name: string; prefix?: string | null } | null;
   shuttle_contract_id?: number | null;
   amount_paid?: number | string | null;
   amount_remaining?: number | string | null;

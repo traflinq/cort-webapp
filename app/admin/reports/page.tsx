@@ -24,7 +24,7 @@ import {
   type DateRange,
   type StatusEntry,
 } from "../ui";
-import { formatCurrency, formatDate, formatDateTime, formatNumber, formatTime, humanize } from "../lib/format";
+import { companyLabel, formatCurrency, formatDate, formatDateTime, formatNumber, formatTime, humanize } from "../lib/format";
 
 const PAGE_SIZE = 15;
 
@@ -76,7 +76,7 @@ function AdminReportsContent() {
   const [range, setRange] = React.useState<DateRange | null>(null);
   const [companyId, setCompanyId] = React.useState("");
   // Loaded locally so the picker always lists every company. No report data is requested until one is chosen.
-  const [companies, setCompanies] = React.useState<{ id: number; name: string }[]>([]);
+  const [companies, setCompanies] = React.useState<{ id: number; name: string; prefix?: string | null }[]>([]);
   const [companiesLoading, setCompaniesLoading] = React.useState(true);
   React.useEffect(() => {
     let cancelled = false;
@@ -107,7 +107,7 @@ function AdminReportsContent() {
               <option value="">{companiesLoading ? "Loading companies…" : "Select a company"}</option>
               {companies.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {companyLabel(c)}
                 </option>
               ))}
             </Select>

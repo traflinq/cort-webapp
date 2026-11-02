@@ -35,7 +35,7 @@ import {
   usePageBreadcrumbs,
   type DateRange,
 } from "../../ui";
-import { formatCurrency, formatNumber } from "../../lib/format";
+import { companyLabel, formatCurrency, formatNumber } from "../../lib/format";
 import { useVendorLogColumns } from "../components/log-columns";
 import { SettlementDrawer } from "../components/SettlementDrawer";
 import { VendorAdvances } from "../components/VendorAdvances";
@@ -199,7 +199,7 @@ function VendorDetailsContent() {
               <Select value={filters.company_id} onChange={(e) => setFilters((f) => ({ ...f, company_id: e.target.value }))} placeholder="All companies" className="h-8 text-xs">
                 {companies.map((company) => (
                   <option key={company.id} value={company.id}>
-                    {company.name}
+                    {companyLabel(company)}
                   </option>
                 ))}
               </Select>

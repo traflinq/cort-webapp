@@ -16,6 +16,7 @@ import {
     TabsTrigger,
 } from '@/app/admin/ui';
 import { formatPlanDate, type Direction, type OpsTab } from './plan-types';
+import { companyLabel } from '@/app/admin/lib/format';
 
 export function PlanCommandBar({
     companies,
@@ -109,7 +110,7 @@ export function PlanCommandBar({
                                 placeholder="Select a company"
                             >
                                 {companies.map((c) => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                    <option key={c.id} value={c.id}>{companyLabel(c)}</option>
                                 ))}
                             </Select>
                         </Field>
