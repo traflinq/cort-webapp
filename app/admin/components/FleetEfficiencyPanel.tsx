@@ -1,10 +1,36 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { apiClient } from '@/app/lib/services/api-client';
-import { LoadingBlock } from '../ui/Spinner';
-import { AlertTriangle, Fuel, Bus, Navigation, TrendingDown, TrendingUp, Zap, RefreshCw, Map as MapIcon, X, Clock, Users, Package, CarFront, Lock, Car } from 'lucide-react';
+import {
+  AlertTriangle, Fuel, Bus, Navigation, TrendingDown, TrendingUp, Zap, RefreshCw, Map as MapIcon,
+  Users, Package, CarFront, Lock, Car, Sparkles,
+} from 'lucide-react';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  DataTable,
+  EmptyState,
+  FilterBar,
+  FilterField,
+  Input,
+  KpiSkeleton,
+  LoadingBlock,
+  SectionHeader,
+  Select,
+  Skeleton,
+  StatStrip,
+  type BadgeTone,
+  type DataTableColumn,
+  type StatItem,
+} from '@/app/admin/ui';
+import { useChartTheme } from '@/app/admin/ui/chart-theme';
+import { formatCurrency, formatDate, formatNumber, humanize } from '@/app/admin/lib/format';
 import type { MapMarker, MapPolyline } from '@/app/admin/ui/Map';
 
 const Map = dynamic(() => import('@/app/admin/ui/Map'), { ssr: false });
@@ -126,57 +152,132 @@ function pct(v: string | null | undefined) {
   return v == null ? '—' : `${fmt(v, 1)}%`;
 }
 
-function severityColor(s: string) {
-  if (s === 'CRITICAL') return 'bg-red-100 text-red-800 border-red-200';
-  if (s === 'HIGH') return 'bg-orange-100 text-orange-800 border-orange-200';
-  if (s === 'MEDIUM') return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-  return 'bg-blue-100 text-blue-800 border-blue-200';
-}
+const SEVERITY_TONE: Record<FleetInsight['severity'], BadgeTone> = {
+  CRITICAL: 'danger',
+  HIGH: 'warning',
+  MEDIUM: 'info',
+  LOW: 'neutral',
+};
+
+const SEVERITY_TILE: Record<FleetInsight['severity'], string> = {
+  CRITICAL: 'bg-danger-soft text-danger-ink',
+  HIGH: 'bg-warning-soft text-warning-ink',
+  MEDIUM: 'bg-info-soft text-info-ink',
+  LOW: 'bg-subtle text-fg-muted',
+};
 
 function insightIcon(type: string) {
-  if (type === 'FUEL_LEAKAGE') return <Fuel className="h-5 w-5 text-orange-500" />;
-  if (type === 'OCCUPANCY') return <Bus className="h-5 w-5 text-blue-500" />;
-  if (type === 'CHAUFFEUR_DETOUR' || type === 'ROUTE_DETOUR') return <Navigation className="h-5 w-5 text-purple-500" />;
-  if (type === 'IDLE_TIME') return <Zap className="h-5 w-5 text-yellow-500" />;
-  if (type === 'CHAUFFEUR_PACKAGE_UNDERUTILIZATION') return <Package className="h-5 w-5 text-teal-500" />;
-  if (type === 'CHAUFFEUR_CONCURRENT') return <Users className="h-5 w-5 text-indigo-500" />;
-  if (type === 'POOL_UTILIZATION') return <Car className="h-5 w-5 text-violet-500" />;
-  return <AlertTriangle className="h-5 w-5 text-[var(--text-muted)]" />;
+  if (type === 'FUEL_LEAKAGE') return <Fuel />;
+  if (type === 'OCCUPANCY') return <Bus />;
+  if (type === 'CHAUFFEUR_DETOUR' || type === 'ROUTE_DETOUR') return <Navigation />;
+  if (type === 'IDLE_TIME') return <Zap />;
+  if (type === 'CHAUFFEUR_PACKAGE_UNDERUTILIZATION') return <Package />;
+  if (type === 'CHAUFFEUR_CONCURRENT') return <Users />;
+  if (type === 'POOL_UTILIZATION') return <Car />;
+  return <AlertTriangle />;
+}
+
+/** Colour a table figure only when it crosses its threshold. */
+function toneText(level: 'danger' | 'warning' | null) {
+  return level === 'danger' ? 'text-danger-ink font-medium' : level === 'warning' ? 'text-warning-ink font-medium' : 'text-fg';
 }
 
 function InsightCard({ insight }: { insight: FleetInsight }) {
+  const saving = insight.estimated_saving_pkr ? parseFloat(insight.estimated_saving_pkr) : 0;
   return (
-    <div className={`rounded-xl border p-4 ${severityColor(insight.severity)}`}>
-      <div className="flex items-start gap-3">
+    <div className="flex items-start gap-3 rounded-xl border border-line bg-subtle/40 p-4">
+      <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4 ${SEVERITY_TILE[insight.severity]}`}>
         {insightIcon(insight.insight_type)}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold uppercase tracking-wide">
-              {insight.insight_type.replace(/_/g, ' ')}
-            </span>
-            <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-[var(--bg-card)]/60">
-              {insight.severity}
-            </span>
-          </div>
-          <p className="text-sm font-medium">{insight.data.summary}</p>
-          <p className="text-xs mt-1 opacity-80">{insight.data.recommendation}</p>
-          {insight.estimated_saving_pkr && parseFloat(insight.estimated_saving_pkr) > 0 && (
-            <p className="text-xs mt-2 font-semibold">
-              Est. saving: PKR {parseFloat(insight.estimated_saving_pkr).toLocaleString()} / month
-            </p>
-          )}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+            {humanize(insight.insight_type)}
+          </span>
+          <Badge tone={SEVERITY_TONE[insight.severity]} size="sm" dot>
+            {humanize(insight.severity)}
+          </Badge>
         </div>
+        <p className="text-sm font-medium text-fg">{insight.data.summary}</p>
+        <p className="mt-1 text-xs text-fg-secondary">{insight.data.recommendation}</p>
+        {saving > 0 && (
+          <p className="mt-2 text-xs font-medium text-success-ink tabular-nums">
+            Est. saving: {formatCurrency(saving)} / month
+          </p>
+        )}
       </div>
     </div>
   );
 }
 
+function InsightsCard({ title, insights, emptyLabel }: { title: string; insights: FleetInsight[]; emptyLabel: string }) {
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="flex items-center gap-2">
+            <Sparkles className="size-4 text-brand" aria-hidden="true" />
+            {title}
+          </span>
+        }
+        description={insights.length > 0 ? `${insights.length} active` : undefined}
+      />
+      {insights.length === 0 ? (
+        <EmptyState compact icon={<Sparkles aria-hidden="true" />} title="No active insights" description={emptyLabel} />
+      ) : (
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          {insights.map(i => <InsightCard key={i.id} insight={i} />)}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+function ServiceTitle({ icon, label }: { icon: ReactNode; label: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      <span className="flex size-7 items-center justify-center rounded-lg bg-subtle text-fg-secondary [&_svg]:size-4" aria-hidden="true">
+        {icon}
+      </span>
+      {label}
+    </span>
+  );
+}
+
+function ModeBadge({ aiEnabled }: { aiEnabled: boolean }) {
+  return (
+    <Badge tone={aiEnabled ? 'success' : 'info'} dot>
+      {aiEnabled ? 'Active' : 'Metrics only'}
+    </Badge>
+  );
+}
+
 function DisabledSection({ label }: { label: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-[var(--border-default)] bg-[var(--bg-subtle)] px-6 py-8 text-center">
-      <Lock className="h-6 w-6 text-fg-muted mx-auto mb-2" />
-      <p className="text-sm font-medium text-[var(--text-muted)]">{label}</p>
-      <p className="text-xs text-[var(--text-muted)] mt-1">Enable the service and AI Insights for this company to unlock.</p>
+    <Card>
+      <EmptyState
+        compact
+        icon={<Lock aria-hidden="true" />}
+        title={label}
+        description="Enable the service and AI Insights for this company to unlock."
+      />
+    </Card>
+  );
+}
+
+function FleetSkeleton() {
+  return (
+    <div className="space-y-8" aria-busy="true">
+      <LoadingBlock label="Loading fleet metrics…" className="sr-only" />
+      {[0, 1].map(s => (
+        <div key={s} className="space-y-4">
+          <Skeleton className="h-6 w-48" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {[0, 1, 2, 3].map(i => <KpiSkeleton key={i} />)}
+          </div>
+          <Skeleton className="h-48 w-full rounded-2xl" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -331,16 +432,18 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
     setToDate(toDateDraft);
   };
 
-  const clearDateFilter = () => {
+  const clearFilters = () => {
     setFromDateDraft('');
     setToDateDraft('');
     setFromDate('');
     setToDate('');
+    setSelectedVehicleId('');
   };
 
   const dateFilterDirty = fromDateDraft !== fromDate || toDateDraft !== toDate;
   const dateFilterActive = fromDate !== '' || toDate !== '';
   const vehicleFilterActive = selectedVehicleId !== '';
+  const activeFilterCount = (dateFilterActive || dateFilterDirty ? 1 : 0) + (vehicleFilterActive ? 1 : 0);
 
   const vehicleOptions = useMemo(() => {
     const byId: Record<number, string> = {};
@@ -361,520 +464,442 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
     return filtered.slice(0, 25);
   }, [allMetrics, selectedVehicleId]);
 
-  if (loading) {
-    return (
-      <LoadingBlock label="Loading fleet metrics…" />
-    );
-  }
+  if (loading) return <FleetSkeleton />;
 
   const shuttleInsights = insights.filter(i => SHUTTLE_INSIGHT_TYPES.has(i.insight_type));
   const chauffeurInsights = insights.filter(i => CHAUFFEUR_INSIGHT_TYPES.has(i.insight_type));
   const poolInsights = insights.filter(i => POOL_INSIGHT_TYPES.has(i.insight_type));
   const showGenerate = aiEnabled && (shuttleEnabled || chauffeurEnabled || poolEnabled);
 
+  // ── Shuttle ────────────────────────────────────────────────────────────────
+
+  const shuttleStats: StatItem[] = summary
+    ? [
+        { key: 'trips', label: 'Trips analysed', value: formatNumber(summary.count) },
+        {
+          key: 'occupancy',
+          label: 'Avg occupancy',
+          value: `${summary.avgOccupancy.toFixed(1)}%`,
+          hint: summary.avgOccupancy >= 70 ? <span className="inline-flex items-center gap-1"><TrendingUp className="size-3.5" aria-hidden="true" />On target</span> : <span className="inline-flex items-center gap-1"><TrendingDown className="size-3.5" aria-hidden="true" />Below 70% target</span>,
+          status: summary.avgOccupancy >= 70 ? 'none' : 'warning',
+        },
+        {
+          key: 'detour',
+          label: 'Avg detour ratio',
+          value: summary.avgDetour ? `${summary.avgDetour.toFixed(2)}×` : '—',
+          status: !summary.avgDetour || summary.avgDetour < 1.1 ? 'none' : 'warning',
+        },
+        {
+          key: 'idle',
+          label: 'Total idle (min)',
+          value: formatNumber(Math.round(summary.totalIdleMin)),
+          status: summary.totalIdleMin < 300 ? 'none' : 'warning',
+        },
+      ]
+    : [];
+
+  const fuelColumns: DataTableColumn<FuelFlag>[] = [
+    { key: 'vehicle', header: 'Vehicle', cell: f => <span className="font-medium">{f.vehicles?.plate_number ?? f.vehicle_id}</span> },
+    { key: 'date', header: 'Date', cell: f => <span className="text-fg-secondary">{formatDate(f.flag_date)}</span> },
+    {
+      key: 'variance',
+      header: 'Variance',
+      align: 'right',
+      mono: true,
+      cell: f => <span className={toneText(parseFloat(f.variance_pct) > 20 ? 'danger' : 'warning')}>{pct(f.variance_pct)}</span>,
+    },
+    { key: 'actual', header: 'Actual (L)', align: 'right', mono: true, cell: f => fmt(f.actual_litres) },
+    { key: 'expected', header: 'Expected (L)', align: 'right', mono: true, cell: f => fmt(f.expected_litres) },
+    { key: 'streak', header: 'Streak', align: 'right', mono: true, cell: f => <span className="text-fg-secondary">{f.consecutive_days}d</span> },
+  ];
+
+  const tripColumns: DataTableColumn<ShuttleMetric>[] = [
+    { key: 'date', header: 'Date', cell: m => formatDate(m.trip_date) },
+    {
+      key: 'direction',
+      header: 'Direction',
+      hideBelow: 'sm',
+      cell: m => <Badge tone="neutral" size="sm">{humanize(m.direction)}</Badge>,
+    },
+    {
+      key: 'vehicle',
+      header: 'Vehicle',
+      cell: m => (
+        <>
+          <div className="font-medium text-fg">{m.vehicles?.plate_number ?? '—'}</div>
+          {(m.vehicles?.make || m.vehicles?.model) && (
+            <div className="text-xs text-fg-muted">{[m.vehicles?.make, m.vehicles?.model].filter(Boolean).join(' ')}</div>
+          )}
+        </>
+      ),
+    },
+    { key: 'driver', header: 'Driver', hideBelow: 'md', cell: m => <span className="text-fg-secondary">{m.shuttle_trips?.users?.full_name ?? '—'}</span> },
+    {
+      key: 'occupancy',
+      header: 'Occupancy',
+      align: 'right',
+      mono: true,
+      cell: m => <span className={toneText(m.occupancy_pct && parseFloat(m.occupancy_pct) < 50 ? 'warning' : null)}>{pct(m.occupancy_pct)}</span>,
+    },
+    {
+      key: 'detour',
+      header: 'Detour',
+      align: 'right',
+      mono: true,
+      cell: m => (
+        <span className={toneText(m.detour_ratio && parseFloat(m.detour_ratio) > 1.2 ? 'danger' : null)}>
+          {m.detour_ratio ? `${fmt(m.detour_ratio, 2)}×` : '—'}
+        </span>
+      ),
+    },
+    { key: 'idle', header: 'Idle (min)', align: 'right', mono: true, hideBelow: 'lg', cell: m => <span className="text-fg-secondary">{fmt(m.idle_minutes, 0)}</span> },
+    {
+      key: 'fuel',
+      header: 'Fuel var.',
+      align: 'right',
+      mono: true,
+      hideBelow: 'lg',
+      cell: m => <span className={toneText(m.fuel_variance_pct && Math.abs(parseFloat(m.fuel_variance_pct)) > 15 ? 'danger' : null)}>{pct(m.fuel_variance_pct)}</span>,
+    },
+  ];
+
+  // ── Chauffeur ──────────────────────────────────────────────────────────────
+
+  const underutilisedBookings = chauffeurUtil
+    ? chauffeurUtil.bookings.filter(b => (b.utilization_pct ?? 100) < 70).slice(0, 10)
+    : [];
+
+  const chauffeurStats: StatItem[] = chauffeurUtil
+    ? [
+        { key: 'bookings', label: 'Total bookings', value: formatNumber(chauffeurUtil.summary.total_bookings) },
+        {
+          key: 'avg',
+          label: 'Avg utilization',
+          value: chauffeurUtil.summary.avg_utilization_pct != null ? `${chauffeurUtil.summary.avg_utilization_pct}%` : '—',
+          status: chauffeurUtil.summary.avg_utilization_pct != null && chauffeurUtil.summary.avg_utilization_pct >= 70 ? 'none' : 'warning',
+        },
+        {
+          key: 'under',
+          label: 'Underutilized (<70%)',
+          value: formatNumber(chauffeurUtil.summary.underutilized_count),
+          status: chauffeurUtil.summary.underutilized_count === 0 ? 'none' : 'warning',
+        },
+        {
+          key: 'saving',
+          label: 'Est. billing saving',
+          value: chauffeurUtil.summary.total_estimated_saving_pkr > 0 ? formatCurrency(chauffeurUtil.summary.total_estimated_saving_pkr) : '—',
+        },
+      ]
+    : [];
+
+  const chauffeurColumns: DataTableColumn<ChauffeurUtilizationRow>[] = [
+    { key: 'booking', header: 'Booking', cell: b => <span className="font-medium">#{b.booking_id}</span> },
+    {
+      key: 'package',
+      header: 'Package',
+      cell: b => <Badge tone="info" size="sm">{b.package_selected?.replace('HOURS_', '') ?? '—'}h</Badge>,
+    },
+    { key: 'date', header: 'Date', hideBelow: 'sm', cell: b => <span className="text-fg-secondary">{formatDate(b.scheduled_for)}</span> },
+    {
+      key: 'used',
+      header: 'Used',
+      align: 'right',
+      mono: true,
+      cell: b => <span className="text-fg-secondary">{b.used_minutes != null ? `${(b.used_minutes / 60).toFixed(1)}h` : '—'}</span>,
+    },
+    {
+      key: 'utilization',
+      header: 'Utilization',
+      width: '11rem',
+      cell: b => (b.utilization_pct != null ? <UtilizationBar pct={b.utilization_pct} /> : '—'),
+    },
+    {
+      key: 'saving',
+      header: 'Est. saving',
+      align: 'right',
+      mono: true,
+      cell: b => (
+        b.estimated_saving_pkr != null && b.estimated_saving_pkr > 0
+          ? <span className="font-medium text-success-ink">{formatCurrency(b.estimated_saving_pkr)}</span>
+          : '—'
+      ),
+    },
+  ];
+
+  // ── Pool ───────────────────────────────────────────────────────────────────
+
+  const poolStats: StatItem[] = poolUtil
+    ? [
+        { key: 'vehicles', label: 'Pool vehicles', value: formatNumber(poolUtil.summary.total_pool_vehicles) },
+        {
+          key: 'avg',
+          label: 'Avg utilization',
+          value: `${poolUtil.summary.avg_utilization_pct}%`,
+          status: poolUtil.summary.avg_utilization_pct >= 30 ? 'none' : 'warning',
+        },
+        {
+          key: 'idle',
+          label: 'Idle vehicles',
+          value: formatNumber(poolUtil.summary.idle_vehicle_count),
+          status: poolUtil.summary.idle_vehicle_count === 0 ? 'none' : 'warning',
+        },
+        {
+          key: 'under',
+          label: 'Underutilized (<30%)',
+          value: formatNumber(poolUtil.summary.underutilized_count),
+          status: poolUtil.summary.underutilized_count === 0 ? 'none' : 'danger',
+        },
+      ]
+    : [];
+
+  const poolColumns: DataTableColumn<PoolVehicleRow>[] = [
+    {
+      key: 'vehicle',
+      header: 'Vehicle',
+      cell: v => (
+        <>
+          <div className="font-medium text-fg">{v.plate_number}</div>
+          {(v.make || v.model) && <div className="text-xs text-fg-muted">{[v.make, v.model].filter(Boolean).join(' ')}</div>}
+        </>
+      ),
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      hideBelow: 'sm',
+      cell: v => (v.category ? <Badge tone="purple" size="sm">{v.category}</Badge> : '—'),
+    },
+    { key: 'trips', header: 'Trips', align: 'right', mono: true, cell: v => <span className="text-fg-secondary">{v.trips_count}</span> },
+    { key: 'hours', header: 'Hours used', align: 'right', mono: true, cell: v => <span className="text-fg-secondary">{v.total_hours_booked}h</span> },
+    { key: 'utilization', header: 'Utilization', width: '11rem', cell: v => <UtilizationBar pct={v.utilization_pct} /> },
+  ];
+
+  const emptyTripsTitle = vehicleFilterActive
+    ? 'No trips for the selected vehicle'
+    : dateFilterActive
+      ? 'No trips in this date range'
+      : 'No shuttle trips recorded yet';
+
   return (
     <div className="space-y-10">
-
-      {/* ══════════════════════════════════════════════════════════
-          SHUTTLE SECTION
-      ═══════════════════════════════════════════════════════════ */}
-      <div>
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2">
-            <Bus className="h-5 w-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Shuttle Analytics</h2>
-            {shuttleEnabled && (
-              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${aiEnabled ? 'bg-green-50 border-green-200 text-green-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
-                {aiEnabled ? 'Active' : 'Metrics Only'}
-              </span>
-            )}
+      {showGenerate && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-brand-line bg-brand-soft px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-ink" aria-hidden="true" />
+            <div>
+              <p className="text-sm font-medium text-fg">AI fleet analysis</p>
+              <p className="text-xs text-fg-secondary">Regenerates insights for every enabled service below.</p>
+            </div>
           </div>
-          {showGenerate && (
-            <button
-              onClick={triggerGenerate}
-              disabled={generating}
-              className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover disabled:opacity-60"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${generating ? 'animate-spin' : ''}`} />
-              {generating ? 'Generating…' : 'Run AI Analysis'}
-            </button>
-          )}
+          <Button
+            onClick={triggerGenerate}
+            loading={generating}
+            leftIcon={<RefreshCw />}
+            className="self-start sm:self-auto"
+          >
+            {generating ? 'Generating…' : 'Run AI analysis'}
+          </Button>
         </div>
+      )}
+
+      {/* ══ Shuttle ══════════════════════════════════════════════════════════ */}
+      <section className="space-y-4" aria-label="Shuttle analytics">
+        <SectionHeader
+          title={<ServiceTitle icon={<Bus />} label="Shuttle analytics" />}
+          description="Occupancy, detour and fuel performance across shuttle trips."
+          actions={shuttleEnabled ? <ModeBadge aiEnabled={aiEnabled} /> : undefined}
+        />
 
         {!shuttleEnabled ? (
           <DisabledSection label="Shuttle service must be enabled" />
         ) : (
-          <div className="space-y-6">
-            {/* KPI strip */}
-            {summary && (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <KpiCard label="Trips analysed" value={summary.count.toString()} icon={<Bus className="h-5 w-5 text-blue-500" />} />
-                <KpiCard
-                  label="Avg occupancy"
-                  value={`${summary.avgOccupancy.toFixed(1)}%`}
-                  icon={summary.avgOccupancy >= 70 ? <TrendingUp className="h-5 w-5 text-green-500" /> : <TrendingDown className="h-5 w-5 text-orange-500" />}
-                  good={summary.avgOccupancy >= 70}
-                />
-                <KpiCard
-                  label="Avg detour ratio"
-                  value={summary.avgDetour ? `${summary.avgDetour.toFixed(2)}×` : '—'}
-                  icon={<Navigation className="h-5 w-5 text-purple-500" />}
-                  good={!summary.avgDetour || summary.avgDetour < 1.1}
-                />
-                <KpiCard
-                  label="Total idle (min)"
-                  value={Math.round(summary.totalIdleMin).toLocaleString()}
-                  icon={<Zap className="h-5 w-5 text-yellow-500" />}
-                  good={summary.totalIdleMin < 300}
-                />
-              </div>
-            )}
+          <div className="space-y-4">
+            {summary && <StatStrip aria-label="Shuttle summary" items={shuttleStats} />}
 
-            {/* AI insights — shuttle types only */}
             {aiEnabled && (
-            <section>
-              <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">AI Insights — Shuttle</h3>
-              {shuttleInsights.length === 0 ? (
-                <p className="text-sm text-[var(--text-muted)]">No active shuttle insights. Click &quot;Run AI Analysis&quot; to generate.</p>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {shuttleInsights.map(i => <InsightCard key={i.id} insight={i} />)}
-                </div>
-              )}
-            </section>
+              <InsightsCard
+                title="AI insights — Shuttle"
+                insights={shuttleInsights}
+                emptyLabel='Click "Run AI analysis" to generate shuttle insights.'
+              />
             )}
 
-            {/* Fuel leakage flags */}
             {fuelFlags.length > 0 && (
-              <section>
-                <div className="flex items-center gap-2 mb-3">
-                  <h3 className="text-sm font-semibold text-[var(--text-secondary)]">Flagged Fuel Variance</h3>
-                  <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                    {fuelFlags.length} flagged
-                  </span>
-                </div>
-                <p className="text-xs text-[var(--text-muted)] mb-3">
-                  Flagged when (actual − expected) / expected &gt; 15% for 3+ consecutive days.
-                </p>
-                <div className="overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)]">
-                  <table className="min-w-full text-sm divide-y divide-gray-100">
-                    <thead className="bg-[var(--bg-subtle)] text-xs text-[var(--text-muted)] uppercase">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Vehicle</th>
-                        <th className="px-4 py-3 text-left">Date</th>
-                        <th className="px-4 py-3 text-right">Variance</th>
-                        <th className="px-4 py-3 text-right">Actual (L)</th>
-                        <th className="px-4 py-3 text-right">Expected (L)</th>
-                        <th className="px-4 py-3 text-right">Streak</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {fuelFlags.slice(0, 8).map(f => (
-                        <tr key={f.id} className="hover:bg-[var(--bg-subtle)]/50">
-                          <td className="px-4 py-2.5 font-medium">{f.vehicles?.plate_number ?? f.vehicle_id}</td>
-                          <td className="px-4 py-2.5 text-[var(--text-muted)]">{new Date(f.flag_date).toLocaleDateString()}</td>
-                          <td className={`px-4 py-2.5 text-right font-semibold ${parseFloat(f.variance_pct) > 20 ? 'text-red-600' : 'text-orange-600'}`}>
-                            {pct(f.variance_pct)}
-                          </td>
-                          <td className="px-4 py-2.5 text-right">{fmt(f.actual_litres)}</td>
-                          <td className="px-4 py-2.5 text-right">{fmt(f.expected_litres)}</td>
-                          <td className="px-4 py-2.5 text-right text-[var(--text-muted)]">{f.consecutive_days}d</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
+              <Card>
+                <CardHeader
+                  title={
+                    <span className="flex items-center gap-2">
+                      <Fuel className="size-4 text-fg-muted" aria-hidden="true" />
+                      Flagged fuel variance
+                      <Badge tone="danger" size="sm">{fuelFlags.length} flagged</Badge>
+                    </span>
+                  }
+                  description="Flagged when (actual − expected) / expected > 15% for 3+ consecutive days."
+                />
+                <DataTable
+                  rows={fuelFlags.slice(0, 8)}
+                  columns={fuelColumns}
+                  rowKey={f => f.id}
+                  density="compact"
+                  caption="Flagged fuel variance"
+                />
+              </Card>
             )}
 
-            {/* Recent shuttle trips + map */}
-            <section>
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                <h3 className="text-sm font-semibold text-[var(--text-secondary)]">Recent Shuttle Trips</h3>
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                    Vehicle
-                    <select
+            <Card>
+              <CardHeader
+                title="Recent shuttle trips"
+                description="Expand a trip to compare its planned and actual route."
+              />
+              <CardContent className="border-b border-line py-3">
+                <FilterBar activeCount={activeFilterCount} onClear={clearFilters}>
+                  <FilterField label="Vehicle">
+                    <Select
+                      width="auto"
                       value={selectedVehicleId}
-                      onChange={(e) => setSelectedVehicleId(e.target.value)}
-                      className="rounded-md border border-[var(--border-default)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)]"
+                      onChange={e => setSelectedVehicleId(e.target.value)}
+                      placeholder="All vehicles"
                     >
-                      <option value="">All vehicles</option>
                       {vehicleOptions.map(([id, plate]) => (
                         <option key={id} value={id}>{plate}</option>
                       ))}
-                    </select>
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                    From
-                    <input
+                    </Select>
+                  </FilterField>
+                  <FilterField label="From">
+                    <Input
                       type="date"
                       value={fromDateDraft}
                       max={toDateDraft || undefined}
-                      onChange={(e) => setFromDateDraft(e.target.value)}
-                      className="rounded-md border border-[var(--border-default)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)]"
+                      onChange={e => setFromDateDraft(e.target.value)}
                     />
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                    To
-                    <input
+                  </FilterField>
+                  <FilterField label="To">
+                    <Input
                       type="date"
                       value={toDateDraft}
                       min={fromDateDraft || undefined}
-                      onChange={(e) => setToDateDraft(e.target.value)}
-                      className="rounded-md border border-[var(--border-default)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)]"
+                      onChange={e => setToDateDraft(e.target.value)}
                     />
-                  </label>
-                  <button
-                    onClick={applyDateFilter}
-                    disabled={!dateFilterDirty}
-                    className="rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-white hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
+                  </FilterField>
+                  <Button variant="secondary" onClick={applyDateFilter} disabled={!dateFilterDirty}>
                     Apply
-                  </button>
-                  {(dateFilterActive || dateFilterDirty) && (
-                    <button
-                      onClick={clearDateFilter}
-                      className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] underline"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {recentMetrics.length === 0 ? (
-                <p className="text-sm text-[var(--text-muted)]">
-                  {vehicleFilterActive
-                    ? 'No shuttle trips found for the selected vehicle in this date range.'
-                    : dateFilterActive
-                      ? 'No shuttle trips found in the selected date range.'
-                      : 'No shuttle trips recorded yet.'}
-                </p>
-              ) : (
-              <>
-                <div className="overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)]">
-                  <table className="min-w-full text-sm divide-y divide-gray-100">
-                    <thead className="bg-[var(--bg-subtle)] text-xs text-[var(--text-muted)] uppercase">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Date</th>
-                        <th className="px-4 py-3 text-left">Dir</th>
-                        <th className="px-4 py-3 text-left">Vehicle</th>
-                        <th className="px-4 py-3 text-left">Driver</th>
-                        <th className="px-4 py-3 text-right">Occupancy</th>
-                        <th className="px-4 py-3 text-right">Detour</th>
-                        <th className="px-4 py-3 text-right">Idle (min)</th>
-                        <th className="px-4 py-3 text-right">Fuel Var.</th>
-                        <th className="px-4 py-3 text-right">Route</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {recentMetrics.map(m => (
-                        <tr key={m.id} className={`hover:bg-[var(--bg-subtle)]/50 ${selectedTripForMap === m.shuttle_trip_id ? 'bg-blue-50/40' : ''}`}>
-                          <td className="px-4 py-2.5">{new Date(m.trip_date).toLocaleDateString()}</td>
-                          <td className="px-4 py-2.5 text-[var(--text-muted)]">{m.direction}</td>
-                          <td className="px-4 py-2.5">
-                            <div className="font-medium text-[var(--text-primary)]">{m.vehicles?.plate_number ?? '—'}</div>
-                            {(m.vehicles?.make || m.vehicles?.model) && (
-                              <div className="text-xs text-[var(--text-muted)]">{[m.vehicles?.make, m.vehicles?.model].filter(Boolean).join(' ')}</div>
-                            )}
-                          </td>
-                          <td className="px-4 py-2.5 text-[var(--text-secondary)]">{m.shuttle_trips?.users?.full_name ?? '—'}</td>
-                          <td className={`px-4 py-2.5 text-right ${m.occupancy_pct && parseFloat(m.occupancy_pct) < 50 ? 'text-orange-500' : 'text-[var(--text-primary)]'}`}>
-                            {pct(m.occupancy_pct)}
-                          </td>
-                          <td className={`px-4 py-2.5 text-right ${m.detour_ratio && parseFloat(m.detour_ratio) > 1.2 ? 'text-red-600' : 'text-[var(--text-primary)]'}`}>
-                            {m.detour_ratio ? `${fmt(m.detour_ratio, 2)}×` : '—'}
-                          </td>
-                          <td className="px-4 py-2.5 text-right text-[var(--text-muted)]">{fmt(m.idle_minutes, 0)}</td>
-                          <td className={`px-4 py-2.5 text-right ${m.fuel_variance_pct && Math.abs(parseFloat(m.fuel_variance_pct)) > 15 ? 'text-red-600' : 'text-[var(--text-primary)]'}`}>
-                            {pct(m.fuel_variance_pct)}
-                          </td>
-                          <td className="px-4 py-2.5 text-right">
-                            <button
-                              onClick={() => loadRouteComparison(m.shuttle_trip_id, m.route_id)}
-                              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${selectedTripForMap === m.shuttle_trip_id ? 'bg-info-soft text-info-ink' : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:bg-line'}`}
-                            >
-                              <MapIcon className="h-3 w-3" />
-                              {selectedTripForMap === m.shuttle_trip_id ? 'Close' : 'View'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {selectedTripForMap !== null && (
-                  <div className="mt-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-default)]">
-                      <div className="flex items-center gap-2">
-                        <MapIcon className="h-4 w-4 text-[var(--text-muted)]" />
-                        <span className="text-sm font-semibold text-[var(--text-primary)]">Route Map Overlay</span>
-                        <span className="flex flex-wrap items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                          <span className="inline-block h-2.5 w-6 rounded-sm bg-blue-600" /> Planned
-                          <span className="inline-block h-2.5 w-6 rounded-sm bg-orange-500 ml-1" /> Actual
-                          <span className="inline-block h-2.5 w-2.5 rounded-full bg-orange-500 ml-2" /> Departed
-                          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#c2410c] ml-1" /> Arrived
-                        </span>
-                      </div>
-                      <button onClick={() => { setSelectedTripForMap(null); setRouteComparison(null); setSelectedRouteId(null); }} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                    {mapLoading ? (
-                      <LoadingBlock label="Loading route data…" className="h-64" />
-                    ) : routeComparison ? (
-                      <RouteMapOverlay
-                        comparison={routeComparison}
-                        routeInsight={shuttleInsights.find(i => i.insight_type === 'ROUTE_DETOUR' && i.route_id === selectedRouteId) ?? null}
-                      />
-                    ) : (
-                      <div className="flex items-center justify-center h-32 text-[var(--text-muted)] text-sm">
-                        No route data available for this trip.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-              )}
-            </section>
+                  </Button>
+                </FilterBar>
+              </CardContent>
+              <DataTable
+                rows={recentMetrics}
+                columns={tripColumns}
+                rowKey={m => m.id}
+                caption="Recent shuttle trips"
+                empty={{ icon: <Bus aria-hidden="true" />, title: emptyTripsTitle }}
+                expandable={{
+                  isExpanded: m => selectedTripForMap === m.shuttle_trip_id,
+                  onToggle: m => void loadRouteComparison(m.shuttle_trip_id, m.route_id),
+                  render: () => (
+                    <RouteMapPanel
+                      loading={mapLoading}
+                      comparison={routeComparison}
+                      routeInsight={shuttleInsights.find(i => i.insight_type === 'ROUTE_DETOUR' && i.route_id === selectedRouteId) ?? null}
+                    />
+                  ),
+                }}
+              />
+            </Card>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* ── Divider ── */}
-      <hr className="border-[var(--border-default)]" />
-
-      {/* ══════════════════════════════════════════════════════════
-          CHAUFFEUR SECTION
-      ═══════════════════════════════════════════════════════════ */}
-      <div>
-        <div className="flex items-center gap-2 mb-5">
-          <CarFront className="h-5 w-5 text-teal-600" />
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Chauffeur Analytics</h2>
-          {chauffeurEnabled && (
-            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${aiEnabled ? 'bg-green-50 border-green-200 text-green-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
-              {aiEnabled ? 'Active' : 'Metrics Only'}
-            </span>
-          )}
-        </div>
+      {/* ══ Chauffeur ════════════════════════════════════════════════════════ */}
+      <section className="space-y-4" aria-label="Chauffeur analytics">
+        <SectionHeader
+          title={<ServiceTitle icon={<CarFront />} label="Chauffeur analytics" />}
+          description="How much of each booked package is actually used."
+          actions={chauffeurEnabled ? <ModeBadge aiEnabled={aiEnabled} /> : undefined}
+        />
 
         {!chauffeurEnabled ? (
           <DisabledSection label="Chauffeur service must be enabled" />
         ) : (
-          <div className="space-y-6">
-            {/* AI insights — chauffeur types only */}
+          <div className="space-y-4">
+            {chauffeurUtil && <StatStrip aria-label="Chauffeur summary" items={chauffeurStats} />}
+
             {aiEnabled && (
-            <section>
-              <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">AI Insights — Chauffeur</h3>
-              {chauffeurInsights.length === 0 ? (
-                <p className="text-sm text-[var(--text-muted)]">No active chauffeur insights. Click &quot;Run AI Analysis&quot; to generate.</p>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {chauffeurInsights.map(i => <InsightCard key={i.id} insight={i} />)}
-                </div>
-              )}
-            </section>
+              <InsightsCard
+                title="AI insights — Chauffeur"
+                insights={chauffeurInsights}
+                emptyLabel='Click "Run AI analysis" to generate chauffeur insights.'
+              />
             )}
 
-            {/* Package utilization KPIs */}
-            {chauffeurUtil && (
-              <>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <KpiCard label="Total bookings" value={chauffeurUtil.summary.total_bookings.toString()} icon={<CarFront className="h-5 w-5 text-teal-500" />} />
-                  <KpiCard
-                    label="Avg utilization"
-                    value={chauffeurUtil.summary.avg_utilization_pct != null ? `${chauffeurUtil.summary.avg_utilization_pct}%` : '—'}
-                    icon={<Clock className="h-5 w-5 text-blue-500" />}
-                    good={chauffeurUtil.summary.avg_utilization_pct != null && chauffeurUtil.summary.avg_utilization_pct >= 70}
-                  />
-                  <KpiCard
-                    label="Underutilized (<70%)"
-                    value={chauffeurUtil.summary.underutilized_count.toString()}
-                    icon={<AlertTriangle className="h-5 w-5 text-orange-500" />}
-                    good={chauffeurUtil.summary.underutilized_count === 0}
-                  />
-                  <KpiCard
-                    label="Est. billing saving"
-                    value={chauffeurUtil.summary.total_estimated_saving_pkr > 0
-                      ? `PKR ${chauffeurUtil.summary.total_estimated_saving_pkr.toLocaleString()}`
-                      : '—'}
-                    icon={<TrendingDown className="h-5 w-5 text-green-500" />}
-                  />
-                </div>
-
-                {/* Underutilized bookings table */}
-                {chauffeurUtil.bookings.filter(b => (b.utilization_pct ?? 100) < 70).length > 0 && (
-                  <section>
-                    <div className="overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)]">
-                      <div className="px-4 py-3 border-b border-[var(--border-default)] flex items-center gap-2">
-                        <Package className="h-4 w-4 text-teal-500" />
-                        <span className="text-sm font-semibold text-[var(--text-primary)]">Underutilised Bookings</span>
-                        <span className="text-xs text-[var(--text-muted)]">(used &lt;70% of package hours — consider a smaller package)</span>
-                      </div>
-                      <table className="min-w-full text-sm divide-y divide-gray-100">
-                        <thead className="bg-[var(--bg-subtle)] text-xs text-[var(--text-muted)] uppercase">
-                          <tr>
-                            <th className="px-4 py-3 text-left">Booking</th>
-                            <th className="px-4 py-3 text-left">Package</th>
-                            <th className="px-4 py-3 text-left">Date</th>
-                            <th className="px-4 py-3 text-right">Used</th>
-                            <th className="px-4 py-3 text-right min-w-[140px]">Utilization</th>
-                            <th className="px-4 py-3 text-right">Est. Saving</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                          {chauffeurUtil.bookings
-                            .filter(b => (b.utilization_pct ?? 100) < 70)
-                            .slice(0, 10)
-                            .map(b => (
-                              <tr key={b.booking_id} className="hover:bg-[var(--bg-subtle)]/50">
-                                <td className="px-4 py-2.5 font-medium text-[var(--text-secondary)]">#{b.booking_id}</td>
-                                <td className="px-4 py-2.5">
-                                  <span className="inline-flex items-center rounded-full bg-teal-50 text-teal-700 text-xs font-medium px-2 py-0.5">
-                                    {b.package_selected?.replace('HOURS_', '') ?? '—'}h
-                                  </span>
-                                </td>
-                                <td className="px-4 py-2.5 text-[var(--text-muted)] text-xs">
-                                  {b.scheduled_for ? new Date(b.scheduled_for).toLocaleDateString() : '—'}
-                                </td>
-                                <td className="px-4 py-2.5 text-right text-[var(--text-secondary)]">
-                                  {b.used_minutes != null ? `${(b.used_minutes / 60).toFixed(1)}h` : '—'}
-                                </td>
-                                <td className="px-4 py-2.5 min-w-[140px]">
-                                  {b.utilization_pct != null ? <UtilizationBar pct={b.utilization_pct} /> : '—'}
-                                </td>
-                                <td className="px-4 py-2.5 text-right text-green-700 font-medium">
-                                  {b.estimated_saving_pkr != null && b.estimated_saving_pkr > 0
-                                    ? `PKR ${b.estimated_saving_pkr.toLocaleString()}`
-                                    : '—'}
-                                </td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
-                )}
-              </>
+            {underutilisedBookings.length > 0 && (
+              <Card>
+                <CardHeader
+                  title={
+                    <span className="flex items-center gap-2">
+                      <Package className="size-4 text-fg-muted" aria-hidden="true" />
+                      Underutilised bookings
+                    </span>
+                  }
+                  description="Used less than 70% of package hours — consider a smaller package."
+                />
+                <DataTable
+                  rows={underutilisedBookings}
+                  columns={chauffeurColumns}
+                  rowKey={b => b.booking_id}
+                  density="compact"
+                  caption="Underutilised chauffeur bookings"
+                />
+              </Card>
             )}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* ── Divider ── */}
-      <hr className="border-[var(--border-default)]" />
-
-      {/* ══════════════════════════════════════════════════════════
-          POOL FLEET SECTION
-      ═══════════════════════════════════════════════════════════ */}
-      <div>
-        <div className="flex items-center gap-2 mb-5">
-          <Car className="h-5 w-5 text-violet-600" />
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Pool Fleet Analytics</h2>
-          {poolEnabled && (
-            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${aiEnabled ? 'bg-green-50 border-green-200 text-green-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
-              {aiEnabled ? 'Active' : 'Metrics Only'}
-            </span>
-          )}
-        </div>
+      {/* ══ Pool fleet ═══════════════════════════════════════════════════════ */}
+      <section className="space-y-4" aria-label="Pool fleet analytics">
+        <SectionHeader
+          title={<ServiceTitle icon={<Car />} label="Pool fleet analytics" />}
+          description="Utilisation of the company's own pooled vehicles."
+          actions={poolEnabled ? <ModeBadge aiEnabled={aiEnabled} /> : undefined}
+        />
 
         {!poolEnabled ? (
           <DisabledSection label="Pool Fleet service must be enabled" />
         ) : (
-          <div className="space-y-6">
-            {/* AI insights — pool types */}
+          <div className="space-y-4">
+            {poolUtil && <StatStrip aria-label="Pool fleet summary" items={poolStats} />}
+
             {aiEnabled && (
-            <section>
-              <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">AI Insights — Pool Fleet</h3>
-              {poolInsights.length === 0 ? (
-                <p className="text-sm text-[var(--text-muted)]">No active pool fleet insights. Click &quot;Run AI Analysis&quot; to generate.</p>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {poolInsights.map(i => <InsightCard key={i.id} insight={i} />)}
-                </div>
-              )}
-            </section>
+              <InsightsCard
+                title="AI insights — Pool fleet"
+                insights={poolInsights}
+                emptyLabel='Click "Run AI analysis" to generate pool fleet insights.'
+              />
             )}
 
-            {/* Pool utilization KPIs */}
-            {poolUtil && (
-              <>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <KpiCard label="Pool vehicles" value={poolUtil.summary.total_pool_vehicles.toString()} icon={<Car className="h-5 w-5 text-violet-500" />} />
-                  <KpiCard
-                    label="Avg utilization"
-                    value={`${poolUtil.summary.avg_utilization_pct}%`}
-                    icon={<Clock className="h-5 w-5 text-blue-500" />}
-                    good={poolUtil.summary.avg_utilization_pct >= 30}
-                  />
-                  <KpiCard
-                    label="Idle vehicles"
-                    value={poolUtil.summary.idle_vehicle_count.toString()}
-                    icon={<AlertTriangle className="h-5 w-5 text-orange-500" />}
-                    good={poolUtil.summary.idle_vehicle_count === 0}
-                  />
-                  <KpiCard
-                    label="Underutilized (<30%)"
-                    value={poolUtil.summary.underutilized_count.toString()}
-                    icon={<TrendingDown className="h-5 w-5 text-red-500" />}
-                    good={poolUtil.summary.underutilized_count === 0}
-                  />
-                </div>
-
-                {/* Per-vehicle utilization table */}
-                {poolUtil.vehicles.length > 0 && (
-                  <section>
-                    <div className="overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)]">
-                      <div className="px-4 py-3 border-b border-[var(--border-default)] flex items-center gap-2">
-                        <Car className="h-4 w-4 text-violet-500" />
-                        <span className="text-sm font-semibold text-[var(--text-primary)]">Pool Vehicle Utilization</span>
-                        <span className="text-xs text-[var(--text-muted)]">(last 30 days — 300 available hours per vehicle)</span>
-                      </div>
-                      <table className="min-w-full text-sm divide-y divide-gray-100">
-                        <thead className="bg-[var(--bg-subtle)] text-xs text-[var(--text-muted)] uppercase">
-                          <tr>
-                            <th className="px-4 py-3 text-left">Vehicle</th>
-                            <th className="px-4 py-3 text-left">Category</th>
-                            <th className="px-4 py-3 text-right">Trips</th>
-                            <th className="px-4 py-3 text-right">Hours Used</th>
-                            <th className="px-4 py-3 text-right min-w-[140px]">Utilization</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                          {poolUtil.vehicles.map(v => (
-                            <tr key={v.vehicle_id} className="hover:bg-[var(--bg-subtle)]/50">
-                              <td className="px-4 py-2.5">
-                                <div className="font-medium text-[var(--text-primary)]">{v.plate_number}</div>
-                                {(v.make || v.model) && (
-                                  <div className="text-xs text-[var(--text-muted)]">{[v.make, v.model].filter(Boolean).join(' ')}</div>
-                                )}
-                              </td>
-                              <td className="px-4 py-2.5">
-                                {v.category ? (
-                                  <span className="inline-flex items-center rounded-full bg-violet-50 text-violet-700 text-xs font-medium px-2 py-0.5">
-                                    {v.category}
-                                  </span>
-                                ) : '—'}
-                              </td>
-                              <td className="px-4 py-2.5 text-right text-[var(--text-secondary)]">{v.trips_count}</td>
-                              <td className="px-4 py-2.5 text-right text-[var(--text-secondary)]">{v.total_hours_booked}h</td>
-                              <td className="px-4 py-2.5 min-w-[140px]">
-                                <UtilizationBar pct={v.utilization_pct} />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
-                )}
-              </>
+            {poolUtil && poolUtil.vehicles.length > 0 && (
+              <Card>
+                <CardHeader
+                  title={
+                    <span className="flex items-center gap-2">
+                      <Car className="size-4 text-fg-muted" aria-hidden="true" />
+                      Pool vehicle utilization
+                    </span>
+                  }
+                  description="Last 30 days — 300 available hours per vehicle."
+                />
+                <DataTable
+                  rows={poolUtil.vehicles}
+                  columns={poolColumns}
+                  rowKey={v => v.vehicle_id}
+                  density="compact"
+                  caption="Pool vehicle utilization"
+                />
+              </Card>
             )}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
@@ -882,23 +907,59 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function UtilizationBar({ pct }: { pct: number }) {
-  const color = pct >= 80 ? 'bg-green-500' : pct >= 60 ? 'bg-amber-400' : 'bg-red-500';
+  const bar = pct >= 80 ? 'bg-success' : pct >= 60 ? 'bg-warning' : 'bg-danger';
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 rounded-full bg-[var(--bg-subtle)] overflow-hidden">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(100, pct)}%` }} />
+      <div
+        className="h-2 flex-1 overflow-hidden rounded-full bg-subtle"
+        role="progressbar"
+        aria-valuenow={Math.min(100, pct)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Utilization"
+      >
+        <div className={`h-full rounded-full ${bar}`} style={{ width: `${Math.min(100, pct)}%` }} />
       </div>
-      <span className={`text-xs font-semibold w-10 text-right ${pct < 60 ? 'text-red-600' : 'text-[var(--text-secondary)]'}`}>{pct}%</span>
+      <span className={`w-10 text-right text-xs font-semibold tabular-nums ${pct < 60 ? 'text-danger-ink' : 'text-fg-secondary'}`}>{pct}%</span>
     </div>
   );
 }
 
+function LegendSwatch({ color, shape = 'line', label }: { color: string; shape?: 'line' | 'dot'; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        aria-hidden="true"
+        className={shape === 'line' ? 'inline-block h-1 w-5 rounded-full' : 'inline-block size-2.5 rounded-full'}
+        style={{ background: color }}
+      />
+      {label}
+    </span>
+  );
+}
+
+function RouteMapPanel({ loading, comparison, routeInsight }: { loading: boolean; comparison: RouteComparison | null; routeInsight: FleetInsight | null }) {
+  if (loading) return <LoadingBlock label="Loading route data…" className="h-64" />;
+  if (!comparison) {
+    return <EmptyState compact icon={<MapIcon aria-hidden="true" />} title="No route data available for this trip" />;
+  }
+  return <RouteMapOverlay comparison={comparison} routeInsight={routeInsight} />;
+}
+
 function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteComparison; routeInsight: FleetInsight | null }) {
+  const chart = useChartTheme();
+  // Map layers need literal colours (Google Maps can't read CSS variables); take them from the
+  // theme-aware chart palette so they match the legend and both themes.
+  const plannedColor = chart.colors[1];
+  const actualColor = chart.colors[0];
+  const arrivedColor = chart.status.bad;
+  const startColor = chart.status.good;
+
   const plannedPolyline: MapPolyline | null = comparison.planned_points.length > 1
-    ? { positions: comparison.planned_points.map(p => [p.lat, p.lng] as [number, number]), color: '#2563eb', weight: 4, opacity: 0.85 }
+    ? { positions: comparison.planned_points.map(p => [p.lat, p.lng] as [number, number]), color: plannedColor, weight: 4, opacity: 0.85 }
     : null;
   const actualPolyline: MapPolyline | null = comparison.actual_points.length > 1
-    ? { positions: comparison.actual_points.map(p => [p.lat, p.lng] as [number, number]), color: '#f97316', weight: 3, opacity: 0.9, dashArray: '6 4' }
+    ? { positions: comparison.actual_points.map(p => [p.lat, p.lng] as [number, number]), color: actualColor, weight: 3, opacity: 0.9, dashArray: '6 4' }
     : null;
   const polylines = [plannedPolyline, actualPolyline].filter(Boolean) as MapPolyline[];
 
@@ -911,7 +972,7 @@ function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteCompar
       position: [first.lat, first.lng],
       label: 'First Stop',
       description: 'First stop on the planned office route.',
-      color: '#22c55e',
+      color: startColor,
       type: 'pickup',
     });
     markers.push({
@@ -919,7 +980,7 @@ function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteCompar
       position: [last.lat, last.lng],
       label: 'Last Stop',
       description: 'Last stop on the planned office route.',
-      color: '#ef4444',
+      color: arrivedColor,
       type: 'dropoff',
     });
   }
@@ -934,7 +995,7 @@ function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteCompar
       position: [departed.lat, departed.lng],
       label: 'Departed',
       description: 'Where the driver actually started this trip (GPS).',
-      color: '#f97316',
+      color: actualColor,
       type: 'actual-start',
     });
     markers.push({
@@ -942,7 +1003,7 @@ function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteCompar
       position: [arrived.lat, arrived.lng],
       label: 'Arrived',
       description: 'Where the driver actually ended this trip (GPS).',
-      color: '#c2410c',
+      color: actualColor,
       type: 'actual-end',
     });
   }
@@ -950,77 +1011,81 @@ function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteCompar
   const m = comparison.metrics;
   const detour = m?.detour_ratio ?? null;
   const detourPct = detour !== null ? ((detour - 1) * 100).toFixed(1) : null;
+  const detourTone: 'danger' | 'warning' | 'success' = detour !== null && detour > 1.15 ? 'danger' : detour !== null && detour > 1.05 ? 'warning' : 'success';
+  const detourCls = {
+    danger: 'border-danger-line bg-danger-soft text-danger-ink',
+    warning: 'border-warning-line bg-warning-soft text-warning-ink',
+    success: 'border-success-line bg-success-soft text-success-ink',
+  }[detourTone];
 
   return (
-    <div className="flex flex-col lg:flex-row">
-      <div className="flex-1 min-h-0" style={{ height: 360 }}>
-        {polylines.length > 0 || markers.length > 0 ? (
-          <Map markers={markers} polylines={polylines} height="360px" />
-        ) : (
-          <div className="flex items-center justify-center h-full bg-[var(--bg-subtle)] text-sm text-[var(--text-muted)]">
-            No polyline data recorded for this trip.
-          </div>
-        )}
+    <div className="bg-card">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line px-4 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-semibold text-fg">
+          <MapIcon className="size-4 text-fg-muted" aria-hidden="true" />
+          Route overlay
+        </span>
+        <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-fg-muted">
+          <LegendSwatch color={plannedColor} label="Planned" />
+          <LegendSwatch color={actualColor} label="Actual" />
+          <LegendSwatch color={actualColor} shape="dot" label="Departed / arrived" />
+        </span>
       </div>
-      <div className="w-full lg:w-64 p-4 border-t lg:border-t-0 lg:border-l border-[var(--border-default)] flex flex-col gap-4">
-        {detour !== null && (
-          <div className={`rounded-lg px-3 py-2.5 text-center ${detour > 1.15 ? 'bg-red-50 border border-red-200' : detour > 1.05 ? 'bg-orange-50 border border-orange-200' : 'bg-green-50 border border-green-200'}`}>
-            <p className="text-xs text-[var(--text-muted)] mb-0.5">Detour Ratio</p>
-            <p className={`text-2xl font-bold ${detour > 1.15 ? 'text-red-600' : detour > 1.05 ? 'text-orange-600' : 'text-green-600'}`}>
-              {detour.toFixed(2)}×
-            </p>
-            {detourPct && <p className="text-xs text-[var(--text-muted)]">+{detourPct}% extra distance</p>}
-          </div>
-        )}
-        <div className="space-y-2 text-sm">
-          {m?.planned_distance_km != null && (
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-[var(--text-muted)]"><span className="inline-block h-2 w-4 rounded-sm bg-blue-600" /> Planned</span>
-              <span className="font-medium">{m.planned_distance_km.toFixed(2)} km</span>
+      <div className="flex flex-col lg:flex-row">
+        <div className="min-h-0 flex-1" style={{ height: 360 }}>
+          {polylines.length > 0 || markers.length > 0 ? (
+            <Map markers={markers} polylines={polylines} height="360px" />
+          ) : (
+            <EmptyState compact icon={<MapIcon aria-hidden="true" />} title="No polyline data recorded for this trip" className="h-full" />
+          )}
+        </div>
+        <div className="flex w-full flex-col gap-4 border-t border-line p-4 lg:w-64 lg:border-l lg:border-t-0">
+          {detour !== null && (
+            <div className={`rounded-xl border px-3 py-2.5 text-center ${detourCls}`}>
+              <p className="mb-0.5 text-xs">Detour ratio</p>
+              <p className="text-2xl font-semibold tabular-nums">{detour.toFixed(2)}×</p>
+              {detourPct && <p className="text-xs">+{detourPct}% extra distance</p>}
             </div>
           )}
-          {m?.actual_distance_km != null && (
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-[var(--text-muted)]"><span className="inline-block h-2 w-4 rounded-sm bg-orange-500" /> Actual</span>
-              <span className="font-medium">{m.actual_distance_km.toFixed(2)} km</span>
-            </div>
-          )}
-          {comparison.idle_minutes != null && (
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--text-muted)]">Idle time</span>
-              <span className="font-medium">{comparison.idle_minutes.toFixed(0)} min</span>
-            </div>
-          )}
-          {m?.fuel_variance_pct != null && (
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--text-muted)]">Fuel variance</span>
-              <span className={`font-medium ${Math.abs(m.fuel_variance_pct) > 15 ? 'text-red-600' : 'text-[var(--text-primary)]'}`}>
-                {m.fuel_variance_pct > 0 ? '+' : ''}{m.fuel_variance_pct.toFixed(1)}%
-              </span>
+          <dl className="space-y-2 text-sm">
+            {m?.planned_distance_km != null && (
+              <div className="flex items-center justify-between">
+                <dt className="flex items-center gap-1.5 text-fg-muted"><LegendSwatch color={plannedColor} label="Planned" /></dt>
+                <dd className="font-medium text-fg tabular-nums">{m.planned_distance_km.toFixed(2)} km</dd>
+              </div>
+            )}
+            {m?.actual_distance_km != null && (
+              <div className="flex items-center justify-between">
+                <dt className="flex items-center gap-1.5 text-fg-muted"><LegendSwatch color={actualColor} label="Actual" /></dt>
+                <dd className="font-medium text-fg tabular-nums">{m.actual_distance_km.toFixed(2)} km</dd>
+              </div>
+            )}
+            {comparison.idle_minutes != null && (
+              <div className="flex items-center justify-between">
+                <dt className="text-fg-muted">Idle time</dt>
+                <dd className="font-medium text-fg tabular-nums">{comparison.idle_minutes.toFixed(0)} min</dd>
+              </div>
+            )}
+            {m?.fuel_variance_pct != null && (
+              <div className="flex items-center justify-between">
+                <dt className="text-fg-muted">Fuel variance</dt>
+                <dd className={`font-medium tabular-nums ${Math.abs(m.fuel_variance_pct) > 15 ? 'text-danger-ink' : 'text-fg'}`}>
+                  {m.fuel_variance_pct > 0 ? '+' : ''}{m.fuel_variance_pct.toFixed(1)}%
+                </dd>
+              </div>
+            )}
+          </dl>
+          {routeInsight && (
+            <div className="rounded-xl border border-purple-line bg-purple-soft p-3">
+              <div className="mb-1 flex items-center gap-1.5">
+                <Navigation className="size-3.5 text-purple-ink" aria-hidden="true" />
+                <span className="text-xs font-semibold text-purple-ink">AI note</span>
+              </div>
+              <p className="text-xs text-fg-secondary">{routeInsight.data.recommendation}</p>
             </div>
           )}
         </div>
-        {routeInsight && (
-          <div className="rounded-lg bg-purple-50 border border-purple-200 p-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Navigation className="h-3.5 w-3.5 text-purple-600" />
-              <span className="text-xs font-semibold text-purple-800">AI Note</span>
-            </div>
-            <p className="text-xs text-purple-700">{routeInsight.data.recommendation}</p>
-          </div>
-        )}
       </div>
     </div>
   );
 }
-
-function KpiCard({ label, value, icon, good }: { label: string; value: string; icon: React.ReactNode; good?: boolean }) {
-  return (
-    <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] p-4">
-      <div className="flex items-center gap-2 mb-2">{icon}<span className="text-xs text-[var(--text-muted)]">{label}</span></div>
-      <p className={`text-2xl font-bold ${good === false ? 'text-orange-600' : 'text-[var(--text-primary)]'}`}>{value}</p>
-    </div>
-  );
-}
-
-
