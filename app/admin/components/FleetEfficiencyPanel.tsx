@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { apiClient } from '@/app/lib/services/api-client';
+import { useAuth } from '@/app/lib/contexts/auth-context';
 import {
   AlertTriangle, Fuel, Bus, Navigation, TrendingDown, TrendingUp, Zap, RefreshCw, Map as MapIcon,
   Users, Package, CarFront, Lock, Car, Sparkles,
@@ -291,6 +292,7 @@ const POOL_INSIGHT_TYPES = new Set(['POOL_UTILIZATION']);
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
+  const { isSuperAdmin } = useAuth();
   // Feature flags
   const [shuttleEnabled, setShuttleEnabled] = useState(false);
   const [chauffeurEnabled, setChauffeurEnabled] = useState(false);
@@ -469,7 +471,8 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
   const shuttleInsights = insights.filter(i => SHUTTLE_INSIGHT_TYPES.has(i.insight_type));
   const chauffeurInsights = insights.filter(i => CHAUFFEUR_INSIGHT_TYPES.has(i.insight_type));
   const poolInsights = insights.filter(i => POOL_INSIGHT_TYPES.has(i.insight_type));
-  const showGenerate = aiEnabled && (shuttleEnabled || chauffeurEnabled || poolEnabled);
+  // Generating insights is super-admin only on the API
+  const showGenerate = isSuperAdmin && aiEnabled && (shuttleEnabled || chauffeurEnabled || poolEnabled);
 
   // ── Shuttle ────────────────────────────────────────────────────────────────
 

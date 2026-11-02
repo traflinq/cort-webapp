@@ -17,6 +17,7 @@ import {
   FileSpreadsheet,
   FileText,
   Fuel,
+  Gauge,
   LayoutDashboard,
   MapPin,
   Navigation,
@@ -97,6 +98,7 @@ export const adminNav: NavGroup[] = [
       { href: "/admin/vehicles/fueling", label: "Fuel Records", icon: Fuel, permission: "fuel_records", description: "Fuel purchases and mileage", keywords: ["petrol", "diesel", "fueling"] },
       { href: "/admin/vehicles/maintenance", label: "Maintenance", icon: Wrench, permission: "maintenance", description: "Service records and due alerts", keywords: ["repair", "service"] },
       { href: "/admin/drivers", label: "Drivers", icon: Users, permission: "drivers", description: "Driver roster and chauffeur applications", keywords: ["chauffeurs", "applications"] },
+      { href: "/admin/fleet-efficiency", label: "Fleet Efficiency", icon: Gauge, permission: "fleet_efficiency", description: "Per-company shuttle and chauffeur utilisation and fuel variance", keywords: ["utilisation", "fuel variance", "insights"] },
     ],
   },
   {
@@ -203,6 +205,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = (() => {
     external_vendors: "External Vendors",
     company_features: "Company Features",
     vendor_fleet: "Vendor Fleet",
+    fleet_efficiency: "Fleet Efficiency",
     ...fromNav,
   };
 })();

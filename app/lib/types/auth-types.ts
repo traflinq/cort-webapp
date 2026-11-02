@@ -32,6 +32,7 @@ export const PERMISSION_KEYS = [
     'external_vendors',
     'company_features',
     'vendor_fleet',
+    'fleet_efficiency',
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
