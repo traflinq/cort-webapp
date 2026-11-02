@@ -7,7 +7,7 @@ import { apiClient } from '@/app/lib/services/api-client';
 import { useAuth } from '@/app/lib/contexts/auth-context';
 import {
   AlertTriangle, Fuel, Bus, Navigation, TrendingDown, TrendingUp, Zap, RefreshCw, Map as MapIcon,
-  Users, Package, CarFront, Lock, Car, Sparkles,
+  Users, Package, CarFront, Lock, Car, Sparkles, Clock, MapPin,
 } from 'lucide-react';
 import {
   Badge,
@@ -31,7 +31,7 @@ import {
   type StatItem,
 } from '@/app/admin/ui';
 import { useChartTheme } from '@/app/admin/ui/chart-theme';
-import { formatCurrency, formatDate, formatNumber, humanize } from '@/app/admin/lib/format';
+import { formatCurrency, formatDate, formatNumber, formatTime, humanize } from '@/app/admin/lib/format';
 import type { MapMarker, MapPolyline } from '@/app/admin/ui/Map';
 
 const Map = dynamic(() => import('@/app/admin/ui/Map'), { ssr: false });
@@ -75,6 +75,65 @@ type RouteComparison = {
     occupancy_pct: number | null;
     fuel_variance_pct: number | null;
   } | null;
+};
+
+type StopStatus = 'VISITED' | 'SKIPPED_ALL_ABSENT' | 'NO_RIDERS' | 'MISSED' | 'PENDING';
+
+type TimelineRider = {
+  user_id: string;
+  name: string | null;
+  phone: string | null;
+  status: 'BOARDED' | 'DROPPED_OFF' | 'ABSENT' | null;
+  boarded_at: string | null;
+  dropped_at: string | null;
+  dropped_at_trip_end: boolean;
+  absent_reason: string | null;
+  marked_by: string | null;
+};
+
+type TimelineStop = {
+  id: number;
+  sequence: number;
+  name: string;
+  stop_type: string;
+  is_override: boolean;
+  lat: number | null;
+  lng: number | null;
+  planned_time: string | null;
+  arrived_at: string | null;
+  departed_at: string | null;
+  time_source: 'DRIVER' | 'ATTENDANCE' | 'TRIP_START' | 'TRIP_END' | null;
+  status: StopStatus;
+  riders_expected: number;
+  riders_riding: number;
+  riders_absent: number;
+  riders: TimelineRider[];
+};
+
+type TripTimeline = {
+  trip: {
+    id: number;
+    direction: 'MORNING' | 'EVENING';
+    status: string;
+    started_at: string | null;
+    completed_at: string | null;
+    route_name: string | null;
+    planned_distance_km: number | null;
+    actual_distance_km: number | null;
+  };
+  summary: {
+    stops_total: number;
+    stops_visited: number;
+    stops_skipped_all_absent: number;
+    stops_no_riders: number;
+    stops_missed: number;
+    riders_expected: number;
+    riders_riding: number;
+    riders_absent: number;
+    riders_unmarked: number;
+  };
+  stops: TimelineStop[];
+  other_riders: TimelineRider[];
 };
 
 type FuelFlag = {
@@ -330,6 +389,7 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
   const [selectedTripForMap, setSelectedTripForMap] = useState<number | null>(null);
   const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
   const [routeComparison, setRouteComparison] = useState<RouteComparison | null>(null);
+  const [timeline, setTimeline] = useState<TripTimeline | null>(null);
   const [mapLoading, setMapLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -402,18 +462,22 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
     if (selectedTripForMap === shuttleTripId) {
       setSelectedTripForMap(null);
       setRouteComparison(null);
+      setTimeline(null);
       setSelectedRouteId(null);
       return;
     }
     setSelectedTripForMap(shuttleTripId);
     setSelectedRouteId(routeId);
     setRouteComparison(null);
+    setTimeline(null);
     setMapLoading(true);
     try {
-      const data = await apiClient.request<RouteComparison>(`/admin/shuttle-trips/${shuttleTripId}/route-comparison`);
-      setRouteComparison(data);
-    } catch {
-      setRouteComparison(null);
+      const [comparisonRes, timelineRes] = await Promise.allSettled([
+        apiClient.request<RouteComparison>(`/admin/shuttle-trips/${shuttleTripId}/route-comparison`),
+        apiClient.request<TripTimeline>(`/shuttle-trips/${shuttleTripId}/timeline`),
+      ]);
+      setRouteComparison(comparisonRes.status === 'fulfilled' ? comparisonRes.value : null);
+      setTimeline(timelineRes.status === 'fulfilled' ? timelineRes.value : null);
     } finally {
       setMapLoading(false);
     }
@@ -543,6 +607,24 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
       align: 'right',
       mono: true,
       cell: m => <span className={toneText(m.occupancy_pct && parseFloat(m.occupancy_pct) < 50 ? 'warning' : null)}>{pct(m.occupancy_pct)}</span>,
+    },
+    {
+      key: 'km',
+      header: 'Km actual / plan',
+      align: 'right',
+      mono: true,
+      hideBelow: 'md',
+      cell: m => {
+        const actual = m.actual_distance_km != null ? parseFloat(m.actual_distance_km) : null;
+        const planned = m.planned_distance_km != null ? parseFloat(m.planned_distance_km) : null;
+        // Well under plan usually means stops were skipped — worth opening the timeline.
+        const short = actual != null && planned != null && planned > 0 && actual < planned * 0.85;
+        return (
+          <span className={toneText(short ? 'warning' : null)}>
+            {fmt(m.actual_distance_km)} / {fmt(m.planned_distance_km)}
+          </span>
+        );
+      },
     },
     {
       key: 'detour',
@@ -752,7 +834,7 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
             <Card>
               <CardHeader
                 title="Recent shuttle trips"
-                description="Expand a trip to compare its planned and actual route."
+                description="Expand a trip to compare its planned and actual route and see who was picked up at each stop, and when."
               />
               <CardContent className="border-b border-line py-3">
                 <FilterBar activeCount={activeFilterCount} onClear={clearFilters}>
@@ -799,11 +881,15 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
                   isExpanded: m => selectedTripForMap === m.shuttle_trip_id,
                   onToggle: m => void loadRouteComparison(m.shuttle_trip_id, m.route_id),
                   render: () => (
-                    <RouteMapPanel
-                      loading={mapLoading}
-                      comparison={routeComparison}
-                      routeInsight={shuttleInsights.find(i => i.insight_type === 'ROUTE_DETOUR' && i.route_id === selectedRouteId) ?? null}
-                    />
+                    <>
+                      <RouteMapPanel
+                        loading={mapLoading}
+                        comparison={routeComparison}
+                        timeline={timeline}
+                        routeInsight={shuttleInsights.find(i => i.insight_type === 'ROUTE_DETOUR' && i.route_id === selectedRouteId) ?? null}
+                      />
+                      {!mapLoading && timeline && <TripTimelinePanel timeline={timeline} />}
+                    </>
                   ),
                 }}
               />
@@ -941,15 +1027,151 @@ function LegendSwatch({ color, shape = 'line', label }: { color: string; shape?:
   );
 }
 
-function RouteMapPanel({ loading, comparison, routeInsight }: { loading: boolean; comparison: RouteComparison | null; routeInsight: FleetInsight | null }) {
+function RouteMapPanel({ loading, comparison, timeline, routeInsight }: { loading: boolean; comparison: RouteComparison | null; timeline: TripTimeline | null; routeInsight: FleetInsight | null }) {
   if (loading) return <LoadingBlock label="Loading route data…" className="h-64" />;
   if (!comparison) {
     return <EmptyState compact icon={<MapIcon aria-hidden="true" />} title="No route data available for this trip" />;
   }
-  return <RouteMapOverlay comparison={comparison} routeInsight={routeInsight} />;
+  return <RouteMapOverlay comparison={comparison} timeline={timeline} routeInsight={routeInsight} />;
 }
 
-function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteComparison; routeInsight: FleetInsight | null }) {
+const STOP_STATUS: Record<StopStatus, { label: string; tone: BadgeTone }> = {
+  VISITED: { label: 'Visited', tone: 'success' },
+  MISSED: { label: 'Not visited', tone: 'danger' },
+  SKIPPED_ALL_ABSENT: { label: 'Skipped — all absent', tone: 'neutral' },
+  NO_RIDERS: { label: 'No riders today', tone: 'neutral' },
+  PENDING: { label: 'Not reached yet', tone: 'info' },
+};
+
+const TIME_SOURCE_NOTE: Record<NonNullable<TimelineStop['time_source']>, string | null> = {
+  DRIVER: null,
+  ATTENDANCE: 'from attendance',
+  TRIP_START: 'trip start',
+  TRIP_END: 'trip completed',
+};
+
+function riderBadge(r: TimelineRider, direction: 'MORNING' | 'EVENING'): { label: string; tone: BadgeTone } {
+  if (r.status === 'ABSENT') return { label: 'Absent', tone: 'warning' };
+  if (r.status === 'DROPPED_OFF') return { label: direction === 'EVENING' ? 'Dropped off' : 'Rode', tone: 'success' };
+  if (r.status === 'BOARDED') return { label: 'Boarded', tone: 'success' };
+  return { label: 'Not marked', tone: 'danger' };
+}
+
+function RiderRow({ rider, direction }: { rider: TimelineRider; direction: 'MORNING' | 'EVENING' }) {
+  const badge = riderBadge(rider, direction);
+  const times: string[] = [];
+  if (rider.boarded_at) times.push(`${direction === 'EVENING' ? 'Boarded at office' : 'Picked up'} ${formatTime(rider.boarded_at)}`);
+  if (direction === 'EVENING' && rider.dropped_at) {
+    times.push(rider.dropped_at_trip_end ? `Marked dropped at trip end ${formatTime(rider.dropped_at)}` : `Dropped ${formatTime(rider.dropped_at)}`);
+  }
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5">
+      <span className="min-w-0 text-sm text-fg">
+        {rider.name ?? 'Unknown employee'}
+        {rider.phone && <span className="ml-2 text-xs text-fg-muted tabular-nums">{rider.phone}</span>}
+      </span>
+      <span className="flex flex-wrap items-center gap-2 text-xs text-fg-secondary">
+        {times.length > 0 && <span className="tabular-nums">{times.join(' · ')}</span>}
+        {rider.status === 'ABSENT' && rider.absent_reason && <span>{humanize(rider.absent_reason)}</span>}
+        {rider.marked_by && rider.status && <span className="text-fg-muted">by {humanize(rider.marked_by)}</span>}
+        <Badge tone={badge.tone} size="sm">{badge.label}</Badge>
+      </span>
+    </li>
+  );
+}
+
+function TripTimelinePanel({ timeline }: { timeline: TripTimeline }) {
+  const { trip, summary, stops, other_riders } = timeline;
+  const shortKm =
+    trip.actual_distance_km != null && trip.planned_distance_km != null && trip.planned_distance_km > 0
+      ? trip.planned_distance_km - trip.actual_distance_km
+      : null;
+
+  const stats: StatItem[] = [
+    { key: 'stops', label: 'Stops visited', value: `${summary.stops_visited} / ${summary.stops_total}` },
+    { key: 'missed', label: 'Not visited (riders expected)', value: formatNumber(summary.stops_missed), status: summary.stops_missed > 0 ? 'danger' : 'none' },
+    { key: 'skipped', label: 'Skipped — all absent', value: formatNumber(summary.stops_skipped_all_absent) },
+    {
+      key: 'riders',
+      label: 'Rode / absent / not marked',
+      value: `${summary.riders_riding} / ${summary.riders_absent} / ${summary.riders_unmarked}`,
+      status: summary.riders_unmarked > 0 ? 'warning' : 'none',
+    },
+  ];
+
+  return (
+    <div className="border-t border-line bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-semibold text-fg">
+          <Clock className="size-4 text-fg-muted" aria-hidden="true" />
+          Trip timeline
+        </span>
+        <span className="text-xs text-fg-muted tabular-nums">
+          Started {trip.started_at ? formatTime(trip.started_at) : '—'} · Completed {trip.completed_at ? formatTime(trip.completed_at) : '—'}
+        </span>
+      </div>
+      <div className="space-y-4 px-4 pb-4">
+        <StatStrip aria-label="Trip timeline summary" items={stats} />
+        {shortKm != null && shortKm > 0.5 && (
+          <p className="rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-xs text-warning-ink">
+            Actual distance is {shortKm.toFixed(1)} km under plan.
+            {summary.stops_skipped_all_absent > 0 && ` ${summary.stops_skipped_all_absent} stop(s) were skipped because everyone there was absent.`}
+            {summary.stops_missed > 0 && ` ${summary.stops_missed} stop(s) with expected riders have no recorded visit.`}
+            {summary.stops_missed === 0 && summary.stops_skipped_all_absent === 0 && ' Every stop was visited — check the route overlay for shortcuts or a GPS gap.'}
+          </p>
+        )}
+        {stops.length === 0 ? (
+          <EmptyState compact icon={<MapPin aria-hidden="true" />} title="No stops on this route" />
+        ) : (
+          <ol className="divide-y divide-line rounded-xl border border-line">
+            {stops.map(s => {
+              const st = STOP_STATUS[s.status];
+              const note = s.time_source ? TIME_SOURCE_NOTE[s.time_source] : null;
+              return (
+                <li key={s.id} className="px-3 py-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-subtle text-xs font-semibold text-fg-secondary tabular-nums">
+                        {s.sequence}
+                      </span>
+                      <span className="min-w-0 truncate text-sm font-medium text-fg">{s.name}</span>
+                      {s.stop_type === 'OFFICE' && <Badge tone="purple" size="sm">Office</Badge>}
+                      {s.is_override && <Badge tone="info" size="sm">Today only</Badge>}
+                    </span>
+                    <span className="flex flex-wrap items-center gap-2 text-xs text-fg-secondary tabular-nums">
+                      <span>Planned {s.planned_time ? formatTime(s.planned_time) : '—'}</span>
+                      <span>
+                        Arrived {s.arrived_at ? formatTime(s.arrived_at) : '—'}
+                        {s.departed_at && s.departed_at !== s.arrived_at && ` → left ${formatTime(s.departed_at)}`}
+                        {note && <span className="text-fg-muted"> ({note})</span>}
+                      </span>
+                      <Badge tone={st.tone} size="sm" dot>{st.label}</Badge>
+                    </span>
+                  </div>
+                  {s.riders.length > 0 && (
+                    <ul className="mt-1.5 ml-8 divide-y divide-line/60">
+                      {s.riders.map(r => <RiderRow key={r.user_id} rider={r} direction={trip.direction} />)}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+        {other_riders.length > 0 && (
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-fg-muted">Riders not on today&apos;s roster</p>
+            <ul className="divide-y divide-line/60 rounded-xl border border-line px-3">
+              {other_riders.map(r => <RiderRow key={r.user_id} rider={r} direction={trip.direction} />)}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RouteMapOverlay({ comparison, timeline, routeInsight }: { comparison: RouteComparison; timeline: TripTimeline | null; routeInsight: FleetInsight | null }) {
   const chart = useChartTheme();
   // Map layers need literal colours (Google Maps can't read CSS variables); take them from the
   // theme-aware chart palette so they match the legend and both themes.
@@ -1010,6 +1232,25 @@ function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteCompar
       type: 'actual-end',
     });
   }
+  // Every stop, coloured by whether the driver actually went there.
+  const stopColor: Record<StopStatus, string> = {
+    VISITED: chart.status.good,
+    MISSED: chart.status.bad,
+    SKIPPED_ALL_ABSENT: chart.status.warning,
+    NO_RIDERS: chart.status.warning,
+    PENDING: chart.status.info,
+  };
+  for (const s of timeline?.stops ?? []) {
+    if (s.lat == null || s.lng == null) continue;
+    markers.push({
+      id: `stop-${s.id}`,
+      position: [s.lat, s.lng],
+      label: `${s.sequence}. ${s.name}`,
+      description: `${STOP_STATUS[s.status].label}${s.arrived_at ? ` · arrived ${formatTime(s.arrived_at)}` : ''}`,
+      color: stopColor[s.status],
+      type: 'stop',
+    });
+  }
 
   const m = comparison.metrics;
   const detour = m?.detour_ratio ?? null;
@@ -1032,6 +1273,13 @@ function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteCompar
           <LegendSwatch color={plannedColor} label="Planned" />
           <LegendSwatch color={actualColor} label="Actual" />
           <LegendSwatch color={actualColor} shape="dot" label="Departed / arrived" />
+          {timeline && timeline.stops.length > 0 && (
+            <>
+              <LegendSwatch color={chart.status.good} shape="dot" label="Stop visited" />
+              <LegendSwatch color={chart.status.bad} shape="dot" label="Stop not visited" />
+              <LegendSwatch color={chart.status.warning} shape="dot" label="Skipped / no riders" />
+            </>
+          )}
         </span>
       </div>
       <div className="flex flex-col lg:flex-row">
