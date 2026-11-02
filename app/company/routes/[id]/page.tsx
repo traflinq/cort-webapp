@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
-import Link from "next/link";
 import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
 import { selectCompany, fetchCompanyFeatures, selectCompanyFeatures } from "../../../lib/store/slices/companySlice";
 import { fetchEmployees, selectEmployees, selectEmployeesStatus } from "../../../lib/store/slices/employeeSlice";
@@ -12,12 +11,12 @@ import { useAuth } from "../../../lib/contexts/auth-context";
 import { apiClient } from "../../../lib/services/api-client";
 import { toast } from "sonner";
 import { Card } from "../../components/DashboardComponents";
+import { EmptyState, IllustrationTile, PillButton, UnderlineTabs, type IllustrationName } from "../../ui";
 import { Button } from "@/app/admin/ui/Button";
 import {
   Activity,
   ArrowLeft,
   Building2,
-  Bus,
   User,
   MapPin,
   Sunrise,
@@ -127,7 +126,7 @@ function StopTimeline({ stops, direction }: { stops: RouteStop[]; direction: "MO
 
   return (
     <div className="relative">
-      <div className="absolute start-3.5 top-4 bottom-4 w-px bg-[var(--border-light)]" />
+      <div className="absolute start-3.5 top-4 bottom-4 w-px bg-[var(--divider)]" />
       <div className="space-y-3">
         {sorted.map((stop, idx) => {
           const eta =
@@ -138,10 +137,10 @@ function StopTimeline({ stops, direction }: { stops: RouteStop[]; direction: "MO
             <div key={stop.id} className="flex items-start gap-3">
               <div
                 className={cx(
-                  "relative z-10 mt-0.5 w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 text-xs font-bold",
+                  "relative z-10 mt-0.5 w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 text-xs font-medium",
                   isOffice
                     ? "border-red-500 bg-red-500 text-white"
-                    : "border-[var(--border-default)] bg-[var(--bg-card)] text-[var(--text-muted)]"
+                    : "border-transparent bg-[var(--tile-bg)] text-[var(--text-primary)]"
                 )}
               >
                 {isOffice
@@ -149,14 +148,14 @@ function StopTimeline({ stops, direction }: { stops: RouteStop[]; direction: "MO
                   : ((direction === "MORNING" ? stop.morning_sequence : stop.evening_sequence) ?? idx + 1)}
               </div>
               <div className="flex-1 min-w-0 pb-1">
-                <div className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-1.5 flex-wrap">
+                <div className="text-sm font-medium text-[var(--text-primary)] flex items-center gap-1.5 flex-wrap">
                   {stop.name}
                   {isOffice && (
                     <>
-                      <span className="text-[10px] font-bold uppercase tracking-wide bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
+                      <span className="text-xs font-medium bg-[var(--tone-danger-soft)] text-[var(--tone-danger-ink)] px-2 py-0.5 rounded-full">
                         Office
                       </span>
-                      <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
+                      <span className="text-xs font-medium bg-[var(--tone-warning-soft)] text-[var(--tone-warning-ink)] px-2 py-0.5 rounded-full">
                         {direction === "MORNING" ? "AM last" : "PM first"}
                       </span>
                     </>
@@ -171,7 +170,7 @@ function StopTimeline({ stops, direction }: { stops: RouteStop[]; direction: "MO
                   </div>
                 )}
                 {isOffice && (
-                  <div className="text-[10px] text-red-600/80 mt-0.5">Employees cannot be assigned here</div>
+                  <div className="text-xs text-[var(--tone-danger-ink)] mt-0.5">Employees cannot be assigned here</div>
                 )}
               </div>
             </div>
@@ -340,12 +339,10 @@ export default function RouteDetailPage() {
   return (
     <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
       <div className="flex items-center gap-3">
-        <Link href="/company/routes">
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <ArrowLeft className="w-3.5 h-3.5" />
-            {t("backToRoutes")}
-          </Button>
-        </Link>
+        <PillButton variant="outline" size="sm" href="/company/routes">
+          <ArrowLeft className="w-4 h-4 rtl-flip" />
+          {t("backToRoutes")}
+        </PillButton>
       </div>
 
       {loading ? (
@@ -355,30 +352,30 @@ export default function RouteDetailPage() {
         </Card>
       ) : error ? (
         <Card className="py-12 text-center">
-          <div className="text-sm text-red-500">{error}</div>
+          <div className="text-sm text-[var(--tone-danger-ink)]">{error}</div>
         </Card>
       ) : !route ? (
-        <Card className="py-12 text-center">
-          <div className="text-sm text-[var(--text-muted)]">{t("routeNotFound")}</div>
+        <Card>
+          <EmptyState illustration="search" title={t("routeNotFound")} />
         </Card>
       ) : (
         <>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)] mb-1">
+              <div className="text-sm text-[var(--text-muted)] mb-2">
                 {t("routeDetailLabel")}
               </div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-[var(--text-primary)] flex items-center gap-3">
-                <Bus className="w-7 h-7 text-[var(--cort-orange)]" />
+              <h1 className="text-[2rem] sm:text-[2.5rem] font-medium leading-[1.1] tracking-[-0.02em] text-[var(--text-primary)] flex items-center gap-3">
+                <IllustrationTile name="bus" size="md" />
                 {route.name}
               </h1>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-3">
               {canManageShuttle && (
                 <>
                   <Button
                     variant="outline"
-                    className="gap-2"
+                    className="rounded-full h-11 px-5 gap-2"
                     disabled={generatingTrips}
                     onClick={handleGenerateTrips}
                   >
@@ -386,60 +383,35 @@ export default function RouteDetailPage() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="gap-2"
+                    className="rounded-full h-11 px-5 gap-2"
                     disabled={optimizing}
                     onClick={handleOptimizeRoute}
                   >
                     <Sparkles className="w-4 h-4" />
                     {optimizing ? t("optimizingRoute") : t("optimizeRoute")}
                   </Button>
-                  <Button
-                    variant="default"
-                    className="gap-2 bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white"
-                    onClick={() => setShowAssignModal(true)}
-                  >
-                    <UserPlus className="w-4 h-4" />
+                  <PillButton icon={<UserPlus strokeWidth={2} />} onClick={() => setShowAssignModal(true)}>
                     {t("assignEmployee")}
-                  </Button>
+                  </PillButton>
                 </>
               )}
-              <Link href={`/company/routes/${routeId}/track`}>
-                <Button variant="outline" className="gap-2">
-                  <Activity className="w-4 h-4" />
-                  {t("trackLive")}
-                </Button>
-              </Link>
+              <PillButton variant="secondary" href={`/company/routes/${routeId}/track`} icon={<Activity />}>
+                {t("trackLive")}
+              </PillButton>
             </div>
           </div>
 
           {canManageShuttle && (
-            <div className="flex gap-2 border-b border-[var(--border-light)]">
-              <button
-                type="button"
-                onClick={() => setActiveTab("overview")}
-                className={cx(
-                  "px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors",
-                  activeTab === "overview"
-                    ? "border-[var(--cort-orange)] text-[var(--cort-orange)]"
-                    : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                )}
-              >
-                {t("overviewTab")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("stops")}
-                className={cx(
-                  "px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors inline-flex items-center gap-1.5",
-                  activeTab === "stops"
-                    ? "border-[var(--cort-orange)] text-[var(--cort-orange)]"
-                    : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                )}
-              >
-                <ListOrdered className="w-4 h-4" />
-                {t("manageStops")}
-              </button>
-            </div>
+            <UnderlineTabs
+              size="md"
+              className="border-b border-[var(--divider)]"
+              value={activeTab}
+              onChange={setActiveTab}
+              items={[
+                { value: "overview", label: t("overviewTab") },
+                { value: "stops", label: t("manageStops"), icon: ListOrdered },
+              ]}
+            />
           )}
 
           {activeTab === "stops" && canManageShuttle ? (
@@ -451,35 +423,32 @@ export default function RouteDetailPage() {
               {
                 label: t("passengers"),
                 value: employees.length,
-                icon: <Users className="w-4 h-4" />,
-                color: "text-[var(--cort-orange)]",
+                illustration: "people" as IllustrationName,
               },
               {
                 label: t("stops"),
                 value: stops.filter((s) => s.morning_sequence != null).length,
-                icon: <MapPin className="w-4 h-4" />,
-                color: "text-emerald-400",
+                illustration: "busstop" as IllustrationName,
               },
               {
                 label: t("vehicle"),
                 value: vehicle?.plate_number ?? "—",
-                icon: <Car className="w-4 h-4" />,
-                color: "text-blue-400",
+                illustration: "car" as IllustrationName,
               },
               {
                 label: utilizationPct !== null ? t("utilization", { count: `${employees.length}/${capacity}` }) : t("driver"),
                 value: utilizationPct !== null ? `${utilizationPct}%` : (driver?.full_name ?? t("unassigned")),
-                icon: <User className="w-4 h-4" />,
-                color: utilizationPct !== null && utilizationPct > 85 ? "text-red-400" : "text-purple-400",
+                illustration: (utilizationPct !== null ? "chart" : "key") as IllustrationName,
+                valueClass: utilizationPct !== null && utilizationPct > 85 ? "text-[var(--tone-danger-ink)]" : "text-[var(--text-primary)]",
               },
             ].map((stat) => (
-              <Card key={stat.label} className="!p-4 flex items-center gap-3">
-                <div className={cx("p-2 rounded-xl bg-[var(--bg-subtle)]", stat.color)}>{stat.icon}</div>
+              <Card key={stat.label} className="!p-5 flex items-center gap-4">
+                <IllustrationTile name={stat.illustration} size="sm" />
                 <div className="min-w-0">
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  <div className="text-xs text-[var(--text-muted)]">
                     {stat.label}
                   </div>
-                  <div className="text-lg font-bold text-[var(--text-primary)] truncate">{stat.value}</div>
+                  <div className={cx("text-lg font-medium truncate", stat.valueClass ?? "text-[var(--text-primary)]")}>{stat.value}</div>
                 </div>
               </Card>
             ))}
@@ -491,24 +460,24 @@ export default function RouteDetailPage() {
             {/* Left: Employees */}
             <div className="lg:col-span-2">
               <Card className="!p-0 overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-light)]">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--divider)]">
                   <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-[var(--cort-orange)]" />
-                    <span className="font-semibold text-[var(--text-primary)]">
+                    <Users className="w-5 h-5 text-[var(--cort-orange)]" />
+                    <span className="text-xl font-medium text-[var(--text-primary)]">
                       {t("passengersOnThisRoute")}
                     </span>
-                    <span className="rounded-full bg-[var(--cort-orange)]/10 px-2 py-0.5 text-xs font-bold text-[var(--cort-orange)]">
+                    <span className="rounded-full bg-[var(--cort-orange)]/10 px-2 py-0.5 text-xs font-medium text-[var(--cort-orange)]">
                       {employees.length}
                     </span>
                   </div>
                   {capacity && (
                     <div className="text-xs text-[var(--text-muted)]">
                       {t("capacity", { current: employees.length, max: capacity })}
-                      <div className="mt-1 h-1.5 w-20 rounded-full bg-[var(--bg-subtle)] overflow-hidden">
+                      <div className="mt-1 h-1.5 w-20 rounded-full bg-[var(--tile-bg)] overflow-hidden">
                         <div
                           className={cx(
                             "h-full rounded-full transition-all",
-                            utilizationPct! > 85 ? "bg-red-500" : utilizationPct! > 60 ? "bg-amber-500" : "bg-emerald-500"
+                            utilizationPct! > 85 ? "bg-[var(--accent-danger)]" : utilizationPct! > 60 ? "bg-[var(--accent-warning)]" : "bg-[var(--accent-success)]"
                           )}
                           style={{ width: `${utilizationPct}%` }}
                         />
@@ -518,39 +487,39 @@ export default function RouteDetailPage() {
                 </div>
 
                 {employees.length === 0 ? (
-                  <div className="py-16 text-center">
-                    <Users className="w-8 h-8 mx-auto mb-3 text-[var(--text-muted)] opacity-40" />
-                    <div className="text-sm text-[var(--text-muted)]">{t("noEmployeesAssigned")}</div>
-                    {canManageShuttle && (
+                  <EmptyState
+                    illustration="people"
+                    title={t("noEmployeesAssigned")}
+                    action={canManageShuttle ? (
                       <Button
                         variant="outline"
-                        className="mt-4 gap-2"
+                        className="rounded-full h-11 px-5 gap-2"
                         onClick={() => setShowAssignModal(true)}
                       >
                         <UserPlus className="w-4 h-4" />
                         {t("assignAnEmployee")}
                       </Button>
-                    )}
-                  </div>
+                    ) : undefined}
+                  />
                 ) : (
-                  <div className="divide-y divide-[var(--border-light)]">
+                  <div className="divide-y divide-[var(--divider)]">
                     {employees.map((assignment) => {
                       const emp = assignment.users;
                       const pickupStop = assignment.route_stops;
                       return (
                         <div
                           key={assignment.user_id}
-                          className="flex items-center gap-4 px-6 py-3.5 hover:bg-[var(--bg-subtle)] transition-colors"
+                          className="flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-4 hover:bg-[var(--row-hover)] transition-colors"
                         >
                           {/* Avatar */}
-                          <div className="w-9 h-9 rounded-full bg-[var(--cort-orange)]/10 flex items-center justify-center flex-shrink-0">
-                            <span className="text-sm font-bold text-[var(--cort-orange)]">
+                          <div className="w-11 h-11 rounded-full bg-[var(--tone-brand-soft)] flex items-center justify-center flex-shrink-0">
+                            <span className="text-sm font-medium text-[var(--cort-orange)]">
                               {emp?.full_name?.charAt(0)?.toUpperCase() ?? "?"}
                             </span>
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm text-[var(--text-primary)] truncate">
+                            <div className="font-medium text-sm text-[var(--text-primary)] truncate">
                               {emp?.full_name ?? tCommon("status.unknown")}
                             </div>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
@@ -573,14 +542,14 @@ export default function RouteDetailPage() {
                           </div>
 
                           {pickupStop && (
-                            <div className="flex items-center gap-1.5 flex-shrink-0 rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] px-2.5 py-1 text-xs text-[var(--text-secondary)]">
+                            <div className="flex items-center gap-1.5 flex-shrink-0 rounded-full bg-[var(--tile-bg)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
                               <MapPin className="w-3 h-3 text-[var(--cort-orange)]" />
                               <span className="font-medium">{pickupStop.name}</span>
                             </div>
                           )}
 
                           {hasMultipleOffices && assignment.office_route_stops && (
-                            <div className="flex items-center gap-1.5 flex-shrink-0 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs text-red-700">
+                            <div className="flex items-center gap-1.5 flex-shrink-0 rounded-full bg-[var(--tone-danger-soft)] px-3 py-1.5 text-xs text-[var(--tone-danger-ink)]">
                               <Building2 className="w-3 h-3" />
                               <span className="font-medium">{assignment.office_route_stops.name}</span>
                             </div>
@@ -590,7 +559,7 @@ export default function RouteDetailPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="gap-1.5 h-8 text-red-500 border-red-200 hover:bg-red-50"
+                              className="rounded-full h-9 px-4 gap-1.5 text-[var(--tone-danger-ink)] border-[var(--tone-danger-line)] hover:bg-[var(--tone-danger-soft)]"
                               disabled={removingUserId === emp.id}
                               onClick={() => handleRemoveEmployee(emp.id)}
                             >
@@ -621,28 +590,28 @@ export default function RouteDetailPage() {
                 />
               ) : (
                 <Card className="!p-5">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
+                  <div className="text-lg font-medium text-[var(--text-primary)] mb-4">
                     {t("vehicleAndDriver")}
                   </div>
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-[var(--bg-subtle)] text-blue-400">
+                      <div className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--tile-bg)] text-[var(--tone-info-ink)]">
                         <Car className="w-4 h-4" />
                       </div>
                       <div>
                         <div className="text-xs text-[var(--text-muted)]">{t("vehicle")}</div>
-                        <div className="text-sm font-semibold text-[var(--text-primary)]">
+                        <div className="text-sm font-medium text-[var(--text-primary)]">
                           {vehicle ? `${vehicle.plate_number}${vehicle.model ? ` · ${vehicle.model}` : ""}` : t("notAssigned")}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-[var(--bg-subtle)] text-purple-400">
+                      <div className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--tile-bg)] text-[var(--tone-purple-ink)]">
                         <User className="w-4 h-4" />
                       </div>
                       <div>
                         <div className="text-xs text-[var(--text-muted)]">{t("driver")}</div>
-                        <div className="text-sm font-semibold text-[var(--text-primary)]">
+                        <div className="text-sm font-medium text-[var(--text-primary)]">
                           {driver?.full_name ?? t("notAssigned")}
                         </div>
                         {driver?.phone && (
@@ -657,7 +626,7 @@ export default function RouteDetailPage() {
               {canManageShuttle && (
                 <Button
                   variant="outline"
-                  className="gap-2 w-full"
+                  className="rounded-full h-11 px-5 gap-2 w-full"
                   onClick={() => setActiveTab("stops")}
                 >
                   <ListOrdered className="w-4 h-4" />
@@ -668,8 +637,8 @@ export default function RouteDetailPage() {
               {/* Morning stops */}
               <Card className="!p-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <Sunrise className="w-4 h-4 text-amber-500" />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-amber-600">
+                  <Sunrise className="w-4 h-4 text-[var(--tone-warning-ink)]" />
+                  <span className="text-[15px] font-medium text-[var(--text-primary)]">
                     {t("morningRoute")}
                   </span>
                   <span className="text-xs text-[var(--text-muted)]">
@@ -682,8 +651,8 @@ export default function RouteDetailPage() {
               {/* Evening stops */}
               <Card className="!p-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <Sunset className="w-4 h-4 text-indigo-500" />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
+                  <Sunset className="w-4 h-4 text-[var(--tone-info-ink)]" />
+                  <span className="text-[15px] font-medium text-[var(--text-primary)]">
                     {t("eveningRoute")}
                   </span>
                   <span className="text-xs text-[var(--text-muted)]">
@@ -701,30 +670,31 @@ export default function RouteDetailPage() {
 
       {showAssignModal && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] backdrop-blur-[2px] p-4"
           onClick={() => setShowAssignModal(false)}
         >
           <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <Card className="!p-0 shadow-2xl border-[var(--border-light)] overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-light)] bg-[var(--bg-subtle)]">
-                <h3 className="font-bold text-[var(--text-primary)]">{t("assignEmployeeTitle")}</h3>
+            <Card className="!p-0 shadow-[var(--shadow-modal)] overflow-hidden">
+              <div className="flex items-center justify-between px-6 pt-6 pb-2">
+                <h3 className="text-xl font-medium text-[var(--text-primary)]">{t("assignEmployeeTitle")}</h3>
                 <button
                   type="button"
                   onClick={() => setShowAssignModal(false)}
-                  className="p-1 rounded-lg hover:bg-[var(--border-light)] text-[var(--text-muted)] transition-colors"
+                  aria-label={tCommon("actions.cancel")}
+                  className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--pill-line)] text-[var(--text-primary)] hover:bg-[var(--nav-hover-bg)] transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">
+                  <label className="block text-[13px] text-[var(--text-muted)] mb-1.5 px-1">
                     {t("selectEmployee")}
                   </label>
                   <select
                     value={selectedUserId}
                     onChange={(e) => setSelectedUserId(e.target.value)}
-                    className="w-full h-10 rounded-lg border border-[var(--border-input)] bg-[var(--bg-input)] px-3 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none transition-all"
+                    className="w-full h-11 rounded-full border border-[var(--border-input)] bg-[var(--bg-input)] px-4 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none transition-all"
                   >
                     <option value="">{t("chooseEmployee")}</option>
                     {allEmployees
@@ -736,19 +706,19 @@ export default function RouteDetailPage() {
                       ))}
                   </select>
                   {allEmployees.length === 0 && employeeStatus !== "loading" && (
-                    <p className="text-xs text-amber-500 mt-1">{t("noCompanyEmployees")}</p>
+                    <p className="text-xs text-[var(--tone-warning-ink)] mt-1">{t("noCompanyEmployees")}</p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">
+                  <label className="block text-[13px] text-[var(--text-muted)] mb-1.5 px-1">
                     {t("pickupStop")}{" "}
                     <span className="text-[var(--text-muted)] font-normal">{t("pickupStopOptional")}</span>
                   </label>
                   <select
                     value={selectedStopId}
                     onChange={(e) => setSelectedStopId(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full h-10 rounded-lg border border-[var(--border-input)] bg-[var(--bg-input)] px-3 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none transition-all"
+                    className="w-full h-11 rounded-full border border-[var(--border-input)] bg-[var(--bg-input)] px-4 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none transition-all"
                   >
                     <option value="">{t("noneAutomatic")}</option>
                     {pickupStops.map((stop) => (
@@ -764,13 +734,13 @@ export default function RouteDetailPage() {
 
                 {hasMultipleOffices && (
                   <div>
-                    <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">
+                    <label className="block text-[13px] text-[var(--text-muted)] mb-1.5 px-1">
                       Office
                     </label>
                     <select
                       value={selectedOfficeStopId}
                       onChange={(e) => setSelectedOfficeStopId(e.target.value ? Number(e.target.value) : "")}
-                      className="w-full h-10 rounded-lg border border-[var(--border-input)] bg-[var(--bg-input)] px-3 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none transition-all"
+                      className="w-full h-11 rounded-full border border-[var(--border-input)] bg-[var(--bg-input)] px-4 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none transition-all"
                     >
                       <option value="">Select office</option>
                       {officeStopsList.map((stop) => (
@@ -785,14 +755,14 @@ export default function RouteDetailPage() {
                   </div>
                 )}
               </div>
-              <div className="px-6 py-4 border-t border-[var(--border-light)] bg-[var(--bg-subtle)] flex justify-end gap-3">
-                <Button variant="outline" onClick={() => setShowAssignModal(false)}>
+              <div className="px-6 py-4 border-t border-[var(--divider)] flex justify-end gap-3">
+                <Button className="rounded-full h-11 px-5" variant="outline" onClick={() => setShowAssignModal(false)}>
                   {tCommon("actions.cancel")}
                 </Button>
                 <Button
                   disabled={!selectedUserId || assigning}
                   onClick={handleAssignEmployee}
-                  className="bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white"
+                  className="rounded-full h-11 px-5"
                 >
                   {assigning ? t("assigningEmployee") : t("confirmAssignment")}
                 </Button>

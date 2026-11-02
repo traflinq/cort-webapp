@@ -43,27 +43,27 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
     return (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-5 px-2">
             {/* Page Info */}
-            <div className="text-sm font-medium text-slate-500 order-2 sm:order-1">
-                Showing page <span className="font-bold text-navy">{currentPage}</span> of{' '}
-                <span className="font-bold text-navy">{totalPages}</span>
+            <div className="text-sm text-[var(--text-muted)] order-2 sm:order-1">
+                Showing page <span className="font-medium text-[var(--text-primary)]">{currentPage}</span> of{' '}
+                <span className="font-medium text-[var(--text-primary)]">{totalPages}</span>
             </div>
 
             {/* Controls */}
-            <div className="flex items-center gap-1 order-1 sm:order-2 bg-white/50 p-1 rounded-full border border-slate-100/50 shadow-sm">
+            <div className="flex items-center gap-1 order-1 sm:order-2 bg-[var(--bg-card)] p-1 rounded-full border border-[var(--pill-line,var(--border-default))]">
                 <button
                     onClick={() => onPageChange(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-full text-slate-400 hover:text-navy hover:bg-white transition-all disabled:opacity-30 disabled:hover:bg-transparent"
+                    className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
                     aria-label="Previous Page"
                 >
-                    <ChevronLeft className="w-5 h-5" />
+                    <ChevronLeft className="w-5 h-5 rtl-flip" />
                 </button>
 
                 <div className="hidden sm:flex items-center gap-1 px-2">
                     {displayPages.map((page, idx) => {
                         if (page === '...') {
                             return (
-                                <span key={`ellipsis-${idx}`} className="w-8 h-8 flex items-center justify-center text-slate-300">
+                                <span key={`ellipsis-${idx}`} className="w-9 h-9 flex items-center justify-center text-[var(--text-muted)]">
                                     <MoreHorizontal className="w-4 h-4" />
                                 </span>
                             );
@@ -75,10 +75,10 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
                                 key={page}
                                 onClick={() => onPageChange(page as number)}
                                 className={`
-                                    w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold transition-all
+                                    w-9 h-9 flex items-center justify-center rounded-full text-sm font-medium tabular-nums transition-colors
                                     ${isCurrent
-                                        ? 'bg-navy text-white shadow-md shadow-navy/20 scale-105'
-                                        : 'text-slate-600 hover:bg-slate-100 hover:text-navy'
+                                        ? 'bg-[var(--cort-navy)] text-white'
+                                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]'
                                     }
                                 `}
                             >
@@ -89,17 +89,17 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
                 </div>
 
                 {/* Mobile simplified view */}
-                <div className="flex sm:hidden items-center px-4 font-bold text-sm text-navy">
+                <div className="flex sm:hidden items-center px-4 font-medium text-sm text-[var(--text-primary)] tabular-nums">
                     {currentPage} / {totalPages}
                 </div>
 
                 <button
                     onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-full text-slate-400 hover:text-navy hover:bg-white transition-all disabled:opacity-30 disabled:hover:bg-transparent"
+                    className="p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
                     aria-label="Next Page"
                 >
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-5 h-5 rtl-flip" />
                 </button>
             </div>
         </div>

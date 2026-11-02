@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useAppDispatch, useAppSelector } from "../lib/store/hooks";
 import { fetchDashboardStats, selectDashboardStats, selectDashboardStatus } from "../lib/store/slices/dashboardSlice";
-import { selectCompany } from "../lib/store/slices/companySlice";
+import { selectCompany, selectCompanyFeatures } from "../lib/store/slices/companySlice";
 import { useAuth } from "../lib/contexts/auth-context";
 import { useState, useEffect } from "react";
 import { apiClient } from "../lib/services/api-client";
@@ -15,18 +15,20 @@ import CreateBookingForm from "./bookings/components/CreateBookingForm";
 import EditBudgetForm from "./components/EditBudgetForm";
 import {
   TakingCareSection,
-  NothingToDoSection,
   ValueDeliveredSection,
   CostVisibilitySection,
   EmployeeUsageSection,
-  SmartInsightsSection,
   AdoptionHealthSection,
   ServiceUsageSection,
 
   PremiumTeaser,
-  OutstandingAmountRow
 } from "./components/DashboardComponents";
 import DashboardSkeleton from "./components/DashboardSkeleton";
+import { BalancePromoCard, BudgetPaceCard, DemandPatternCard, InsightsPanel, LiveMobilityCard, ServiceTabsCard } from "./components/DashboardOverview";
+import { DateChip, PillButton } from "./ui";
+import { useCompanyBasePath } from "./lib/use-company-base-path";
+import { HIDE_INVOICING_COMPANY_IDS } from "./ui/CompanyShell";
+import { Plus } from "lucide-react";
 import LiveMobilityCenter from "./components/LiveMobilityCenter";
 import CostLeakageDetector from "./components/CostLeakageDetector";
 
@@ -39,11 +41,14 @@ type RosterChanges = {
 export default function CompanyDashboardPage() {
   const dispatch = useAppDispatch();
   const company = useAppSelector(selectCompany);
+  const features = useAppSelector(selectCompanyFeatures);
+  const { companyPath } = useCompanyBasePath();
   const dashboardStats = useAppSelector(selectDashboardStats);
   const status = useAppSelector(selectDashboardStatus);
   const t = useTranslations('company.dashboard');
   const tErrors = useTranslations('common.errors');
   const tCommon = useTranslations('common');
+  const tOverview = useTranslations('company.overview');
   const { locale } = useCompanyLocale();
   const loading = status === 'loading';
   const error = status === 'failed' ? tErrors('failedToLoadStats') : null;
@@ -238,147 +243,166 @@ export default function CompanyDashboardPage() {
   const hasChauffeur = isChauffeurEnabled;
   const isDualService = hasChauffeur && hasShuttle;
 
-  const analyticsGridClass =
-    "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 auto-rows-[minmax(180px,auto)] sm:auto-rows-[minmax(220px,auto)] grid-flow-dense min-w-0";
-
-  const smartInsightsClass = hasShuttle && !hasChauffeur
-    ? "lg:col-span-1 xl:col-span-2 dashboard-section dashboard-section-delay-5"
-    : "lg:col-span-2 dashboard-section dashboard-section-delay-5";
-
-  const costVisibilityClass = hasChauffeur && !hasShuttle
-    ? "lg:col-span-2 xl:col-span-2 dashboard-section dashboard-section-delay-4"
-    : "lg:col-span-2 dashboard-section dashboard-section-delay-4";
-
-  const adoptionHealthClass = hasChauffeur && !hasShuttle
-    ? "xl:col-span-2 dashboard-section dashboard-section-delay-3"
-    : "xl:col-span-1 dashboard-section dashboard-section-delay-3";
+  const invoicingVisible =
+    !user?.is_trial &&
+    !(user?.company_id != null && HIDE_INVOICING_COMPANY_IDS.has(user.company_id)) &&
+    features.some((f) => (f.feature_key === "chauffeur_cort_managed" || f.feature_key === "shuttle_cort_managed") && f.is_enabled);
+  const reportsHref = user?.is_trial
+    ? null
+    : hasShuttle
+      ? companyPath("/company/reports/shuttle")
+      : hasChauffeur
+        ? companyPath("/company/reports/chauffeur")
+        : null;
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-6 pb-12 relative max-w-[1600px] mx-auto w-full min-w-0">
-
-      {/* Welcome Header */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 dashboard-section dashboard-section-delay-1 relative z-10 has-[.invoice-tooltip-trigger:hover]:z-[200]">
-        {/* Welcome Banner - Premium Background Image (Dark Theme - No Fade) */}
-        <div className="lg:col-span-2 relative rounded-[1.5rem] sm:rounded-[2rem] bg-[#0c1a3d] p-5 sm:p-6 md:p-8 shadow-[0_1px_4px_rgba(0,0,0,0.18)] border border-[var(--border-default)] overflow-hidden flex flex-col justify-center min-h-[180px] sm:min-h-[200px] md:min-h-[220px] hover:shadow-[0_2px_10px_rgba(0,0,0,0.24)] transition-all duration-200 group">
-
-          {/* Background Image Layer */}
-          <div
-            className="absolute inset-0 bg-no-repeat"
-            style={{
-              backgroundImage: "url('/image.png')",
-              backgroundSize: "cover",
-              backgroundPosition: "center", // Resetting to center to ensure it covers everything smoothly
-            }}
-          ></div>
-
-          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between h-full">
-            <div className="flex flex-col justify-center mt-auto sm:mt-0">
-              <div className="flex items-center gap-2 text-white text-opacity-70 mb-1">
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider backdrop-blur-sm bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
-                  {formatLocaleDate(today, locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                </span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-white mb-2 leading-tight">
-                {t('welcomeBack')}{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
-                  {user?.full_name?.split(' ')[0] || tCommon('misc.admin')}
-                </span>
-              </h1>
-              <p className="text-white text-opacity-80 max-w-xl text-sm sm:text-base md:text-lg">
-                {hasChauffeur
-                  ? t('upcomingBookings', { count: todayBookingsCount })
-                  : t('servicesActive')
-                }
-              </p>
-            </div>
-
-            {hasChauffeur && (
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="group relative flex items-center justify-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-[var(--cort-orange-hover)] hover:-translate-y-0.5 shadow-lg active:translate-y-0 active:shadow-md whitespace-nowrap w-full sm:w-auto"
-              >
-                <svg className="w-4 h-4 text-white transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                </svg>
-                <span>{tCommon('actions.newBooking')}</span>
-              </button>
-            )}
-          </div>
+    <div className="flex flex-col gap-6 pb-12 w-full min-w-0">
+      {/* Header: title + actions ("Smart Delivery Dashboard") */}
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 dashboard-section dashboard-section-delay-1">
+        <div className="min-w-0">
+          <h1 className="text-[2rem] font-medium leading-[1.1] tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2.75rem]">
+            {t('title')}
+          </h1>
+          <p className="mt-3 text-[15px] text-[var(--text-muted)]">
+            {t('welcomeBack')} {user?.full_name?.split(' ')[0] || tCommon('misc.admin')}.{' '}
+            {hasChauffeur ? t('upcomingBookings', { count: todayBookingsCount }) : t('servicesActive')}
+          </p>
         </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {hasChauffeur && (
+            <PillButton variant="primary" icon={<Plus strokeWidth={2.2} />} onClick={() => setIsModalOpen(true)}>
+              {tCommon('actions.newBooking')}
+            </PillButton>
+          )}
+          <DateChip label={formatLocaleDate(today, locale, { weekday: 'short', day: '2-digit', month: 'short' })} />
+        </div>
+      </div>
 
-        {/* Quick Status - "Nothing specific for you to do" */}
-        <div className="lg:col-span-1 h-full relative overflow-visible">
-          <NothingToDoSection 
-            data={data.nothingToDo} 
-            outstandingAmount={dashboardStats?.chauffeur.outstandingAmount}
-            invoices={dashboardStats?.chauffeur.outstandingInvoices}
+      {/* Reference grid: map + promo | live mobility + ring / service tabs | insights */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,24fr)_minmax(0,25fr)_minmax(0,17fr)_minmax(0,34fr)] dashboard-section dashboard-section-delay-2">
+        <div className="min-h-[340px] xl:col-start-1 xl:row-start-1">
+          <LiveMobilityCenter data={data.mobility} variant="compact" />
+        </div>
+        <div className="xl:col-start-1 xl:row-start-2">
+          <BalancePromoCard
+            outstandingAmount={hasChauffeur ? (dashboardStats?.chauffeur.outstandingAmount ?? 0) : 0}
+            invoiceCount={dashboardStats?.chauffeur.outstandingInvoices?.length ?? 0}
+            estimatedSavings={data.valueDelivered.estimatedSavings}
+            invoicesHref={invoicingVisible ? companyPath("/company/invoicing") : null}
           />
         </div>
-      </div>
-
-      {/* Value Delivered - Hero Row */}
-      {(hasChauffeur || hasShuttle) && (
-        <div className="w-full dashboard-section dashboard-section-delay-3">
-          <ValueDeliveredSection data={data.valueDelivered} rosterChanges={rosterChanges} hasChauffeur={hasChauffeur} hasShuttle={hasShuttle} />
+        <div className="xl:col-start-2 xl:row-start-1">
+          <LiveMobilityCard
+            mobility={data.mobility}
+            hasChauffeur={hasChauffeur}
+            hasShuttle={hasShuttle}
+            topPassenger={data.employeeUsage.topPassenger}
+            rosterChanges={rosterChanges}
+            bookingsHref={companyPath("/company/bookings")}
+            routeHref={(id) => companyPath(`/company/routes/${id}`)}
+          />
         </div>
-      )}
-
-      {/* Live Mobility Command Center - NEW */}
-      <div className="w-full dashboard-section dashboard-section-delay-3">
-        <LiveMobilityCenter data={data.mobility} />
-      </div>
-
-      {/* 2. Main Analytics Grid */}
-      <div className={analyticsGridClass}>
-
-        {/* We're Taking Care of This */}
-        {hasChauffeur && (
-          <div className="xl:col-span-1 dashboard-section dashboard-section-delay-2">
-            <TakingCareSection data={data.takingCare} />
-          </div>
-        )}
-
-        {/* Employee Usage - Wider card */}
-        <div className="xl:col-span-1 dashboard-section dashboard-section-delay-3">
-          <EmployeeUsageSection data={data.employeeUsage} />
+        <div className="xl:col-start-3 xl:row-start-1">
+          <BudgetPaceCard
+            spend={data.cost.totalSpendMTD}
+            budget={data.cost.budget}
+            activeEmployees={data.employeeUsage.activeEmployees}
+            totalEmployees={data.employeeUsage.totalEmployees}
+            hasChauffeur={hasChauffeur}
+          />
         </div>
-
-        {/* Cost Visibility */}
-        {hasChauffeur && (
-          <div className={costVisibilityClass}>
-            <CostVisibilitySection
-              data={data.cost}
-              onEditBudget={() => setIsBudgetModalOpen(true)}
+        <div className="md:col-span-2 xl:col-start-2 xl:col-end-4 xl:row-start-2">
+          {dashboardStats && (
+            <ServiceTabsCard
+              data={data}
+              stats={dashboardStats}
+              rosterChanges={rosterChanges}
+              hasChauffeur={hasChauffeur}
+              hasShuttle={hasShuttle}
+              onRefresh={() => companyId && dispatch(fetchDashboardStats(companyId))}
+              refreshing={loading}
+              hrefs={{
+                bookings: companyPath("/company/bookings"),
+                routes: companyPath("/company/routes"),
+                employees: companyPath("/company/employees"),
+              }}
             />
-          </div>
-        )}
-
-        {/* Smart Insights */}
-        {(hasChauffeur || hasShuttle) && (
-          <div className={smartInsightsClass}>
-            <SmartInsightsSection insights={data.smartInsights} seasonality={data.seasonality} />
-          </div>
-        )}
-
-        {isDualService && (
-          <div className="xl:col-span-1 dashboard-section dashboard-section-delay-4">
-            <ServiceUsageSection data={data.services} hasChauffeur={hasChauffeur} hasShuttle={hasShuttle} />
-          </div>
-        )}
-
-        <div className={adoptionHealthClass}>
-          <AdoptionHealthSection data={data.adminHealth} />
+          )}
+        </div>
+        <div className="md:col-span-2 xl:col-span-1 xl:col-start-4 xl:row-start-1 xl:row-end-3">
+          {dashboardStats && (
+            <InsightsPanel
+              stats={dashboardStats}
+              insights={data.smartInsights}
+              onEditBudget={hasChauffeur ? () => setIsBudgetModalOpen(true) : null}
+              reportsHref={reportsHref}
+            />
+          )}
         </div>
       </div>
 
-      {/* Power Insights (Optimization) - Enhanced with Cost Leakage Detector */}
+      {/* Performance: KPI strip + bento grid of the analytics sections */}
+      <section aria-labelledby="dashboard-performance" className="mt-4 flex flex-col gap-5">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <h2 id="dashboard-performance" className="text-2xl font-medium text-[var(--text-primary)]">{tOverview('performance')}</h2>
+            <p className="mt-1.5 text-[15px] text-[var(--text-muted)]">{tOverview('performanceSubtitle')}</p>
+          </div>
+        </div>
+
+        {(hasChauffeur || hasShuttle) && (
+          <div className="w-full dashboard-section dashboard-section-delay-3">
+            <ValueDeliveredSection data={data.valueDelivered} rosterChanges={rosterChanges} hasChauffeur={hasChauffeur} hasShuttle={hasShuttle} />
+          </div>
+        )}
+
+        <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-12 xl:grid-flow-dense">
+          {hasChauffeur && (
+            <div className="md:col-span-2 xl:col-span-6 dashboard-section dashboard-section-delay-3">
+              <CostVisibilitySection data={data.cost} onEditBudget={() => setIsBudgetModalOpen(true)} />
+            </div>
+          )}
+
+          <div className="xl:col-span-3 xl:row-span-2 dashboard-section dashboard-section-delay-3">
+            <EmployeeUsageSection data={data.employeeUsage} />
+          </div>
+
+          {isDualService ? (
+            <div className="xl:col-span-3 dashboard-section dashboard-section-delay-4">
+              <ServiceUsageSection data={data.services} hasChauffeur={hasChauffeur} hasShuttle={hasShuttle} />
+            </div>
+          ) : (
+            <div className="xl:col-span-3 dashboard-section dashboard-section-delay-4">
+              <AdoptionHealthSection data={data.adminHealth} />
+            </div>
+          )}
+
+          {hasChauffeur && (
+            <div className="xl:col-span-3 dashboard-section dashboard-section-delay-4">
+              <TakingCareSection data={data.takingCare} />
+            </div>
+          )}
+
+          {(hasChauffeur || hasShuttle) && (
+            <div className={`${hasChauffeur ? "xl:col-span-3" : "md:col-span-2 xl:col-span-6"} dashboard-section dashboard-section-delay-4`}>
+              <DemandPatternCard seasonality={data.seasonality} />
+            </div>
+          )}
+
+          {isDualService && (
+            <div className="xl:col-span-3 dashboard-section dashboard-section-delay-4">
+              <AdoptionHealthSection data={data.adminHealth} />
+            </div>
+          )}
+        </div>
+      </section>
+
       {(hasChauffeur || hasShuttle) && (
         <div className="dashboard-section dashboard-section-delay-5">
           <CostLeakageDetector data={data.costLeakage} />
         </div>
       )}
 
-      {/* Premium Teaser */}
       <PremiumTeaser />
 
       <Modal

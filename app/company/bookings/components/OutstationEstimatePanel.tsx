@@ -29,17 +29,17 @@ export default function OutstationEstimatePanel(props: OutstationEstimatePanelPr
     const daysLabel = String(props.noOfDays);
 
     return (
-        <div className="mt-4 rounded-2xl border border-[#fe8503]/20 bg-[#fe8503]/[0.04] overflow-hidden">
+        <div className="mt-4 rounded-[20px] bg-[var(--bg-card)] overflow-hidden">
             {/* Header */}
-            <div className="flex items-center gap-2.5 px-5 py-3 border-b border-[var(--cort-orange)]/10">
+            <div className="flex items-center gap-2.5 px-5 py-3 border-b border-[var(--divider)]">
                 <svg className="w-3.5 h-3.5 text-[var(--cort-orange)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-secondary)]">
+                <span className="text-xs font-medium text-[var(--text-secondary)]">
                     {t('estimatedCost')}
                 </span>
-                <span className="ms-1 text-[9px] text-[var(--text-muted)] font-bold">{t('roundTripLabel')}</span>
-                <span className="ms-auto text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
+                <span className="ms-1 text-[11px] text-[var(--text-muted)] font-medium">{t('roundTripLabel')}</span>
+                <span className="ms-auto text-[11px] font-medium text-[var(--text-muted)]">
                     {t('viaGoogleMaps')}
                 </span>
             </div>
@@ -49,7 +49,7 @@ export default function OutstationEstimatePanel(props: OutstationEstimatePanelPr
                 {isLoading && (
                     <div className="flex items-center gap-3 py-3">
                         <div className="h-4 w-4 rounded-full border-2 border-[var(--cort-orange)] border-t-transparent animate-spin shrink-0" />
-                        <span className="text-[11px] font-bold text-[var(--text-muted)]">
+                        <span className="text-[11px] font-medium text-[var(--text-muted)]">
                             {t('calculatingDistances')}
                         </span>
                     </div>
@@ -57,7 +57,7 @@ export default function OutstationEstimatePanel(props: OutstationEstimatePanelPr
 
                 {/* Error */}
                 {!isLoading && error && (
-                    <div className="flex items-center gap-2 py-2 text-[11px] text-rose-500 font-bold">
+                    <div className="flex items-center gap-2 py-2 text-[11px] text-[var(--tone-danger-ink)] font-medium">
                         <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                         </svg>
@@ -67,14 +67,14 @@ export default function OutstationEstimatePanel(props: OutstationEstimatePanelPr
 
                 {/* No contract rate */}
                 {!isLoading && !error && !props.contractRate && (
-                    <div className="text-[11px] text-[var(--text-muted)] font-bold py-2">
+                    <div className="text-[11px] text-[var(--text-muted)] font-medium py-2">
                         {t('selectVehicleForEstimate')}
                     </div>
                 )}
 
                 {/* No origin city */}
                 {!isLoading && !error && props.contractRate && !props.originCity.trim() && (
-                    <div className="text-[11px] text-[var(--text-muted)] font-bold py-2">
+                    <div className="text-[11px] text-[var(--text-muted)] font-medium py-2">
                         {t('enterBookingCity')}
                     </div>
                 )}
@@ -89,18 +89,18 @@ export default function OutstationEstimatePanel(props: OutstationEstimatePanelPr
                                 <div key={i} className="relative flex items-start gap-3 pb-3 last:pb-0">
                                     {/* Timeline line */}
                                     {i < estimate.legs.length - 1 && (
-                                        <div className="absolute start-[7px] top-5 bottom-0 w-px bg-white/10" />
+                                        <div className="absolute start-[7px] top-5 bottom-0 w-px bg-[var(--tile-bg)]" />
                                     )}
                                     {/* Dot */}
                                     <div className={`relative mt-0.5 shrink-0 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
-                                        leg.isReturn
-                                            ? 'border-white/60 bg-white/60'
-                                            : i === 0
-                                                ? 'border-[#fe8503] bg-[#fe8503]'
-                                                : 'border-white/20 bg-white/10'
-                                    }`}>
+ leg.isReturn
+ ? 'border-[var(--cort-navy)] bg-[var(--cort-navy)]'
+ : i === 0
+ ? 'border-[var(--cort-orange)] bg-[var(--cort-orange)]'
+ : 'border-[var(--border-default)] bg-[var(--tile-bg)]'
+ }`}>
                                         {leg.isReturn && (
-                                            <svg className="w-2 h-2 text-[var(--text-primary)]" fill="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 24 24">
                                                 <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
                                             </svg>
                                         )}
@@ -109,23 +109,23 @@ export default function OutstationEstimatePanel(props: OutstationEstimatePanelPr
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="flex items-center gap-1.5 min-w-0">
-                                                <span className="text-[11px] font-black text-[var(--text-primary)] truncate">{leg.from}</span>
-                                                <svg className="w-3 h-3 text-white/20 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <span className="text-[11px] font-medium text-[var(--text-primary)] truncate">{leg.from}</span>
+                                                <svg className="w-3 h-3 text-[var(--text-muted)] shrink-0 rtl-flip" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                                                 </svg>
-                                                <span className="text-[11px] font-black text-[var(--text-primary)] truncate">{leg.to}</span>
+                                                <span className="text-[11px] font-medium text-[var(--text-primary)] truncate">{leg.to}</span>
                                                 {leg.isReturn && (
-                                                    <span className="shrink-0 text-[9px] font-black uppercase bg-white/10 text-[var(--text-secondary)] px-1.5 py-0.5 rounded-full">
+                                                    <span className="shrink-0 text-[11px] font-medium bg-[var(--tile-bg)] text-[var(--text-secondary)] px-1.5 py-0.5 rounded-full">
                                                         {t('returnLeg')}
                                                     </span>
                                                 )}
                                             </div>
                                             <div className="shrink-0 text-end">
-                                                <span className="text-[11px] font-black text-[#fe8503]">
+                                                <span className="text-[11px] font-medium text-[var(--cort-orange)]">
                                                     {leg.distanceKm > 0 ? t('kmUnit', { distance: leg.distanceKm }) : '—'}
                                                 </span>
                                                 {leg.durationText && leg.durationText !== 'N/A' && (
-                                                    <span className="ms-1.5 text-[10px] text-[var(--text-muted)] font-bold">({leg.durationText})</span>
+                                                    <span className="ms-1.5 text-xs text-[var(--text-muted)] font-medium">({leg.durationText})</span>
                                                 )}
                                             </div>
                                         </div>
@@ -134,14 +134,14 @@ export default function OutstationEstimatePanel(props: OutstationEstimatePanelPr
                             ))}
 
                             {/* Total distance */}
-                            <div className="flex items-center justify-between pt-3 mt-1 border-t border-[#fe8503]/10">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">{t('totalRoundTripDistance')}</span>
-                                <span className="text-[13px] font-black text-[var(--text-primary)]">{t('kmUnit', { distance: estimate.totalKm })}</span>
+                            <div className="flex items-center justify-between pt-3 mt-1 border-t border-[var(--divider)]">
+                                <span className="text-xs font-medium text-[var(--text-muted)]">{t('totalRoundTripDistance')}</span>
+                                <span className="text-[13px] font-medium text-[var(--text-primary)]">{t('kmUnit', { distance: estimate.totalKm })}</span>
                             </div>
                         </div>
 
                         {/* Cost breakdown */}
-                        <div className="rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-default)] p-4 flex flex-col gap-2.5">
+                        <div className="rounded-2xl bg-[var(--tile-bg)] p-4 flex flex-col gap-2.5">
 
                             {/* Service charges */}
                             <CostRow
@@ -188,21 +188,21 @@ export default function OutstationEstimatePanel(props: OutstationEstimatePanelPr
                                     fmt={fmt}
                                     currency={tCommon('currency.pkr')}
                                 />
-                                <p className="text-[9px] text-[var(--text-muted)] font-bold mt-1">
+                                <p className="text-[11px] text-[var(--text-muted)] font-medium mt-1">
                                     {t('tollParkingNote')}
                                 </p>
                             </div>
 
                             {/* Grand total */}
                             <div className="border-t-2 border-[var(--border-input)] pt-3 mt-0.5 flex items-center justify-between">
-                                <span className="text-[11px] font-black uppercase tracking-wider text-[var(--text-primary)]">{t('estimatedTotal')}</span>
-                                <span className="text-[16px] font-black text-[var(--cort-orange)]">
+                                <span className="text-[11px] font-medium text-[var(--text-primary)]">{t('estimatedTotal')}</span>
+                                <span className="text-[16px] font-medium text-[var(--cort-orange)]">
                                     {tCommon('currency.pkr')} {fmt(estimate.total)}
                                 </span>
                             </div>
                         </div>
 
-                        <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase tracking-tight leading-relaxed">
+                        <p className="text-[11px] text-[var(--text-muted)] font-medium tracking-tight leading-relaxed">
                             {t('estimateDisclaimer')}
                         </p>
                     </div>
@@ -224,12 +224,12 @@ function CostRow({ label, value, sub, muted, accent, fmt, currency }: {
     return (
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-                <span className={`text-[11px] font-bold ${muted ? 'text-[var(--text-muted)]' : 'text-[var(--text-secondary)]'}`}>{label}</span>
-                {sub && <span className="text-[9px] text-[var(--text-muted)] font-bold">{sub}</span>}
+                <span className={`text-[11px] font-medium ${muted ? 'text-[var(--text-muted)]' : 'text-[var(--text-secondary)]'}`}>{label}</span>
+                {sub && <span className="text-[11px] text-[var(--text-muted)] font-medium">{sub}</span>}
             </div>
-            <span className={`text-[11px] font-black ${
-                muted ? 'text-[var(--text-muted)]' : accent ? 'text-[#fe8503]' : 'text-white'
-            }`}>
+            <span className={`text-[11px] font-medium ${
+ muted ? 'text-[var(--text-muted)]' : accent ? 'text-[var(--cort-orange)]' : 'text-[var(--text-primary)]'
+ }`}>
                 {currency} {fmt(value)}
             </span>
         </div>

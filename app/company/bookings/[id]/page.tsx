@@ -10,16 +10,18 @@ import { BookingVendorRequest } from "../../../lib/services/types/multi-mode";
 import { toast } from "sonner";
 import { useCompanyLocale } from "../../lib/locale-context";
 import { formatLocaleDate } from "../../../lib/i18n/format";
+import { Card } from "../../components/DashboardComponents";
+import { IllustrationTile, PillButton } from "../../ui";
 
 function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
 }
 
 const STATUS_COLORS: Record<string, string> = {
-    PENDING: "bg-yellow-100 text-yellow-700",
-    ACCEPTED: "bg-green-100 text-green-700",
-    REJECTED: "bg-red-100 text-red-700",
-    EXPIRED: "bg-gray-100 text-gray-500",
+    PENDING: "bg-[var(--tone-warning-soft)] text-[var(--tone-warning-ink)]",
+    ACCEPTED: "bg-[var(--tone-success-soft)] text-[var(--tone-success-ink)]",
+    REJECTED: "bg-[var(--tone-danger-soft)] text-[var(--tone-danger-ink)]",
+    EXPIRED: "bg-[var(--tone-neutral-soft)] text-[var(--tone-neutral-ink)]",
 };
 
 export default function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -74,11 +76,11 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
     };
 
     if (loading) {
-        return <div className="p-8 text-sm text-gray-400">{t("loadingBooking")}</div>;
+        return <div className="p-8 text-sm text-[var(--text-muted)]">{t("loadingBooking")}</div>;
     }
 
     if (!booking) {
-        return <div className="p-8 text-sm text-gray-500">{t("bookingNotFound")}</div>;
+        return <div className="p-8 text-sm text-[var(--text-muted)]">{t("bookingNotFound")}</div>;
     }
 
     const bookingData = booking as ChauffeurBooking & {
@@ -102,109 +104,112 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
     ];
 
     return (
-        <div className="p-6 space-y-6 max-w-4xl mx-auto">
-            <Link href="/company/bookings" className="inline-flex items-center gap-1 text-sm text-[#f47f00] hover:underline">
-                ← {t("backToBookings")}
+        <div className="space-y-6 max-w-[1600px] mx-auto pb-12">
+            <Link href="/company/bookings" className="inline-flex items-center gap-1 text-sm text-[var(--cort-orange)] hover:underline">
+                <span className="rtl-flip inline-block">←</span> {t("backToBookings")}
             </Link>
 
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                <div className="flex items-start justify-between mb-4">
-                    <div>
-                        <h1 className="text-xl font-bold text-[#0c225e]">#{booking.id}</h1>
-                        <p className="text-sm text-gray-500 mt-0.5">{bookingData.service_category ?? t("chauffeurRide")}</p>
+            <Card>
+                <div className="flex items-start justify-between gap-4 mb-6">
+                    <div className="flex items-center gap-4">
+                        <IllustrationTile name="car" size="md" />
+                        <div>
+                        <h1 className="text-[2rem] font-medium leading-tight tracking-[-0.02em] text-[var(--text-primary)]">#{booking.id}</h1>
+                        <p className="text-[15px] text-[var(--text-muted)] mt-1">{bookingData.service_category ?? t("chauffeurRide")}</p>
+                        </div>
                     </div>
-                    <span className={cx("inline-flex px-3 py-1 rounded-full text-xs font-semibold", STATUS_COLORS[bookingData.status ?? ""] ?? "bg-gray-100 text-gray-500")}>
+                    <span className={cx("inline-flex px-3 py-1.5 rounded-full text-xs font-medium", STATUS_COLORS[bookingData.status ?? ""] ?? "bg-[var(--tone-neutral-soft)] text-[var(--tone-neutral-ink)]")}>
                         {bookingData.status ?? "—"}
                     </span>
                 </div>
 
-                <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-                    <div>
-                        <dt className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t("pickup")}</dt>
-                        <dd className="text-gray-800 mt-0.5">{bookingData.pickup_address ?? "—"}</dd>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-[var(--radius-tile)] bg-[var(--tile-bg)] px-4 py-3">
+                        <dt className="text-xs text-[var(--text-muted)]">{t("pickup")}</dt>
+                        <dd className="text-[15px] text-[var(--text-primary)] mt-1">{bookingData.pickup_address ?? "—"}</dd>
                     </div>
-                    <div>
-                        <dt className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t("scheduledFor")}</dt>
-                        <dd className="text-gray-800 mt-0.5 ltr-content">
+                    <div className="rounded-[var(--radius-tile)] bg-[var(--tile-bg)] px-4 py-3">
+                        <dt className="text-xs text-[var(--text-muted)]">{t("scheduledFor")}</dt>
+                        <dd className="text-[15px] text-[var(--text-primary)] mt-1 ltr-content">
                             {bookingData.scheduled_for
                                 ? formatLocaleDate(bookingData.scheduled_for, locale, { dateStyle: "medium", timeStyle: "short" })
                                 : "—"}
                         </dd>
                     </div>
-                    <div>
-                        <dt className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t("package")}</dt>
-                        <dd className="text-gray-800 mt-0.5">{bookingData.package_selected ?? "—"}</dd>
+                    <div className="rounded-[var(--radius-tile)] bg-[var(--tile-bg)] px-4 py-3">
+                        <dt className="text-xs text-[var(--text-muted)]">{t("package")}</dt>
+                        <dd className="text-[15px] text-[var(--text-primary)] mt-1">{bookingData.package_selected ?? "—"}</dd>
                     </div>
-                    <div>
-                        <dt className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t("fulfillment")}</dt>
-                        <dd className="mt-0.5">
-                            <span className={cx("inline-flex px-2 py-0.5 rounded text-xs font-semibold",
-                                isExternalVendor ? "bg-blue-100 text-blue-700" :
-                                bookingData.fulfillment_type === "SELF_MANAGED" ? "bg-purple-100 text-purple-700" :
-                                "bg-orange-100 text-orange-700"
+                    <div className="rounded-[var(--radius-tile)] bg-[var(--tile-bg)] px-4 py-3">
+                        <dt className="text-xs text-[var(--text-muted)]">{t("fulfillment")}</dt>
+                        <dd className="mt-1.5">
+                            <span className={cx("inline-flex px-2.5 py-1 rounded-full text-xs font-medium",
+                                isExternalVendor ? "bg-[var(--tone-info-soft)] text-[var(--tone-info-ink)]" :
+                                bookingData.fulfillment_type === "SELF_MANAGED" ? "bg-[var(--tone-purple-soft)] text-[var(--tone-purple-ink)]" :
+                                "bg-[var(--tone-brand-soft)] text-[var(--tone-brand-ink)]"
                             )}>
                                 {bookingData.fulfillment_type ?? "CORT_MANAGED"}
                             </span>
                         </dd>
                     </div>
                 </dl>
-            </div>
+            </Card>
 
             {showVendorResponses && (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <Card>
                     {!isExternalVendor && vendorRequests.length > 0 && (
-                        <p className="text-xs text-slate-600 mb-3">
+                        <p className="text-sm text-[var(--text-muted)] mb-4">
                             {t("vendorBroadcastNote")}
                         </p>
                     )}
                     <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-base font-bold text-[#0c225e]">{t("vendorResponses")}</h2>
+                        <h2 className="text-xl font-medium text-[var(--text-primary)]">{t("vendorResponses")}</h2>
                         {vendorRequests.some((r) => r.status === "PENDING") && (
-                            <span className="text-xs text-gray-400">{t("autoRefreshing")}</span>
+                            <span className="text-xs text-[var(--text-muted)]">{t("autoRefreshing")}</span>
                         )}
                     </div>
 
                     {vendorRequests.length === 0 ? (
-                        <p className="text-sm text-gray-400">{t("noVendorResponses")}</p>
+                        <p className="text-sm text-[var(--text-muted)]">{t("noVendorResponses")}</p>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-gray-50 border-b border-gray-200">
+                                <thead className="border-b border-[var(--divider)]">
                                     <tr>
                                         {vendorTableHeaders.map((h) => (
-                                            <th key={h} className="px-3 py-2.5 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
+                                            <th key={h} className="px-3 py-3 text-start text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap">{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
+                                <tbody className="divide-y divide-[var(--divider)]">
                                     {vendorRequests.map((req) => (
-                                        <tr key={req.id} className={cx("hover:bg-gray-50", req.status === "ACCEPTED" && "bg-green-50")}>
-                                            <td className="px-3 py-3 font-medium text-gray-900">
+                                        <tr key={req.id} className={cx("hover:bg-[var(--row-hover)]", req.status === "ACCEPTED" && "bg-[var(--tone-success-soft)]")}>
+                                            <td className="px-3 py-3 font-medium text-[var(--text-primary)]">
                                                 {req.company_vendor_links?.companies?.name ?? `Link #${req.company_vendor_link_id}`}
                                             </td>
                                             <td className="px-3 py-3">
-                                                <span className={cx("inline-flex px-2 py-0.5 rounded-full text-xs font-semibold", STATUS_COLORS[req.status] ?? "bg-gray-100 text-gray-500")}>
+                                                <span className={cx("inline-flex px-2.5 py-1 rounded-full text-xs font-medium", STATUS_COLORS[req.status] ?? "bg-[var(--tone-neutral-soft)] text-[var(--tone-neutral-ink)]")}>
                                                     {req.status}
                                                 </span>
                                             </td>
-                                            <td className="px-3 py-3 text-gray-600">
+                                            <td className="px-3 py-3 text-[var(--text-secondary)]">
                                                 {req.vehicles ? `${req.vehicles.plate_number} — ${req.vehicles.make} ${req.vehicles.model}` : "—"}
                                             </td>
-                                            <td className="px-3 py-3 text-gray-600">
+                                            <td className="px-3 py-3 text-[var(--text-secondary)]">
                                                 {req.users?.full_name ?? "—"}
                                             </td>
-                                            <td className="px-3 py-3 text-gray-500 text-xs ltr-content">
+                                            <td className="px-3 py-3 text-[var(--text-muted)] text-xs ltr-content">
                                                 {req.responded_at ? formatLocaleDate(req.responded_at, locale, { dateStyle: "medium", timeStyle: "short" }) : "—"}
                                             </td>
                                             <td className="px-3 py-3">
                                                 {req.status === "ACCEPTED" && (
-                                                    <button
+                                                    <PillButton
+                                                        size="sm"
                                                         onClick={() => confirmVendor(req.id)}
                                                         disabled={confirming === req.id}
-                                                        className="bg-[#f47f00] text-white text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-50 hover:bg-[#d96e00] transition-colors"
                                                     >
                                                         {confirming === req.id ? t("confirming") : t("confirmVendor")}
-                                                    </button>
+                                                    </PillButton>
                                                 )}
                                             </td>
                                         </tr>
@@ -213,7 +218,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
                             </table>
                         </div>
                     )}
-                </div>
+                </Card>
             )}
         </div>
     );

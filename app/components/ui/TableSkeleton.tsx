@@ -10,10 +10,10 @@ export default function TableSkeleton({ columns = 5, rows = 5 }: TableSkeletonPr
     return (
         <>
             {Array.from({ length: rows }).map((_, rowIndex) => (
-                <tr key={rowIndex} className="border-b border-slate-100/50">
+                <tr key={rowIndex} className="border-b border-[var(--divider)]">
                     {Array.from({ length: columns }).map((_, colIndex) => (
                         <td key={colIndex} className="px-6 py-4">
-                            <Skeleton className="h-5 w-full bg-slate-100" />
+                            <Skeleton className="h-5 w-full" />
                         </td>
                     ))}
                 </tr>

@@ -16,6 +16,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PillButton } from "../../ui";
 import { Button } from "@/app/admin/ui/Button";
 import { Card } from "../../components/DashboardComponents";
 import StopAddressSearch from "@/app/admin/ui/StopAddressSearch";
@@ -49,8 +50,8 @@ type RouteStopsEditorProps = {
 };
 
 const inputCls =
-  "w-full rounded-lg border border-[var(--border-input)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none disabled:opacity-60";
-const labelCls = "block text-xs font-semibold text-[var(--text-muted)] mb-1";
+  "w-full h-11 rounded-full border border-[var(--border-input)] bg-[var(--bg-input)] px-4 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none disabled:opacity-60";
+const labelCls = "block text-[13px] text-[var(--text-muted)] mb-1.5 px-1";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -78,20 +79,20 @@ function deriveDirection(stop: CompanyRouteStop): StopDirection {
 function DirectionBadge({ direction, t }: { direction: StopDirection; t: (key: string) => string }) {
   if (direction === "MORNING") {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 border border-amber-500/20">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--tone-warning-soft)] text-[var(--tone-warning-ink)] border border-[var(--tone-warning-line)]">
         <Sunrise className="w-3 h-3" /> {t("morningOnly")}
       </span>
     );
   }
   if (direction === "EVENING") {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--tone-info-soft)] text-[var(--tone-info-ink)] border border-[var(--tone-info-line)]">
         <Sunset className="w-3 h-3" /> {t("eveningOnly")}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--tone-success-soft)] text-[var(--tone-success-ink)] border border-[var(--tone-success-line)]">
       <ArrowLeftRight className="w-3 h-3" /> {t("bothDirections")}
     </span>
   );
@@ -114,7 +115,7 @@ function SequenceInput({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className={cx("inline-flex items-center gap-1 text-xs font-semibold", colorClass)}>
+      <span className={cx("inline-flex items-center gap-1 text-xs font-medium", colorClass)}>
         {icon} {label}
       </span>
       <input
@@ -123,7 +124,7 @@ function SequenceInput({
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-20 px-2 py-1.5 border border-[var(--border-input)] rounded-lg text-sm text-center bg-[var(--bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--cort-orange)] disabled:opacity-60"
+        className="w-20 h-9 px-2 border border-[var(--border-input)] rounded-full text-sm text-center bg-[var(--bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--cort-orange)] disabled:opacity-60"
         placeholder="#"
       />
     </div>
@@ -364,14 +365,14 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
         {isAdding && (
           <div>
             <label className={labelCls}>Stop Type</label>
-            <div className="mt-1 flex rounded-lg border border-[var(--border-light)] p-0.5 bg-[var(--bg-subtle)] w-fit">
+            <div className="mt-1 flex rounded-full p-1 bg-[var(--tile-bg)] w-fit">
               <button
                 type="button"
                 onClick={() => handleStopTypeChange("PICKUP")}
                 className={cx(
-                  "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+                  "flex items-center justify-center gap-1.5 rounded-full h-8 px-3.5 text-xs transition-colors",
                   formData.stopType === "PICKUP"
-                    ? "bg-[var(--cort-orange)] text-white shadow-sm"
+                    ? "bg-[var(--cort-navy)] text-white"
                     : "text-[var(--text-muted)] hover:bg-[var(--bg-card)]",
                 )}
               >
@@ -381,9 +382,9 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
                 type="button"
                 onClick={() => handleStopTypeChange("OFFICE")}
                 className={cx(
-                  "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+                  "flex items-center justify-center gap-1.5 rounded-full h-8 px-3.5 text-xs transition-colors",
                   formData.stopType === "OFFICE"
-                    ? "bg-red-500 text-white shadow-sm"
+                    ? "bg-red-500 text-white"
                     : "text-[var(--text-muted)] hover:bg-[var(--bg-card)]",
                 )}
               >
@@ -394,28 +395,28 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
         )}
 
         {isOfficeForm && (
-          <div className="rounded-lg border-2 border-red-300 bg-red-50 p-3 flex items-start gap-3">
+          <div className="rounded-[20px] bg-[var(--tone-danger-soft)] p-4 flex items-start gap-3">
             <span className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0">
               <Building2 className="w-4 h-4" />
             </span>
             <div>
-              <p className="text-sm font-bold text-red-800">Company Office</p>
-              <p className="text-xs text-red-700 mt-0.5">
+              <p className="text-sm font-medium text-[var(--tone-danger-ink)]">Company Office</p>
+              <p className="text-xs text-[var(--tone-danger-ink)] mt-0.5">
                 Employees cannot be assigned to this stop as a pickup.
                 {isEditingOffice && " Morning last stop · Evening first stop."}
               </p>
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {isEditingOffice && (
                   <>
-                    <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
+                    <span className="text-xs font-medium bg-[var(--tone-warning-soft)] text-[var(--tone-warning-ink)] px-2 py-0.5 rounded-full">
                       AM last
                     </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wide bg-violet-100 text-violet-800 px-1.5 py-0.5 rounded">
+                    <span className="text-xs font-medium bg-[var(--tone-purple-soft)] text-[var(--tone-purple-ink)] px-2 py-0.5 rounded-full">
                       PM first
                     </span>
                   </>
                 )}
-                <span className="text-[10px] font-bold uppercase tracking-wide bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded">
+                <span className="text-xs bg-[var(--tone-neutral-soft)] text-[var(--tone-neutral-ink)] px-2.5 py-0.5 rounded-full">
                   No employee assignment
                 </span>
               </div>
@@ -433,7 +434,7 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
           />
         </div>
 
-        <div className="rounded-lg overflow-hidden border border-[var(--border-light)]" style={{ height: 200 }}>
+        <div className="rounded-[20px] overflow-hidden bg-[var(--tile-bg)]" style={{ height: 200 }}>
           <Map
             height="100%"
             markers={mapMarkers}
@@ -504,10 +505,10 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
         </div>
 
         <div className={cx(
-          "flex flex-wrap items-end gap-6 pt-1 pb-1 px-3 py-3 border rounded-lg",
-          isOfficeForm ? "bg-red-50 border-red-200" : "bg-[var(--bg-subtle)] border-[var(--border-light)]",
+          "flex flex-wrap items-end gap-6 p-4 rounded-[20px]",
+          isOfficeForm ? "bg-[var(--tone-danger-soft)]" : "bg-[var(--tile-bg)]",
         )}>
-          <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide w-full -mb-2">
+          <span className="text-[13px] text-[var(--text-muted)] w-full -mb-2">
             {isEditingOffice ? "Office position (locked)" : isOfficeForm ? "Office position" : t("stopPositionInRoute")}
           </span>
           {(formData.direction === "MORNING" || formData.direction === "BOTH" || isOfficeForm) && (
@@ -516,7 +517,7 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
               value={formData.morning_sequence}
               onChange={(v) => setFormData({ ...formData, morning_sequence: v })}
               icon={<Sunrise className="w-3 h-3" />}
-              colorClass="text-amber-600"
+              colorClass="text-[var(--tone-warning-ink)]"
               disabled={isEditingOffice}
             />
           )}
@@ -526,7 +527,7 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
               value={formData.evening_sequence}
               onChange={(v) => setFormData({ ...formData, evening_sequence: v })}
               icon={<Sunset className="w-3 h-3" />}
-              colorClass="text-indigo-600"
+              colorClass="text-[var(--tone-info-ink)]"
               disabled={isEditingOffice}
             />
           )}
@@ -544,33 +545,32 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
 
   return (
     <Card className="!p-0 overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-light)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-5 border-b border-[var(--divider)]">
         <div>
-          <h3 className="font-semibold text-[var(--text-primary)]">
+          <h3 className="text-xl font-medium text-[var(--text-primary)]">
             {t("manageStops")} ({stops.length})
           </h3>
-          <p className="text-xs text-[var(--text-muted)] mt-0.5">{t("manageStopsDescription")}</p>
+          <p className="text-sm text-[var(--text-muted)] mt-1">{t("manageStopsDescription")}</p>
         </div>
         {!isAdding && !editingStopId && (
-          <Button onClick={handleAddClick} className="gap-2 bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white">
-            <Plus className="w-4 h-4" />
+          <PillButton onClick={handleAddClick} icon={<Plus strokeWidth={2} />}>
             {t("addStop")}
-          </Button>
+          </PillButton>
         )}
       </div>
 
       <div className="p-6 space-y-4">
         {isAdding && (
-          <div className="rounded-xl border border-[var(--border-light)] bg-[var(--bg-subtle)] p-4">
+          <div className="rounded-[20px] bg-[var(--tile-bg)] p-5">
             <h4 className="font-medium mb-3 text-[var(--text-primary)] flex items-center gap-2">
               <Plus className="w-4 h-4 text-[var(--cort-orange)]" /> {t("newStop")}
             </h4>
             {renderFormFields()}
             <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={resetForm}>
-                <X className="w-4 h-4 mr-1" /> {tCommon("actions.cancel")}
+              <Button className="rounded-full h-11 px-5" variant="outline" onClick={resetForm}>
+                <X className="w-4 h-4 me-1" /> {tCommon("actions.cancel")}
               </Button>
-              <Button onClick={handleSubmit} disabled={isSaving} className="bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white">
+              <Button onClick={handleSubmit} disabled={isSaving} className="rounded-full h-11 px-5">
                 {isSaving ? t("savingStop") : t("saveStop")}
               </Button>
             </div>
@@ -590,21 +590,21 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
             if (isEditingThisStop) {
               return (
                 <div key={stop.id} className={cx(
-                  "rounded-xl border p-4",
+                  "rounded-[20px] border p-5",
                   isOffice
-                    ? "border-red-300 bg-red-50"
+                    ? "border-[var(--tone-danger-line)] bg-[var(--tone-danger-soft)]"
                     : "border-[var(--cort-orange)]/30 bg-[var(--cort-orange)]/5",
                 )}>
                   <h4 className="font-medium mb-3 text-[var(--text-primary)] flex items-center gap-2">
-                    {isOffice ? <Building2 className="w-4 h-4 text-red-600" /> : <Edit className="w-4 h-4" />}
+                    {isOffice ? <Building2 className="w-4 h-4 text-[var(--tone-danger-ink)]" /> : <Edit className="w-4 h-4" />}
                     {isOffice ? `Editing office: ${stop.name}` : t("editingStop", { name: stop.name })}
                   </h4>
                   {renderFormFields()}
                   <div className="flex justify-end gap-2 mt-4">
-                    <Button variant="outline" size="sm" onClick={resetForm}>
-                      <X className="w-4 h-4 mr-1" /> {tCommon("actions.cancel")}
+                    <Button className="rounded-full h-9 px-4" variant="outline" size="sm" onClick={resetForm}>
+                      <X className="w-4 h-4 me-1" /> {tCommon("actions.cancel")}
                     </Button>
-                    <Button size="sm" onClick={handleSubmit} disabled={isSaving} className="bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white">
+                    <Button size="sm" onClick={handleSubmit} disabled={isSaving} className="rounded-full h-9 px-4">
                       {isSaving ? t("updatingStop") : t("updateStop")}
                     </Button>
                   </div>
@@ -616,10 +616,10 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
               <div
                 key={stop.id}
                 className={cx(
-                  "flex items-center justify-between p-3 border rounded-xl transition-colors",
+                  "flex items-center justify-between gap-3 p-3 rounded-[20px] transition-colors",
                   isOffice
-                    ? "bg-red-50 border-red-300"
-                    : "bg-[var(--bg-card)] border-[var(--border-light)] hover:bg-[var(--bg-subtle)]",
+                    ? "bg-[var(--tone-danger-soft)]"
+                    : "bg-[var(--bg-card)] hover:bg-[var(--tile-bg)]",
                 )}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -631,12 +631,12 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
                     ) : (
                       <>
                         {stop.morning_sequence != null && (
-                          <div className="w-8 h-8 flex items-center justify-center bg-amber-500/10 text-amber-600 rounded-full font-bold text-sm">
+                          <div className="w-8 h-8 flex items-center justify-center bg-[var(--tone-warning-soft)] text-[var(--tone-warning-ink)] rounded-full font-medium text-sm">
                             {stop.morning_sequence}
                           </div>
                         )}
                         {stop.evening_sequence != null && (
-                          <div className="w-8 h-8 flex items-center justify-center bg-indigo-500/10 text-indigo-600 rounded-full font-bold text-sm">
+                          <div className="w-8 h-8 flex items-center justify-center bg-[var(--tone-info-soft)] text-[var(--tone-info-ink)] rounded-full font-medium text-sm">
                             {stop.evening_sequence}
                           </div>
                         )}
@@ -648,16 +648,16 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
                       <span className="font-medium text-[var(--text-primary)]">{stop.name}</span>
                       {isOffice ? (
                         <>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--bg-card)] text-[var(--tone-danger-ink)]">
                             <Building2 className="w-3 h-3" /> Office
                           </span>
-                          <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
+                          <span className="text-xs font-medium bg-[var(--tone-warning-soft)] text-[var(--tone-warning-ink)] px-2 py-0.5 rounded-full">
                             AM last
                           </span>
-                          <span className="text-[10px] font-bold uppercase tracking-wide bg-violet-100 text-violet-800 px-1.5 py-0.5 rounded">
+                          <span className="text-xs font-medium bg-[var(--tone-purple-soft)] text-[var(--tone-purple-ink)] px-2 py-0.5 rounded-full">
                             PM first
                           </span>
-                          <span className="text-[10px] font-bold uppercase tracking-wide bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+                          <span className="text-xs bg-[var(--tone-neutral-soft)] text-[var(--tone-neutral-ink)] px-2.5 py-0.5 rounded-full">
                             No assignment
                           </span>
                         </>
@@ -676,7 +676,7 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
                   <button
                     type="button"
                     onClick={() => handleEditClick(stop)}
-                    className="p-2 text-[var(--text-muted)] hover:text-[var(--cort-orange)] rounded-lg hover:bg-[var(--bg-subtle)]"
+                    className="inline-flex size-9 items-center justify-center rounded-full border border-[var(--pill-line)] text-[var(--text-primary)] hover:bg-[var(--nav-hover-bg)] transition-colors"
                     title={tCommon("actions.edit")}
                   >
                     <Edit className="w-4 h-4" />
@@ -686,10 +686,10 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
                     onClick={() => handleDelete(stop.id)}
                     disabled={isOffice}
                     className={cx(
-                      "p-2 rounded-lg",
+                      "inline-flex size-9 items-center justify-center rounded-full border border-[var(--pill-line)] transition-colors",
                       isOffice
-                        ? "text-gray-300 cursor-not-allowed"
-                        : "text-[var(--text-muted)] hover:text-red-500 hover:bg-[var(--bg-subtle)]",
+                        ? "text-[var(--text-light)] cursor-not-allowed"
+                        : "text-[var(--text-primary)] hover:text-[var(--tone-danger-ink)] hover:bg-[var(--tone-danger-soft)]",
                     )}
                     title={isOffice ? "Office cannot be deleted" : tCommon("actions.delete")}
                   >
@@ -703,28 +703,28 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
 
         {(morningStops.length > 0 || eveningStops.length > 0) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            <div className="border border-[var(--border-light)] rounded-xl overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border-b border-amber-500/20">
-                <Sunrise className="w-4 h-4 text-amber-600" />
-                <span className="text-sm font-semibold text-amber-700">
+            <div className="rounded-[20px] bg-[var(--tile-bg)] overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--divider)]">
+                <Sunrise className="w-4 h-4 text-[var(--tone-warning-ink)]" />
+                <span className="text-sm font-medium text-[var(--tone-warning-ink)]">
                   {t("morningRoute")} ({morningStops.length})
                 </span>
               </div>
-              <ol className="divide-y divide-[var(--border-light)]">
+              <ol className="divide-y divide-[var(--divider)]">
                 {morningStops.map((s, i) => {
                   const isOffice = officeStopIds.has(s.id);
                   return (
-                    <li key={s.id} className={cx("flex items-center gap-2 px-3 py-2 text-sm", isOffice && "bg-red-50")}>
+                    <li key={s.id} className={cx("flex items-center gap-2 px-4 py-2.5 text-sm", isOffice && "bg-[var(--tone-danger-soft)]")}>
                       <span className={cx(
-                        "w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold flex-shrink-0",
-                        isOffice ? "bg-red-500 text-white" : "bg-amber-500/10 text-amber-600",
+                        "w-5 h-5 flex items-center justify-center rounded-full text-xs font-medium flex-shrink-0",
+                        isOffice ? "bg-red-500 text-white" : "bg-[var(--tone-warning-soft)] text-[var(--tone-warning-ink)]",
                       )}>
                         {isOffice ? <Building2 className="w-3 h-3" /> : i + 1}
                       </span>
-                      <span className={cx("text-[var(--text-primary)]", isOffice && "font-semibold")}>{s.name}</span>
-                      {isOffice && <span className="text-[10px] font-bold uppercase text-red-600">Office · last</span>}
+                      <span className={cx("text-[var(--text-primary)]", isOffice && "font-medium")}>{s.name}</span>
+                      {isOffice && <span className="text-xs font-medium text-[var(--tone-danger-ink)]">Office · last</span>}
                       {s.morning_eta && (
-                        <span className="ml-auto text-xs text-[var(--text-muted)]">{formatTime(s.morning_eta)}</span>
+                        <span className="ms-auto text-xs text-[var(--text-muted)]">{formatTime(s.morning_eta)}</span>
                       )}
                     </li>
                   );
@@ -732,28 +732,28 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
               </ol>
             </div>
 
-            <div className="border border-[var(--border-light)] rounded-xl overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 border-b border-indigo-500/20">
-                <Sunset className="w-4 h-4 text-indigo-600" />
-                <span className="text-sm font-semibold text-indigo-700">
+            <div className="rounded-[20px] bg-[var(--tile-bg)] overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--divider)]">
+                <Sunset className="w-4 h-4 text-[var(--tone-info-ink)]" />
+                <span className="text-sm font-medium text-[var(--tone-info-ink)]">
                   {t("eveningRoute")} ({eveningStops.length})
                 </span>
               </div>
-              <ol className="divide-y divide-[var(--border-light)]">
+              <ol className="divide-y divide-[var(--divider)]">
                 {eveningStops.map((s, i) => {
                   const isOffice = officeStopIds.has(s.id);
                   return (
-                    <li key={s.id} className={cx("flex items-center gap-2 px-3 py-2 text-sm", isOffice && "bg-red-50")}>
+                    <li key={s.id} className={cx("flex items-center gap-2 px-4 py-2.5 text-sm", isOffice && "bg-[var(--tone-danger-soft)]")}>
                       <span className={cx(
-                        "w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold flex-shrink-0",
-                        isOffice ? "bg-red-500 text-white" : "bg-indigo-500/10 text-indigo-600",
+                        "w-5 h-5 flex items-center justify-center rounded-full text-xs font-medium flex-shrink-0",
+                        isOffice ? "bg-red-500 text-white" : "bg-[var(--tone-info-soft)] text-[var(--tone-info-ink)]",
                       )}>
                         {isOffice ? <Building2 className="w-3 h-3" /> : i + 1}
                       </span>
-                      <span className={cx("text-[var(--text-primary)]", isOffice && "font-semibold")}>{s.name}</span>
-                      {isOffice && <span className="text-[10px] font-bold uppercase text-red-600">Office · first</span>}
+                      <span className={cx("text-[var(--text-primary)]", isOffice && "font-medium")}>{s.name}</span>
+                      {isOffice && <span className="text-xs font-medium text-[var(--tone-danger-ink)]">Office · first</span>}
                       {s.evening_eta && (
-                        <span className="ml-auto text-xs text-[var(--text-muted)]">{formatTime(s.evening_eta)}</span>
+                        <span className="ms-auto text-xs text-[var(--text-muted)]">{formatTime(s.evening_eta)}</span>
                       )}
                     </li>
                   );

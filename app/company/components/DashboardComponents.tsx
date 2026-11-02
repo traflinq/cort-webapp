@@ -5,13 +5,10 @@ import { useTranslations } from 'next-intl';
 import { useCompanyLocale } from '../lib/locale-context';
 import { formatLocaleDate, formatLocaleTime } from '../../lib/i18n/format';
 import {
-    CheckCircle,
-    AlertCircle,
     TrendingDown,
     TrendingUp,
     Users,
     Car,
-    Bus,
     MapPin,
     Clock,
     CreditCard,
@@ -21,9 +18,9 @@ import {
     Activity,
     FileText,
     Settings,
-    Wallet
 } from 'lucide-react';
 import { DashboardData } from '../types';
+import { PillButton } from '../ui';
 
 // --- Shared Components ---
 
@@ -37,14 +34,14 @@ const formatCurrency = (value: number) => {
 };
 
 export const Card = ({ children, className = "", withLeftBorder = false }: { children: React.ReactNode; className?: string; withLeftBorder?: boolean }) => (
-    <div className={`bg-[var(--bg-card)] border border-[var(--border-default)] rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 h-full min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200 hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] ${withLeftBorder ? 'border-s-4 border-s-[#fe8503]' : ''} ${className}`}>
+    <div className={`bg-[var(--bg-card)] rounded-[var(--radius-card,1.5rem)] p-5 sm:p-6 h-full min-w-0 shadow-[var(--shadow-card)] transition-shadow duration-200 ${withLeftBorder ? 'border-s-4 border-s-[var(--cort-orange)]' : ''} ${className}`}>
         {children}
     </div>
 );
 
 export const SectionTitle = ({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) => (
-    <h3 className="text-base sm:text-lg font-bold text-[var(--text-primary)] mb-3 sm:mb-4 flex items-center gap-2 min-w-0 flex-wrap">
-        {icon && <span className="text-[#fe8503] shrink-0">{icon}</span>}
+    <h3 className="text-lg sm:text-xl font-medium text-[var(--text-primary)] mb-3 sm:mb-4 flex items-center gap-2 min-w-0 flex-wrap">
+        {icon && <span className="text-[var(--cort-orange)] shrink-0">{icon}</span>}
         {children}
     </h3>
 );
@@ -107,15 +104,15 @@ const DonutChart = ({ data }: { data: { label: string; value: number; color: str
                 )}
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold text-[var(--text-primary)]">{total}</span>
-                <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide">{t('totalRides')}</span>
+                <span className="text-2xl font-medium tabular-nums text-[var(--text-primary)]">{total}</span>
+                <span className="text-xs text-[var(--text-muted)]">{t('totalRides')}</span>
             </div>
         </div>
     );
 };
 
 const HeatmapPlaceholder = () => (
-    <div className="relative w-full h-24 bg-[var(--surface-muted)] rounded-[2rem] overflow-hidden border border-[var(--border-light)] mt-2">
+    <div className="relative w-full h-24 bg-[var(--tile-bg)] rounded-[var(--radius-tile)] overflow-hidden mt-2">
         {/* Abstract Map Roads */}
         <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 200 100" preserveAspectRatio="none">
             <path d="M0,50 Q50,40 100,50 T200,50" stroke="var(--text-muted)" strokeWidth="2" fill="none" />
@@ -124,9 +121,9 @@ const HeatmapPlaceholder = () => (
             <path d="M20,20 L180,80" stroke="var(--text-muted)" strokeWidth="1" fill="none" />
         </svg>
         {/* Hotspots */}
-        <div className="absolute top-1/2 left-1/3 w-8 h-8 bg-[#fe8503]/20 rounded-full blur-md animate-pulse"></div>
-        <div className="absolute top-1/3 right-1/4 w-6 h-6 bg-[var(--cort-orange)]/30 rounded-full blur-md animate-pulse delay-75"></div>
-        <div className="absolute bottom-1/4 left-1/4 w-10 h-10 bg-[var(--accent-success)]/20 rounded-full blur-xl"></div>
+        <div className="absolute top-1/2 start-1/3 w-8 h-8 bg-[var(--cort-orange)]/20 rounded-full blur-md animate-pulse"></div>
+        <div className="absolute top-1/3 end-1/4 w-6 h-6 bg-[var(--cort-orange)]/30 rounded-full blur-md animate-pulse delay-75"></div>
+        <div className="absolute bottom-1/4 start-1/4 w-10 h-10 bg-[var(--accent-success)]/20 rounded-full blur-xl"></div>
     </div>
 )
 
@@ -138,28 +135,22 @@ export const TakingCareSection = ({ data }: { data: DashboardData['takingCare'] 
 
     return (
         <div className="grid grid-cols-1 gap-4 h-full">
-            <Card className="relative overflow-hidden group transition-all">
-                <div className={`absolute top-0 end-0 p-4 transition-opacity opacity-5 text-[#fe8503]`}>
-                    <AlertCircle size={80} />
-                </div>
+            <Card className="relative overflow-hidden">
                 <div className="relative z-10">
-                    <div className="text-[var(--text-muted)] font-medium text-xs sm:text-sm mb-1 uppercase tracking-wider">{t('unassignedBookings')}</div>
-                    <div className="text-4xl sm:text-5xl font-black text-[var(--text-primary)]">{data.unassignedBookings}</div>
+                    <div className="text-sm text-[var(--text-muted)] mb-1">{t('unassignedBookings')}</div>
+                    <div className="text-4xl sm:text-5xl font-medium tabular-nums text-[var(--text-primary)]">{data.unassignedBookings}</div>
                     <div className="mt-2 text-sm text-[var(--text-muted)] flex items-center gap-2 flex-wrap">
-                        {isZero ? t('allCaughtUp') : <span className="bg-[#fe8503]/15 text-[#fe8503] font-bold px-2 py-0.5 rounded-full text-xs border border-[#fe8503]/30">{t('requiresAttention')}</span>}
+                        {isZero ? t('allCaughtUp') : <span className="bg-[var(--tone-brand-soft)] text-[var(--tone-brand-ink)] px-2.5 py-0.5 rounded-full text-xs">{t('requiresAttention')}</span>}
                     </div>
                 </div>
             </Card>
 
-            <Card className="bg-[var(--bg-card)] border-[var(--border-default)] relative overflow-hidden group">
-                <div className="absolute top-0 end-0 p-4 text-[var(--accent-success)] opacity-5 group-hover:opacity-10 transition-opacity">
-                    <CheckCircle size={80} />
-                </div>
+            <Card className="relative overflow-hidden">
                 <div className="relative z-10">
-                    <div className="text-[var(--text-muted)] font-medium text-xs sm:text-sm mb-1 uppercase tracking-wider">{t('ridesCompleted')}</div>
+                    <div className="text-sm text-[var(--text-muted)] mb-1">{t('ridesCompleted')}</div>
                     <div className="flex items-baseline gap-2 flex-wrap">
-                        <div className="text-4xl sm:text-5xl font-black text-[var(--text-primary)]">{data.ridesCompleted}</div>
-                        <div className="text-sm font-bold text-[var(--text-primary)] bg-[var(--accent-success)] px-2 py-1 rounded-full">{data.completedTrend}</div>
+                        <div className="text-4xl sm:text-5xl font-medium tabular-nums text-[var(--text-primary)]">{data.ridesCompleted}</div>
+                        <div className="text-sm text-[var(--tone-success-ink)] bg-[var(--tone-success-soft)] px-2.5 py-0.5 rounded-full tabular-nums">{data.completedTrend}</div>
                     </div>
                     <div className="mt-2 text-[var(--text-muted)] text-sm">{t('successfullyCompleted')}</div>
                 </div>
@@ -180,24 +171,16 @@ export const NothingToDoSection = ({ data, outstandingAmount = 0, invoices = [] 
     const hasOutstanding = outstandingAmount > 0;
 
     return (
-        <Card className={`group relative overflow-visible bg-[var(--bg-card)] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] h-full transition-all duration-300 flex flex-col justify-between min-w-0`}>
-            {/* Background Icon matching Savings card */}
-            <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 overflow-hidden flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
-                {hasOutstanding ? (
-                    <Wallet size={120} className="text-[var(--accent-danger)]" />
-                ) : (
-                    <CheckCircle size={120} className="text-[var(--accent-success)]" />
-                )}
-            </div>
+        <Card className="relative overflow-visible h-full flex flex-col justify-between min-w-0">
             
             <div className="relative z-10 pt-2">
-                <div className="text-[var(--text-muted)] text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-4">
+                <div className="text-sm text-[var(--text-muted)] mb-4">
                     {hasOutstanding ? t('outstandingBalance') : t('currentStatus')}
                 </div>
                 {hasOutstanding && (
                     <div className="flex items-baseline flex-wrap gap-x-1 -mt-1">
-                        <span className="text-xl sm:text-2xl font-bold text-[var(--text-muted)] leading-none">{tCurrency('pkr')}</span>
-                        <span className="text-4xl sm:text-5xl lg:text-6xl font-black text-[var(--accent-danger)] tracking-tighter leading-none">
+                        <span className="text-xl sm:text-2xl font-medium tabular-nums text-[var(--text-muted)] leading-none">{tCurrency('pkr')}</span>
+                        <span className="text-4xl sm:text-5xl lg:text-6xl font-medium tabular-nums text-[var(--accent-danger)] tracking-tighter leading-none">
                             {formatCurrency(outstandingAmount)}
                         </span>
                     </div>
@@ -208,27 +191,27 @@ export const NothingToDoSection = ({ data, outstandingAmount = 0, invoices = [] 
                 {hasOutstanding ? (
                     <div className="flex flex-col">
                         <div className="group/info invoice-tooltip-trigger text-xs text-[var(--text-muted)] mt-2 flex items-center gap-2 cursor-default relative z-20" tabIndex={0}>
-                            <span className="font-bold">{t('totalUnpaidOverdue')}</span>
+                            <span className="font-medium">{t('totalUnpaidOverdue')}</span>
                             <span className="w-2 h-2 rounded-full bg-[var(--accent-danger)] inline-block animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.4)]"></span>
                             
                             {/* Invoices Tooltip — hover on desktop, focus-within for touch */}
                             {invoices.length > 0 && (
-                                <div className="invisible group-hover/info:visible group-focus-within/info:visible absolute top-full start-0 mt-3 w-[min(16rem,calc(100vw-3rem))] bg-[var(--bg-card)] border border-[var(--border-input)] rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl z-[300] overflow-hidden transform transition-all duration-200 opacity-0 group-hover/info:opacity-100 group-focus-within/info:opacity-100 -translate-y-2 group-hover/info:translate-y-0 group-focus-within/info:translate-y-0 text-start font-normal -translate-x-2">
-                                    <div className="bg-[var(--bg-subtle)] px-4 py-2 border-b border-[var(--border-default)] text-[var(--text-primary)] font-bold text-[10px] uppercase">
+                                <div className="invisible group-hover/info:visible group-focus-within/info:visible absolute top-full start-0 mt-3 w-[min(16rem,calc(100vw-3rem))] bg-[var(--bg-card)] rounded-[20px] shadow-[var(--shadow-modal)] z-[300] overflow-hidden transform transition-all duration-200 opacity-0 group-hover/info:opacity-100 group-focus-within/info:opacity-100 -translate-y-2 group-hover/info:translate-y-0 group-focus-within/info:translate-y-0 text-start font-normal -translate-x-2">
+                                    <div className="bg-[var(--bg-subtle)] px-4 py-2 border-b border-[var(--border-default)] text-[var(--text-primary)] font-medium text-xs">
                                         {t('recentOutstandingInvoices')}
                                     </div>
                                     <div className="divide-y divide-[var(--border-default)] max-h-48 overflow-y-auto">
                                         {invoices.map((inv, idx) => (
                                             <div key={idx} className="px-4 py-2 hover:bg-[var(--bg-subtle)] transition-colors">
                                                 <div className="flex justify-between items-center gap-2">
-                                                    <span className="font-mono text-[10px] text-[var(--text-primary)] font-bold truncate">{inv.invoice_number}</span>
-                                                    <span className="text-[var(--accent-danger)] font-bold text-xs shrink-0">{tCurrency('pkr')} {Number(inv.total_amount).toLocaleString()}</span>
+                                                    <span className="font-mono text-xs text-[var(--text-primary)] font-medium truncate">{inv.invoice_number}</span>
+                                                    <span className="text-[var(--accent-danger)] font-medium text-xs shrink-0">{tCurrency('pkr')} {Number(inv.total_amount).toLocaleString()}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center mt-0.5 gap-2">
-                                                    <span className="text-[10px] text-[var(--text-muted)]">
+                                                    <span className="text-xs text-[var(--text-muted)]">
                                                         {formatLocaleDate(inv.due_date, locale, { month: 'short', day: 'numeric' })}
                                                     </span>
-                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${inv.status === 'OVERDUE' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                                                    <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${inv.status === 'OVERDUE' ? 'bg-[var(--tone-danger-soft)] text-[var(--tone-danger-ink)]' : 'bg-[var(--tone-warning-soft)] text-[var(--tone-warning-ink)]'}`}>
                                                         {inv.status === 'OVERDUE' ? tStatus('overdue') : tStatus('pending')}
                                                     </span>
                                                 </div>
@@ -241,10 +224,10 @@ export const NothingToDoSection = ({ data, outstandingAmount = 0, invoices = [] 
                     </div>
                 ) : (
                     <div className="flex flex-col">
-                        <div className="text-2xl sm:text-3xl font-black text-[var(--accent-success)] tracking-tight mb-2">
+                        <div className="text-2xl sm:text-3xl font-medium tabular-nums text-[var(--accent-success)] tracking-tight mb-2">
                             {t('youAreAllCaughtUp')}
                         </div>
-                        <div className="text-xs text-[var(--text-muted)] mt-1 font-bold uppercase tracking-wider opacity-70">
+                        <div className="text-xs text-[var(--text-muted)] mt-1 font-medium opacity-70">
                             {t('noPendingActions')}
                         </div>
                     </div>
@@ -269,19 +252,16 @@ export const ValueDeliveredSection = ({ data, rosterChanges, hasChauffeur = true
 
     return (
         <div className={valueGridClass}>
-            <div className="p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all relative overflow-hidden group min-w-0 bg-[var(--bg-card)] border-[var(--border-default)]">
-                <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
-                    <Users size={120} className="text-[var(--cort-orange)]" />
-                </div>
+            <div className="p-5 sm:p-6 rounded-[var(--radius-card)] shadow-[var(--shadow-card)] flex flex-col justify-between relative overflow-hidden min-w-0 bg-[var(--bg-card)]">
                 <div className="relative z-10 flex items-center justify-between">
-                    <div className="text-[var(--text-muted)] text-xs font-bold uppercase tracking-wide">{t('peopleAddedToRoutes')}</div>
+                    <div className="text-sm text-[var(--text-muted)]">{t('peopleAddedToRoutes')}</div>
                 </div>
                 <div className="relative z-10">
-                    <div className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight mb-2 text-[var(--text-primary)]">
+                    <div className="text-3xl sm:text-4xl lg:text-5xl font-medium tabular-nums tracking-tight mb-2 text-[var(--text-primary)]">
                         {addedCount}
                     </div>
                     {topRoute ? (
-                        <div className="text-sm font-bold text-[var(--text-primary)] mt-1 leading-snug">
+                        <div className="text-sm font-medium text-[var(--text-primary)] mt-1 leading-snug">
                             {t('topRouteAdded', { id: topRoute.route_id, name: topRoute.route_name, count: topRoute.added_count })}
                         </div>
                     ) : (
@@ -294,31 +274,25 @@ export const ValueDeliveredSection = ({ data, rosterChanges, hasChauffeur = true
             </div>
 
         {/* Avg Trip Cost */}
-        <div className="bg-gradient-to-br from-white/[0.04] via-white/[0.03] to-white/[0.02] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between text-[var(--text-primary)] hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all relative overflow-hidden group min-w-0">
-            <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
-                <Activity size={120} className="text-[var(--text-primary)]" />
+        <div className="bg-[var(--bg-card)] p-5 sm:p-6 rounded-[var(--radius-card)] shadow-[var(--shadow-card)] flex flex-col justify-between text-[var(--text-primary)] relative overflow-hidden min-w-0">
+            <div className="relative z-10">
+                <div className="text-sm text-[var(--text-muted)]">{t('avgTripCost')}</div>
             </div>
             <div className="relative z-10">
-                <div className="text-[var(--text-secondary)] text-xs font-bold uppercase tracking-wide">{t('avgTripCost')}</div>
-            </div>
-            <div className="relative z-10">
-                <div className="text-3xl sm:text-4xl lg:text-5xl font-black text-[var(--text-primary)] tracking-tight mb-2 flex items-baseline flex-wrap gap-x-1">
+                <div className="text-3xl sm:text-4xl lg:text-5xl font-medium tabular-nums text-[var(--text-primary)] tracking-tight mb-2 flex items-baseline flex-wrap gap-x-1">
                     <span className="text-lg sm:text-xl lg:text-2xl text-[var(--text-muted)] font-normal">{tCurrency('pkr')}</span>
                     {formatCurrency(data.avgTripCost)}
                 </div>
-                <div className="text-xs text-[var(--text-primary)] text-opacity-60 mt-1">{t('perCompletedRide')}</div>
+                <div className="text-sm text-[var(--text-secondary)] mt-1">{t('perCompletedRide')}</div>
                 <div className="text-xs text-[var(--text-muted)] mt-1">
                     {t('totalSpendLifetime')}: {tCurrency('pkr')} {formatCurrency(data.avgTripTotalSpendLifetime)}
                 </div>
             </div>
         </div>
 
-        {hasChauffeur && <div className="bg-[var(--bg-card)] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all relative overflow-hidden group min-w-0">
-                <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
-                    <Car size={120} className="text-[#fe8503]" />
-                </div>
+        {hasChauffeur && <div className="bg-[var(--bg-card)] p-5 sm:p-6 rounded-[var(--radius-card)] shadow-[var(--shadow-card)] flex flex-col justify-between relative overflow-hidden min-w-0">
                 <div className="relative z-10 flex items-start justify-between">
-                    <div className="text-text-muted text-xs font-bold uppercase tracking-wide">{t('activeChauffeurRides')}</div>
+                    <div className="text-sm text-[var(--text-muted)]">{t('activeChauffeurRides')}</div>
                     {data.activeRides > 0 ? (
                         <span className="relative flex h-3 w-3">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent-success)] opacity-75"></span>
@@ -329,20 +303,17 @@ export const ValueDeliveredSection = ({ data, rosterChanges, hasChauffeur = true
                     )}
                 </div>
                 <div className="relative z-10 mt-2">
-                    <div className="text-4xl sm:text-5xl font-black text-[var(--text-primary)] tracking-tight mb-2">{data.activeRides}</div>
-                    <div className="text-xs text-[var(--accent-success)] font-bold mt-1">{t('inProgress')}</div>
+                    <div className="text-4xl sm:text-5xl font-medium tabular-nums text-[var(--text-primary)] tracking-tight mb-2">{data.activeRides}</div>
+                    <div className="text-xs text-[var(--accent-success)] font-medium mt-1">{t('inProgress')}</div>
                 </div>
             </div>}
 
-        {hasShuttle && <div className="bg-[var(--bg-card)] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all relative overflow-hidden group min-w-0">
-                <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
-                    <Bus size={120} className="text-[#fe8503]" />
+        {hasShuttle && <div className="bg-[var(--bg-card)] p-5 sm:p-6 rounded-[var(--radius-card)] shadow-[var(--shadow-card)] flex flex-col justify-between relative overflow-hidden min-w-0">
+                <div className="relative z-10">
+                    <div className="text-sm text-[var(--text-muted)]">{t('shuttleTrips')}</div>
                 </div>
                 <div className="relative z-10">
-                    <div className="text-[var(--text-muted)] text-xs font-bold uppercase tracking-wide">{t('shuttleTrips')}</div>
-                </div>
-                <div className="relative z-10">
-                    <div className="text-4xl sm:text-5xl font-black text-[var(--text-primary)] tracking-tight mb-2">{data.shuttleTrips}</div>
+                    <div className="text-4xl sm:text-5xl font-medium tabular-nums text-[var(--text-primary)] tracking-tight mb-2">{data.shuttleTrips}</div>
                     <div className="text-xs text-[var(--text-muted)] mt-1">{t('totalRunsMtd')}</div>
                     <div className="text-xs text-[var(--text-muted)] mt-1">{t('totalTripsLifetime')}: {data.shuttleTotalTripsLifetime}</div>
                 </div>
@@ -358,18 +329,13 @@ export const OutstandingAmountRow = ({ amount, invoices = [] }: { amount: number
     const { locale } = useCompanyLocale();
 
     return (
-        <Card className="group relative overflow-visible z-20 hover:z-[200] p-5">
-            <div className="pointer-events-none hidden sm:block absolute inset-0 overflow-hidden rounded-[2rem]">
-                <div className="absolute inset-y-4 end-0 w-40 flex items-center justify-center opacity-10 transform rotate-12">
-                    <Wallet size={120} className="text-[var(--text-muted)]" />
-                </div>
-            </div>
+        <Card className="relative overflow-visible z-20 hover:z-[200]">
 
             <div className="relative z-10 flex flex-col lg:flex-row justify-between h-full gap-8">
                 <div className="flex flex-col justify-between">
                     <div>
-                        <div className="text-[var(--text-primary)] text-xs sm:text-sm font-black uppercase tracking-widest opacity-80 mb-2">{t('outstandingBalance')}</div>
-                        <div className="text-5xl sm:text-6xl lg:text-7xl font-black text-[var(--accent-danger)] tracking-tighter flex items-baseline flex-wrap gap-x-3">
+                        <div className="text-sm text-[var(--text-muted)] mb-2">{t('outstandingBalance')}</div>
+                        <div className="text-5xl sm:text-6xl lg:text-7xl font-medium tabular-nums text-[var(--accent-danger)] tracking-tighter flex items-baseline flex-wrap gap-x-3">
                             <span className="text-2xl sm:text-3xl text-[var(--text-muted)] font-normal">{tCurrency('pkr')}</span>
                             {formatCurrency(amount)}
                         </div>
@@ -381,23 +347,23 @@ export const OutstandingAmountRow = ({ amount, invoices = [] }: { amount: number
                             <span className="w-2 h-2 rounded-full bg-[var(--accent-danger)] inline-block animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.4)]"></span>
 
                             {invoices.length > 0 && (
-                                <div className="invisible group-hover/info:visible absolute top-full start-0 mt-3 w-64 bg-[var(--bg-card)] border border-[var(--border-input)] rounded-[2rem] shadow-2xl z-[300] overflow-hidden transform transition-all duration-200 opacity-0 group-hover/info:opacity-100 -translate-y-2 group-hover/info:translate-y-0 text-start font-normal">
-                                    <div className="bg-[var(--bg-subtle)] px-4 py-2 border-b border-[var(--border-default)] text-[var(--text-primary)] font-bold text-[10px] uppercase">
+                                <div className="invisible group-hover/info:visible absolute top-full start-0 mt-3 w-64 bg-[var(--bg-card)] rounded-[20px] shadow-[var(--shadow-modal)] z-[300] overflow-hidden transform transition-all duration-200 opacity-0 group-hover/info:opacity-100 -translate-y-2 group-hover/info:translate-y-0 text-start font-normal">
+                                    <div className="bg-[var(--bg-subtle)] px-4 py-2 border-b border-[var(--border-default)] text-[var(--text-primary)] font-medium text-xs">
                                         {t('recentOutstandingInvoices')}
                                     </div>
                                     <div className="divide-y divide-[var(--border-default)] max-h-48 overflow-y-auto">
                                         {invoices.map((inv, idx) => (
                                             <div key={idx} className="px-4 py-2 hover:bg-[var(--bg-subtle)] transition-colors">
                                                 <div className="flex justify-between items-center">
-                                                    <span className="font-mono text-[10px] text-[var(--text-primary)] font-bold">{inv.invoice_number}</span>
-                                                    <span className="text-[var(--accent-danger)] font-bold text-xs">{tCurrency('pkr')} {Number(inv.total_amount).toLocaleString()}</span>
+                                                    <span className="font-mono text-xs text-[var(--text-primary)] font-medium">{inv.invoice_number}</span>
+                                                    <span className="text-[var(--accent-danger)] font-medium text-xs">{tCurrency('pkr')} {Number(inv.total_amount).toLocaleString()}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center mt-0.5">
-                                                    <span className="text-[10px] text-[var(--text-muted)]">
+                                                    <span className="text-xs text-[var(--text-muted)]">
                                                         {formatLocaleDate(inv.due_date, locale, { month: 'short', day: 'numeric' })}
                                                     </span>
-                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${inv.status === 'OVERDUE' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'
-                                                        }`}>
+                                                    <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${inv.status === 'OVERDUE' ? 'bg-[var(--tone-danger-soft)] text-[var(--tone-danger-ink)]' : 'bg-[var(--tone-warning-soft)] text-[var(--tone-warning-ink)]'
+ }`}>
                                                         {inv.status === 'OVERDUE' ? tStatus('overdue') : tStatus('pending')}
                                                     </span>
                                                 </div>
@@ -405,7 +371,7 @@ export const OutstandingAmountRow = ({ amount, invoices = [] }: { amount: number
                                         ))}
                                     </div>
                                     {invoices.length >= 10 && (
-                                        <div className="bg-[var(--bg-subtle)] px-4 py-1.5 text-[9px] text-[var(--text-muted)] text-center border-t border-[var(--border-default)]">
+                                        <div className="bg-[var(--bg-subtle)] px-4 py-1.5 text-[11px] text-[var(--text-muted)] text-center border-t border-[var(--border-default)]">
                                             {t('showingTop10')}
                                         </div>
                                     )}
@@ -417,28 +383,28 @@ export const OutstandingAmountRow = ({ amount, invoices = [] }: { amount: number
 
                 <div className="hidden lg:flex items-center gap-12 px-12 border-x border-[var(--border-light)] mx-4">
                     <div className="flex flex-col">
-                        <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest mb-1">{t('overdue')}</span>
+                        <span className="text-xs text-[var(--text-muted)] font-medium mb-1">{t('overdue')}</span>
                         <div className="flex items-baseline gap-1">
-                            <span className="text-3xl font-black text-[var(--accent-danger)]">{invoices.filter(i => i.status === 'OVERDUE').length}</span>
-                            <span className="text-xs text-[var(--text-muted)] font-bold">{t('invoicesLabel')}</span>
+                            <span className="text-3xl font-medium tabular-nums text-[var(--accent-danger)]">{invoices.filter(i => i.status === 'OVERDUE').length}</span>
+                            <span className="text-xs text-[var(--text-muted)] font-medium">{t('invoicesLabel')}</span>
                         </div>
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest mb-1">{tStatus('pending')}</span>
+                        <span className="text-xs text-[var(--text-muted)] font-medium mb-1">{tStatus('pending')}</span>
                         <div className="flex items-baseline gap-1">
-                            <span className="text-3xl font-black text-[var(--text-primary)]">{invoices.filter(i => i.status !== 'OVERDUE').length}</span>
-                            <span className="text-xs text-[var(--text-muted)] font-bold">{t('invoicesLabel')}</span>
+                            <span className="text-3xl font-medium tabular-nums text-[var(--text-primary)]">{invoices.filter(i => i.status !== 'OVERDUE').length}</span>
+                            <span className="text-xs text-[var(--text-muted)] font-medium">{t('invoicesLabel')}</span>
                         </div>
                     </div>
                 </div>
 
                 <div className="flex flex-col justify-between items-end">
-                    <div className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-wider bg-[var(--bg-subtle)] px-3 py-1 rounded-full border border-[var(--border-strong)]">
+                    <div className="text-xs text-[var(--tone-danger-ink)] bg-[var(--tone-danger-soft)] px-3 py-1 rounded-full">
                         {t('actionRequired')}
                     </div>
                     <div className="mt-8 text-end">
-                        <div className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest mb-1">{t('lastUpdate')}</div>
-                        <div className="text-xs font-bold text-[var(--text-primary)]">{t('todayAt', { time: formatLocaleTime(new Date(), locale, { hour: '2-digit', minute: '2-digit' }) })}</div>
+                        <div className="text-xs text-[var(--text-muted)] font-medium mb-1">{t('lastUpdate')}</div>
+                        <div className="text-xs font-medium text-[var(--text-primary)]">{t('todayAt', { time: formatLocaleTime(new Date(), locale, { hour: '2-digit', minute: '2-digit' }) })}</div>
                     </div>
                 </div>
             </div>
@@ -464,12 +430,9 @@ export const CostVisibilitySection = ({
             <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
                 <SectionTitle><CreditCard className="w-5 h-5 text-[var(--cort-orange)]" /> {t('costVisibility')}</SectionTitle>
                 {onEditBudget && (
-                    <button
-                        onClick={onEditBudget}
-                        className="text-xs flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--cort-orange)] font-bold transition-colors bg-[var(--surface-muted)] hover:bg-[#fef3c7] px-2 py-1 rounded-md shrink-0"
-                    >
-                        <Settings className="w-3 h-3" /> {t('editBudget')}
-                    </button>
+                    <PillButton variant="outline" size="sm" onClick={onEditBudget} icon={<Settings />}>
+                        {t('editBudget')}
+                    </PillButton>
                 )}
             </div>
 
@@ -478,12 +441,12 @@ export const CostVisibilitySection = ({
                     <div>
                         <div className="flex justify-between items-end mb-1 gap-2">
                             <div className="text-[var(--text-muted)] text-sm font-medium">{t('totalSpendMtd')}</div>
-                            <div className={`px-2 py-0.5 rounded-full text-xs font-bold shrink-0 ${data.spendTrend.startsWith('-') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                            <div className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${data.spendTrend.startsWith('-') ? 'bg-[var(--tone-success-soft)] text-[var(--tone-success-ink)]' : 'bg-[var(--tone-danger-soft)] text-[var(--tone-danger-ink)]'}`}>
                                 {data.spendTrend}
                             </div>
                         </div>
 
-                    <div className="text-3xl sm:text-4xl font-extrabold text-[var(--text-primary)] tracking-tight mb-4 break-words">
+                    <div className="text-3xl sm:text-4xl font-medium tabular-nums text-[var(--text-primary)] tracking-tight mb-4 break-words">
                             <span className="text-lg sm:text-xl text-[var(--text-muted)] font-medium me-1">{tCurrency('pkr')}</span>
                             {(data.totalSpendMTD / 1000).toLocaleString()}k
                         </div>
@@ -492,13 +455,13 @@ export const CostVisibilitySection = ({
                     {/* Bullet Graph / Progress Bar */}
                     <div className="relative pt-1">
                         <div className="flex mb-2 items-center justify-between">
-                            <div className="text-xs text-[var(--text-muted)] font-semibold uppercase">{t('budgetUsage')}</div>
-                        <div className="text-end font-bold text-[var(--text-primary)]">{percentageUsed.toFixed(0)}%</div>
+                            <div className="text-xs text-[var(--text-muted)] font-semibold">{t('budgetUsage')}</div>
+                        <div className="text-end font-medium text-[var(--text-primary)]">{percentageUsed.toFixed(0)}%</div>
                         </div>
-                        <div className="overflow-hidden h-3 mb-2 text-xs flex rounded-full bg-[var(--border-light)] border border-[var(--border-dark)]">
-                            <div style={{ width: `${percentageUsed}%` }} className={`shadow-none flex flex-col text-center whitespace-nowrap text-[var(--text-primary)] justify-center ${percentageUsed > 90 ? 'bg-[var(--accent-danger)]' : 'bg-[#fe8503]'}`}></div>
+                        <div className="overflow-hidden h-2.5 mb-2 text-xs flex rounded-full bg-[var(--tile-bg)]">
+                            <div style={{ width: `${percentageUsed}%` }} className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center ${percentageUsed > 90 ? 'bg-[var(--accent-danger)]' : 'bg-[var(--cort-orange)]'}`}></div>
                         </div>
-                        <div className="text-[10px] text-[var(--text-muted)] flex justify-between uppercase font-medium">
+                        <div className="text-xs text-[var(--text-muted)] flex justify-between font-medium">
                             <span>0</span>
                             <span>{(budget / 1000).toLocaleString()}k {t('goal')}</span>
                         </div>
@@ -510,18 +473,18 @@ export const CostVisibilitySection = ({
                         <div className="flex justify-between items-end mb-1">
                             <div className="text-[var(--text-muted)] text-sm font-medium">{t('costPerTraveler')}</div>
                         </div>
-                    <div className="text-3xl sm:text-4xl font-extrabold text-[var(--text-primary)] tracking-tight break-words">{tCurrency('pkr')} {data.costPerEmployee.toLocaleString()}</div>
+                    <div className="text-3xl sm:text-4xl font-medium tabular-nums text-[var(--text-primary)] tracking-tight break-words">{tCurrency('pkr')} {data.costPerEmployee.toLocaleString()}</div>
                         <div className="text-xs text-[var(--text-muted)] mt-2">{t('avgSpendEmployees', { type: data.costPerEmployee > 5000 ? t('activeEmployees') : t('allEmployees') })}</div>
                     </div>
 
 
-                    <div className="mt-4 bg-[var(--bg-subtle)] rounded-[2rem] p-4 border border-[var(--border-default)]">
+                    <div className="mt-4 bg-[var(--tile-bg)] rounded-[var(--radius-tile)] p-4">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-[#fe8503]/10 text-[#fe8503] rounded-lg">
+                            <div className="p-2 bg-[var(--bg-card)] text-[var(--cort-orange)] rounded-full">
                                 <Activity className="w-4 h-4" />
                             </div>
                             <div>
-                                <div className="text-xs font-bold text-[var(--text-muted)] uppercase">{t('projection')}</div>
+                                <div className="text-xs font-medium text-[var(--text-muted)]">{t('projection')}</div>
                                 <div className="text-sm font-semibold text-[var(--text-primary)]">{t('onTrackBudget')}</div>
                             </div>
                         </div>
@@ -536,18 +499,18 @@ export const SmartInsightsSection = ({ insights, seasonality }: { insights: stri
     const t = useTranslations('company.dashboard');
 
     return (
-        <Card className="bg-[var(--bg-card)] border border-[var(--border-default)]">
+        <Card>
 
             <div className="space-y-4">
                 {insights.map((insight, idx) => (
                     <div
                         key={idx}
-                        className="group flex flex-col gap-1 pb-3 border-b border-[var(--border-light)] last:border-0 last:pb-0 cursor-pointer hover:bg-[var(--surface-muted)] p-2 -mx-2 rounded-lg transition-colors"
+                        className="group flex flex-col gap-1 pb-3 border-b border-[var(--border-light)] last:border-0 last:pb-0 cursor-pointer hover:bg-[var(--tile-bg)] p-2 -mx-2 rounded-xl transition-colors"
                         title={t('clickViewDetails')}
                     >
                         <div className="flex justify-between items-start gap-2">
                             <div className="text-sm text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-colors">
-                                <span className="text-[#fe8503] font-bold me-2">•</span>
+                                <span className="text-[var(--cort-orange)] font-medium me-2">•</span>
                                 {insight}
                             </div>
                         </div>
@@ -561,12 +524,12 @@ export const SmartInsightsSection = ({ insights, seasonality }: { insights: stri
 
             <div className="mt-6 pt-4 border-t border-[var(--border-light)] grid grid-cols-2 gap-3 sm:gap-4">
                 <div className="min-w-0">
-                    <div className="text-xs text-[var(--text-muted)] uppercase tracking-wide font-bold">{t('peakDay')}</div>
-                    <div className="text-white font-bold text-base sm:text-lg truncate">{seasonality.highDemandDay}</div>
+                    <div className="text-xs text-[var(--text-muted)] font-medium">{t('peakDay')}</div>
+                    <div className="text-[var(--text-primary)] font-medium text-base sm:text-lg truncate">{seasonality.highDemandDay}</div>
                 </div>
                 <div className="min-w-0">
-                    <div className="text-xs text-[var(--text-muted)] uppercase tracking-wide font-bold">{t('quietDay')}</div>
-                    <div className="text-white font-bold text-base sm:text-lg truncate">{seasonality.lowDemandDay}</div>
+                    <div className="text-xs text-[var(--text-muted)] font-medium">{t('quietDay')}</div>
+                    <div className="text-[var(--text-primary)] font-medium text-base sm:text-lg truncate">{seasonality.lowDemandDay}</div>
                 </div>
             </div>
         </Card>
@@ -577,28 +540,28 @@ export const EmployeeUsageSection = ({ data }: { data: DashboardData['employeeUs
     const t = useTranslations('company.dashboard');
 
     return (
-        <Card className="bg-[var(--bg-card)] border border-[var(--border-default)]">
-            <SectionTitle><Users className="w-5 h-5 text-[#fe8503]" /> {t('employeeAdoption')}</SectionTitle>
+        <Card>
+            <SectionTitle><Users className="w-5 h-5 text-[var(--cort-orange)]" /> {t('employeeAdoption')}</SectionTitle>
 
             <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-6">
                 <div className="flex-1 min-w-[100px]">
-                    <div className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)]">{data.activeEmployees}</div>
-                    <div className="text-[10px] sm:text-xs text-[var(--text-muted)] uppercase font-bold">{t('activePassengers')}</div>
+                    <div className="text-2xl sm:text-3xl font-medium tabular-nums text-[var(--text-primary)]">{data.activeEmployees}</div>
+                    <div className="text-sm text-[var(--text-muted)]">{t('activePassengers')}</div>
                 </div>
                 <div className="hidden sm:block w-px h-10 bg-[var(--bg-subtle)]"></div>
                 <div className="flex-1 min-w-[100px]">
-                    <div className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)]">{data.avgRidesPerEmployee}</div>
-                    <div className="text-[10px] sm:text-xs text-[var(--text-muted)] uppercase font-bold">{t('avgRidesEmp')}</div>
+                    <div className="text-2xl sm:text-3xl font-medium tabular-nums text-[var(--text-primary)]">{data.avgRidesPerEmployee}</div>
+                    <div className="text-sm text-[var(--text-muted)]">{t('avgRidesEmp')}</div>
                 </div>
             </div>
 
-            <div className="bg-[var(--bg-subtle)] p-3 sm:p-4 rounded-2xl mb-6 border border-[var(--border-strong)] flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[#fe8503]/20 rounded-full flex items-center justify-center text-[#fe8503] shrink-0">
-                    <Star className="w-4 h-4 sm:w-5 sm:h-5 fill-[#fe8503]" />
+            <div className="bg-[var(--tile-bg)] p-3 sm:p-4 rounded-[var(--radius-tile)] mb-6 flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[var(--bg-card)] rounded-full flex items-center justify-center text-[var(--cort-orange)] shrink-0">
+                    <Star className="w-4 h-4 sm:w-5 sm:h-5 fill-[var(--cort-orange)]" />
                 </div>
                 <div className="min-w-0">
-                    <div className="text-[11px] text-[var(--text-muted)] font-bold uppercase">{t('topPassenger')}</div>
-                    <div className="font-bold text-[var(--text-primary)] text-sm truncate">
+                    <div className="text-[11px] text-[var(--text-muted)] font-medium">{t('topPassenger')}</div>
+                    <div className="font-medium text-[var(--text-primary)] text-sm truncate">
                         {data.topPassenger.name}{' '}
                         <span className="font-normal text-[var(--text-muted)]">({t('ridesCount', { count: data.topPassenger.rides })})</span>
                     </div>
@@ -607,18 +570,18 @@ export const EmployeeUsageSection = ({ data }: { data: DashboardData['employeeUs
 
             {/* Department Breakdown: list with bar per department (better for long names) */}
             <div>
-                <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wide mb-3">{t('departmentBreakdown')}</div>
+                <div className="text-sm text-[var(--text-muted)] mb-3">{t('departmentBreakdown')}</div>
                 <div className="space-y-2.5">
                     {data.departmentUsage.map((dept, i) => {
-                        const colors = ['bg-[#fe8503]', 'bg-white/40', 'bg-[var(--accent-success)]', 'bg-white/20'];
+                        const colors = ['bg-[var(--cort-orange)]', 'bg-[var(--cort-navy)]', 'bg-[var(--accent-success)]', 'bg-[var(--text-muted)]'];
                         const color = colors[i % colors.length];
                         return (
                             <div key={i} className="flex flex-col gap-1">
                                 <div className="flex items-center justify-between gap-2">
                                     <span className="text-xs font-medium text-[var(--text-muted)] truncate" title={dept.name}>{dept.name}</span>
-                                    <span className="text-xs font-bold text-[var(--text-primary)] shrink-0">{dept.percentage}%</span>
+                                    <span className="text-xs font-medium text-[var(--text-primary)] shrink-0">{dept.percentage}%</span>
                                 </div>
-                                <div className="w-full h-2 rounded-full bg-[var(--border-light)] overflow-hidden">
+                                <div className="w-full h-2 rounded-full bg-[var(--tile-bg)] overflow-hidden">
                                     <div
                                         className={`h-full rounded-full transition-all duration-300 ${color}`}
                                         style={{ width: `${dept.percentage}%` }}
@@ -638,29 +601,29 @@ export const AdoptionHealthSection = ({ data }: { data: DashboardData['adminHeal
     const tStatus = useTranslations('common.status');
 
     return (
-        <Card className="h-full bg-[var(--bg-card)] border border-[var(--border-default)]">
+        <Card className="h-full">
             <SectionTitle><ShieldCheck className="w-5 h-5 text-[var(--accent-success)]" /> {t('systemHealth')}</SectionTitle>
 
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <div className="text-sm text-[var(--text-muted)] font-medium">{t('activeUsers')}</div>
-                    <div className="text-sm font-bold text-[var(--accent-success)]">{(data.registeredVsActiveRatio * 100).toFixed(0)}%</div>
+                    <div className="text-sm font-medium text-[var(--accent-success)]">{(data.registeredVsActiveRatio * 100).toFixed(0)}%</div>
                 </div>
-                <div className="w-full bg-[var(--border-light)] h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-[var(--tile-bg)] h-2 rounded-full overflow-hidden">
                     <div className="bg-[var(--accent-success)] h-full rounded-full" style={{ width: `${data.registeredVsActiveRatio * 100}%` }} />
                 </div>
 
                 <div className="flex items-center justify-between mt-2">
                     <div className="text-sm text-[var(--text-muted)] font-medium">{t('deptAdoption')}</div>
-                    <div className="text-sm font-bold text-[var(--text-primary)]">{data.deptAdoptionRate}%</div>
+                    <div className="text-sm font-medium text-[var(--text-primary)]">{data.deptAdoptionRate}%</div>
                 </div>
-                <div className="w-full bg-[var(--border-light)] h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-[var(--tile-bg)] h-2 rounded-full overflow-hidden">
                     <div className="bg-[var(--cort-orange)] h-full rounded-full" style={{ width: `${data.deptAdoptionRate}%` }} />
                 </div>
 
                 <div className="flex justify-between text-xs text-[var(--text-muted)] pt-2">
                     <span>{t('healthCheckedToday')}</span>
-                    <span className="text-[var(--accent-success)] font-bold">{tStatus('good')}</span>
+                    <span className="text-[var(--accent-success)] font-medium">{tStatus('good')}</span>
                 </div>
             </div>
         </Card>
@@ -670,9 +633,9 @@ export const AdoptionHealthSection = ({ data }: { data: DashboardData['adminHeal
 export const ServiceUsageSection = ({ data, hasChauffeur = true, hasShuttle = true }: { data: DashboardData['services']; hasChauffeur?: boolean; hasShuttle?: boolean }) => {
     const t = useTranslations('company.dashboard');
     const allItems = [
-        { label: t('chauffeur'), value: data.chauffeur, color: '#fe8503', dot: 'bg-[#fe8503]', show: hasChauffeur },
-        { label: t('shuttle'), value: data.shuttles, color: 'rgba(255,255,255,0.5)', dot: 'bg-white/50', show: hasShuttle },
-        { label: t('eventShuttle'), value: data.eventShuttle, color: 'rgba(255,255,255,0.15)', dot: 'bg-white/15', show: hasShuttle },
+        { label: t('chauffeur'), value: data.chauffeur, color: 'var(--cort-orange)', dot: 'bg-[var(--cort-orange)]', show: hasChauffeur },
+        { label: t('shuttle'), value: data.shuttles, color: 'var(--cort-navy-ring, var(--cort-navy))', dot: 'bg-[var(--cort-navy-ring,var(--cort-navy))]', show: hasShuttle },
+        { label: t('eventShuttle'), value: data.eventShuttle, color: 'var(--text-muted)', dot: 'bg-[var(--text-muted)]', show: hasShuttle },
     ];
 
     const visibleItems = allItems.filter((i) => i.show);
@@ -680,7 +643,7 @@ export const ServiceUsageSection = ({ data, hasChauffeur = true, hasShuttle = tr
 
     return (
         <Card>
-            <SectionTitle><Car className="w-5 h-5 text-[#f47f00]" /> {t('serviceSplit')}</SectionTitle>
+            <SectionTitle><Car className="w-5 h-5 text-[var(--cort-orange)]" /> {t('serviceSplit')}</SectionTitle>
 
             <div className="flex flex-col items-center justify-center h-full py-2">
                 <DonutChart data={chartData} />
@@ -689,8 +652,8 @@ export const ServiceUsageSection = ({ data, hasChauffeur = true, hasShuttle = tr
                     {visibleItems.map((item) => (
                         <div key={item.label} className="flex flex-col items-center min-w-[4.5rem]">
                             <div className={`w-3 h-3 rounded-full ${item.dot} mb-1`}></div>
-                            <div className="text-base sm:text-lg font-bold text-[var(--text-primary)]">{item.value}%</div>
-                            <div className="text-[10px] text-[var(--text-muted)] uppercase font-bold text-center">{item.label}</div>
+                            <div className="text-base sm:text-lg font-medium text-[var(--text-primary)]">{item.value}%</div>
+                            <div className="text-xs text-[var(--text-muted)] font-medium text-center">{item.label}</div>
                         </div>
                     ))}
                 </div>
@@ -704,8 +667,8 @@ export const PremiumTeaser = () => {
 
     return (
         <div className="mt-6 sm:mt-8 flex justify-center px-2">
-            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full bg-[#fe8503]/10 border border-[#fe8503]/20 text-[#fe8503]/80 text-[10px] sm:text-xs font-medium cursor-not-allowed hover:opacity-100 transition-all opacity-90 text-center max-w-full">
-                <Star className="w-3 h-3 fill-[#fe8503] shrink-0" />
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--bg-card)] shadow-[var(--shadow-card)] text-[var(--text-secondary)] text-sm cursor-default text-center max-w-full">
+                <Star className="w-3 h-3 fill-[var(--cort-orange)] shrink-0" />
                 <span className="leading-snug">{t('premiumTeaser')}</span>
             </div>
         </div>

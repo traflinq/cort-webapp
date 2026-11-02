@@ -46,14 +46,14 @@ function CredentialRow({ label, value }: CredentialRowProps) {
   }
 
   return (
-    <div className="rounded-xl border border-[var(--border-input)] bg-[var(--bg-input)] px-4 py-3">
-      <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">{label}</div>
+    <div className="rounded-[var(--radius-tile)] bg-[var(--tile-bg)] px-4 py-3">
+      <div className="text-xs text-[var(--text-muted)] mb-1">{label}</div>
       <div className="flex items-center justify-between gap-3">
-        <code className="text-sm font-mono text-[var(--text-primary)] break-all">{value}</code>
+        <code className="text-sm font-mono text-[var(--text-primary)] break-all ltr-content" dir="ltr">{value}</code>
         <button
           type="button"
           onClick={handleCopy}
-          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-input)] bg-[var(--bg-card)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--cort-orange)] hover:border-[var(--cort-orange)]/40 transition-colors"
+          className="shrink-0 inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--bg-card)] px-4 text-xs font-medium text-[var(--text-primary)] shadow-[var(--shadow-card)] hover:text-[var(--cort-orange)] transition-colors"
         >
           {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
           {copied ? t("copied") : t("copy")}
@@ -85,7 +85,7 @@ export function AccountCredentialsReveal({
   return (
     <div className={cx("space-y-4", className)}>
       <div className="text-center">
-        {fullName && <div className="font-bold text-[var(--text-primary)] text-lg">{fullName}</div>}
+        {fullName && <div className="font-medium text-[var(--text-primary)] text-lg">{fullName}</div>}
         {subtitle && <div className="text-sm text-[var(--text-muted)] mt-1">{subtitle}</div>}
       </div>
       <SaveCredentialsNote accountTypeKey={accountTypeKey} />

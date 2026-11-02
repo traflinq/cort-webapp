@@ -11,8 +11,9 @@ import { useAuth } from "../../lib/contexts/auth-context";
 import { apiClient } from "../../lib/services/api-client";
 import { Card } from "../components/DashboardComponents";
 import { AccountCredentialsReveal, SaveCredentialsNote } from "../components/AccountCredentialsReveal";
-import { PageHeader, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
+import { PageHeader, TableEmptyState, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
 import TablePageSkeleton from "../components/TablePageSkeleton";
+import { IconCircleButton, IllustrationTile, PillButton } from "../ui";
 import TableSkeleton from "@/app/components/ui/TableSkeleton";
 import {
   getPhoneValidationError,
@@ -31,7 +32,7 @@ function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       className={cx(
-        "h-9 rounded-lg border border-[var(--border-light)] bg-[var(--bg-card)] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/20 focus:border-[var(--cort-orange)] transition-all text-[var(--text-primary)] shadow-sm",
+        "h-11 w-full rounded-full border border-[var(--border-input)] bg-[var(--bg-card)] px-4 text-sm outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/20 focus:border-[var(--cort-orange)] transition-colors text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)]",
         props.className,
       )}
     />
@@ -210,12 +211,10 @@ export default function EmployeesPage() {
       <Card className={`min-h-[500px] ${TABLE_CARD_CLASS}`}>
         <div className={TABLE_TOP_BAR_CLASS}>
           <div className="flex items-start justify-between gap-4 w-full">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-[var(--cort-orange)]/10 border border-[var(--cort-orange)]/20 rounded-lg text-[var(--cort-orange)]">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </div>
+            <div className="flex items-center gap-4">
+              <IllustrationTile name="clipboard" size="md" />
               <div>
-                <div className="text-sm font-bold text-[var(--text-primary)]">
+                <div className="text-sm font-medium text-[var(--text-primary)]">
                   {isTrialUser ? t("trialInfoTitle") : t("infoTitle")}
                 </div>
                 <div className="text-sm text-[var(--text-muted)] mt-0.5 leading-relaxed max-w-3xl">
@@ -223,16 +222,15 @@ export default function EmployeesPage() {
                 </div>
               </div>
             </div>
-            <button
-              type="button"
+            <PillButton
+              variant="primary"
+              icon={<UserPlus strokeWidth={2} />}
               onClick={() => setShowAddEmployee(true)}
               disabled={atEmployeeLimit}
               title={atEmployeeLimit ? t("trialBanner", { used: employees.length, max: maxEmployees }) : undefined}
-              className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[var(--cort-orange)] px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <UserPlus className="w-4 h-4" />
               {t("addEmployee")}
-            </button>
+            </PillButton>
           </div>
         </div>
 
@@ -249,22 +247,18 @@ export default function EmployeesPage() {
                 <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("actions")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border-light)]/50">
+            <tbody className="divide-y divide-[var(--divider)]">
               {loading && employees.length === 0 ? (
                 <TableSkeleton columns={7} rows={8} />
               ) : employees.length === 0 && !loading ? (
-                <tr>
-                  <td colSpan={7} className={`${TABLE_CELL_CLASS} py-12 text-center text-[var(--text-muted)]`}>
-                    {t("noEmployees")}
-                  </td>
-                </tr>
+                <TableEmptyState illustration="people" message={t("noEmployees")} />
               ) : (
                 employees.map((e) => {
                   const isEditing = editingId === e.id;
                   return (
-                    <tr key={e.id} className={`group transition-colors ${isEditing ? 'bg-[var(--cort-orange)]/5' : 'hover:bg-[var(--surface-subtle)]/80'}`}>
+                    <tr key={e.id} className={`group transition-colors ${isEditing ? 'bg-[var(--cort-orange)]/5' : 'hover:bg-[var(--row-hover)]'}`}>
                       <td className={`${TABLE_CELL_CLASS} font-mono text-xs text-[var(--text-muted)]`}>{e.employee_id || "—"}</td>
-                      <td className={`${TABLE_CELL_CLASS} font-bold text-[var(--text-primary)]`}>{e.full_name}</td>
+                      <td className={`${TABLE_CELL_CLASS} font-medium text-[var(--text-primary)]`}>{e.full_name}</td>
                       <td className={TABLE_CELL_CLASS}>
                         {isEditing ? (
                           <TextInput
@@ -292,10 +286,10 @@ export default function EmployeesPage() {
                       </td>
                       <td className="px-6 py-4 text-[var(--text-muted)]">{e.department || "—"}</td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${e.status.toLowerCase() === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                          'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                          }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full me-1.5 ${e.status.toLowerCase() === 'active' ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${e.status.toLowerCase() === 'active' ? 'bg-[var(--tone-success-soft)] text-[var(--tone-success-ink)] border-[var(--tone-success-line)]' :
+ 'bg-[var(--tone-danger-soft)] text-[var(--tone-danger-ink)] border-[var(--tone-danger-line)]'
+ }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full me-1.5 ${e.status.toLowerCase() === 'active' ? 'bg-[var(--tone-success-ink)]' : 'bg-[var(--tone-danger-ink)]'}`}></span>
                           {e.status}
                         </span>
                       </td>
@@ -306,14 +300,14 @@ export default function EmployeesPage() {
                               <button
                                 type="button"
                                 onClick={() => saveEdit(e)}
-                                className="inline-flex h-8 items-center justify-center rounded-lg bg-[var(--cort-orange)] px-3 text-xs font-bold text-[var(--text-primary)] shadow-sm hover:bg-[var(--cort-orange-hover)] transition-colors"
+                                className="inline-flex h-9 items-center justify-center rounded-full bg-[var(--cort-orange)] px-4 text-xs font-medium text-white hover:bg-[var(--cort-orange-hover)] transition-colors"
                               >
                                 {tCommon("actions.save")}
                               </button>
                               <button
                                 type="button"
                                 onClick={cancelEdit}
-                                className="inline-flex h-8 items-center justify-center rounded-lg border border-[var(--border-input)] bg-[var(--bg-subtle)] px-3 text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
+                                className="inline-flex h-9 items-center justify-center rounded-full border border-[var(--pill-line)] px-4 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
                               >
                                 {tCommon("actions.cancel")}
                               </button>
@@ -323,7 +317,7 @@ export default function EmployeesPage() {
                               <button
                                 type="button"
                                 onClick={() => startEdit(e)}
-                                className="p-1.5 text-[var(--text-muted)] hover:text-[var(--cort-orange)] hover:bg-[var(--cort-orange)]/10 rounded-lg transition-colors"
+                                className="inline-flex size-9 items-center justify-center rounded-full border border-[var(--pill-line)] text-[var(--text-primary)] hover:text-[var(--cort-orange)] hover:bg-[var(--tone-brand-soft)] transition-colors"
                                 title={t("editDetails")}
                               >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
@@ -331,7 +325,7 @@ export default function EmployeesPage() {
                               <button
                                 type="button"
                                 onClick={() => handleDeactivate(e)}
-                                className={`p-1.5 rounded-lg transition-colors ${e.status.toLowerCase() === 'active' ? 'text-[var(--text-muted)] hover:text-rose-400 hover:bg-rose-500/10' : 'text-[var(--text-muted)] hover:text-emerald-400 hover:bg-emerald-500/10'}`}
+                                className={`inline-flex size-9 items-center justify-center rounded-full border border-[var(--pill-line)] transition-colors ${e.status.toLowerCase() === 'active' ? 'text-[var(--text-muted)] hover:text-[var(--tone-danger-ink)] hover:bg-[var(--tone-danger-soft)]' : 'text-[var(--text-muted)] hover:text-[var(--tone-success-ink)] hover:bg-[var(--tone-success-soft)]'}`}
                                 title={e.status.toLowerCase() === "active" ? t("deactivateUser") : t("activateUser")}
                               >
                                 {e.status.toLowerCase() === "active" ? (
@@ -354,15 +348,15 @@ export default function EmployeesPage() {
       </Card>
 
       {showAddEmployee && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] backdrop-blur-[2px] p-4">
+          <div className="bg-[var(--bg-card)] rounded-[var(--radius-card)] shadow-[var(--shadow-modal)] w-full max-w-lg p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-[var(--text-primary)]">
+              <h2 className="text-xl font-medium text-[var(--text-primary)]">
                 {employeeCreated ? t("employeeCreatedTitle") : t("addEmployee")}
               </h2>
-              <button type="button" onClick={closeAddEmployeeModal} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors">
-                <X className="w-5 h-5" />
-              </button>
+              <IconCircleButton label={tCommon("actions.cancel")} variant="outline" size="sm" onClick={closeAddEmployeeModal}>
+                <X strokeWidth={1.8} />
+              </IconCircleButton>
             </div>
 
             {employeeCreated ? (
@@ -379,13 +373,9 @@ export default function EmployeesPage() {
                   <SaveCredentialsNote accountTypeKey="employee" />
                 )}
                 <div className="flex justify-end pt-2">
-                  <button
-                    type="button"
-                    onClick={closeAddEmployeeModal}
-                    className="bg-[var(--cort-orange)] text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm font-bold hover:bg-[var(--cort-orange-hover)] transition-colors"
-                  >
+                  <PillButton variant="primary" size="sm" onClick={closeAddEmployeeModal}>
                     {tCredentials("done")}
-                  </button>
+                  </PillButton>
                 </div>
               </div>
             ) : (
@@ -393,23 +383,23 @@ export default function EmployeesPage() {
                 <SaveCredentialsNote accountTypeKey="employee" />
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("fullName")} *</label>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-1.5">{t("fullName")} *</label>
                     <TextInput required value={employeeForm.full_name} onChange={(e) => setEmployeeForm((f) => ({ ...f, full_name: e.target.value }))} placeholder={t("namePlaceholder")} />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("employeeId")}</label>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-1.5">{t("employeeId")}</label>
                     <TextInput value={employeeForm.employee_id} onChange={(e) => setEmployeeForm((f) => ({ ...f, employee_id: e.target.value }))} placeholder={t("employeeIdPlaceholder")} />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("department")}</label>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-1.5">{t("department")}</label>
                     <TextInput value={employeeForm.department} onChange={(e) => setEmployeeForm((f) => ({ ...f, department: e.target.value }))} placeholder={t("departmentPlaceholder")} />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("email")} *</label>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-1.5">{t("email")} *</label>
                     <TextInput required type="email" value={employeeForm.email} onChange={(e) => setEmployeeForm((f) => ({ ...f, email: e.target.value }))} placeholder={t("emailPlaceholder")} />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("phone")}</label>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-1.5">{t("phone")}</label>
                     <TextInput
                       type="tel"
                       inputMode="numeric"
@@ -421,22 +411,23 @@ export default function EmployeesPage() {
                   </div>
                 </div>
                 {employeeFormError && (
-                  <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                  <div className="rounded-2xl border border-[var(--tone-danger-line)] bg-[var(--tone-danger-soft)] px-4 py-3 text-sm text-[var(--tone-danger-ink)]">
                     {employeeFormError}
                   </div>
                 )}
                 <div className="flex justify-end gap-3 pt-2">
-                  <button type="button" onClick={closeAddEmployeeModal} className="border border-[var(--border-light)] text-[var(--text-secondary)] px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--surface-subtle)] transition-colors">
+                  <PillButton variant="outline" size="sm" onClick={closeAddEmployeeModal}>
                     {tCommon("actions.cancel")}
-                  </button>
-                  <button
+                  </PillButton>
+                  <PillButton
                     type="submit"
+                    variant="primary"
+                    size="sm"
+                    icon={<UserPlus strokeWidth={2} />}
                     disabled={employeeSaving || !employeeForm.full_name.trim() || !employeeForm.email.trim()}
-                    className="inline-flex items-center gap-2 bg-[var(--cort-orange)] text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm font-bold hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 transition-colors"
                   >
-                    <UserPlus className="w-4 h-4" />
                     {employeeSaving ? t("addingEmployee") : t("addEmployee")}
-                  </button>
+                  </PillButton>
                 </div>
               </form>
             )}

@@ -21,7 +21,7 @@ type RouteDetailsEditorProps = {
 };
 
 const selectCls =
-  "w-full h-10 rounded-lg border border-[var(--border-input)] bg-[var(--bg-input)] px-3 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none transition-all";
+  "w-full h-11 rounded-full border border-[var(--border-input)] bg-[var(--bg-input)] px-4 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none transition-all";
 const inputCls = selectCls;
 
 export function RouteDetailsEditor({
@@ -95,21 +95,21 @@ export function RouteDetailsEditor({
   return (
     <Card className="!p-5">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <div className="text-lg font-medium text-[var(--text-primary)]">
           {t("vehicleAndDriver")}
         </div>
         {!editing ? (
-          <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={() => setEditing(true)}>
+          <Button variant="outline" size="sm" className="rounded-full h-9 px-4 gap-1.5" onClick={() => setEditing(true)}>
             <Edit className="w-3.5 h-3.5" />
             {tCommon("actions.edit")}
           </Button>
         ) : (
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={() => setEditing(false)} disabled={saving}>
+            <Button variant="outline" size="sm" className="rounded-full h-9 px-4 gap-1.5" onClick={() => setEditing(false)} disabled={saving}>
               <X className="w-3.5 h-3.5" />
               {tCommon("actions.cancel")}
             </Button>
-            <Button size="sm" className="gap-1.5 h-8 bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white" onClick={handleSave} disabled={saving}>
+            <Button size="sm" className="rounded-full h-9 px-4 gap-1.5" onClick={handleSave} disabled={saving}>
               <Save className="w-3.5 h-3.5" />
               {saving ? t("savingRouteDetails") : tCommon("actions.save")}
             </Button>
@@ -120,7 +120,7 @@ export function RouteDetailsEditor({
       {editing ? (
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">{t("routeName")}</label>
+            <label className="block text-[13px] text-[var(--text-muted)] mb-1.5 px-1">{t("routeName")}</label>
             <input
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -128,7 +128,7 @@ export function RouteDetailsEditor({
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">{t("vehicle")}</label>
+            <label className="block text-[13px] text-[var(--text-muted)] mb-1.5 px-1">{t("vehicle")}</label>
             <select
               value={form.assigned_vehicle_id}
               onChange={(e) => setForm((f) => ({ ...f, assigned_vehicle_id: e.target.value }))}
@@ -143,7 +143,7 @@ export function RouteDetailsEditor({
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">{t("driver")}</label>
+            <label className="block text-[13px] text-[var(--text-muted)] mb-1.5 px-1">{t("driver")}</label>
             <select
               value={form.assigned_driver_id}
               onChange={(e) => setForm((f) => ({ ...f, assigned_driver_id: e.target.value }))}
@@ -161,23 +161,23 @@ export function RouteDetailsEditor({
       ) : (
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[var(--bg-subtle)] text-blue-400">
+            <div className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--tile-bg)] text-[var(--tone-info-ink)]">
               <Car className="w-4 h-4" />
             </div>
             <div>
               <div className="text-xs text-[var(--text-muted)]">{t("vehicle")}</div>
-              <div className="text-sm font-semibold text-[var(--text-primary)]">
+              <div className="text-sm font-medium text-[var(--text-primary)]">
                 {vehicle ? `${vehicle.plate_number}${vehicle.model ? ` · ${vehicle.model}` : ""}` : t("notAssigned")}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[var(--bg-subtle)] text-purple-400">
+            <div className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--tile-bg)] text-[var(--tone-purple-ink)]">
               <User className="w-4 h-4" />
             </div>
             <div>
               <div className="text-xs text-[var(--text-muted)]">{t("driver")}</div>
-              <div className="text-sm font-semibold text-[var(--text-primary)]">
+              <div className="text-sm font-medium text-[var(--text-primary)]">
                 {driver?.full_name ?? t("notAssigned")}
               </div>
               {driver?.phone && (

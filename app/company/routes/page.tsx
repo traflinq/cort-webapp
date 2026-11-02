@@ -12,10 +12,10 @@ import { useAuth } from "../../lib/contexts/auth-context";
 import { Card } from "../components/DashboardComponents";
 import { AccountCredentialsReveal, SaveCredentialsNote } from "../components/AccountCredentialsReveal";
 import { PageHeader } from "../components/PageLayout";
+import { EmptyState, Illustration, IllustrationTile, PillButton } from "../ui";
 import { Button } from "@/app/admin/ui/Button";
 import {
   Activity,
-  Bus,
   Users,
   MapPin,
   Car,
@@ -118,9 +118,9 @@ function StopPills({ stops, direction }: { stops: RouteStop[]; direction: "MORNI
           <span
             key={stop.id}
             className={cx(
-              "rounded-full px-2.5 py-0.5 text-[10px] font-semibold border",
+              "rounded-full px-2.5 py-0.5 text-xs font-medium border",
               isOffice
-                ? "border-red-500/30 bg-red-500/10 text-red-500"
+                ? "border-[var(--tone-danger-line)] bg-[var(--tone-danger-soft)] text-[var(--tone-danger-ink)]"
                 : "border-[var(--border-light)] bg-[var(--bg-subtle)] text-[var(--text-secondary)]"
             )}
           >
@@ -208,20 +208,18 @@ function AiRouteOptimizer({ companyId }: { companyId: number }) {
   }
 
   const confidenceColor: Record<string, string> = {
-    High: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-    Medium: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-    Low: "text-red-400 bg-red-500/10 border-red-500/20",
+    High: "text-[var(--tone-success-ink)] bg-[var(--tone-success-soft)] border-[var(--tone-success-line)]",
+    Medium: "text-[var(--tone-warning-ink)] bg-[var(--tone-warning-soft)] border-[var(--tone-warning-line)]",
+    Low: "text-[var(--tone-danger-ink)] bg-[var(--tone-danger-soft)] border-[var(--tone-danger-line)]",
   };
 
   return (
-    <div className="rounded-[2rem] border border-[var(--cort-orange)]/20 bg-gradient-to-br from-[var(--bg-card)] to-[var(--bg-subtle)] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.4)]">
+    <div className="rounded-[var(--radius-card)] bg-[var(--bg-card)] p-5 sm:p-6 shadow-[var(--shadow-card)]">
       <div className="flex items-start gap-3 mb-5">
-        <div className="p-2.5 rounded-xl bg-[var(--cort-orange)]/10 border border-[var(--cort-orange)]/20 flex-shrink-0">
-          <Sparkles className="w-5 h-5 text-[var(--cort-orange)]" />
-        </div>
+        <Illustration name="sparkles" size={44} />
         <div>
-          <h3 className="font-bold text-[var(--text-primary)]">{t("aiOptimizerTitle")}</h3>
-          <p className="text-xs text-[var(--text-muted)] mt-0.5">{t("aiOptimizerDescription")}</p>
+          <h3 className="text-xl font-medium text-[var(--text-primary)]">{t("aiOptimizerTitle")}</h3>
+          <p className="text-sm text-[var(--text-muted)] mt-1">{t("aiOptimizerDescription")}</p>
         </div>
       </div>
 
@@ -243,14 +241,14 @@ function AiRouteOptimizer({ companyId }: { companyId: number }) {
             }}
             placeholder={t("addressPlaceholder")}
             autoComplete="off"
-            className="w-full rounded-xl border border-[var(--border-input)] bg-[var(--bg-input)] ps-9 pe-10 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/40 focus:border-[var(--cort-orange)] transition-all"
+            className="w-full h-11 rounded-full border border-[var(--border-input)] bg-[var(--bg-input)] ps-10 pe-10 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/40 focus:border-[var(--cort-orange)] transition-all"
           />
           {isLoadingSuggestions && (
             <Loader2 className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] animate-spin" />
           )}
 
           {showSuggestions && suggestions.length > 0 && (
-            <ul className="absolute z-50 top-full mt-2 w-full rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] shadow-2xl max-h-60 overflow-y-auto py-1">
+            <ul className="absolute z-50 top-full mt-2 w-full rounded-2xl bg-[var(--bg-card)] shadow-[var(--shadow-modal)] max-h-60 overflow-y-auto py-1">
               {suggestions.map((suggestion) => (
                 <li key={suggestion.place_id}>
                   <button
@@ -259,7 +257,7 @@ function AiRouteOptimizer({ companyId }: { companyId: number }) {
                       e.preventDefault();
                       handleSelectSuggestion(suggestion);
                     }}
-                    className="w-full text-left px-4 py-3 hover:bg-[var(--bg-subtle)] flex items-start gap-3 border-b border-[var(--border-light)] last:border-b-0 transition-colors"
+                    className="w-full text-start px-4 py-3 hover:bg-[var(--bg-subtle)] flex items-start gap-3 border-b border-[var(--border-light)] last:border-b-0 transition-colors"
                   >
                     <MapPin className="w-4 h-4 text-[var(--text-muted)] shrink-0 mt-0.5" />
                     <span className="text-sm text-[var(--text-primary)] leading-snug">{suggestion.display_name}</span>
@@ -270,23 +268,24 @@ function AiRouteOptimizer({ companyId }: { companyId: number }) {
           )}
 
           {showSuggestions && !isLoadingSuggestions && address.trim().length >= 3 && suggestions.length === 0 && (
-            <div className="absolute z-50 top-full mt-2 w-full rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] shadow-lg px-4 py-3 text-sm text-[var(--text-muted)]">
+            <div className="absolute z-50 top-full mt-2 w-full rounded-2xl bg-[var(--bg-card)] shadow-[var(--shadow-modal)] px-4 py-3 text-sm text-[var(--text-muted)]">
               {t("addressNoResults")}
             </div>
           )}
         </div>
-        <Button
+        <PillButton
           onClick={handleAnalyze}
           disabled={loading || !address.trim()}
-          className="gap-2 bg-[var(--cort-orange)] hover:bg-[var(--cort-orange)]/90 text-white border-0 rounded-xl px-5 disabled:opacity-50 flex-shrink-0"
+          size="sm"
+          className="h-11"
+          icon={loading ? <Loader2 className="animate-spin" /> : <Sparkles />}
         >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
           {loading ? t("analyzing") : t("analyze")}
-        </Button>
+        </PillButton>
       </div>
 
       {error && (
-        <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="mt-4 flex items-center gap-2 rounded-2xl bg-[var(--tone-danger-soft)] px-4 py-3 text-sm text-[var(--tone-danger-ink)]">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
         </div>
@@ -294,39 +293,37 @@ function AiRouteOptimizer({ companyId }: { companyId: number }) {
 
       {result && (
         <div className="mt-5 space-y-4">
-          <div className="rounded-2xl border border-[var(--cort-orange)]/30 bg-[var(--cort-orange)]/5 p-5">
+          <div className="rounded-[20px] bg-[var(--tile-bg)] p-5">
             <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-[var(--cort-orange)] flex-shrink-0" />
-                <span className="font-bold text-[var(--text-primary)]">{t("bestMatch", { routeName: result.routeName })}</span>
+                <span className="font-medium text-[var(--text-primary)]">{t("bestMatch", { routeName: result.routeName })}</span>
               </div>
-              <span className={cx("text-xs font-bold px-2.5 py-1 rounded-full border", confidenceColor[result.confidence] ?? confidenceColor.Low)}>
+              <span className={cx("text-xs font-medium px-3 py-1 rounded-full", confidenceColor[result.confidence] ?? confidenceColor.Low)}>
                 {t("confidence", { level: result.confidence })}
               </span>
             </div>
             <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{result.reason}</p>
             {result.routeId && (
-              <Link href={`/company/routes/${result.routeId}`}>
-                <button className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-[var(--cort-orange)] hover:underline">
-                  {t("viewRouteDetails")} <ArrowRight className="w-3 h-3" />
-                </button>
+              <Link href={`/company/routes/${result.routeId}`} className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--cort-orange)] hover:underline">
+                {t("viewRouteDetails")} <ArrowRight className="w-3.5 h-3.5 rtl-flip" />
               </Link>
             )}
           </div>
 
           {result.alternativeRoutes.length > 0 && (
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">{t("alternatives")}</div>
+              <div className="text-sm text-[var(--text-muted)] mb-2">{t("alternatives")}</div>
               <div className="space-y-2">
                 {result.alternativeRoutes.map((alt) => (
-                  <div key={alt.id} className="flex items-start gap-3 rounded-xl border border-[var(--border-light)] bg-[var(--bg-subtle)] px-4 py-3">
+                  <div key={alt.id} className="flex items-center gap-3 rounded-[20px] bg-[var(--tile-bg)] px-4 py-3">
                     <TrendingUp className="w-4 h-4 text-[var(--text-muted)] mt-0.5 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-[var(--text-primary)]">{alt.name}</div>
+                      <div className="text-sm font-medium text-[var(--text-primary)]">{alt.name}</div>
                       <div className="text-xs text-[var(--text-muted)]">{alt.reason}</div>
                     </div>
-                    <Link href={`/company/routes/${alt.id}`}>
-                      <ChevronRight className="w-4 h-4 text-[var(--text-muted)] hover:text-[var(--cort-orange)] transition-colors" />
+                    <Link href={`/company/routes/${alt.id}`} aria-label={alt.name} className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-[var(--pill-line)] text-[var(--text-primary)] hover:bg-[var(--nav-hover-bg)] transition-colors">
+                      <ChevronRight className="w-4 h-4 rtl-flip" />
                     </Link>
                   </div>
                 ))}
@@ -451,38 +448,39 @@ function AddEmployeePanel({ companyId, routes, onClose, onSuccess }: AddEmployee
   }
 
   const confidenceColor: Record<string, string> = {
-    High: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-    Medium: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-    Low: "text-red-400 bg-red-500/10 border-red-500/20",
+    High: "text-[var(--tone-success-ink)] bg-[var(--tone-success-soft)] border-[var(--tone-success-line)]",
+    Medium: "text-[var(--tone-warning-ink)] bg-[var(--tone-warning-soft)] border-[var(--tone-warning-line)]",
+    Low: "text-[var(--tone-danger-ink)] bg-[var(--tone-danger-soft)] border-[var(--tone-danger-line)]",
   };
 
-  const inputCls = "w-full rounded-xl border border-[var(--border-input)] bg-[var(--bg-input)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/40 focus:border-[var(--cort-orange)] transition-all";
-  const labelCls = "block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1.5";
+  const inputCls = "w-full h-11 rounded-full border border-[var(--border-input)] bg-[var(--bg-input)] px-4 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/40 focus:border-[var(--cort-orange)] transition-all";
+  const labelCls = "block text-[13px] text-[var(--text-muted)] mb-1.5 px-1";
 
   return createPortal(
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm slideover-overlay"
+        className="fixed inset-0 z-40 bg-[var(--bg-overlay)] backdrop-blur-[2px] slideover-overlay"
         onClick={onClose}
       />
 
       {/* Slide-over panel */}
-      <div className="fixed inset-y-0 end-0 z-50 flex flex-col w-full max-w-lg bg-[var(--bg-card)] border-s border-[var(--border-default)] shadow-2xl overflow-y-auto slideover-panel">
+      <div className="fixed inset-y-0 end-0 z-50 flex flex-col w-full max-w-lg bg-[var(--bg-card)] shadow-[var(--shadow-modal)] overflow-y-auto slideover-panel sm:rounded-s-[var(--radius-card)]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--border-light)] flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--divider)] flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[var(--cort-orange)]/10">
+            <div className="inline-flex size-11 items-center justify-center rounded-full bg-[var(--tone-brand-soft)]">
               <UserPlus className="w-5 h-5 text-[var(--cort-orange)]" />
             </div>
             <div>
-              <h2 className="font-bold text-[var(--text-primary)]">{t("addEmployee")}</h2>
+              <h2 className="text-xl font-medium text-[var(--text-primary)]">{t("addEmployee")}</h2>
               <p className="text-xs text-[var(--text-muted)]">{t("addEmployeeSubtitle")}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+            aria-label={tCommon("actions.cancel")}
+            className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--pill-line)] text-[var(--text-primary)] hover:bg-[var(--nav-hover-bg)] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -491,11 +489,11 @@ function AddEmployeePanel({ companyId, routes, onClose, onSuccess }: AddEmployee
         {done ? (
           <div className="flex flex-col flex-1 px-6 py-8 gap-6">
             <div className="flex flex-col items-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                <CheckCheck className="w-8 h-8 text-emerald-400" />
+              <div className="w-16 h-16 rounded-full bg-[var(--tone-success-soft)] flex items-center justify-center">
+                <CheckCheck className="w-8 h-8 text-[var(--tone-success-ink)]" />
               </div>
               <div className="text-center">
-                <div className="font-bold text-[var(--text-primary)] text-lg">{t("employeeAdded")}</div>
+                <div className="font-medium text-[var(--text-primary)] text-lg">{t("employeeAdded")}</div>
                 <div className="text-sm text-[var(--text-muted)] mt-1">
                   {selectedRouteId
                     ? t("employeeAddedAssigned", { name: form.full_name })
@@ -514,8 +512,8 @@ function AddEmployeePanel({ companyId, routes, onClose, onSuccess }: AddEmployee
             ) : (
               <SaveCredentialsNote accountTypeKey="employee" />
             )}
-            <div className="mt-auto flex justify-end pt-2 border-t border-[var(--border-light)]">
-              <Button type="button" onClick={onClose} className="bg-[var(--cort-orange)] hover:bg-[var(--cort-orange)]/90 text-white border-0 px-6">
+            <div className="mt-auto flex justify-end pt-4 border-t border-[var(--divider)]">
+              <Button type="button" onClick={onClose} className="rounded-full h-11 px-5">
                 {tCredentials("done")}
               </Button>
             </div>
@@ -620,7 +618,7 @@ function AddEmployeePanel({ companyId, routes, onClose, onSuccess }: AddEmployee
                   )}
                 </div>
                 {aiError && (
-                  <p className="mt-1 text-xs text-red-400">{aiError}</p>
+                  <p className="mt-1 text-xs text-[var(--tone-danger-ink)]">{aiError}</p>
                 )}
               </div>
 
@@ -629,12 +627,12 @@ function AddEmployeePanel({ companyId, routes, onClose, onSuccess }: AddEmployee
                 <div className="rounded-2xl border border-[var(--cort-orange)]/20 bg-[var(--cort-orange)]/5 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Sparkles className="w-4 h-4 text-[var(--cort-orange)]" />
-                    <span className="text-xs font-bold text-[var(--cort-orange)] uppercase tracking-wider">{t("aiRecommendation")}</span>
-                    <span className={cx("ms-auto text-[10px] font-bold px-2 py-0.5 rounded-full border", confidenceColor[aiRec.confidence] ?? confidenceColor.Low)}>
+                    <span className="text-xs font-medium text-[var(--cort-orange)]">{t("aiRecommendation")}</span>
+                    <span className={cx("ms-auto text-xs font-medium px-2 py-0.5 rounded-full border", confidenceColor[aiRec.confidence] ?? confidenceColor.Low)}>
                       {aiRec.confidence}
                     </span>
                   </div>
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">{aiRec.routeName}</p>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">{aiRec.routeName}</p>
                   <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">{aiRec.reason}</p>
                 </div>
               )}
@@ -643,16 +641,16 @@ function AddEmployeePanel({ companyId, routes, onClose, onSuccess }: AddEmployee
               <div>
                 <label className={labelCls}>
                   {t("assignToRoute")}
-                  {aiRec && <span className="ms-2 text-emerald-400 normal-case font-normal tracking-normal">{t("aiPreSelected")}</span>}
+                  {aiRec && <span className="ms-2 text-[var(--tone-success-ink)]">{t("aiPreSelected")}</span>}
                 </label>
                 <div className="space-y-2 max-h-56 overflow-y-auto pe-1">
                   <div
                     onClick={() => setSelectedRouteId(null)}
                     className={cx(
-                      "flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-all",
+                      "flex items-center gap-3 rounded-[18px] border px-4 py-3 cursor-pointer transition-colors",
                       selectedRouteId === null
-                        ? "border-[var(--border-input)] bg-[var(--bg-subtle)] text-[var(--text-muted)]"
-                        : "border-[var(--border-light)] hover:bg-[var(--bg-subtle)]"
+                        ? "border-transparent bg-[var(--tile-bg)] text-[var(--text-muted)]"
+                        : "border-[var(--divider)] hover:bg-[var(--tile-bg)]"
                     )}
                   >
                     <div className={cx("w-4 h-4 rounded-full border-2 flex-shrink-0", selectedRouteId === null ? "border-[var(--text-muted)]" : "border-[var(--border-default)]")} />
@@ -666,10 +664,10 @@ function AddEmployeePanel({ companyId, routes, onClose, onSuccess }: AddEmployee
                         key={route.id}
                         onClick={() => setSelectedRouteId(route.id)}
                         className={cx(
-                          "flex items-center gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-all",
+                          "flex items-center gap-3 rounded-[18px] border px-4 py-3 cursor-pointer transition-colors",
                           isSelected
-                            ? "border-[var(--cort-orange)]/40 bg-[var(--cort-orange)]/5"
-                            : "border-[var(--border-light)] hover:bg-[var(--bg-subtle)]"
+                            ? "border-[var(--cort-orange)] bg-[var(--tile-bg)]"
+                            : "border-[var(--divider)] hover:bg-[var(--tile-bg)]"
                         )}
                       >
                         <div className={cx(
@@ -680,9 +678,9 @@ function AddEmployeePanel({ companyId, routes, onClose, onSuccess }: AddEmployee
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-[var(--text-primary)]">{route.name}</span>
+                            <span className="text-sm font-medium text-[var(--text-primary)]">{route.name}</span>
                             {isAiPick && (
-                              <span className="flex items-center gap-1 text-[10px] font-bold text-[var(--cort-orange)] bg-[var(--cort-orange)]/10 border border-[var(--cort-orange)]/20 px-1.5 py-0.5 rounded-full">
+                              <span className="flex items-center gap-1 text-xs text-[var(--tone-brand-ink)] bg-[var(--tone-brand-soft)] px-2 py-0.5 rounded-full">
                                 <Sparkles className="w-2.5 h-2.5" /> {t("aiPick")}
                               </span>
                             )}
@@ -699,7 +697,7 @@ function AddEmployeePanel({ companyId, routes, onClose, onSuccess }: AddEmployee
               </div>
 
               {submitError && (
-                <div className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                <div className="flex items-start gap-2 rounded-2xl bg-[var(--tone-danger-soft)] px-4 py-3 text-sm text-[var(--tone-danger-ink)]">
                   <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                   {submitError}
                 </div>
@@ -709,18 +707,14 @@ function AddEmployeePanel({ companyId, routes, onClose, onSuccess }: AddEmployee
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-[var(--border-light)] flex-shrink-0">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-              >
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[var(--divider)] flex-shrink-0">
+              <PillButton variant="outline" onClick={onClose}>
                 {tCommon("actions.cancel")}
-              </button>
+              </PillButton>
               <Button
                 type="submit"
                 disabled={submitting || !form.full_name.trim() || !form.email.trim()}
-                className="gap-2 bg-[var(--cort-orange)] hover:bg-[var(--cort-orange)]/90 text-white border-0 px-6 disabled:opacity-50"
+                className="rounded-full h-11 px-5 gap-2 disabled:opacity-50"
               >
                 {submitting ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> {t("adding")}</>
@@ -750,7 +744,7 @@ function RouteCard({ route }: { route: CompanyRoute }) {
 
   return (
     <div
-      className="group rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] p-5 hover:border-[var(--cort-orange)]/30 hover:bg-[var(--bg-subtle)] hover:shadow-md transition-all duration-200 cursor-pointer"
+      className="group rounded-[var(--radius-card)] bg-[var(--bg-card)] p-5 sm:p-6 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] transition-shadow duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
       role="link"
       tabIndex={0}
       onClick={() => router.push(`/company/routes/${route.id}`)}
@@ -763,66 +757,68 @@ function RouteCard({ route }: { route: CompanyRoute }) {
     >
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[var(--cort-orange)]/10 group-hover:bg-[var(--cort-orange)]/20 transition-colors flex-shrink-0">
-              <Bus className="w-5 h-5 text-[var(--cort-orange)]" />
-            </div>
+            <IllustrationTile name="bus" size="md" />
             <div>
-              <h3 className="font-bold text-[var(--text-primary)] group-hover:text-[var(--cort-orange)] transition-colors">
+              <h3 className="text-xl font-medium text-[var(--text-primary)] group-hover:text-[var(--cort-orange)] transition-colors">
                 {route.name}
               </h3>
               <div className="text-xs text-[var(--text-muted)]">{t("routeNumber", { id: route.id })}</div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link href={`/company/routes/${route.id}/track`} onClick={(e) => e.stopPropagation()}>
-              <Button variant="outline" size="sm" className="h-7 px-2 text-[10px] gap-1 border-[var(--border-input)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                <Activity className="w-3 h-3" />
-                {t("track")}
-              </Button>
+            <Link
+              href={`/company/routes/${route.id}/track`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--pill-line)] px-4 text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--nav-hover-bg)]"
+            >
+              <Activity className="w-4 h-4" />
+              {t("track")}
             </Link>
-            <ChevronRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--cort-orange)] transition-colors" />
+            <span className="inline-flex size-10 items-center justify-center rounded-full bg-[var(--cort-navy)] text-white">
+              <ChevronRight className="w-4 h-4 rtl-flip" />
+            </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
           {[
             { label: t("passengers"), value: employees.length, icon: <Users className="w-3 h-3 text-[var(--cort-orange)]" /> },
-            { label: t("stops"), value: t("stopsCount", { count: morningStops }), icon: <MapPin className="w-3 h-3 text-emerald-400" /> },
-            { label: t("vehicle"), value: vehicle?.plate_number ?? "—", icon: <Car className="w-3 h-3 text-blue-400" /> },
-            { label: t("driver"), value: driver?.full_name ?? t("unassigned"), icon: <User className="w-3 h-3 text-purple-400" /> },
+            { label: t("stops"), value: t("stopsCount", { count: morningStops }), icon: <MapPin className="w-3 h-3 text-[var(--tone-success-ink)]" /> },
+            { label: t("vehicle"), value: vehicle?.plate_number ?? "—", icon: <Car className="w-3 h-3 text-[var(--tone-info-ink)]" /> },
+            { label: t("driver"), value: driver?.full_name ?? t("unassigned"), icon: <User className="w-3 h-3 text-[var(--tone-purple-ink)]" /> },
           ].map((stat) => (
-            <div key={stat.label} className="rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-light)] px-3 py-2">
-              <div className="flex items-center gap-1.5 mb-0.5">
+            <div key={stat.label} className="rounded-[var(--radius-tile)] bg-[var(--tile-bg)] px-3 py-3">
+              <div className="text-base font-medium text-[var(--text-primary)] truncate">{stat.value}</div>
+              <div className="flex items-center gap-1.5 mt-1">
                 {stat.icon}
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">{stat.label}</span>
+                <span className="text-xs text-[var(--text-muted)]">{stat.label}</span>
               </div>
-              <div className="text-sm font-bold text-[var(--text-primary)] truncate">{stat.value}</div>
             </div>
           ))}
         </div>
 
         <div className="space-y-1">
           <div className="flex items-center gap-1.5">
-            <Sunrise className="w-3 h-3 text-amber-500" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">{t("morningStops")}</span>
+            <Sunrise className="w-3 h-3 text-[var(--tone-warning-ink)]" />
+            <span className="text-xs font-medium text-[var(--tone-warning-ink)]">{t("morningStops")}</span>
           </div>
           <StopPills stops={stops} direction="MORNING" />
         </div>
 
         {employees.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-[var(--border-light)] flex items-center gap-2">
-            <div className="flex -space-x-2">
+          <div className="mt-4 pt-4 border-t border-[var(--divider)] flex items-center gap-2">
+            <div className="flex -space-x-2 rtl:space-x-reverse">
               {employees.slice(0, 5).map((emp, i) => (
                 <div
                   key={i}
-                  className="w-6 h-6 rounded-full bg-[var(--cort-orange)]/20 border-2 border-[var(--bg-card)] flex items-center justify-center text-[9px] font-bold text-[var(--cort-orange)]"
+                  className="w-6 h-6 rounded-full bg-[var(--cort-orange)]/20 border-2 border-[var(--bg-card)] flex items-center justify-center text-[11px] font-medium text-[var(--cort-orange)]"
                   title={emp?.full_name ?? ""}
                 >
                   {emp?.full_name?.charAt(0)?.toUpperCase() ?? "?"}
                 </div>
               ))}
               {employees.length > 5 && (
-                <div className="w-6 h-6 rounded-full bg-[var(--bg-subtle)] border-2 border-[var(--bg-card)] flex items-center justify-center text-[9px] font-bold text-[var(--text-muted)]">
+                <div className="w-6 h-6 rounded-full bg-[var(--bg-subtle)] border-2 border-[var(--bg-card)] flex items-center justify-center text-[11px] font-medium text-[var(--text-muted)]">
                   +{employees.length - 5}
                 </div>
               )}
@@ -886,7 +882,7 @@ export default function RoutesPage() {
     return (
       <div className="flex items-center justify-center py-12">
         <Card className="max-w-md text-center">
-          <div className="text-lg font-bold text-[var(--text-primary)]">{t("shuttleDisabled")}</div>
+          <div className="text-lg font-medium text-[var(--text-primary)]">{t("shuttleDisabled")}</div>
           <div className="mt-2 text-sm text-[var(--text-muted)]">{t("shuttleDisabledDescription")}</div>
         </Card>
       </div>
@@ -901,23 +897,13 @@ export default function RoutesPage() {
         description={t("pageDescription")}
         action={
           canManageShuttle ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Link href="/company/routes/create">
-                <Button
-                  variant="outline"
-                  className="gap-2 rounded-xl"
-                >
-                  <Plus className="w-4 h-4" />
-                  {t("createRoute")}
-                </Button>
-              </Link>
-              <Button
-                onClick={() => setShowAddEmployee(true)}
-                className="gap-2 bg-[var(--cort-orange)] hover:bg-[var(--cort-orange)]/90 text-white border-0 rounded-xl"
-              >
-                <UserPlus className="w-4 h-4" />
+            <div className="flex flex-wrap items-center gap-3">
+              <PillButton variant="secondary" href="/company/routes/create" icon={<Plus strokeWidth={2} />}>
+                {t("createRoute")}
+              </PillButton>
+              <PillButton onClick={() => setShowAddEmployee(true)} icon={<UserPlus strokeWidth={2} />}>
                 {t("addEmployee")}
-              </Button>
+              </PillButton>
             </div>
           ) : undefined
         }
@@ -932,30 +918,27 @@ export default function RoutesPage() {
         </Card>
       ) : error ? (
         <Card className="py-12 text-center">
-          <div className="text-sm text-red-500">{error}</div>
+          <div className="text-sm text-[var(--tone-danger-ink)]">{error}</div>
         </Card>
       ) : routes.length === 0 ? (
-        <Card className="py-16 text-center">
-          <Bus className="w-10 h-10 mx-auto mb-3 text-[var(--text-muted)] opacity-30" />
-          <div className="text-sm text-[var(--text-muted)]">{t("noRoutesAssigned")}</div>
-          {canManageShuttle && (
-            <>
-              <div className="mt-1 text-xs text-[var(--text-muted)] opacity-70">{t("createRouteHint")}</div>
-              <Link href="/company/routes/create" className="inline-block mt-4">
-                <Button className="gap-2 bg-[var(--cort-orange)] hover:bg-[var(--cort-orange)]/90 text-white border-0 rounded-xl">
-                  <Plus className="w-4 h-4" />
-                  {t("createRoute")}
-                </Button>
-              </Link>
-            </>
-          )}
+        <Card>
+          <EmptyState
+            illustration="bus"
+            title={t("noRoutesAssigned")}
+            description={canManageShuttle ? t("createRouteHint") : undefined}
+            action={canManageShuttle ? (
+              <PillButton href="/company/routes/create" icon={<Plus strokeWidth={2} />}>
+                {t("createRoute")}
+              </PillButton>
+            ) : undefined}
+          />
         </Card>
       ) : (
         <div>
           <div className="text-sm text-[var(--text-muted)] mb-4">
             {t("routesCount", { count: routes.length })}
           </div>
-          <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-1 lg:grid-cols-2">
             {routes.map((route) => (
               <RouteCard key={route.id} route={route} />
             ))}

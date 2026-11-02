@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { pillClasses } from "../ui/PillButton";
 import { Bus, Car, Calendar, Map, Smartphone, UserPlus, Users, Sparkles, Play } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { apiClient } from "../../lib/services/api-client";
@@ -153,13 +154,11 @@ function cx(...classes: Array<string | false | null | undefined>) {
 type TrialOnboardingWalkthroughProps = {
   forceOpen?: boolean;
   onClose?: () => void;
-  sidebarCollapsed?: boolean;
 };
 
 export function TrialOnboardingWalkthrough({
   forceOpen = false,
   onClose,
-  sidebarCollapsed = false,
 }: TrialOnboardingWalkthroughProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -254,21 +253,20 @@ export function TrialOnboardingWalkthrough({
   return (
     <div
       className={cx(
-        "fixed top-0 end-0 bottom-0 z-[100] flex items-center justify-center bg-black/70 px-4 py-8 backdrop-blur-sm",
+        "fixed top-0 end-0 bottom-0 z-[100] flex items-center justify-center bg-[var(--bg-overlay)] px-4 py-8 backdrop-blur-[2px]",
         "start-0",
-        sidebarCollapsed ? "md:start-[6rem]" : "md:start-[19rem]",
       )}
     >
-      <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-[#0f172a] p-8 shadow-2xl text-white">
+      <div className="w-full max-w-xl rounded-[var(--radius-card)] bg-[var(--bg-card)] p-8 shadow-[var(--shadow-modal)] text-[var(--text-primary)]">
         <div className="flex items-center justify-between gap-4 mb-6">
-          <div className="text-xs font-bold uppercase tracking-widest text-[#f47f00]">
+          <div className="rounded-full bg-[var(--tone-brand-soft)] px-3 py-1 text-xs text-[var(--tone-brand-ink)]">
             {t("setupProgress", { current: stepIndex + 1, total: STEPS.length })}
           </div>
           {manuallyOpened ? (
             <button
               type="button"
               onClick={dismiss}
-              className="text-xs text-white/40 hover:text-white/70 transition-colors"
+              className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
             >
               {t("close")}
             </button>
@@ -278,7 +276,7 @@ export function TrialOnboardingWalkthrough({
               <button
                 type="button"
                 onClick={handleSkip}
-                className="text-xs text-white/40 hover:text-white/70 transition-colors"
+                className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
               >
                 {t("skipForNow")}
               </button>
@@ -286,12 +284,12 @@ export function TrialOnboardingWalkthrough({
           )}
         </div>
 
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f47f00]/15 text-[#f47f00] mb-5">
+        <div className="flex size-14 items-center justify-center rounded-full bg-[var(--tile-bg)] text-[var(--cort-orange)] mb-5">
           <StepIcon size={24} />
         </div>
 
-        <h2 className="text-2xl font-bold tracking-tight">{step.title}</h2>
-        <p className="mt-3 text-sm leading-relaxed text-white/60">{step.body}</p>
+        <h2 className="text-2xl font-medium">{step.title}</h2>
+        <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-muted)]">{step.body}</p>
 
         {step.id === "app" && (appStoreUrl || playStoreUrl) && (
           <div className="mt-5 flex flex-wrap gap-3">
@@ -300,7 +298,7 @@ export function TrialOnboardingWalkthrough({
                 href={appStoreUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/5"
+                className={pillClasses("outline", "sm")}
               >
                 {t("appStore")}
               </Link>
@@ -310,7 +308,7 @@ export function TrialOnboardingWalkthrough({
                 href={playStoreUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/5"
+                className={pillClasses("outline", "sm")}
               >
                 {t("googlePlay")}
               </Link>
@@ -323,7 +321,7 @@ export function TrialOnboardingWalkthrough({
             <button
               type="button"
               onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
-              className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-white/70 hover:bg-white/5"
+              className={pillClasses("outline", "sm")}
             >
               {t("back")}
             </button>
@@ -334,7 +332,7 @@ export function TrialOnboardingWalkthrough({
                 type="button"
                 onClick={handleNext}
                 disabled={completing}
-                className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/5 disabled:opacity-60"
+                className={pillClasses("outline", "sm")}
               >
                 {t("next")}
               </button>
@@ -343,7 +341,7 @@ export function TrialOnboardingWalkthrough({
               type="button"
               onClick={handlePrimary}
               disabled={completing}
-              className="rounded-xl bg-[#f47f00] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#f47f00]/90 disabled:opacity-60"
+              className={pillClasses("primary", "sm")}
             >
               {completing ? t("saving") : step.cta}
             </button>
@@ -354,7 +352,7 @@ export function TrialOnboardingWalkthrough({
           {STEPS.map((s, i) => (
             <div
               key={s.id}
-              className={`h-1.5 flex-1 rounded-full transition-colors ${i <= stepIndex ? "bg-[#f47f00]" : "bg-white/10"}`}
+              className={`h-1.5 flex-1 rounded-full transition-colors ${i <= stepIndex ? "bg-[var(--cort-orange)]" : "bg-[var(--tile-bg)]"}`}
             />
           ))}
         </div>

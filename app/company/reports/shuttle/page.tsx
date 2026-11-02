@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronDown } from "lucide-react";
+import { CalendarDays, ChevronDown, Download } from "lucide-react";
+import { pillClasses } from "../../ui";
 import { useAppSelector } from "../../../lib/store/hooks";
 import { selectCompany } from "../../../lib/store/slices/companySlice";
 import { ShuttleReport, apiClient } from "../../../lib/services/api-client";
 import { Card } from "../../components/DashboardComponents";
 import {
   PageHeader,
+  TableEmptyState,
   TABLE_CARD_CLASS,
   TABLE_TOP_BAR_CLASS,
   TABLE_HEADER_CELL_CLASS,
@@ -24,10 +26,10 @@ function DirectionBadge({ direction }: { direction: string }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
-        isEvening
-          ? "bg-indigo-500/20 text-indigo-400"
-          : "bg-amber-500/20 text-amber-400"
-      }`}
+ isEvening
+ ? "bg-[var(--tone-info-soft)] text-[var(--tone-info-ink)]"
+ : "bg-[var(--tone-warning-soft)] text-[var(--tone-warning-ink)]"
+ }`}
     >
       {isEvening ? "🌙" : "☀️"} {direction}
     </span>
@@ -241,7 +243,7 @@ async function exportShuttlePDF(
       `Generated: ${new Date().toLocaleString("en-PK")}`,
       `Total trips: ${reports.length}`,
       `Passengers boarded: ${totalBoarded}`,
-    ].join("   ·   "),
+    ].join(" · "),
     margin,
     70,
   );
@@ -440,7 +442,7 @@ export default function ShuttleReportsPage() {
     return (
       <div className="flex items-center justify-center py-12">
         <Card className="max-w-md text-center flex flex-col items-center justify-center py-12">
-          <div className="text-lg font-bold text-[var(--text-primary)]">
+          <div className="text-lg font-medium text-[var(--text-primary)]">
             {t("shuttleDisabled")}
           </div>
           <div className="mt-2 text-sm text-[var(--text-muted)]">
@@ -461,7 +463,7 @@ export default function ShuttleReportsPage() {
             <select
               value={routeId}
               onChange={(e) => setRouteId(e.target.value)}
-              className="h-[46px] max-w-[220px] rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] px-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-0"
+              className="h-12 max-w-[240px] rounded-full border-0 bg-[var(--bg-card)] ps-5 pe-4 text-[15px] text-[var(--text-primary)] shadow-[var(--shadow-card)] outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/30"
               aria-label={t("route")}
             >
               <option value="">{t("allRoutes")}</option>
@@ -471,12 +473,15 @@ export default function ShuttleReportsPage() {
                 </option>
               ))}
             </select>
-            <div className="flex items-center gap-2 bg-[var(--bg-subtle)] p-1 rounded-xl border border-[var(--border-strong)] backdrop-blur-sm">
+            <div className="flex h-12 items-center gap-1 rounded-full bg-[var(--bg-card)] ps-2 pe-3 shadow-[var(--shadow-card)]">
+              <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--tile-bg)] text-[var(--text-primary)]">
+                <CalendarDays size={16} strokeWidth={1.6} />
+              </span>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="h-9 rounded-lg border-0 bg-transparent px-3 text-sm text-[var(--text-primary)] focus:ring-0"
+                className="h-10 rounded-full border-0 bg-transparent px-2 text-sm text-[var(--text-primary)] outline-none focus:ring-0"
                 placeholder={t("startDate")}
               />
               <span className="text-[var(--text-muted)]">/</span>
@@ -484,7 +489,7 @@ export default function ShuttleReportsPage() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="h-9 rounded-lg border-0 bg-transparent px-3 text-sm text-[var(--text-primary)] focus:ring-0"
+                className="h-10 rounded-full border-0 bg-transparent px-2 text-sm text-[var(--text-primary)] outline-none focus:ring-0"
                 placeholder={t("endDate")}
               />
             </div>
@@ -494,34 +499,24 @@ export default function ShuttleReportsPage() {
                 disabled={isExporting}
                 aria-haspopup="menu"
                 aria-expanded={exportMenuOpen}
-                className="group relative flex items-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-[var(--text-primary)] transition-all hover:bg-[var(--cort-orange-hover)] hover:-translate-y-0.5 shadow-lg active:translate-y-0 active:shadow-md disabled:opacity-60 disabled:pointer-events-none"
+                className={pillClasses("primary", "md", true, "disabled:opacity-60")}
                 onClick={() => setExportMenuOpen((open) => !open)}
               >
-                <svg
-                  className="w-4 h-4 text-[var(--text-primary)]"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
+                <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white/25 text-white">
+                  <Download size={16} strokeWidth={2} />
+                </span>
                 {isExporting ? t("exporting") : t("export")}
                 <ChevronDown className={`w-4 h-4 transition-transform ${exportMenuOpen ? "rotate-180" : ""}`} />
               </button>
               {exportMenuOpen && !isExporting && (
                 <div
                   role="menu"
-                  className="absolute end-0 z-20 mt-2 w-44 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-card)] shadow-xl"
+                  className="absolute end-0 z-20 mt-2 w-48 overflow-hidden rounded-2xl bg-[var(--bg-elevated)] p-1.5 shadow-[var(--shadow-modal)]"
                 >
                   <button
                     type="button"
                     role="menuitem"
-                    className="w-full px-4 py-2.5 text-start text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)]"
+                    className="w-full rounded-xl px-3 py-2.5 text-start text-sm text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]"
                     onClick={() => handleExport("csv")}
                   >
                     {t("exportAsCsv")}
@@ -529,7 +524,7 @@ export default function ShuttleReportsPage() {
                   <button
                     type="button"
                     role="menuitem"
-                    className="w-full px-4 py-2.5 text-start text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)]"
+                    className="w-full rounded-xl px-3 py-2.5 text-start text-sm text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]"
                     onClick={() => handleExport("pdf")}
                   >
                     {t("exportAsPdf")}
@@ -543,7 +538,7 @@ export default function ShuttleReportsPage() {
 
       <Card className={`min-h-[500px] ${TABLE_CARD_CLASS}`}>
         <div className={TABLE_TOP_BAR_CLASS}>
-          <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">
+          <div className="text-[15px] text-[var(--text-secondary)]">
             {t("shuttleTableDescription")}
           </div>
         </div>
@@ -551,7 +546,7 @@ export default function ShuttleReportsPage() {
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm text-start">
             <thead>
-              <tr className="border-b border-[var(--border-light)]">
+              <tr className="border-b border-[var(--divider)]">
                 <th className={TABLE_HEADER_CELL_CLASS}>{t("tripDate")}</th>
                 <th className={TABLE_HEADER_CELL_CLASS}>{t("direction")}</th>
                 <th className={TABLE_HEADER_CELL_CLASS}>{t("tripId")}</th>
@@ -565,38 +560,17 @@ export default function ShuttleReportsPage() {
                 <th className={TABLE_HEADER_CELL_CLASS}>{t("completedAt")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border-light)]/50">
+            <tbody className="divide-y divide-[var(--divider)]">
               {isLoading && reports.length === 0 ? (
                 <TableSkeleton columns={11} rows={8} />
               ) : reports.length === 0 && !isLoading ? (
-                <tr>
-                  <td colSpan={11} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center text-[var(--text-muted)]">
-                      <span className="bg-[var(--surface-subtle)] p-4 rounded-full mb-3">
-                        <svg
-                          className="w-6 h-6"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={1.5}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                      </span>
-                      <span>{t("noShuttleReports")}</span>
-                    </div>
-                  </td>
-                </tr>
+                <TableEmptyState illustration="bus" message={t("noShuttleReports")} />
               ) : (
                 reports.map((report) => (
                   <tr
                     key={report.id}
                     onClick={() => setSelectedReport(report)}
-                    className="group transition-colors border-b border-transparent hover:bg-[var(--surface-subtle)]/80 cursor-pointer"
+                    className="group transition-colors border-b border-transparent hover:bg-[var(--row-hover)] cursor-pointer"
                   >
                     <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-[var(--text-primary)] font-medium font-mono text-xs`}>
                       {report.trip_date
@@ -610,7 +584,7 @@ export default function ShuttleReportsPage() {
                     <td className={TABLE_CELL_CLASS}>
                       <DirectionBadge direction={report.direction} />
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} font-bold text-[var(--text-primary)]`}>
+                    <td className={`${TABLE_CELL_CLASS} font-medium text-[var(--text-primary)]`}>
                       #{report.id}
                     </td>
                     <td className={TABLE_CELL_CLASS}>
@@ -637,10 +611,10 @@ export default function ShuttleReportsPage() {
                         {report.driver?.full_name || "—"}
                       </div>
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end font-mono text-emerald-600 font-semibold`}>
+                    <td className={`${TABLE_CELL_CLASS} text-end font-mono text-[var(--tone-success-ink)] font-semibold`}>
                       {report.passengers.boarded}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end font-mono text-rose-500 font-semibold`}>
+                    <td className={`${TABLE_CELL_CLASS} text-end font-mono text-[var(--tone-danger-ink)] font-semibold`}>
                       {report.passengers.absent}
                     </td>
                     <td className={`${TABLE_CELL_CLASS} text-end font-mono text-[var(--text-primary)]`}>
@@ -661,7 +635,7 @@ export default function ShuttleReportsPage() {
 
         {/* Pagination */}
         {pagination.pages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border-light)]">
+          <div className="flex items-center justify-between px-6 py-3 border-t border-[var(--divider)]">
             <div className="text-xs text-[var(--text-muted)]">
               {t("showingTrips", { shown: reports.length, total: pagination.total })}
             </div>
@@ -671,11 +645,11 @@ export default function ShuttleReportsPage() {
                   <button
                     key={page}
                     onClick={() => handlePageChange(page)}
-                    className={`h-7 w-7 rounded text-xs font-medium transition-colors ${
-                      page === pagination.page
-                        ? "bg-[#fe8503] text-[var(--text-primary)]"
-                        : "text-[var(--text-muted)] hover:bg-[var(--surface-subtle)]"
-                    }`}
+                    className={`h-9 w-9 rounded-full text-sm tabular-nums transition-colors ${
+ page === pagination.page
+ ? "bg-[var(--cort-navy)] text-white"
+ : "text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]"
+ }`}
                   >
                     {page}
                   </button>
@@ -750,37 +724,37 @@ export default function ShuttleReportsPage() {
 
             {/* Boarding Summary */}
             <div>
-              <div className="text-xs font-semibold tracking-wider text-[var(--text-muted)] uppercase mb-3">
+              <div className="text-sm text-[var(--text-muted)] mb-3">
                 {t("boardingSummary")}
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-xl bg-[var(--surface-subtle)] px-4 py-3 text-center">
-                  <div className="text-2xl font-bold text-[var(--text-primary)]">
+                <div className="rounded-[var(--radius-tile)] bg-[var(--tile-bg)] px-4 py-3 text-center">
+                  <div className="text-2xl font-medium text-[var(--text-primary)]">
                     {selectedReport.passengers.total}
                   </div>
                   <div className="text-xs text-[var(--text-muted)] mt-1">{t("assigned")}</div>
                 </div>
-                <div className="rounded-xl bg-emerald-50 px-4 py-3 text-center">
-                  <div className="text-2xl font-bold text-emerald-600">
+                <div className="rounded-[var(--radius-tile)] bg-[var(--tone-success-soft)] px-4 py-3 text-center">
+                  <div className="text-2xl font-medium text-[var(--tone-success-ink)]">
                     {selectedReport.passengers.boarded}
                   </div>
-                  <div className="text-xs text-emerald-600/70 mt-1">{t("boarded")}</div>
+                  <div className="text-xs text-[var(--tone-success-ink)] mt-1">{t("boarded")}</div>
                 </div>
-                <div className="rounded-xl bg-rose-50 px-4 py-3 text-center">
-                  <div className="text-2xl font-bold text-rose-500">
+                <div className="rounded-[var(--radius-tile)] bg-[var(--tone-danger-soft)] px-4 py-3 text-center">
+                  <div className="text-2xl font-medium text-[var(--tone-danger-ink)]">
                     {selectedReport.passengers.absent}
                   </div>
-                  <div className="text-xs text-rose-500/70 mt-1">{t("absent")}</div>
+                  <div className="text-xs text-[var(--tone-danger-ink)] mt-1">{t("absent")}</div>
                 </div>
               </div>
             </div>
 
             {selectedReport.passengers.details.length > 0 && (
               <div>
-                <div className="text-xs font-semibold tracking-wider text-[var(--text-muted)] uppercase mb-2">
+                <div className="text-sm text-[var(--text-muted)] mb-2">
                   {t("passengerDetails")}
                 </div>
-                <div className="max-h-72 overflow-y-auto rounded-xl border border-[var(--border-light)] divide-y divide-[var(--border-light)]">
+                <div className="max-h-72 overflow-y-auto rounded-[var(--radius-tile)] border border-[var(--divider)] divide-y divide-[var(--divider)]">
                   {selectedReport.passengers.details.map((log, idx) => (
                     <div
                       key={idx}
@@ -797,24 +771,24 @@ export default function ShuttleReportsPage() {
                             : ""}
                         </div>
                         {(log.status === "BOARDED" || log.status === "DROPPED_OFF") && log.scanned_at && (
-                          <div className="text-xs text-emerald-600/80 mt-0.5 font-mono">
+                          <div className="text-xs text-[var(--tone-success-ink)] mt-0.5 font-mono">
                             {t("boardedAt")} {formatTimeOnly(log.scanned_at)}
                           </div>
                         )}
                         {log.drop_off_at && (
-                          <div className="text-xs text-sky-600/90 mt-0.5 font-mono">
+                          <div className="text-xs text-[var(--tone-info-ink)] mt-0.5 font-mono">
                             {t("dropoffTime")} {formatTimeOnly(log.drop_off_at)}
                           </div>
                         )}
                       </div>
                       <span
                         className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          log.status === "BOARDED"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : log.status === "DROPPED_OFF"
-                              ? "bg-sky-100 text-sky-700"
-                              : "bg-rose-100 text-rose-600"
-                        }`}
+ log.status === "BOARDED"
+ ? "bg-[var(--tone-success-soft)] text-[var(--tone-success-ink)]"
+ : log.status === "DROPPED_OFF"
+ ? "bg-[var(--tone-info-soft)] text-[var(--tone-info-ink)]"
+ : "bg-[var(--tone-danger-soft)] text-[var(--tone-danger-ink)]"
+ }`}
                       >
                         {log.status}
                       </span>
@@ -825,12 +799,12 @@ export default function ShuttleReportsPage() {
             )}
 
             <div>
-              <div className="text-xs font-semibold tracking-wider text-[var(--text-muted)] uppercase mb-2">
+              <div className="text-sm text-[var(--text-muted)] mb-2">
                 {t("stopLogs")}
               </div>
-              <div className="rounded-xl border border-[var(--border-light)] overflow-hidden">
+              <div className="rounded-[var(--radius-tile)] border border-[var(--divider)] overflow-hidden">
                 {selectedReport.route?.stops && selectedReport.route.stops.length > 0 ? (
-                  <div className="divide-y divide-[var(--border-light)]">
+                  <div className="divide-y divide-[var(--divider)]">
                     {selectedReport.route.stops.map((stop, index) => {
                       const log = selectedReport.stop_logs?.find((item) => item.stop_id === stop.id);
                       const isEvening = selectedReport.direction === "EVENING";
@@ -853,7 +827,7 @@ export default function ShuttleReportsPage() {
                           key={stop.id}
                           className="grid grid-cols-[auto,1fr,auto] items-start gap-3 px-4 py-3"
                         >
-                          <div className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[var(--surface-subtle)] px-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <div className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[var(--tile-bg)] px-2 text-xs font-semibold text-[var(--text-primary)]">
                             {stop.sequence ?? "—"}
                           </div>
                           <div>

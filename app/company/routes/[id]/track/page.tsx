@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Bus, MapPin, Navigation, RefreshCw, Radio, ChevronLeft, X } from 'lucide-react';
-import { Button } from '@/app/admin/ui/Button';
+import { PillButton } from '@/app/company/ui';
 import { PageHeader, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS } from '@/app/company/components/PageLayout';
 import { Card } from '@/app/company/components/DashboardComponents';
 import { apiClient } from '@/app/lib/services/api-client';
@@ -136,7 +136,7 @@ export default function CompanyRouteTrackingPage() {
                 id: `stop-${s.id}`,
                 position: [s.lat!, s.lng!] as [number, number],
                 label: `${s.name}${selectedTrip?.direction === 'MORNING' ? (s.morning_eta ? ` · ${s.morning_eta}` : '') : (s.evening_eta ? ` · ${s.evening_eta}` : '')}`,
-                color: s.id === selectedTrip?.current_stop_id ? '#f47f00' : '#6366f1',
+                color: s.id === selectedTrip?.current_stop_id ? '#f06a22' : '#1c1b4d',
             }));
     }, [selectedTrip]);
 
@@ -165,7 +165,7 @@ export default function CompanyRouteTrackingPage() {
         const lines: MapPolyline[] = [
             {
                 positions: allPoints,
-                color: '#0C225E',
+                color: '#1c1b4d',
                 weight: 4,
                 opacity: 0.2,
             }
@@ -190,7 +190,7 @@ export default function CompanyRouteTrackingPage() {
             if (remainingPoints.length >= 2) {
                 lines.push({
                     positions: remainingPoints,
-                    color: '#f47f00',
+                    color: '#f06a22',
                     weight: 6,
                     opacity: 1,
                 });
@@ -199,7 +199,7 @@ export default function CompanyRouteTrackingPage() {
             // If no driver yet, show the full line as solid orange or navy
             lines.push({
                 positions: allPoints,
-                color: '#f47f00',
+                color: '#f06a22',
                 weight: 5,
                 opacity: 0.8,
                 dashArray: '10, 5'
@@ -219,32 +219,25 @@ export default function CompanyRouteTrackingPage() {
     // ---- Render ----------------------------------------------------------------
 
     return (
-        <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12 px-4 md:px-6">
+        <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
             <PageHeader
                 label={tRoutes('shuttleOperations')}
                 title={selectedTrip?.routes?.name || t('liveRouteStatus')}
                 description={t('description')}
                 action={
                     <div className="flex items-center gap-3">
-                        <Button
-                            variant="ghost"
-                            onClick={() => router.back()}
-                            className="text-muted hover:text-navy font-semibold text-xs flex items-center gap-1"
-                        >
-                            <ChevronLeft className="w-4 h-4" />
+                        <PillButton variant="outline" onClick={() => router.back()}>
+                            <ChevronLeft className="w-4 h-4 rtl-flip" />
                             {tCommon('actions.back')}
-                        </Button>
-                        <Button
-                            variant="outline"
+                        </PillButton>
+                        <PillButton
+                            variant="secondary"
                             onClick={loadTrips}
                             disabled={loading}
-                            className="bg-white border-border shadow-sm hover:border-navy/20 h-10 px-4 rounded-lg text-xs font-semibold"
+                            icon={<RefreshCw className={loading ? 'animate-spin' : ''} />}
                         >
-                            <RefreshCw
-                                className={`w-3.5 h-3.5 me-2 ${loading ? 'animate-spin' : ''}`}
-                            />
                             {t('refreshData')}
-                        </Button>
+                        </PillButton>
                     </div>
                 }
             />
@@ -252,14 +245,14 @@ export default function CompanyRouteTrackingPage() {
             <div className="flex flex-col lg:flex-row gap-6 min-h-[700px]">
                 {/* Left Sidebar - Structured Selection & Info */}
                 <aside className="w-full lg:w-96 shrink-0 flex flex-col gap-6 dashboard-section">
-                    <Card className={`overflow-hidden shadow-sm !p-0 ${TABLE_CARD_CLASS}`}>
+                    <Card className={`overflow-hidden !p-0 ${TABLE_CARD_CLASS}`}>
                         <div className={TABLE_TOP_BAR_CLASS}>
-                            <h2 className="text-xs font-bold text-muted uppercase tracking-widest mb-4">{t('todaysSchedule')}</h2>
+                            <h2 className="text-xl font-medium text-[var(--text-primary)] mb-4">{t('todaysSchedule')}</h2>
                             <div className="space-y-3 overflow-y-auto max-h-[40vh] pe-1 custom-scrollbar">
                                 {trips.length === 0 && !loading && (
-                                    <div className="p-8 text-center border-2 border-dashed border-border rounded-2xl">
-                                        <Bus className="w-8 h-8 mx-auto mb-2 text-muted/30" />
-                                        <p className="text-xs text-muted">{t('noTripsToday')}</p>
+                                    <div className="p-8 text-center border border-dashed border-[var(--border-strong)] rounded-[20px]">
+                                        <Bus className="w-8 h-8 mx-auto mb-2 text-[var(--text-muted)] opacity-40" />
+                                        <p className="text-xs text-[var(--text-muted)]">{t('noTripsToday')}</p>
                                     </div>
                                 )}
 
@@ -269,41 +262,41 @@ export default function CompanyRouteTrackingPage() {
                                         type="button"
                                         onClick={() => setSelectedTripId(trip.id)}
                                         className={`
-                                            w-full text-start rounded-xl border-2 transition-all duration-300
-                                            p-4
-                                            ${selectedTripId === trip.id
-                                                ? 'bg-navy text-white border-navy shadow-md ring-1 ring-navy/20'
-                                                : 'bg-white border-border text-gray-900 hover:border-navy/20 hover:shadow-sm'
-                                            }
-                                        `}
+ w-full text-start rounded-[20px] transition-colors
+ p-4
+ ${selectedTripId === trip.id
+ ? 'bg-[var(--cort-navy)] text-white'
+ : 'bg-[var(--tile-bg)] text-[var(--text-primary)] hover:bg-[var(--row-hover)]'
+ }
+ `}
                                         style={{ animationDelay: `${(idx + 1) * 80}ms` }}
                                     >
                                         <div className="flex items-start justify-between">
                                             <div className="flex items-center gap-3">
                                                 <div
                                                     className={`
-                                                        w-9 h-9 rounded-lg flex items-center justify-center transition-colors
-                                                        ${selectedTripId === trip.id ? 'bg-white/10' : 'bg-orange/5'}
-                                                    `}
+ w-10 h-10 rounded-full flex items-center justify-center transition-colors
+ ${selectedTripId === trip.id ? 'bg-white/15' : 'bg-[var(--bg-card)]'}
+ `}
                                                 >
                                                     <Bus
-                                                        className={`w-4 h-4 ${selectedTripId === trip.id ? 'text-white' : 'text-orange'}`}
+                                                        className={`w-4 h-4 ${selectedTripId === trip.id ? 'text-white' : 'text-[var(--cort-orange)]'}`}
                                                     />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-sm tracking-tight">
+                                                    <p className="font-medium text-sm tracking-tight">
                                                         {t('directionTrip', { direction: trip.direction })}
                                                     </p>
-                                                    <p className={`text-[10px] mt-0.5 ${selectedTripId === trip.id ? 'text-white/60' : 'text-muted'}`}>
+                                                    <p className={`text-xs mt-0.5 ${selectedTripId === trip.id ? 'text-white/60' : 'text-[var(--text-muted)]'}`}>
                                                         {trip.routes?.vehicles?.plate_number ?? t('noVehicle')}
                                                     </p>
                                                 </div>
                                             </div>
                                             <span
                                                 className={`
-                                                    text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-tighter
-                                                    ${selectedTripId === trip.id ? 'bg-white/20 text-white' : 'bg-surface-muted text-navy'}
-                                                `}
+ text-[11px] font-medium px-2.5 py-1 rounded-full
+ ${selectedTripId === trip.id ? 'bg-white/20 text-white' : 'bg-[var(--bg-card)] text-[var(--text-primary)]'}
+ `}
                                             >
                                                 {trip.status}
                                             </span>
@@ -318,26 +311,26 @@ export default function CompanyRouteTrackingPage() {
                             {selectedTrip ? (
                                 <>
                                     <div>
-                                        <h2 className="text-xs font-bold text-muted uppercase tracking-widest mb-4">{t('liveTelemetry')}</h2>
+                                        <h2 className="text-lg font-medium text-[var(--text-primary)] mb-4">{t('liveTelemetry')}</h2>
                                         <div className="space-y-3">
-                                            <div className="flex items-center justify-between p-3 rounded-xl bg-surface-subtle border border-border">
+                                            <div className="flex items-center justify-between p-3 rounded-[18px] bg-[var(--tile-bg)]">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-orange/10 flex items-center justify-center">
-                                                        <Navigation className="w-4 h-4 text-orange" />
+                                                    <div className="w-9 h-9 rounded-full bg-[var(--bg-card)] flex items-center justify-center">
+                                                        <Navigation className="w-4 h-4 text-[var(--cort-orange)]" />
                                                     </div>
-                                                    <span className="text-sm font-semibold text-navy">{t('tripStatus')}</span>
+                                                    <span className="text-sm font-medium text-[var(--text-primary)]">{t('tripStatus')}</span>
                                                 </div>
-                                                <span className="text-sm font-bold text-orange">{selectedTrip.status}</span>
+                                                <span className="text-sm font-medium text-[var(--cort-orange)]">{selectedTrip.status}</span>
                                             </div>
 
-                                            <div className="flex items-center justify-between p-3 rounded-xl bg-surface-subtle border border-border">
+                                            <div className="flex items-center justify-between p-3 rounded-[18px] bg-[var(--tile-bg)]">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-blue/10 flex items-center justify-center">
-                                                        <Radio className={`w-4 h-4 ${isConnected ? 'text-green-500' : 'text-blue'}`} />
+                                                    <div className="w-9 h-9 rounded-full bg-[var(--bg-card)] flex items-center justify-center">
+                                                        <Radio className={`w-4 h-4 ${isConnected ? 'text-[var(--tone-success-ink)]' : 'text-[var(--tone-info-ink)]'}`} />
                                                     </div>
-                                                    <span className="text-sm font-semibold text-navy">{t('connection')}</span>
+                                                    <span className="text-sm font-medium text-[var(--text-primary)]">{t('connection')}</span>
                                                 </div>
-                                                <span className={`text-[10px] font-bold uppercase ${isConnected ? 'text-green-600' : 'text-muted'}`}>
+                                                <span className={`text-xs font-medium ${isConnected ? 'text-[var(--tone-success-ink)]' : 'text-[var(--text-muted)]'}`}>
                                                     {isConnected ? t('highPrecision') : t('awaitingSignals')}
                                                 </span>
                                             </div>
@@ -345,22 +338,22 @@ export default function CompanyRouteTrackingPage() {
                                     </div>
 
                                     <div>
-                                        <h2 className="text-xs font-bold text-muted uppercase tracking-widest mb-4">{t('routeInfo')}</h2>
-                                        <div className="p-4 rounded-xl bg-navy text-white shadow-xl shadow-navy/10">
+                                        <h2 className="text-lg font-medium text-[var(--text-primary)] mb-4">{t('routeInfo')}</h2>
+                                        <div className="p-5 rounded-[20px] bg-[var(--cort-navy)] text-white">
                                             <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                                                    <MapPin className="w-5 h-5 text-orange" />
+                                                <div className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center">
+                                                    <MapPin className="w-5 h-5 text-[var(--cort-orange)]" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] font-bold text-white/50 uppercase">{t('totalStops')}</p>
-                                                    <p className="text-lg font-bold">{t('scheduled', { count: selectedTrip.routes?.route_stops?.length || 0 })}</p>
+                                                    <p className="text-xs font-medium text-white/50">{t('totalStops')}</p>
+                                                    <p className="text-lg font-medium">{t('scheduled', { count: selectedTrip.routes?.route_stops?.length || 0 })}</p>
                                                 </div>
                                             </div>
-                                            <div className="h-px bg-white/10 w-full mb-4" />
+                                            <div className="h-px bg-white/15 w-full mb-4" />
                                             <div className="flex items-center justify-between text-[11px] font-medium text-white/70">
                                                 <span>{t('platformStatus')}</span>
                                                 <span className="flex items-center gap-1.5">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent-success)] animate-pulse" />
                                                     {t('cloudIntegrated')}
                                                 </span>
                                             </div>
@@ -369,8 +362,8 @@ export default function CompanyRouteTrackingPage() {
                                 </>
                             ) : (
                                 <div className="py-8 flex flex-col items-center justify-center text-center grayscale opacity-50">
-                                    <MapPin className="w-10 h-10 mb-3 text-muted" />
-                                    <p className="text-xs font-medium text-muted">{t('selectTripTelemetry')}</p>
+                                    <MapPin className="w-10 h-10 mb-3 text-[var(--text-muted)]" />
+                                    <p className="text-xs font-medium text-[var(--text-muted)]">{t('selectTripTelemetry')}</p>
                                 </div>
                             )}
                         </div>
@@ -379,7 +372,7 @@ export default function CompanyRouteTrackingPage() {
 
                 {/* Main Content Area - Map Framed in Card */}
                 <main className="flex-1 min-h-[500px] lg:min-h-[700px] dashboard-section dashboard-section-delay-1">
-                    <Card className={`w-full h-full overflow-hidden border border-border shadow-sm flex flex-col relative !p-0 ${TABLE_CARD_CLASS}`}>
+                    <Card className={`w-full h-full overflow-hidden flex flex-col relative !p-0 ${TABLE_CARD_CLASS}`}>
                         <div className="flex-1 relative">
                             <Map
                                 center={mapCenter}
@@ -393,13 +386,13 @@ export default function CompanyRouteTrackingPage() {
                             {/* Map Floating Legend */}
                             {selectedTrip && (
                                 <div className="absolute top-4 start-4 z-10">
-                                    <div className="bg-white/95 border border-border shadow-md p-2 rounded-lg flex items-center gap-3">
-                                        <div className="flex items-center gap-1.5 pe-3 border-e border-border font-bold text-[10px] text-navy">
-                                            <div className="w-2.5 h-2.5 rounded-full bg-orange animate-pulse" />
+                                    <div className="bg-[var(--bg-card)] shadow-[var(--shadow-card)] px-4 py-2.5 rounded-full flex items-center gap-3">
+                                        <div className="flex items-center gap-1.5 pe-3 border-e border-[var(--divider)] text-xs text-[var(--text-primary)]">
+                                            <div className="w-2.5 h-2.5 rounded-full bg-[var(--cort-orange)] animate-pulse" />
                                             {t('liveDriver')}
                                         </div>
-                                        <div className="flex items-center gap-1.5 font-bold text-[10px] text-navy/60">
-                                            <div className="w-2.5 h-0.5 bg-navy/20" />
+                                        <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                                            <div className="w-2.5 h-0.5 bg-[var(--cort-navy)]" />
                                             {t('plannedRoute')}
                                         </div>
                                     </div>
@@ -413,11 +406,11 @@ export default function CompanyRouteTrackingPage() {
             {/* Error Overlay */}
             {error && (
                 <div className="fixed top-20 start-1/2 -translate-x-1/2 z-50">
-                    <div className="bg-white border-2 border-danger text-danger px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-slide-up font-bold text-sm">
+                    <div className="bg-[var(--bg-card)] text-[var(--tone-danger-ink)] px-6 py-3 rounded-full shadow-[var(--shadow-modal)] flex items-center gap-3 animate-fade-slide-up font-medium text-sm">
                         <X className="w-4 h-4" />
                         {error}
-                        <button onClick={() => setError(null)} className="ms-4 text-muted hover:text-danger">
-                            <X className="w-4 h-4 font-bold" />
+                        <button onClick={() => setError(null)} aria-label="Close" className="ms-4 text-[var(--text-muted)] hover:text-[var(--tone-danger-ink)]">
+                            <X className="w-4 h-4 font-medium" />
                         </button>
                     </div>
                 </div>
@@ -425,10 +418,10 @@ export default function CompanyRouteTrackingPage() {
 
             {/* Global Loading Overlay */}
             {loading && trips.length === 0 && (
-                <div className="fixed inset-0 z-[100] bg-navy/5 backdrop-blur-[2px] flex items-center justify-center">
-                    <div className="bg-white p-8 rounded-3xl shadow-2xl border border-border flex flex-col items-center gap-4">
-                        <div className="w-10 h-10 border-4 border-navy border-t-transparent rounded-full animate-spin" />
-                        <p className="text-navy font-bold text-sm uppercase tracking-widest">{t('inSync')}</p>
+                <div className="fixed inset-0 z-[100] bg-[var(--bg-overlay)] backdrop-blur-[2px] flex items-center justify-center">
+                    <div className="bg-[var(--bg-card)] p-8 rounded-[var(--radius-card)] shadow-[var(--shadow-modal)] flex flex-col items-center gap-4">
+                        <div className="w-10 h-10 border-4 border-[var(--cort-navy)] border-t-transparent rounded-full animate-spin" />
+                        <p className="text-[var(--text-primary)] font-medium text-sm">{t('inSync')}</p>
                     </div>
                 </div>
             )}

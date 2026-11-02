@@ -6,6 +6,7 @@ import { useAppDispatch } from '../../lib/store/hooks';
 import { fetchDashboardStats } from '../../lib/store/slices/dashboardSlice';
 import { apiClient } from '../../lib/services/api-client';
 import { CreditCard, Loader2 } from 'lucide-react';
+import { PillButton } from '../ui';
 
 interface EditBudgetFormProps {
     companyId: string;
@@ -56,11 +57,11 @@ export default function EditBudgetForm({ companyId, currentBudget, onSuccess, on
             )}
 
             <div>
-                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
+                <label className="block text-sm text-[var(--text-muted)] mb-2">
                     {t('monthlyBudgetLabel')}
                 </label>
                 <div className="relative">
-                    <div className="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none text-[var(--text-muted)]">
+                    <div className="absolute inset-y-0 start-0 ps-4 flex items-center pointer-events-none text-[var(--text-muted)]">
                         <CreditCard className="w-4 h-4" />
                     </div>
                     <input
@@ -72,7 +73,7 @@ export default function EditBudgetForm({ companyId, currentBudget, onSuccess, on
                             const val = e.target.value.replace(/[^0-9]/g, '');
                             setBudget(val);
                         }}
-                        className="w-full ps-10 pe-3 py-2 bg-[var(--bg-card)] border border-[var(--border-input)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-[#fe8503]/20 focus:border-[#fe8503] transition-shadow transition-colors ltr-content"
+                        className="h-12 w-full ps-11 pe-4 bg-[var(--tile-bg)] border border-transparent text-[var(--text-primary)] rounded-[var(--radius-tile)] outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/20 focus:border-[var(--cort-orange)] transition-colors tabular-nums ltr-content"
                         placeholder={t('budgetPlaceholder')}
                         dir="ltr"
                     />
@@ -82,29 +83,20 @@ export default function EditBudgetForm({ companyId, currentBudget, onSuccess, on
                 </p>
             </div>
 
-            <div className="flex gap-3 pt-4 border-t border-[var(--border-input)]">
-                <button
-                    type="button"
-                    onClick={onCancel}
-                    disabled={isSubmitting}
-                    className="flex-1 px-4 py-2 border border-[var(--border-input)] text-[var(--text-secondary)] rounded-xl hover:bg-[var(--row-hover)] font-medium transition-colors"
-                >
+            <div className="flex gap-3 pt-2">
+                <PillButton variant="outline" className="flex-1" onClick={onCancel} disabled={isSubmitting}>
                     {tCommon('actions.cancel')}
-                </button>
-                <button
-                    type="submit"
-                    disabled={isSubmitting || !budget}
-                    className="flex-1 px-4 py-2 bg-[#fe8503] text-[var(--text-primary)] rounded-xl hover:bg-[#f07a00] font-medium transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                </PillButton>
+                <PillButton type="submit" variant="primary" className="flex-1" disabled={isSubmitting || !budget}>
                     {isSubmitting ? (
                         <>
-                            <Loader2 className="w-4 h-4 animate-spin me-2" />
+                            <Loader2 className="w-4 h-4 animate-spin" />
                             {tEmployees('saving')}
                         </>
                     ) : (
                         tEmployees('saveBudget')
                     )}
-                </button>
+                </PillButton>
             </div>
         </form>
     );

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { Building2, Sunrise, Sunset } from "lucide-react";
+import { UnderlineTabs } from "../../ui";
 import { Card } from "../../components/DashboardComponents";
 import { apiClient } from "../../../lib/services/api-client";
 import type { MapMarker, MapPolyline } from "@/app/admin/ui/Map";
@@ -17,10 +18,6 @@ type RouteOverviewMapProps = {
   stops: CompanyRouteStop[];
   refreshKey?: number;
 };
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
 
 export function RouteOverviewMap({ routeId, stops, refreshKey = 0 }: RouteOverviewMapProps) {
   const t = useTranslations("company.routes");
@@ -75,7 +72,7 @@ export function RouteOverviewMap({ routeId, stops, refreshKey = 0 }: RouteOvervi
 
   const mapPolylines: MapPolyline[] = useMemo(() => {
     if (savedPolyline.length >= 2) {
-      return [{ positions: savedPolyline, color: "#0C225E" }];
+      return [{ positions: savedPolyline, color: "#1c1b4d" }];
     }
     if (dirStops.length > 1) {
       return [{
@@ -88,43 +85,24 @@ export function RouteOverviewMap({ routeId, stops, refreshKey = 0 }: RouteOvervi
 
   return (
     <Card className="!p-0 overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border-light)] bg-[var(--bg-subtle)]">
+      <div className="flex flex-wrap items-end justify-between gap-3 px-6 pt-5 border-b border-[var(--divider)]">
         <div>
-          <div className="text-sm font-semibold text-[var(--text-primary)]">{t("routeMap")}</div>
-          <div className="text-xs text-[var(--text-muted)]">{t("routeMapDescription")}</div>
+          <div className="text-xl font-medium text-[var(--text-primary)]">{t("routeMap")}</div>
+          <div className="text-sm text-[var(--text-muted)] mt-1 mb-4">{t("routeMapDescription")}</div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded-lg">
+        <div className="flex items-center gap-4">
+          <span className="hidden sm:inline-flex mb-3 items-center gap-1 text-xs text-[var(--tone-danger-ink)] bg-[var(--tone-danger-soft)] px-3 py-1 rounded-full">
             <Building2 className="w-3 h-3" /> Office = {mapDirection === "MORNING" ? "AM last" : "PM first"}
           </span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setMapDirection("MORNING")}
-              className={cx(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border",
-                mapDirection === "MORNING"
-                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-light)] hover:text-[var(--text-primary)]",
-              )}
-            >
-              <Sunrise className="w-3.5 h-3.5" />
-              {t("morningRoute")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMapDirection("EVENING")}
-              className={cx(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border",
-                mapDirection === "EVENING"
-                  ? "bg-indigo-500/10 text-indigo-600 border-indigo-500/30"
-                  : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-light)] hover:text-[var(--text-primary)]",
-              )}
-            >
-              <Sunset className="w-3.5 h-3.5" />
-              {t("eveningRoute")}
-            </button>
-          </div>
+          <UnderlineTabs
+            size="md"
+            value={mapDirection}
+            onChange={setMapDirection}
+            items={[
+              { value: "MORNING", label: t("morningRoute"), icon: Sunrise },
+              { value: "EVENING", label: t("eveningRoute"), icon: Sunset },
+            ]}
+          />
         </div>
       </div>
 

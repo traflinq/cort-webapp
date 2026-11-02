@@ -16,6 +16,7 @@ import { apiClient, canServeChauffeur } from "../../../lib/services/api-client";
 import { selectContract } from "../../../lib/store/slices/contractSlice";
 import OutstationEstimatePanel from "./OutstationEstimatePanel";
 import { PoolVehicle, PoolDriver, CompanyVendorLink, VendorVehicle } from "../../../lib/services/types/multi-mode";
+import { PillButton } from "../../ui";
 
 function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -23,10 +24,10 @@ function cx(...classes: Array<string | false | null | undefined>) {
 
 function CardSection({ title, children, icon }: { title: string; children: React.ReactNode; icon?: React.ReactNode }) {
     return (
-        <div className="bg-[var(--bg-card)] rounded-3xl border border-[var(--border-default)] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.3)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.4)] transition-all duration-500">
-            <div className="flex items-center gap-2.5 mb-6 px-1">
-                {icon && <div className="text-[#fe8503]">{icon}</div>}
-                <h3 className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em]">{title}</h3>
+        <div className="bg-[var(--tile-bg)] rounded-[var(--radius-card)] p-5 sm:p-6">
+            <div className="flex items-center gap-2.5 mb-5 px-1">
+                {icon && <div className="text-[var(--cort-orange)]">{icon}</div>}
+                <h3 className="text-base font-medium text-[var(--text-primary)]">{title}</h3>
             </div>
             <div className="grid gap-x-6 gap-y-6 sm:grid-cols-2">
                 {children}
@@ -48,9 +49,9 @@ function Field({
 }) {
     return (
         <label className={cx("flex flex-col gap-2", className)}>
-            <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)] px-1">
+            <span className="text-[13px] text-[var(--text-muted)] px-1">
                 {label}
-                {required && <span className="text-[#fe8503] ms-0.5"> *</span>}
+                {required && <span className="text-[var(--cort-orange)] ms-0.5"> *</span>}
             </span>
             {children}
         </label>
@@ -62,7 +63,7 @@ function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
         <input
             {...props}
             className={cx(
-                "h-12 rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] px-4 text-sm font-medium outline-none transition-all placeholder:text-[var(--text-placeholder)] focus:bg-[var(--bg-input-focus)] focus:border-[#fe8503] focus:ring-4 focus:ring-[#fe8503]/10 text-[var(--text-primary)]",
+                "h-11 rounded-full border border-[var(--border-input)] bg-[var(--bg-card)] px-4 text-sm outline-none transition-colors placeholder:text-[var(--text-placeholder)] focus:bg-[var(--bg-input-focus)] focus:border-[var(--cort-orange)] focus:ring-4 focus:ring-[var(--cort-orange)]/10 text-[var(--text-primary)]",
                 props.className,
             )}
         />
@@ -75,7 +76,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
             <select
                 {...props}
                 className={cx(
-                    "w-full h-12 rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] px-4 text-sm font-bold outline-none transition-all focus:bg-[var(--bg-input-focus)] focus:border-[#fe8503] focus:ring-4 focus:ring-[#fe8503]/10 text-[var(--text-primary)] appearance-none",
+                    "w-full h-11 rounded-full border border-[var(--border-input)] bg-[var(--bg-card)] ps-4 pe-10 text-sm outline-none transition-colors focus:bg-[var(--bg-input-focus)] focus:border-[var(--cort-orange)] focus:ring-4 focus:ring-[var(--cort-orange)]/10 text-[var(--text-primary)] appearance-none",
                     props.className,
                 )}
             />
@@ -356,8 +357,8 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
     if (!company.services_enabled.chauffeur_enabled) {
         return (
             <div className="flex items-center justify-center py-12">
-                <div className="rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] p-6 text-center">
-                    <div className="text-lg font-bold text-[var(--text-primary)]">{t("chauffeurDisabled")}</div>
+                <div className="rounded-2xl bg-[var(--tile-bg)] p-6 text-center">
+                    <div className="text-lg font-medium text-[var(--text-primary)]">{t("chauffeurDisabled")}</div>
                     <div className="mt-2 text-sm text-[var(--text-muted)]">
                         {t("chauffeurDisabledHint")}
                     </div>
@@ -485,7 +486,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                     <div className="bg-[var(--cort-orange)]/10 border border-[var(--cort-orange)]/20 rounded-2xl p-5">
                         {availableFulfillmentTypes.length > 1 && (
                             <>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)] mb-3">{t("fulfillmentType")}</p>
+                        <p className="text-xs font-medium text-[var(--text-secondary)] mb-3">{t("fulfillmentType")}</p>
                         <div className="flex flex-wrap gap-2">
                             {availableFulfillmentTypes.map((opt) => (
                                 <button
@@ -499,9 +500,9 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                         if (opt.value !== "CORT_MANAGED") setBroadcastToAllVendors(false);
                                     }}
                                     className={cx(
-                                        "px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all",
+                                        "h-10 px-4 rounded-full text-sm border transition-colors",
                                         fulfillmentType === opt.value
-                                            ? "bg-[var(--cort-orange)] border-[var(--cort-orange)] text-white"
+                                            ? "bg-[var(--cort-navy)] border-transparent text-white"
                                             : "bg-[var(--bg-card)] border-[var(--border-input)] text-[var(--text-primary)] hover:border-[var(--cort-orange)]/50"
                                     )}
                                 >
@@ -526,7 +527,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                         className="mt-1 rounded border-[var(--border-input)] text-[var(--cort-orange)] focus:ring-[var(--cort-orange)]"
                                     />
                                     <span className="text-sm text-[var(--text-primary)] leading-snug">
-                                        <span className="font-bold">{t("alsoSendToVendors")}</span>
+                                        <span className="font-medium">{t("alsoSendToVendors")}</span>
                                         <span className="block text-xs font-medium text-[var(--text-secondary)] mt-1">
                                             {t("broadcastHint")}
                                         </span>
@@ -537,20 +538,20 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                         {vendorsLoading ? (
                                             <div className="text-xs text-[var(--text-muted)] font-medium animate-pulse px-1">{t("loadingVendors")}</div>
                                         ) : vendorLinks.length === 0 ? (
-                                            <p className="text-xs text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2 font-semibold">
+                                            <p className="text-xs text-[var(--tone-danger-ink)] bg-[var(--tone-danger-soft)] rounded-xl px-3 py-2 font-medium">
                                                 {t("noActiveVendors")}
                                             </p>
                                         ) : (
                                             <>
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] px-1">{t("sendVendorRequestsTo")}</p>
+                                                <p className="text-xs font-medium text-[var(--text-secondary)] px-1">{t("sendVendorRequestsTo")}</p>
                                                 <div className="flex flex-wrap gap-2">
                                                     <button
                                                         type="button"
                                                         onClick={() => { setVendorMode("all"); setVehicleModel(""); }}
                                                         className={cx(
-                                                            "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
+                                                            "h-9 px-3.5 rounded-full text-xs border transition-colors",
                                                             vendorMode === "all"
-                                                                ? "bg-[var(--cort-orange)] border-[var(--cort-orange)] text-white"
+                                                                ? "bg-[var(--cort-navy)] border-transparent text-white"
                                                                 : "bg-[var(--bg-card)] border-[var(--border-input)] text-[var(--text-primary)] hover:border-[var(--cort-orange)]/40"
                                                         )}
                                                     >
@@ -562,9 +563,9 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                                             type="button"
                                                             onClick={() => { setVendorMode(link.id); setVehicleModel(""); }}
                                                             className={cx(
-                                                                "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
+                                                                "h-9 px-3.5 rounded-full text-xs border transition-colors",
                                                                 vendorMode === link.id
-                                                                    ? "bg-[var(--cort-orange)] border-[var(--cort-orange)] text-white"
+                                                                    ? "bg-[var(--cort-navy)] border-transparent text-white"
                                                                     : "bg-[var(--bg-card)] border-[var(--border-input)] text-[var(--text-primary)] hover:border-[var(--cort-orange)]/40"
                                                             )}
                                                         >
@@ -583,20 +584,20 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                 {vendorsLoading ? (
                                     <div className="text-xs text-[var(--text-muted)] font-medium animate-pulse px-1">{t("loadingVendors")}</div>
                                 ) : vendorLinks.length === 0 ? (
-                                    <p className="text-xs text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2 font-semibold">
+                                    <p className="text-xs text-[var(--tone-danger-ink)] bg-[var(--tone-danger-soft)] rounded-xl px-3 py-2 font-medium">
                                         {t("noActiveVendorsExternal")}
                                     </p>
                                 ) : (
                                     <>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] px-1">{t("sendRequestTo")}</p>
+                                        <p className="text-xs font-medium text-[var(--text-secondary)] px-1">{t("sendRequestTo")}</p>
                                         <div className="flex flex-wrap gap-2">
                                             <button
                                                 type="button"
                                                 onClick={() => { setVendorMode("all"); setVehicleModel(""); }}
                                                 className={cx(
-                                                    "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
+                                                    "h-9 px-3.5 rounded-full text-xs border transition-colors",
                                                     vendorMode === "all"
-                                                        ? "bg-[var(--cort-orange)] border-[var(--cort-orange)] text-white"
+                                                        ? "bg-[var(--cort-navy)] border-transparent text-white"
                                                         : "bg-[var(--bg-card)] border-[var(--border-input)] text-[var(--text-primary)] hover:border-[var(--cort-orange)]/40"
                                                 )}
                                             >
@@ -608,9 +609,9 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                                     type="button"
                                                     onClick={() => { setVendorMode(link.id); setVehicleModel(""); }}
                                                     className={cx(
-                                                        "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
+                                                        "h-9 px-3.5 rounded-full text-xs border transition-colors",
                                                         vendorMode === link.id
-                                                            ? "bg-[var(--cort-orange)] border-[var(--cort-orange)] text-white"
+                                                            ? "bg-[var(--cort-navy)] border-transparent text-white"
                                                             : "bg-[var(--bg-card)] border-[var(--border-input)] text-[var(--text-primary)] hover:border-[var(--cort-orange)]/40"
                                                     )}
                                                 >
@@ -618,7 +619,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                                 </button>
                                             ))}
                                         </div>
-                                        <p className="text-[10px] text-[var(--text-muted)] px-1">
+                                        <p className="text-xs text-[var(--text-muted)] px-1">
                                             {vendorMode === "all"
                                                 ? t("requestAllVendors")
                                                 : t("requestSingleVendor", { name: vendorLinks.find((l) => l.id === vendorMode)?.external_vendors?.name ?? t("selectedVendor") })}
@@ -634,7 +635,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                     <select
                                         value={poolDriverId ?? ""}
                                         onChange={(e) => setPoolDriverId(e.target.value || null)}
-                                        className="w-full h-10 rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)]"
+                                        className="w-full h-10 rounded-full border border-[var(--border-input)] bg-[var(--bg-card)] px-4 text-sm text-[var(--text-primary)]"
                                         required
                                     >
                                         <option value="">{t("selectDriverOption")}</option>
@@ -691,7 +692,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                             ))}
                         </Select>
                         {isEventShuttle && (
-                            <div className="mt-1.5 text-[10px] text-[var(--text-muted)] font-bold px-1 uppercase tracking-tight">
+                            <div className="mt-1.5 text-xs text-[var(--text-muted)] font-medium px-1 tracking-tight">
                                 {t("passengerOptionalHint")}
                             </div>
                         )}
@@ -787,24 +788,24 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                             </Select>
                         )}
                         {!isEventShuttle && fulfillmentType === "CORT_MANAGED" && allowedVehicleModels.length === 0 && (
-                            <div className="mt-1 text-[10px] text-rose-500 font-black uppercase">
+                            <div className="mt-1 text-xs text-[var(--tone-danger-ink)]">
                                 {t("noVehiclesWhitelistedWarning")}
                             </div>
                         )}
                         {!isEventShuttle && fulfillmentType === "EXTERNAL_VENDOR" && !vendorsLoading && vendorCarModels.length === 0 && (
-                            <div className="mt-1 text-[10px] text-rose-500 font-black uppercase">
+                            <div className="mt-1 text-xs text-[var(--tone-danger-ink)]">
                                 {t("noVendorVehiclesFound")}
                             </div>
                         )}
                         {!isEventShuttle && fulfillmentType === "CORT_MANAGED" && broadcastToAllVendors && !vendorsLoading && cortBroadcastCarModels && cortBroadcastCarModels.length === 0 && (
-                            <div className="mt-1 text-[10px] text-rose-500 font-black uppercase">
+                            <div className="mt-1 text-xs text-[var(--tone-danger-ink)]">
                                 {t("noOverlapVehicles")}
                             </div>
                         )}
                     </Field>
 
                     {!isEventShuttle && fulfillmentType !== "SELF_MANAGED" && vehicleModel === "Other" && (
-                        <div className="-mt-2 text-[10px] font-black uppercase tracking-wide text-[#fe8503]">
+                        <div className="-mt-2 text-xs font-medium text-[var(--cort-orange)]">
                             {t("specialRequestSelected")}
                         </div>
                     )}
@@ -875,7 +876,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                         type="button"
                                         onClick={handleAddCity}
                                         disabled={!cityInput.trim()}
-                                        className="h-12 px-6 rounded-xl bg-[var(--cort-orange)]/10 text-[var(--cort-orange)] text-xs font-black uppercase hover:bg-[var(--cort-orange)]/20 transition-all active:scale-95 disabled:opacity-50"
+                                        className="h-11 px-6 rounded-full bg-[var(--tone-brand-soft)] text-[var(--tone-brand-ink)] text-sm font-medium hover:bg-[var(--cort-orange)]/20 transition-colors disabled:opacity-50"
                                     >
                                         {tCommon("actions.add")}
                                     </button>
@@ -885,13 +886,13 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                         {destinationCities.map((city, index) => (
                                             <div
                                                 key={index}
-                                                className="flex items-center gap-2 rounded-full bg-[var(--bg-subtle)] px-4 py-1.5 text-xs font-black text-[var(--text-primary)] border border-[var(--border-input)]"
+                                                className="flex items-center gap-2 rounded-full bg-[var(--bg-subtle)] px-4 py-1.5 text-xs font-medium text-[var(--text-primary)] border border-[var(--border-input)]"
                                             >
                                                 <span>{city}</span>
                                                 <button
                                                     type="button"
                                                     onClick={() => handleRemoveCity(index)}
-                                                    className="w-4 h-4 rounded-full bg-white/10 text-[var(--text-muted)] flex items-center justify-center hover:bg-rose-500 hover:text-[var(--text-primary)] transition-all"
+                                                    className="w-4 h-4 rounded-full bg-[var(--tile-bg)] text-[var(--text-muted)] flex items-center justify-center hover:bg-[var(--accent-danger)] hover:text-[var(--text-primary)] transition-all"
                                                 >
                                                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
                                                 </button>
@@ -952,11 +953,11 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                     </Field>
 
                     <div className="sm:col-span-2 space-y-4">
-                        <div className="bg-[var(--bg-subtle)] rounded-2xl border border-[var(--border-default)] p-5 mt-2">
+                        <div className="bg-[var(--bg-card)] rounded-2xl p-5 mt-2">
                             <div className="flex items-center justify-between mb-4">
-                                <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-wider">{t("interactivePin")}</div>
+                                <div className="text-xs font-medium text-[var(--text-secondary)]">{t("interactivePin")}</div>
                                 {pickupLat && pickupLng && (
-                                    <div className="text-[9px] font-mono text-[var(--cort-orange)] font-bold bg-[var(--cort-orange)]/5 px-2 py-1 rounded-lg">
+                                    <div className="text-[11px] font-mono text-[var(--cort-orange)] font-medium bg-[var(--cort-orange)]/5 px-2 py-1 rounded-lg">
                                         {pickupLat.toFixed(4)}, {pickupLng.toFixed(4)}
                                     </div>
                                 )}
@@ -980,7 +981,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
 
                                 {/* Suggestions Dropdown */}
                                 {suggestions.length > 0 && (
-                                    <div className="absolute top-full start-0 mt-2 w-full rounded-2xl border border-[var(--border-input)] bg-[var(--bg-card)] shadow-2xl max-h-60 overflow-auto z-[60] py-2">
+                                    <div className="absolute top-full start-0 mt-2 w-full rounded-2xl border border-[var(--border-input)] bg-[var(--bg-card)] shadow-[var(--shadow-card)] max-h-60 overflow-auto z-[60] py-2">
                                         {suggestions.map((suggestion) => (
                                             <button
                                                 key={suggestion.place_id}
@@ -994,15 +995,15 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                                 }}
                                                 className="w-full px-5 py-3 text-start hover:bg-[var(--bg-subtle)] transition-colors group"
                                             >
-                                                <div className="text-xs font-black text-[var(--text-primary)] group-hover:text-[#fe8503] transition-colors">{suggestion.name}</div>
-                                                <div className="text-[10px] text-[var(--text-muted)] mt-1 truncate font-medium">{suggestion.display_name}</div>
+                                                <div className="text-xs font-medium text-[var(--text-primary)] group-hover:text-[var(--cort-orange)] transition-colors">{suggestion.name}</div>
+                                                <div className="text-xs text-[var(--text-muted)] mt-1 truncate font-medium">{suggestion.display_name}</div>
                                             </button>
                                         ))}
                                     </div>
                                 )}
                             </div>
 
-                            <div className="rounded-2xl overflow-hidden border border-[var(--border-input)] shadow-inner bg-[var(--bg-page)]">
+                            <div className="rounded-[20px] overflow-hidden bg-[var(--tile-bg)]">
                                 <Map
                                     height="280px"
                                     center={pickupLat && pickupLng ? [pickupLat, pickupLng] : undefined}
@@ -1010,7 +1011,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                     onMapClick={(lat, lng) => { setPickupLat(lat); setPickupLng(lng); }}
                                 />
                             </div>
-                            <div className="mt-3 flex items-center gap-2 text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-tight">
+                            <div className="mt-3 flex items-center gap-2 text-xs text-[var(--text-muted)] font-medium tracking-tight">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--cort-orange)] animate-pulse"></span>
                                 {t("pinLocationHint")}
                             </div>
@@ -1020,31 +1021,24 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-xs text-red-400 font-black uppercase tracking-tight flex items-start gap-3 animate-shake">
+                <div className="rounded-2xl bg-[var(--tone-danger-soft)] p-4 text-sm text-[var(--tone-danger-ink)] flex items-start gap-3 animate-shake">
                     <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                     <span>{error}</span>
                 </div>
             )}
 
-            <div className="flex items-center gap-4 justify-end pt-8 border-t border-[var(--border-input)]">
-                <button
-                    type="button"
-                    onClick={onCancel}
-                    className="h-12 px-8 rounded-xl border border-[var(--border-input)] text-xs font-black uppercase text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] transition-all active:scale-95"
-                >
+            <div className="flex flex-wrap items-center gap-3 justify-end pt-6 border-t border-[var(--divider)]">
+                <PillButton variant="outline" onClick={onCancel}>
                     {t("discard")}
-                </button>
-                <button
+                </PillButton>
+                <PillButton
                     type="submit"
                     disabled={!canSubmit || isSubmitting}
-                    className="h-12 min-w-[180px] px-10 rounded-xl bg-[#fe8503] text-xs font-black uppercase text-[var(--text-primary)] shadow-xl shadow-[#fe8503]/20 hover:bg-[#f07a00] hover:-translate-y-0.5 transition-all active:scale-95 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none"
+                    loading={isSubmitting}
+                    className="min-w-[180px]"
                 >
-                    {isSubmitting ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
-                    ) : (
-                        t("confirmBooking")
-                    )}
-                </button>
+                    {!isSubmitting && t("confirmBooking")}
+                </PillButton>
             </div>
         </form>
     );

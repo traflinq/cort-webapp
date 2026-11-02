@@ -15,12 +15,12 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 export function CompanyThemeProvider({ children }: { children: React.ReactNode }) {
-    const [theme, setTheme] = useState<Theme>("dark");
+    const [theme, setTheme] = useState<Theme>("light");
 
     // Persist + apply on mount
     useEffect(() => {
         const stored = localStorage.getItem("cort-theme") as Theme | null;
-        const initial = stored ?? "dark";
+        const initial = stored ?? "light";
         setTheme(initial);
         document.documentElement.setAttribute("data-theme", initial);
     }, []);

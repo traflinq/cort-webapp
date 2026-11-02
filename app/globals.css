@@ -307,6 +307,178 @@ html:not([data-theme="light"]):has(.admin-portal) {
     --glass-border: rgba(255,255,255,0.08);
 }
 
+/* ── Company portal ("Fleetly" look) ───────────────────────────────
+   Light: white cards on a lavender-grey canvas inside an indigo frame.
+   Dark: the same layout in deep navy. Scoped via :has so other portals keep their tokens. */
+html:has(.company-portal) {
+    --cort-orange: #f06a22;
+    --cort-orange-hover: #e05a12;
+    --cort-navy: #1c1b4d;
+    --cort-navy-dark: #141338;
+    --cort-navy-hover: #2a2966;
+    --ring: #f06a22;
+    --radius-card: 24px;
+    --radius-tile: 16px;
+}
+
+html[data-theme="light"]:has(.company-portal) {
+    --header-strip: #e2e3ec;
+    --canvas: #eef0f5;
+    --tile-bg: #f3f4f8;
+    --ring-track: #e4e5ed;
+    --pill-line: #cfd0dc;
+
+    --bg-page: #eef0f5;
+    --bg-card: #ffffff;
+    --bg-card-hover: #fbfbfd;
+    --bg-subtle: #f3f4f8;
+    --bg-input: #ffffff;
+    --bg-input-focus: #ffffff;
+    --bg-sidebar: #ffffff;
+    --bg-header: #e2e3ec;
+    --bg-elevated: #ffffff;
+    --bg-overlay: rgba(18, 18, 58, 0.45);
+
+    --border-default: rgba(28,27,77,0.08);
+    --border-strong: rgba(28,27,77,0.16);
+    --border-input: #dcdde6;
+
+    --text-primary: #1c1b4d;
+    --text-secondary: #55567a;
+    --text-muted: #8b8ca5;
+    --text-light: rgba(28,27,77,0.14);
+    --text-placeholder: #a5a6ba;
+
+    --shadow-card: 0 1px 2px rgba(28,27,77,0.04), 0 6px 24px rgba(28,27,77,0.05);
+    --shadow-card-hover: 0 2px 4px rgba(28,27,77,0.05), 0 12px 32px rgba(28,27,77,0.08);
+    --shadow-modal: 0 24px 64px rgba(18,18,58,0.22);
+
+    --nav-active-bg: #1c1b4d;
+    --nav-active-text: #ffffff;
+    --nav-inactive-text: #1c1b4d;
+    --nav-hover-bg: rgba(28,27,77,0.05);
+    --nav-border: #cfd0dc;
+
+    --row-hover: #f6f7fa;
+    --divider: rgba(28,27,77,0.07);
+
+    --tone-brand-ink: #b5470d;
+    --tone-brand-soft: rgba(240,106,34,0.10);
+    --tone-brand-line: rgba(240,106,34,0.30);
+    --chart-1: #f06a22;
+    --chart-2: #1c1b4d;
+    --chart-grid: rgba(28,27,77,0.07);
+    --chart-axis: #8b8ca5;
+
+    --surface-white: #ffffff;
+    --surface-subtle: #f3f4f8;
+    --surface-muted: #eceef3;
+    --surface-card: #ffffff;
+    --border-light: rgba(28,27,77,0.08);
+    --border-dark: rgba(28,27,77,0.16);
+    --background: #eef0f5;
+    --foreground: #1c1b4d;
+    --surface: #eef0f5;
+    --border: rgba(28,27,77,0.08);
+    --muted: #8b8ca5;
+    --text-main: #1c1b4d;
+    --glass-border: rgba(28,27,77,0.08);
+}
+
+html:not([data-theme="light"]):has(.company-portal) {
+    --header-strip: #121233;
+    --canvas: #16163d;
+    --tile-bg: rgba(255,255,255,0.05);
+    --ring-track: rgba(255,255,255,0.10);
+    --pill-line: rgba(255,255,255,0.16);
+    --cort-navy: #3b3990;
+    --cort-navy-hover: #4a48a8;
+    --cort-navy-ring: #8f8cf0;
+
+    --bg-page: #16163d;
+    --bg-card: #1d1d4a;
+    --bg-card-hover: #222255;
+    --bg-subtle: rgba(255,255,255,0.05);
+    --bg-input: #1a1a44;
+    --bg-input-focus: #1d1d4a;
+    --bg-sidebar: #1d1d4a;
+    --bg-header: #121233;
+    --bg-elevated: #23235a;
+    --bg-overlay: rgba(4, 4, 18, 0.65);
+
+    --border-default: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.16);
+    --border-input: rgba(255,255,255,0.14);
+
+    --text-primary: #eceaff;
+    --text-secondary: rgba(236,234,255,0.72);
+    --text-muted: rgba(236,234,255,0.52);
+    --text-light: rgba(236,234,255,0.14);
+    --text-placeholder: rgba(236,234,255,0.40);
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.30), 0 8px 24px rgba(0,0,0,0.18);
+    --shadow-card-hover: 0 2px 4px rgba(0,0,0,0.35), 0 12px 32px rgba(0,0,0,0.28);
+    --shadow-modal: 0 24px 64px rgba(0,0,0,0.6);
+
+    --nav-active-bg: #f06a22;
+    --nav-active-text: #ffffff;
+    --nav-inactive-text: #eceaff;
+    --nav-hover-bg: rgba(255,255,255,0.06);
+    --nav-border: rgba(255,255,255,0.16);
+
+    --row-hover: rgba(255,255,255,0.04);
+    --divider: rgba(255,255,255,0.08);
+
+    --tone-brand-ink: #ffa36e;
+    --tone-brand-soft: rgba(240,106,34,0.16);
+    --tone-brand-line: rgba(240,106,34,0.38);
+    --chart-1: #f06a22;
+    --chart-2: #8f8cf0;
+    --chart-grid: rgba(255,255,255,0.07);
+    --chart-axis: rgba(236,234,255,0.50);
+
+    --surface-white: #1d1d4a;
+    --surface-subtle: rgba(255,255,255,0.04);
+    --surface-muted: rgba(255,255,255,0.06);
+    --surface-card: rgba(255,255,255,0.03);
+    --border-light: rgba(255,255,255,0.08);
+    --border-dark: rgba(255,255,255,0.16);
+    --background: #16163d;
+    --foreground: #eceaff;
+    --surface: #16163d;
+    --border: rgba(255,255,255,0.08);
+    --muted: rgba(236,234,255,0.52);
+    --text-main: #eceaff;
+    --glass-border: rgba(255,255,255,0.08);
+}
+
+html:has(.company-portal) body {
+    background: var(--header-strip);
+}
+
+/* Inverse-radius joins where the canvas "tab" meets the header strip (nav notch). */
+.company-notch {
+    position: absolute;
+    bottom: 0;
+    width: 28px;
+    height: 28px;
+    pointer-events: none;
+}
+.company-notch-start {
+    inset-inline-end: 100%;
+    background: radial-gradient(circle at 0 0, transparent 27.5px, var(--canvas) 28px);
+}
+.company-notch-end {
+    inset-inline-start: 100%;
+    background: radial-gradient(circle at 100% 0, transparent 27.5px, var(--canvas) 28px);
+}
+html[dir="rtl"] .company-notch-start {
+    background: radial-gradient(circle at 100% 0, transparent 27.5px, var(--canvas) 28px);
+}
+html[dir="rtl"] .company-notch-end {
+    background: radial-gradient(circle at 0 0, transparent 27.5px, var(--canvas) 28px);
+}
+
 /* Theme-aware tinted alert banners (readable in light + dark mode) */
 .alert-banner-warning {
     border-radius: 0.75rem;
@@ -706,3 +878,6 @@ textarea,
 button {
     font: inherit;
 }
+/* Line-art illustrations on white cards: multiply in light, invert in dark. */
+html[data-theme="light"] .company-illustration { mix-blend-mode: multiply; }
+html:not([data-theme="light"]) .company-illustration { filter: invert(0.88); mix-blend-mode: screen; }

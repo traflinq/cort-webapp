@@ -59,7 +59,7 @@ export default function CompanyLoginPage() {
   }
 
   return (
-    <div data-theme="light">
+    <div data-theme="light" className="company-portal">
       <AuthShell
         title={t("title")}
         description={t("subtitle")}

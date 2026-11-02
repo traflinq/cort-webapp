@@ -43,13 +43,14 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
     if (!isMounted) return null;
 
     return createPortal(
-        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 modal-overlay ${isClosing ? "modal-overlay-closing" : ""}`}>
-            <div className={`w-full max-w-2xl transform overflow-hidden rounded-[2.5rem] bg-[var(--bg-card)] shadow-2xl transition-all max-h-[90vh] flex flex-col ring-1 ring-white/[0.07] modal-panel ${isClosing ? "modal-panel-closing" : ""}`}>
-                <div className="flex items-center justify-between border-b border-[var(--border-input)] px-8 py-6 bg-[var(--bg-card)] shrink-0">
-                    <h3 className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em]">{title}</h3>
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] backdrop-blur-[2px] p-4 modal-overlay ${isClosing ? "modal-overlay-closing" : ""}`}>
+            <div className={`w-full max-w-2xl transform overflow-hidden rounded-[var(--radius-card,2rem)] bg-[var(--bg-card)] shadow-[var(--shadow-modal)] transition-all max-h-[90vh] flex flex-col modal-panel ${isClosing ? "modal-panel-closing" : ""}`}>
+                <div className="flex items-center justify-between gap-4 px-6 pt-6 pb-4 sm:px-8 bg-[var(--bg-card)] shrink-0">
+                    <h3 className="text-xl font-medium text-[var(--text-primary)]">{title}</h3>
                     <button
                         onClick={onClose}
-                        className="rounded-xl p-2.5 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] transition-all hover:rotate-90 border border-transparent hover:border-[var(--border-input)]"
+                        aria-label="Close"
+                        className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--pill-line,var(--border-input))] text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -58,7 +59,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth="3"
+                            strokeWidth="1.8"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                         >
@@ -67,7 +68,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
                         </svg>
                     </button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-8 bg-[var(--bg-page)]">
+                <div className="flex-1 overflow-y-auto px-6 pb-6 pt-2 sm:px-8 sm:pb-8 bg-[var(--bg-card)]">
                     {children}
                 </div>
             </div>

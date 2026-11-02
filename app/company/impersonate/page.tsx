@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";
+import { pillClasses } from "../ui/PillButton";
 
 export default function CompanyImpersonatePage() {
   const router = useRouter();
@@ -39,30 +40,27 @@ export default function CompanyImpersonatePage() {
   }, []);
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#0f172a] px-4 font-sans">
-      <div className="absolute top-[-20%] left-[-10%] h-[600px] w-[600px] rounded-full bg-blue-600/20 blur-[120px]" />
-      <div className="absolute bottom-[-20%] right-[-10%] h-[600px] w-[600px] rounded-full bg-[#f47f00]/10 blur-[120px]" />
-
-      <div className="relative w-full max-w-md rounded-2xl bg-white/5 px-8 py-10 text-center shadow-2xl backdrop-blur-xl ring-1 ring-white/10">
+    <div className="company-portal relative flex min-h-screen w-full items-center justify-center bg-[var(--canvas)] px-4 font-sans text-[var(--text-primary)]">
+      <div className="relative w-full max-w-md rounded-[var(--radius-card)] bg-[var(--bg-card)] px-8 py-10 text-center shadow-[var(--shadow-card)]">
         {error ? (
           <>
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-300">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--tone-danger-soft)] text-[var(--tone-danger-ink)]">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
             </div>
-            <h2 className="text-lg font-semibold text-white">Login link expired</h2>
-            <p className="mt-2 text-sm text-slate-400">{error}</p>
+            <h2 className="text-xl font-medium text-[var(--text-primary)]">Login link expired</h2>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">{error}</p>
             <a
               href="/company/login"
-              className="mt-6 inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-[#f47f00] to-[#d97000] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/20 transition-all hover:scale-[1.02]"
+              className={pillClasses("primary", "md", false, "mt-6")}
             >
               Back to login
             </a>
           </>
         ) : (
           <>
-            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#f47f00]" />
-            <h2 className="text-lg font-semibold text-white">Signing you in&hellip;</h2>
-            <p className="mt-2 text-sm text-slate-400">Redirecting to the company dashboard.</p>
+            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-[var(--tile-bg)] border-t-[var(--cort-orange)]" />
+            <h2 className="text-xl font-medium text-[var(--text-primary)]">Signing you in&hellip;</h2>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">Redirecting to the company dashboard.</p>
           </>
         )}
       </div>

@@ -6,8 +6,9 @@ import dynamic from 'next/dynamic';
 import { apiClient } from '@/app/lib/services/api-client';
 import { useAppSelector } from '@/app/lib/store/hooks';
 import { selectCompany } from '@/app/lib/store/slices/companySlice';
-import { AlertTriangle, Fuel, Bus, Navigation, TrendingDown, TrendingUp, Zap, RefreshCw, Map as MapIcon, X, Clock, Users, Package, CarFront, Lock, Car } from 'lucide-react';
+import { AlertTriangle, Fuel, Bus, Navigation, TrendingDown, TrendingUp, Zap, RefreshCw, Map as MapIcon, X, Clock, Users, Package, CarFront, Car } from 'lucide-react';
 import type { MapMarker, MapPolyline } from '@/app/admin/ui/Map';
+import { EmptyState, IconCircleButton, Illustration, PillButton } from '../ui';
 
 const Map = dynamic(() => import('@/app/admin/ui/Map'), { ssr: false });
 
@@ -135,35 +136,35 @@ function pct(v: string | null | undefined) {
 }
 
 function severityColor(s: string) {
-  if (s === 'CRITICAL') return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-  if (s === 'HIGH') return 'bg-[var(--cort-orange)]/10 text-[var(--cort-orange)] border-[var(--cort-orange)]/20';
-  if (s === 'MEDIUM') return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
-  return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+  if (s === 'CRITICAL') return 'bg-[var(--tone-danger-soft)] text-[var(--tone-danger-ink)] border-[var(--tone-danger-line)]';
+  if (s === 'HIGH') return 'bg-[var(--tone-brand-soft)] text-[var(--tone-brand-ink)] border-[var(--tone-brand-line)]';
+  if (s === 'MEDIUM') return 'bg-[var(--tone-warning-soft)] text-[var(--tone-warning-ink)] border-[var(--tone-warning-line)]';
+  return 'bg-[var(--tone-info-soft)] text-[var(--tone-info-ink)] border-[var(--tone-info-line)]';
 }
 
 function insightIcon(type: string) {
-  if (type === 'FUEL_LEAKAGE') return <Fuel className="h-5 w-5 text-orange-500" />;
-  if (type === 'OCCUPANCY') return <Bus className="h-5 w-5 text-blue-500" />;
-  if (type === 'CHAUFFEUR_DETOUR' || type === 'ROUTE_DETOUR') return <Navigation className="h-5 w-5 text-purple-500" />;
-  if (type === 'IDLE_TIME') return <Zap className="h-5 w-5 text-yellow-500" />;
-  if (type === 'CHAUFFEUR_PACKAGE_UNDERUTILIZATION') return <Package className="h-5 w-5 text-teal-400" />;
-  if (type === 'CHAUFFEUR_CONCURRENT') return <Users className="h-5 w-5 text-indigo-400" />;
-  if (type === 'POOL_UTILIZATION') return <Car className="h-5 w-5 text-violet-400" />;
+  if (type === 'FUEL_LEAKAGE') return <Fuel className="h-5 w-5 text-[var(--tone-warning-ink)]" />;
+  if (type === 'OCCUPANCY') return <Bus className="h-5 w-5 text-[var(--tone-info-ink)]" />;
+  if (type === 'CHAUFFEUR_DETOUR' || type === 'ROUTE_DETOUR') return <Navigation className="h-5 w-5 text-[var(--tone-purple-ink)]" />;
+  if (type === 'IDLE_TIME') return <Zap className="h-5 w-5 text-[var(--tone-warning-ink)]" />;
+  if (type === 'CHAUFFEUR_PACKAGE_UNDERUTILIZATION') return <Package className="h-5 w-5 text-[var(--tone-success-ink)]" />;
+  if (type === 'CHAUFFEUR_CONCURRENT') return <Users className="h-5 w-5 text-[var(--tone-info-ink)]" />;
+  if (type === 'POOL_UTILIZATION') return <Car className="h-5 w-5 text-[var(--tone-purple-ink)]" />;
   return <AlertTriangle className="h-5 w-5 text-[var(--text-muted)]" />;
 }
 
 function InsightCard({ insight }: { insight: FleetInsight }) {
   const t = useTranslations('company.fleetAnalytics');
   return (
-    <div className={`rounded-xl border p-4 ${severityColor(insight.severity)}`}>
+    <div className={`rounded-[var(--radius-tile)] border p-4 ${severityColor(insight.severity)}`}>
       <div className="flex items-start gap-3">
         {insightIcon(insight.insight_type)}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold uppercase tracking-wide">
+            <span className="text-xs font-semibold">
               {insight.insight_type.replace(/_/g, ' ')}
             </span>
-            <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-white/10">
+            <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-[var(--tile-bg)]">
               {insight.severity}
             </span>
           </div>
@@ -183,10 +184,8 @@ function InsightCard({ insight }: { insight: FleetInsight }) {
 function DisabledSection({ label }: { label: string }) {
   const t = useTranslations('company.fleetAnalytics');
   return (
-    <div className="rounded-[2rem] border border-dashed border-[var(--border-default)] bg-[var(--surface-subtle)]/30 px-6 py-10 text-center">
-      <Lock className="h-6 w-6 text-[var(--text-muted)] mx-auto mb-2 opacity-40" />
-      <p className="text-sm font-bold text-[var(--text-muted)]">{label}</p>
-      <p className="text-xs text-[var(--text-muted)] mt-1 opacity-60">{t('contactAdminEnable')}</p>
+    <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--pill-line)] bg-[var(--tile-bg)] px-6">
+      <EmptyState compact illustration="key" title={label} description={t('contactAdminEnable')} />
     </div>
   );
 }
@@ -335,21 +334,22 @@ export function FleetEfficiencyPanel() {
       <div>
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <Bus className="h-5 w-5 text-blue-400" />
-            <h2 className="text-base font-bold text-[var(--text-primary)]">{t('shuttleAnalytics')}</h2>
+            <Bus className="h-5 w-5 text-[var(--tone-info-ink)]" />
+            <h2 className="text-xl font-medium text-[var(--text-primary)]">{t('shuttleAnalytics')}</h2>
             {shuttleEnabled && aiEnabled && (
-              <span className="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-xs font-bold text-emerald-400">{t('active')}</span>
+              <span className="inline-flex items-center rounded-full bg-[var(--tone-success-soft)] border border-[var(--tone-success-line)] px-2 py-0.5 text-xs font-medium text-[var(--tone-success-ink)]">{t('active')}</span>
             )}
           </div>
           {showGenerate && (
-            <button
+            <PillButton
+              variant="primary"
+              size="sm"
+              icon={<RefreshCw className={generating ? 'animate-spin' : ''} strokeWidth={2} />}
               onClick={triggerGenerate}
               disabled={generating}
-              className="flex items-center gap-1.5 rounded-lg bg-[var(--cort-orange)] px-3 py-1.5 text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--cort-orange-hover)] disabled:opacity-60 transition-colors"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${generating ? 'animate-spin' : ''}`} />
               {generating ? t('generating') : t('runAiAnalysis')}
-            </button>
+            </PillButton>
           )}
         </div>
 
@@ -359,19 +359,22 @@ export function FleetEfficiencyPanel() {
           <div className="space-y-6">
             {summary && (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <KpiCard label={t('tripsAnalysed')} value={summary.count.toString()} icon={<Bus className="h-5 w-5 text-blue-500" />} />
-                <KpiCard label={t('avgOccupancy')} value={`${summary.avgOccupancy.toFixed(1)}%`} icon={summary.avgOccupancy >= 70 ? <TrendingUp className="h-5 w-5 text-green-500" /> : <TrendingDown className="h-5 w-5 text-orange-500" />} good={summary.avgOccupancy >= 70} />
-                <KpiCard label={t('avgDetourRatio')} value={summary.avgDetour ? `${summary.avgDetour.toFixed(2)}×` : '—'} icon={<Navigation className="h-5 w-5 text-purple-500" />} good={!summary.avgDetour || summary.avgDetour < 1.1} />
-                <KpiCard label={t('totalIdleMin')} value={Math.round(summary.totalIdleMin).toLocaleString()} icon={<Zap className="h-5 w-5 text-yellow-500" />} good={summary.totalIdleMin < 300} />
+                <KpiCard label={t('tripsAnalysed')} value={summary.count.toString()} icon={<Bus className="h-5 w-5 text-[var(--tone-info-ink)]" />} />
+                <KpiCard label={t('avgOccupancy')} value={`${summary.avgOccupancy.toFixed(1)}%`} icon={summary.avgOccupancy >= 70 ? <TrendingUp className="h-5 w-5 text-[var(--tone-success-ink)]" /> : <TrendingDown className="h-5 w-5 text-[var(--tone-warning-ink)]" />} good={summary.avgOccupancy >= 70} />
+                <KpiCard label={t('avgDetourRatio')} value={summary.avgDetour ? `${summary.avgDetour.toFixed(2)}×` : '—'} icon={<Navigation className="h-5 w-5 text-[var(--tone-purple-ink)]" />} good={!summary.avgDetour || summary.avgDetour < 1.1} />
+                <KpiCard label={t('totalIdleMin')} value={Math.round(summary.totalIdleMin).toLocaleString()} icon={<Zap className="h-5 w-5 text-[var(--tone-warning-ink)]" />} good={summary.totalIdleMin < 300} />
               </div>
             )}
 
-            <section className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-[2rem] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.4)]">
-              <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-4">
+            <section className="bg-[var(--bg-card)] rounded-[var(--radius-card)] p-6 shadow-[var(--shadow-card)]">
+              <h3 className="text-lg font-medium text-[var(--text-primary)] flex items-center gap-2 mb-4">
                 <Zap className="h-4 w-4 text-[var(--cort-orange)]" /> {t('aiInsightsShuttle')}
               </h3>
               {shuttleInsights.length === 0 ? (
-                <p className="text-sm text-[var(--text-muted)]">{t('noShuttleInsights')}</p>
+                <div className="flex items-center gap-3 rounded-[var(--radius-tile)] bg-[var(--tile-bg)] px-4 py-3">
+                  <Illustration name="fuel" size={36} />
+                  <p className="text-sm text-[var(--text-muted)]">{t('noShuttleInsights')}</p>
+                </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
                   {shuttleInsights.map(i => <InsightCard key={i.id} insight={i} />)}
@@ -380,13 +383,13 @@ export function FleetEfficiencyPanel() {
             </section>
 
             {fuelFlags.length > 0 && (
-              <section className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-[2rem] overflow-hidden shadow-[0_2px_16px_rgba(0,0,0,0.4)]">
-                <div className="p-6 border-b border-[var(--border-light)]">
+              <section className="bg-[var(--bg-card)] rounded-[var(--radius-card)] overflow-hidden shadow-[var(--shadow-card)]">
+                <div className="p-6 border-b border-[var(--divider)]">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                      <Fuel className="h-4 w-4 text-rose-400" /> {t('flaggedFuelVariance')}
+                    <h3 className="text-lg font-medium text-[var(--text-primary)] flex items-center gap-2">
+                      <Fuel className="h-4 w-4 text-[var(--tone-danger-ink)]" /> {t('flaggedFuelVariance')}
                     </h3>
-                    <span className="inline-flex items-center rounded-full bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 text-xs font-bold text-rose-400">
+                    <span className="inline-flex items-center rounded-full bg-[var(--tone-danger-soft)] border border-[var(--tone-danger-line)] px-2 py-0.5 text-xs font-medium text-[var(--tone-danger-ink)]">
                       {t('flagged', { count: fuelFlags.length })}
                     </span>
                   </div>
@@ -395,21 +398,21 @@ export function FleetEfficiencyPanel() {
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead>
-                      <tr className="border-b border-[var(--border-light)]">
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t('vehicle')}</th>
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t('date')}</th>
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-end">{t('variance')}</th>
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-end">{t('actualL')}</th>
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-end">{t('expectedL')}</th>
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-end">{t('streak')}</th>
+                      <tr className="border-b border-[var(--divider)]">
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-start">{t('vehicle')}</th>
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-start">{t('date')}</th>
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-end">{t('variance')}</th>
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-end">{t('actualL')}</th>
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-end">{t('expectedL')}</th>
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-end">{t('streak')}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[var(--border-light)]/50">
+                    <tbody className="divide-y divide-[var(--divider)]">
                       {fuelFlags.slice(0, 8).map((f) => (
-                        <tr key={f.id} className="group transition-colors hover:bg-[var(--surface-subtle)]/80">
-                          <td className="px-6 py-4 font-bold text-[var(--text-primary)]">{f.vehicles?.plate_number ?? f.vehicle_id}</td>
+                        <tr key={f.id} className="group transition-colors hover:bg-[var(--row-hover)]">
+                          <td className="px-6 py-4 font-medium text-[var(--text-primary)]">{f.vehicles?.plate_number ?? f.vehicle_id}</td>
                           <td className="px-6 py-4 text-[var(--text-muted)]">{new Date(f.flag_date).toLocaleDateString()}</td>
-                          <td className={`px-6 py-4 text-end font-bold ${parseFloat(f.variance_pct) > 20 ? 'text-rose-400' : 'text-[var(--cort-orange)]'}`}>
+                          <td className={`px-6 py-4 text-end font-medium ${parseFloat(f.variance_pct) > 20 ? 'text-[var(--tone-danger-ink)]' : 'text-[var(--cort-orange)]'}`}>
                             {pct(f.variance_pct)}
                           </td>
                           <td className="px-6 py-4 text-end text-[var(--text-secondary)]">{fmt(f.actual_litres)}</td>
@@ -424,30 +427,30 @@ export function FleetEfficiencyPanel() {
             )}
 
             {recentMetrics.length > 0 && (
-              <section className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-[2rem] overflow-hidden shadow-[0_2px_16px_rgba(0,0,0,0.4)]">
-                <div className="p-6 border-b border-[var(--border-light)]">
-                  <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                    <Bus className="h-4 w-4 text-blue-400" /> {t('recentShuttleTrips')}
+              <section className="bg-[var(--bg-card)] rounded-[var(--radius-card)] overflow-hidden shadow-[var(--shadow-card)]">
+                <div className="p-6 border-b border-[var(--divider)]">
+                  <h3 className="text-lg font-medium text-[var(--text-primary)] flex items-center gap-2">
+                    <Bus className="h-4 w-4 text-[var(--tone-info-ink)]" /> {t('recentShuttleTrips')}
                   </h3>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead>
-                      <tr className="border-b border-[var(--border-light)]">
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t('date')}</th>
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t('dir')}</th>
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t('vehicle')}</th>
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-start">{t('driver')}</th>
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-end">{t('occupancy')}</th>
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-end">{t('detour')}</th>
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-end">{t('idleMin')}</th>
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-end">{t('fuelVar')}</th>
-                        <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-end">{t('route')}</th>
+                      <tr className="border-b border-[var(--divider)]">
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-start">{t('date')}</th>
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-start">{t('dir')}</th>
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-start">{t('vehicle')}</th>
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-start">{t('driver')}</th>
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-end">{t('occupancy')}</th>
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-end">{t('detour')}</th>
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-end">{t('idleMin')}</th>
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-end">{t('fuelVar')}</th>
+                        <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-end">{t('route')}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[var(--border-light)]/50">
+                    <tbody className="divide-y divide-[var(--divider)]">
                       {recentMetrics.map((m) => (
-                        <tr key={m.id} className={`group transition-colors ${selectedTripForMap === m.shuttle_trip_id ? 'bg-[var(--cort-orange)]/5' : 'hover:bg-[var(--surface-subtle)]/80'}`}>
+                        <tr key={m.id} className={`group transition-colors ${selectedTripForMap === m.shuttle_trip_id ? 'bg-[var(--cort-orange)]/5' : 'hover:bg-[var(--row-hover)]'}`}>
                           <td className="px-6 py-4 text-[var(--text-secondary)]">{new Date(m.trip_date).toLocaleDateString()}</td>
                           <td className="px-6 py-4 text-[var(--text-muted)]">{m.direction}</td>
                           <td className="px-6 py-4">
@@ -457,24 +460,24 @@ export function FleetEfficiencyPanel() {
                             )}
                           </td>
                           <td className="px-6 py-4 text-[var(--text-secondary)]">{m.shuttle_trips?.users?.full_name ?? '—'}</td>
-                          <td className={`px-6 py-4 text-right font-medium ${m.occupancy_pct && parseFloat(m.occupancy_pct) < 50 ? 'text-[var(--cort-orange)]' : 'text-[var(--text-primary)]'}`}>
+                          <td className={`px-6 py-4 text-end font-medium ${m.occupancy_pct && parseFloat(m.occupancy_pct) < 50 ? 'text-[var(--cort-orange)]' : 'text-[var(--text-primary)]'}`}>
                             {pct(m.occupancy_pct)}
                           </td>
-                          <td className={`px-6 py-4 text-right font-medium ${m.detour_ratio && parseFloat(m.detour_ratio) > 1.2 ? 'text-rose-400' : 'text-[var(--text-primary)]'}`}>
+                          <td className={`px-6 py-4 text-end font-medium ${m.detour_ratio && parseFloat(m.detour_ratio) > 1.2 ? 'text-[var(--tone-danger-ink)]' : 'text-[var(--text-primary)]'}`}>
                             {m.detour_ratio ? `${fmt(m.detour_ratio, 2)}×` : '—'}
                           </td>
-                          <td className="px-6 py-4 text-right text-[var(--text-muted)]">{fmt(m.idle_minutes, 0)}</td>
-                          <td className={`px-6 py-4 text-right font-medium ${m.fuel_variance_pct && Math.abs(parseFloat(m.fuel_variance_pct)) > 15 ? 'text-rose-400' : 'text-[var(--text-primary)]'}`}>
+                          <td className="px-6 py-4 text-end text-[var(--text-muted)]">{fmt(m.idle_minutes, 0)}</td>
+                          <td className={`px-6 py-4 text-end font-medium ${m.fuel_variance_pct && Math.abs(parseFloat(m.fuel_variance_pct)) > 15 ? 'text-[var(--tone-danger-ink)]' : 'text-[var(--text-primary)]'}`}>
                             {pct(m.fuel_variance_pct)}
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-6 py-4 text-end">
                             <button
                               onClick={() => loadRouteComparison(m.shuttle_trip_id, m.route_id)}
-                              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors ${
-                                selectedTripForMap === m.shuttle_trip_id
-                                  ? 'bg-[var(--cort-orange)]/10 text-[var(--cort-orange)] border border-[var(--cort-orange)]/20'
-                                  : 'bg-[var(--surface-subtle)] text-[var(--text-muted)] hover:text-[var(--text-secondary)] border border-[var(--border-light)]'
-                              }`}
+                              className={`inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs font-medium transition-colors ${
+ selectedTripForMap === m.shuttle_trip_id
+ ? 'bg-[var(--tone-brand-soft)] text-[var(--cort-orange)] border border-[var(--tone-brand-line)]'
+ : 'border border-[var(--pill-line)] text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]'
+ }`}
                             >
                               <MapIcon className="h-3 w-3" />
                               {selectedTripForMap === m.shuttle_trip_id ? t('close') : t('view')}
@@ -487,19 +490,19 @@ export function FleetEfficiencyPanel() {
                 </div>
 
                 {selectedTripForMap !== null && (
-                  <div className="border-t border-[var(--border-light)] overflow-hidden">
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-light)] bg-[var(--surface-subtle)]/50">
+                  <div className="border-t border-[var(--divider)] overflow-hidden">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--divider)] bg-[var(--tile-bg)]">
                       <div className="flex items-center gap-2">
                         <MapIcon className="h-4 w-4 text-[var(--text-muted)]" />
-                        <span className="text-sm font-bold text-[var(--text-primary)]">{t('routeMapOverlay')}</span>
+                        <span className="text-sm font-medium text-[var(--text-primary)]">{t('routeMapOverlay')}</span>
                         <span className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                          <span className="inline-block h-2.5 w-6 rounded-sm bg-blue-500" /> {t('planned')}
-                          <span className="inline-block h-2.5 w-6 rounded-sm bg-[var(--cort-orange)] ms-1" /> {t('actual')}
+                          <span className="inline-block h-2.5 w-6 rounded-full bg-[var(--cort-navy-ring,var(--cort-navy))]" /> {t('planned')}
+                          <span className="inline-block h-2.5 w-6 rounded-full bg-[var(--cort-orange)] ms-1" /> {t('actual')}
                         </span>
                       </div>
-                      <button onClick={() => { setSelectedTripForMap(null); setRouteComparison(null); setSelectedRouteId(null); }} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors">
-                        <X className="h-4 w-4" />
-                      </button>
+                      <IconCircleButton label={t('close')} variant="outline" size="xs" onClick={() => { setSelectedTripForMap(null); setRouteComparison(null); setSelectedRouteId(null); }}>
+                        <X strokeWidth={1.8} />
+                      </IconCircleButton>
                     </div>
                     {mapLoading ? (
                       <div className="flex items-center justify-center h-64 text-[var(--text-muted)] text-sm">
@@ -524,17 +527,17 @@ export function FleetEfficiencyPanel() {
       </div>
 
       {/* ── Divider ── */}
-      <div className="border-t border-[var(--border-default)]" />
+      <div className="border-t border-[var(--divider)]" />
 
       {/* ══════════════════════════════════════════════════════════
           CHAUFFEUR SECTION
       ═══════════════════════════════════════════════════════════ */}
       <div>
         <div className="flex items-center gap-2 mb-5">
-          <CarFront className="h-5 w-5 text-teal-400" />
-          <h2 className="text-base font-bold text-[var(--text-primary)]">{t('chauffeurAnalytics')}</h2>
+          <CarFront className="h-5 w-5 text-[var(--tone-success-ink)]" />
+          <h2 className="text-xl font-medium text-[var(--text-primary)]">{t('chauffeurAnalytics')}</h2>
           {chauffeurEnabled && aiEnabled && (
-            <span className="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-xs font-bold text-emerald-400">{t('active')}</span>
+            <span className="inline-flex items-center rounded-full bg-[var(--tone-success-soft)] border border-[var(--tone-success-line)] px-2 py-0.5 text-xs font-medium text-[var(--tone-success-ink)]">{t('active')}</span>
           )}
         </div>
 
@@ -542,12 +545,15 @@ export function FleetEfficiencyPanel() {
           <DisabledSection label={t('chauffeurAiDisabled')} />
         ) : (
           <div className="space-y-6">
-            <section className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-[2rem] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.4)]">
-              <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-4">
+            <section className="bg-[var(--bg-card)] rounded-[var(--radius-card)] p-6 shadow-[var(--shadow-card)]">
+              <h3 className="text-lg font-medium text-[var(--text-primary)] flex items-center gap-2 mb-4">
                 <Zap className="h-4 w-4 text-[var(--cort-orange)]" /> {t('aiInsightsChauffeur')}
               </h3>
               {chauffeurInsights.length === 0 ? (
-                <p className="text-sm text-[var(--text-muted)]">{t('noChauffeurInsights')}</p>
+                <div className="flex items-center gap-3 rounded-[var(--radius-tile)] bg-[var(--tile-bg)] px-4 py-3">
+                  <Illustration name="chart" size={36} />
+                  <p className="text-sm text-[var(--text-muted)]">{t('noChauffeurInsights')}</p>
+                </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
                   {chauffeurInsights.map(i => <InsightCard key={i.id} insight={i} />)}
@@ -559,52 +565,52 @@ export function FleetEfficiencyPanel() {
               <>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <KpiCard label={t('totalBookings')} value={chauffeurUtil.summary.total_bookings.toString()} icon={<CarFront className="h-5 w-5 text-teal-500" />} />
-                  <KpiCard label={t('avgOccupancy')} value={chauffeurUtil.summary.avg_utilization_pct != null ? `${chauffeurUtil.summary.avg_utilization_pct}%` : '—'} icon={<Clock className="h-5 w-5 text-blue-500" />} good={chauffeurUtil.summary.avg_utilization_pct != null && chauffeurUtil.summary.avg_utilization_pct >= 70} />
-                  <KpiCard label={t('underutilizedBookings')} value={chauffeurUtil.summary.underutilized_count.toString()} icon={<AlertTriangle className="h-5 w-5 text-orange-500" />} good={chauffeurUtil.summary.underutilized_count === 0} />
-                  <KpiCard label={t('estBillingSaving')} value={chauffeurUtil.summary.total_estimated_saving_pkr > 0 ? `PKR ${chauffeurUtil.summary.total_estimated_saving_pkr.toLocaleString()}` : '—'} icon={<TrendingDown className="h-5 w-5 text-green-500" />} />
+                  <KpiCard label={t('avgOccupancy')} value={chauffeurUtil.summary.avg_utilization_pct != null ? `${chauffeurUtil.summary.avg_utilization_pct}%` : '—'} icon={<Clock className="h-5 w-5 text-[var(--tone-info-ink)]" />} good={chauffeurUtil.summary.avg_utilization_pct != null && chauffeurUtil.summary.avg_utilization_pct >= 70} />
+                  <KpiCard label={t('underutilizedBookings')} value={chauffeurUtil.summary.underutilized_count.toString()} icon={<AlertTriangle className="h-5 w-5 text-[var(--tone-warning-ink)]" />} good={chauffeurUtil.summary.underutilized_count === 0} />
+                  <KpiCard label={t('estBillingSaving')} value={chauffeurUtil.summary.total_estimated_saving_pkr > 0 ? `PKR ${chauffeurUtil.summary.total_estimated_saving_pkr.toLocaleString()}` : '—'} icon={<TrendingDown className="h-5 w-5 text-[var(--tone-success-ink)]" />} />
                 </div>
 
                 {chauffeurUtil.bookings.filter(b => (b.utilization_pct ?? 100) < 70).length > 0 && (
-                  <section className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-[2rem] overflow-hidden shadow-[0_2px_16px_rgba(0,0,0,0.4)]">
-                    <div className="px-6 py-4 border-b border-[var(--border-light)] flex items-center gap-2">
-                      <Package className="h-4 w-4 text-teal-400" />
-                      <span className="text-sm font-bold text-[var(--text-primary)]">{t('underutilizedBookings')}</span>
+                  <section className="bg-[var(--bg-card)] rounded-[var(--radius-card)] overflow-hidden shadow-[var(--shadow-card)]">
+                    <div className="px-6 py-4 border-b border-[var(--divider)] flex items-center gap-2">
+                      <Package className="h-4 w-4 text-[var(--tone-success-ink)]" />
+                      <span className="text-sm font-medium text-[var(--text-primary)]">{t('underutilizedBookings')}</span>
                       <span className="text-xs text-[var(--text-muted)]">{t('underutilizedHint')}</span>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="min-w-full text-sm">
                         <thead>
-                          <tr className="border-b border-[var(--border-light)]">
-                            <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-left">Booking</th>
-                            <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-left">Package</th>
-                            <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-left">Date</th>
-                            <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-right">Used</th>
-                            <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-right min-w-[160px]">Utilization</th>
-                            <th className="px-6 py-4 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider text-right">Est. Saving</th>
+                          <tr className="border-b border-[var(--divider)]">
+                            <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-start">Booking</th>
+                            <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-start">Package</th>
+                            <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-start">Date</th>
+                            <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-end">Used</th>
+                            <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-end min-w-[160px]">Utilization</th>
+                            <th className="px-6 py-4 text-[13px] font-normal text-[var(--text-muted)] whitespace-nowrap text-end">Est. Saving</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[var(--border-light)]/50">
+                        <tbody className="divide-y divide-[var(--divider)]">
                           {chauffeurUtil.bookings
                             .filter(b => (b.utilization_pct ?? 100) < 70)
                             .slice(0, 10)
                             .map(b => (
-                              <tr key={b.booking_id} className="group transition-colors hover:bg-[var(--surface-subtle)]/80">
-                                <td className="px-6 py-4 font-bold text-[var(--text-primary)]">#{b.booking_id}</td>
+                              <tr key={b.booking_id} className="group transition-colors hover:bg-[var(--row-hover)]">
+                                <td className="px-6 py-4 font-medium text-[var(--text-primary)]">#{b.booking_id}</td>
                                 <td className="px-6 py-4">
-                                  <span className="inline-flex items-center rounded-full bg-teal-500/10 text-teal-400 text-xs font-bold px-2 py-0.5 border border-teal-500/20">
+                                  <span className="inline-flex items-center rounded-full bg-teal-500/10 text-[var(--tone-success-ink)] text-xs font-medium px-2 py-0.5 border border-teal-500/20">
                                     {b.package_selected?.replace('HOURS_', '') ?? '—'}h
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 text-[var(--text-muted)] text-xs">
                                   {b.scheduled_for ? new Date(b.scheduled_for).toLocaleDateString() : '—'}
                                 </td>
-                                <td className="px-6 py-4 text-right text-[var(--text-secondary)]">
+                                <td className="px-6 py-4 text-end text-[var(--text-secondary)]">
                                   {b.used_minutes != null ? `${(b.used_minutes / 60).toFixed(1)}h` : '—'}
                                 </td>
                                 <td className="px-6 py-4 min-w-[160px]">
                                   {b.utilization_pct != null ? <UtilizationBar pct={b.utilization_pct} /> : '—'}
                                 </td>
-                                <td className="px-6 py-4 text-right text-emerald-400 font-bold">
+                                <td className="px-6 py-4 text-end text-[var(--tone-success-ink)] font-medium">
                                   {b.estimated_saving_pkr != null && b.estimated_saving_pkr > 0
                                     ? `PKR ${b.estimated_saving_pkr.toLocaleString()}`
                                     : '—'}
@@ -629,13 +635,13 @@ export function FleetEfficiencyPanel() {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function UtilizationBar({ pct }: { pct: number }) {
-  const color = pct >= 80 ? 'bg-emerald-500' : pct >= 60 ? 'bg-yellow-400' : 'bg-rose-500';
+  const color = pct >= 80 ? 'bg-[var(--tone-success-ink)]' : pct >= 60 ? 'bg-[var(--tone-warning-ink)]' : 'bg-[var(--tone-danger-ink)]';
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 rounded-full bg-[var(--surface-subtle)] overflow-hidden">
+      <div className="flex-1 h-2 rounded-full bg-[var(--tile-bg)] overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(100, pct)}%` }} />
       </div>
-      <span className={`text-xs font-bold w-10 text-end ${pct < 60 ? 'text-rose-400' : 'text-[var(--text-secondary)]'}`}>{pct}%</span>
+      <span className={`text-xs font-medium w-10 text-end ${pct < 60 ? 'text-[var(--tone-danger-ink)]' : 'text-[var(--text-secondary)]'}`}>{pct}%</span>
     </div>
   );
 }
@@ -643,10 +649,10 @@ function UtilizationBar({ pct }: { pct: number }) {
 function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteComparison; routeInsight: FleetInsight | null }) {
   const t = useTranslations('company.fleetAnalytics');
   const plannedPolyline: MapPolyline | null = comparison.planned_points.length > 1
-    ? { positions: comparison.planned_points.map(p => [p.lat, p.lng] as [number, number]), color: '#2563eb', weight: 4, opacity: 0.85 }
+    ? { positions: comparison.planned_points.map(p => [p.lat, p.lng] as [number, number]), color: '#1c1b4d', weight: 4, opacity: 0.85 }
     : null;
   const actualPolyline: MapPolyline | null = comparison.actual_points.length > 1
-    ? { positions: comparison.actual_points.map(p => [p.lat, p.lng] as [number, number]), color: '#f97316', weight: 3, opacity: 0.9, dashArray: '6 4' }
+    ? { positions: comparison.actual_points.map(p => [p.lat, p.lng] as [number, number]), color: '#f06a22', weight: 3, opacity: 0.9, dashArray: '6 4' }
     : null;
   const polylines = [plannedPolyline, actualPolyline].filter(Boolean) as MapPolyline[];
 
@@ -668,24 +674,24 @@ function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteCompar
         {polylines.length > 0 || markers.length > 0 ? (
           <Map markers={markers} polylines={polylines} height="360px" />
         ) : (
-          <div className="flex items-center justify-center h-full bg-[var(--surface-subtle)] text-sm text-[var(--text-muted)]">
+          <div className="flex items-center justify-center h-full bg-[var(--tile-bg)] text-sm text-[var(--text-muted)]">
             {t('noPolylineData')}
           </div>
         )}
       </div>
-      <div className="w-full lg:w-64 p-5 border-t lg:border-t-0 lg:border-s border-[var(--border-light)] flex flex-col gap-4 bg-[var(--surface-subtle)]/30">
+      <div className="w-full lg:w-64 p-5 border-t lg:border-t-0 lg:border-s border-[var(--divider)] flex flex-col gap-4 bg-[var(--tile-bg)]">
         {detour !== null && (
-          <div className={`rounded-xl px-4 py-3 text-center border ${
-            detour > 1.15
-              ? 'bg-rose-500/10 border-rose-500/20'
-              : detour > 1.05
-              ? 'bg-[var(--cort-orange)]/10 border-[var(--cort-orange)]/20'
-              : 'bg-emerald-500/10 border-emerald-500/20'
-          }`}>
+          <div className={`rounded-[var(--radius-tile)] px-4 py-3 text-center border ${
+ detour > 1.15
+ ? 'bg-[var(--tone-danger-soft)] border-[var(--tone-danger-line)]'
+ : detour > 1.05
+ ? 'bg-[var(--tone-brand-soft)] border-[var(--tone-brand-line)]'
+ : 'bg-[var(--tone-success-soft)] border-[var(--tone-success-line)]'
+ }`}>
             <p className="text-xs text-[var(--text-muted)] mb-0.5">{t('detourRatio')}</p>
-            <p className={`text-2xl font-bold ${
-              detour > 1.15 ? 'text-rose-400' : detour > 1.05 ? 'text-[var(--cort-orange)]' : 'text-emerald-400'
-            }`}>
+            <p className={`text-2xl font-medium ${
+ detour > 1.15 ? 'text-[var(--tone-danger-ink)]' : detour > 1.05 ? 'text-[var(--cort-orange)]' : 'text-[var(--tone-success-ink)]'
+ }`}>
               {detour.toFixed(2)}×
             </p>
             {detourPct && <p className="text-xs text-[var(--text-muted)]">{t('extraDistance', { percent: detourPct })}</p>}
@@ -695,7 +701,7 @@ function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteCompar
           {m?.planned_distance_km != null && (
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
-                <span className="inline-block h-2 w-4 rounded-sm bg-blue-500" /> {t('planned')}
+                <span className="inline-block h-2 w-4 rounded-full bg-[var(--cort-navy-ring,var(--cort-navy))]" /> {t('planned')}
               </span>
               <span className="font-medium text-[var(--text-primary)]">{m.planned_distance_km.toFixed(2)} km</span>
             </div>
@@ -703,7 +709,7 @@ function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteCompar
           {m?.actual_distance_km != null && (
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
-                <span className="inline-block h-2 w-4 rounded-sm bg-[var(--cort-orange)]" /> {t('actual')}
+                <span className="inline-block h-2 w-4 rounded-full bg-[var(--cort-orange)]" /> {t('actual')}
               </span>
               <span className="font-medium text-[var(--text-primary)]">{m.actual_distance_km.toFixed(2)} km</span>
             </div>
@@ -717,19 +723,19 @@ function RouteMapOverlay({ comparison, routeInsight }: { comparison: RouteCompar
           {m?.fuel_variance_pct != null && (
             <div className="flex items-center justify-between">
               <span className="text-[var(--text-muted)]">{t('fuelVariance')}</span>
-              <span className={`font-medium ${Math.abs(m.fuel_variance_pct) > 15 ? 'text-rose-400' : 'text-[var(--text-primary)]'}`}>
+              <span className={`font-medium ${Math.abs(m.fuel_variance_pct) > 15 ? 'text-[var(--tone-danger-ink)]' : 'text-[var(--text-primary)]'}`}>
                 {m.fuel_variance_pct > 0 ? '+' : ''}{m.fuel_variance_pct.toFixed(1)}%
               </span>
             </div>
           )}
         </div>
         {routeInsight && (
-          <div className="rounded-xl bg-purple-500/10 border border-purple-500/20 p-3">
+          <div className="rounded-[var(--radius-tile)] bg-[var(--tone-purple-soft)] border border-[var(--tone-purple-line)] p-3">
             <div className="flex items-center gap-1.5 mb-1">
-              <Navigation className="h-3.5 w-3.5 text-purple-400" />
-              <span className="text-xs font-bold text-purple-400">{t('aiNote')}</span>
+              <Navigation className="h-3.5 w-3.5 text-[var(--tone-purple-ink)]" />
+              <span className="text-xs font-medium text-[var(--tone-purple-ink)]">{t('aiNote')}</span>
             </div>
-            <p className="text-xs text-purple-300">{routeInsight.data.recommendation}</p>
+            <p className="text-xs text-[var(--tone-purple-ink)]">{routeInsight.data.recommendation}</p>
           </div>
         )}
       </div>
@@ -749,11 +755,11 @@ function KpiCard({
   good?: boolean;
 }) {
   return (
-    <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-[2rem] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.4)] transition-all duration-200 hover:shadow-[0_4px_24px_rgba(0,0,0,0.5)] hover:-translate-y-0.5">
-      <div className="flex items-center gap-2 mb-3">{icon}<span className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">{label}</span></div>
-      <p className={`text-2xl font-extrabold tracking-tight ${
-        good === false ? 'text-[var(--cort-orange)]' : 'text-[var(--text-primary)]'
-      }`}>{value}</p>
+    <div className="bg-[var(--bg-card)] rounded-[var(--radius-card)] p-5 shadow-[var(--shadow-card)]">
+      <div className="flex items-center gap-2 mb-3"><span className="inline-flex size-9 items-center justify-center rounded-full bg-[var(--tile-bg)]">{icon}</span><span className="text-sm text-[var(--text-muted)]">{label}</span></div>
+      <p className={`text-2xl font-medium tracking-tight ${
+ good === false ? 'text-[var(--cort-orange)]' : 'text-[var(--text-primary)]'
+ }`}>{value}</p>
     </div>
   );
 
