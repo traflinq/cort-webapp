@@ -180,6 +180,7 @@ export type {
     UpdateExpenseRequest,
     ExpenseFilterParams,
     ExpensesListResult,
+    TaggableInvoice,
 } from './expenses';
 
 // Multi-mode fleet platform

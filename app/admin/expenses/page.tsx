@@ -16,6 +16,7 @@ import { AdminCan, useAdminAbility } from "../../lib/abilities/AdminAbilityProvi
 import { ADMIN_SUBJECTS } from "../../lib/abilities/admin-subjects";
 import { useConfirm } from "../../lib/hooks/useConfirm";
 import { BookingTagPicker, TaggedBooking } from "../components/BookingTagPicker";
+import { InvoiceTagPicker, TaggedInvoice } from "../components/InvoiceTagPicker";
 import {
   Badge,
   Button,
@@ -224,6 +225,7 @@ function ExpensesPageContent() {
             consequences: [
               "The amount is removed from expense totals and reports",
               ...(expense.booking_id ? [`Booking #${expense.booking_id} no longer counts this cost in its chauffeur COGS`] : []),
+              ...(expense.invoice_id ? [`Invoice ${expense.invoice_number ?? `#${expense.invoice_id}`} no longer counts this cost in its shuttle COGS`] : []),
               "This cannot be undone",
             ],
             destructive: true,
@@ -290,6 +292,13 @@ function ExpensesPageContent() {
               </Badge>
             </Tooltip>
           )}
+          {row.invoice_id && (
+            <Tooltip content={`Tagged to invoice ${row.invoice_label ?? `#${row.invoice_id}`} — counted in that invoice's shuttle COGS`}>
+              <Badge tone="purple" size="sm" tabIndex={0}>
+                {row.invoice_number ?? `Invoice #${row.invoice_id}`}
+              </Badge>
+            </Tooltip>
+          )}
         </div>
       ),
     },
@@ -326,7 +335,7 @@ function ExpensesPageContent() {
     <div className="space-y-6">
       <PageHeader
         title="Expenses"
-        description="General expenses. Tag an expense to a booking to count it in that booking's chauffeur COGS."
+        description="General expenses. Tag an expense to a booking (chauffeur) or a shuttle invoice to count it in that job's COGS."
         actions={
           <Button leftIcon={<Plus />} onClick={openCreateModal} disabled={!canCreate}>
             Add expense
@@ -435,6 +444,9 @@ function ExpenseFormDialog({
   const [taggedBooking, setTaggedBooking] = useState<TaggedBooking | null>(
     expense?.booking_id ? { id: expense.booking_id, label: `Booking #${expense.booking_id}` } : null,
   );
+  const [taggedInvoice, setTaggedInvoice] = useState<TaggedInvoice | null>(
+    expense?.invoice_id ? { id: expense.invoice_id, label: expense.invoice_label ?? `Invoice #${expense.invoice_id}` } : null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [touched, setTouched] = useState(false);
 
@@ -455,6 +467,7 @@ function ExpenseFormDialog({
         date: new Date(date).toISOString(),
         description,
         booking_id: taggedBooking?.id ?? null,
+        invoice_id: taggedInvoice?.id ?? null,
       };
       if (mode === "edit") {
         await onUpdate(payload);
@@ -510,7 +523,22 @@ function ExpenseFormDialog({
             label="Tag to a booking"
             hint="Optional. If this expense was for a specific ride, its cost counts toward that booking's chauffeur COGS. Customer billing is unchanged."
           >
-            <BookingTagPicker value={taggedBooking} onChange={setTaggedBooking} />
+            {taggedInvoice ? (
+              <p className="text-sm text-fg-muted">Remove the invoice tag to tag a booking instead — an expense can carry only one tag.</p>
+            ) : (
+              <BookingTagPicker value={taggedBooking} onChange={setTaggedBooking} />
+            )}
+          </Field>
+
+          <Field
+            label="Tag to a shuttle invoice"
+            hint="Optional. For shuttle costs such as the courier fee for delivering a monthly invoice — it counts toward that invoice's shuttle COGS. Customer billing is unchanged."
+          >
+            {taggedBooking ? (
+              <p className="text-sm text-fg-muted">Remove the booking tag to tag an invoice instead — an expense can carry only one tag.</p>
+            ) : (
+              <InvoiceTagPicker value={taggedInvoice} onChange={setTaggedInvoice} />
+            )}
           </Field>
 
           <Field label="Description">

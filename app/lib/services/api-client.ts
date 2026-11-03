@@ -72,7 +72,7 @@ import {
     // Invoices
     QueryInvoiceParams, Invoice, QueryInvoiceProfitabilityParams, InvoiceProfitabilityResponse,
     // Expenses
-    Expense, CreateExpenseRequest, UpdateExpenseRequest, ExpenseFilterParams, ExpensesListResult,
+    Expense, CreateExpenseRequest, UpdateExpenseRequest, ExpenseFilterParams, ExpensesListResult, TaggableInvoice,
 } from './types';
 
 // Re-export all types for backward compatibility
@@ -2502,6 +2502,13 @@ export const ExpensesApi = {
         return apiClient.request<{ data: DeleteRecordResult; statusCode: number; message: string }>(`/expenses/${id}`, {
             method: 'DELETE',
         });
+    },
+
+    /** Shuttle invoices an expense can be tagged to (most recent first; optional text search). */
+    taggableInvoices: async (search?: string) => {
+        const query = new URLSearchParams();
+        if (search) query.append('search', search);
+        return apiClient.request<{ data: TaggableInvoice[] }>(`/expenses/taggable-invoices?${query.toString()}`);
     },
 
     markAsPaid: async (id: number) => {
