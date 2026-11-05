@@ -64,7 +64,7 @@ import {
     DailyTripLog, AddPaymentRequest,
     // Fleet
     CreateFuelRecordRequest, QueryFuelRecordParams, FuelRecord, FuelRecordResponse, UpdateFuelRecordRequest,
-    BulkPayFuelRequest, FuelStatsResponse,
+    BulkPayFuelRequest, FuelStatsResponse, FuelListSummary,
     CreateMaintenanceRecordRequest, QueryMaintenanceRecordParams, MaintenanceRecord, MaintenanceRecordResponse,
     UpdateMaintenanceRecordRequest, UpcomingMaintenanceResponse,
     // Reports
@@ -1542,7 +1542,7 @@ class ApiClient {
 
     // ===== FUEL RECORDS =====
 
-    async getFuelRecords(params: QueryFuelRecordParams = {}): Promise<PaginatedResponse<FuelRecord>> {
+    async getFuelRecords(params: QueryFuelRecordParams = {}): Promise<PaginatedResponse<FuelRecord, FuelListSummary>> {
         const query = new URLSearchParams();
         if (params.page) query.append('page', String(params.page));
         if (params.limit) query.append('limit', String(params.limit));
@@ -1552,7 +1552,7 @@ class ApiClient {
         if (params.billed !== undefined) query.append('billed', String(params.billed));
 
         const queryString = query.toString();
-        return this.request<PaginatedResponse<FuelRecord>>(`/vehicle-fuel${queryString ? `?${queryString}` : ''}`);
+        return this.request<PaginatedResponse<FuelRecord, FuelListSummary>>(`/vehicle-fuel${queryString ? `?${queryString}` : ''}`);
     }
 
     async getPreviousFuelOdometer(params: {

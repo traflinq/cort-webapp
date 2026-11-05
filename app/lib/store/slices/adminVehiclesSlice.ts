@@ -10,6 +10,7 @@ import {
     CreateFuelRecordRequest,
     UpdateFuelRecordRequest,
     QueryFuelRecordParams,
+    FuelListSummary,
     MaintenanceRecord,
     CreateMaintenanceRecordRequest,
     UpdateMaintenanceRecordRequest,
@@ -52,6 +53,7 @@ interface AdminVehiclesState {
         endDate: string;
     };
     fuelPagination: { page: number; limit: number; total: number; pages: number };
+    fuelSummary: FuelListSummary | null;
 
     // Maintenance
     maintenanceRecords: MaintenanceRecord[];
@@ -103,6 +105,7 @@ const initialState: AdminVehiclesState = {
         endDate: ""
     },
     fuelPagination: { page: 1, limit: 25, total: 0, pages: 0 },
+    fuelSummary: null,
 
     // Maintenance
     maintenanceRecords: [],
@@ -486,6 +489,7 @@ export const adminVehiclesSlice = createSlice({
                 state.fuelStatus = 'succeeded';
                 state.fuelRecords = action.payload.data.data || action.payload.data;
                 state.fuelFilters = action.payload.filters;
+                state.fuelSummary = action.payload.data?.summary ?? null;
                 const fuelPg = action.payload.data?.pagination;
                 if (fuelPg) {
                     state.fuelPagination = {
@@ -601,6 +605,7 @@ export const selectFuelStatus = (state: RootState) => state.adminVehicles.fuelSt
 export const selectFuelActionStatus = (state: RootState) => state.adminVehicles.fuelActionStatus;
 export const selectFuelActionError = (state: RootState) => state.adminVehicles.fuelActionError;
 export const selectFuelFilters = (state: RootState) => state.adminVehicles.fuelFilters;
+export const selectFuelSummary = (state: RootState) => state.adminVehicles.fuelSummary;
 export const selectFuelPagination = (state: RootState) => state.adminVehicles.fuelPagination;
 
 export const selectMaintenanceRecords = (state: RootState) => state.adminVehicles.maintenanceRecords;
