@@ -144,6 +144,7 @@ export type {
     FuelRecord,
     FuelRecordResponse,
     FuelStatsResponse,
+    FuelListSummary,
     CreateMaintenanceRecordRequest,
     UpdateMaintenanceRecordRequest,
     QueryMaintenanceRecordParams,

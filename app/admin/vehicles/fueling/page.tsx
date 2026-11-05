@@ -22,6 +22,7 @@ import {
   selectFuelPagination,
   selectAdminVehicles,
   selectFuelFilters,
+  selectFuelSummary,
   resetFuelActionStatus,
 } from "../../../lib/store/slices/adminVehiclesSlice";
 import {
@@ -95,6 +96,7 @@ function FuelingPageContent() {
   const actionStatus = useAppSelector(selectFuelActionStatus);
   const pagination = useAppSelector(selectFuelPagination);
   const savedFilters = useAppSelector(selectFuelFilters);
+  const summary = useAppSelector(selectFuelSummary);
 
   // Filters — restore from Redux, default to the current month.
   const [filterVehicleId, setFilterVehicleId] = useState<number | "ALL">(savedFilters.filterVehicleId);
@@ -309,19 +311,25 @@ function FuelingPageContent() {
     setIsModalOpen(true);
   };
 
-  // Stats are computed from the records on this page (the list endpoint is paginated).
-  const stats = useMemo(() => {
-    const totalCost = records.reduce((sum, r) => sum + Number(r.fuel_cost), 0);
-    const avgRate = records.length > 0 ? records.reduce((sum, r) => sum + Number(r.current_fuel_rate), 0) / records.length : 0;
-    const mileage = records.map((r) => r.mileage_km_per_litre).filter((v): v is number => v != null && v > 0);
-    const avgMileage = mileage.length > 0 ? mileage.reduce((s, v) => s + v, 0) / mileage.length : null;
-    return { totalCost, avgRate, avgMileage, mileageIntervals: mileage.length };
-  }, [records]);
+  // Stats come from the API summary, which covers every record matching the filters (not just this page).
+  const stats = useMemo(
+    () => ({
+      totalCost: summary?.total_fuel_cost ?? 0,
+      totalLitres: summary?.total_fuel_litres ?? 0,
+      avgRate: summary?.average_fuel_rate ?? 0,
+      avgMileage: summary?.average_mileage ?? null,
+      mileageIntervals: summary?.mileage_intervals ?? 0,
+    }),
+    [summary],
+  );
 
   const isLoading = status === "loading";
   const isPaginated = pagination.pages > 1;
-  const scopeHint = isPaginated ? `Across ${records.length} records on this page` : `Across ${records.length} record${records.length === 1 ? "" : "s"}`;
+  const totalRecords = pagination.total;
+  const scopeHint = `Across ${formatNumber(totalRecords)} record${totalRecords === 1 ? "" : "s"} matching filters`;
   const activeFilters = (filterVehicleId !== "ALL" ? 1 : 0) + (filterBilled !== "ALL" ? 1 : 0) + (range ? 1 : 0);
+  const kpiLoading = isLoading && !summary;
+  const selectedVehicle = filterVehicleId !== "ALL" ? vehicles.find((v) => v.id === filterVehicleId) : undefined;
 
   const kmDriven = previousOdometer != null && formData.odometer_reading ? Number(formData.odometer_reading) - previousOdometer : null;
   const calculatedCost = formData.fuel_litres && formData.current_fuel_rate ? formData.fuel_litres * formData.current_fuel_rate : null;
@@ -390,17 +398,27 @@ function FuelingPageContent() {
         }
       />
 
-      <KpiGrid cols={4}>
-        <KpiCard label="Total fuel cost" value={formatCurrency(stats.totalCost)} hint={scopeHint} icon={<Fuel />} tone="brand" loading={isLoading && records.length === 0} />
-        <KpiCard label="Average fuel rate" value={`${formatCurrency(stats.avgRate, { digits: 2 })}/L`} hint={scopeHint} icon={<Droplets />} tone="info" loading={isLoading && records.length === 0} />
-        <KpiCard label="Records" value={isPaginated ? `${records.length} of ${formatNumber(pagination.total)}` : records.length} hint={isPaginated ? "On this page / matching filters" : "Matching filters"} icon={<Receipt />} loading={isLoading && records.length === 0} />
+      <KpiGrid cols={filterVehicleId !== "ALL" ? 5 : 4}>
+        <KpiCard label="Total fuel cost" value={formatCurrency(stats.totalCost)} hint={scopeHint} icon={<Fuel />} tone="brand" loading={kpiLoading} />
+        {filterVehicleId !== "ALL" && (
+          <KpiCard
+            label="Total litres"
+            value={`${formatNumber(Math.round(stats.totalLitres * 100) / 100)} L`}
+            hint={selectedVehicle ? `${selectedVehicle.plate_number} · ${scopeHint}` : scopeHint}
+            icon={<Droplets />}
+            tone="warning"
+            loading={kpiLoading}
+          />
+        )}
+        <KpiCard label="Average fuel rate" value={`${formatCurrency(stats.avgRate, { digits: 2 })}/L`} hint={scopeHint} icon={<Droplets />} tone="info" loading={kpiLoading} />
+        <KpiCard label="Records" value={formatNumber(totalRecords)} hint={isPaginated ? `Showing ${records.length} on this page` : "Matching filters"} icon={<Receipt />} loading={kpiLoading} />
         <KpiCard
           label="Average mileage"
           value={stats.avgMileage != null ? `${stats.avgMileage.toFixed(1)} km/L` : "—"}
           hint={stats.avgMileage != null ? `Based on ${stats.mileageIntervals} interval${stats.mileageIntervals === 1 ? "" : "s"}` : "Add odometer readings to track mileage"}
           icon={<Gauge />}
           tone="success"
-          loading={isLoading && records.length === 0}
+          loading={kpiLoading}
         />
       </KpiGrid>
 

@@ -68,6 +68,15 @@ export interface FuelRecordResponse {
     message: string;
 }
 
+/** Totals across ALL records matching the list filters (not just the current page). */
+export interface FuelListSummary {
+    total_fuel_cost: number;
+    total_fuel_litres: number;
+    average_fuel_rate: number;
+    average_mileage: number | null;
+    mileage_intervals: number;
+}
+
 export interface FuelStatsResponse {
     data: {
         total_fuel_cost: number;

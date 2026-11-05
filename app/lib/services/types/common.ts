@@ -5,9 +5,10 @@ export interface DeleteRecordResult {
     requestId?: number;
 }
 
-export interface PaginatedResponse<T> {
+export interface PaginatedResponse<T, S = undefined> {
     data: {
         data: T[];
+        summary?: S;
         pagination: {
             total: number;
             pages: number;
