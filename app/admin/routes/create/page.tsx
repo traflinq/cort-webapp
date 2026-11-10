@@ -10,7 +10,7 @@ import { useAppDispatch, useAppSelector } from '@/app/lib/store/hooks';
 import { fetchAdminCompanies, selectAdminCompanies, selectAdminCompaniesStatus } from '@/app/lib/store/slices/adminCompaniesSlice';
 import { createAdminRoute, selectAdminRoutesActionStatus } from '@/app/lib/store/slices/adminRoutesSlice';
 import { fetchAdminDrivers, selectAdminDrivers } from '@/app/lib/store/slices/adminDriversSlice';
-import { fetchAdminVehicles, selectAdminVehicles } from '@/app/lib/store/slices/adminVehiclesSlice';
+import { fetchAdminVehicleOptions, selectAdminVehicleOptions } from '@/app/lib/store/slices/adminVehiclesSlice';
 import { apiClient } from '@/app/lib/services/api-client';
 import { DriverType } from '@/app/lib/services/types/drivers';
 import type { MapMarker, MapPolyline } from '@/app/admin/ui/Map';
@@ -96,7 +96,7 @@ function CreateRoutePageContent() {
     const companiesStatus = useAppSelector(selectAdminCompaniesStatus);
     const routeActionStatus = useAppSelector(selectAdminRoutesActionStatus);
     const drivers = useAppSelector(selectAdminDrivers);
-    const vehicles = useAppSelector(selectAdminVehicles);
+    const vehicles = useAppSelector(selectAdminVehicleOptions);
 
     usePageBreadcrumbs([{ label: 'New route' }]);
 
@@ -124,7 +124,7 @@ function CreateRoutePageContent() {
     useEffect(() => {
         if (companiesStatus === 'idle') dispatch(fetchAdminCompanies({ limit: 100 }));
         dispatch(fetchAdminDrivers({ limit: 100, driver_type: DriverType.SHUTTLE }));
-        dispatch(fetchAdminVehicles({ limit: 100 }));
+        dispatch(fetchAdminVehicleOptions({ limit: 100 }));
     }, [dispatch, companiesStatus]);
 
     const fetchPreviewPolyline = useCallback(async (currentStops: Stop[]) => {

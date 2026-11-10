@@ -16,13 +16,13 @@ import {
   updateMaintenanceRecord,
   deleteMaintenanceRecord,
   markMaintenanceRecordAsPaid,
-  fetchAdminVehicles,
+  fetchAdminVehicleOptions,
   selectMaintenanceRecords,
   selectUpcomingMaintenance,
   selectMaintenanceStatus,
   selectMaintenanceActionStatus,
   selectMaintenancePagination,
-  selectAdminVehicles,
+  selectAdminVehicleOptions,
   selectMaintenanceFilters,
   resetMaintenanceActionStatus,
 } from "../../../lib/store/slices/adminVehiclesSlice";
@@ -97,7 +97,7 @@ function MaintenancePageContent() {
   const canDelete = ability.can("delete", ADMIN_SUBJECTS.maintenance);
 
   const records = useAppSelector(selectMaintenanceRecords);
-  const vehicles = useAppSelector(selectAdminVehicles);
+  const vehicles = useAppSelector(selectAdminVehicleOptions);
   const upcomingMaintenance = useAppSelector(selectUpcomingMaintenance) as UpcomingItem[];
   const status = useAppSelector(selectMaintenanceStatus);
   const actionStatus = useAppSelector(selectMaintenanceActionStatus);
@@ -145,7 +145,7 @@ function MaintenancePageContent() {
 
   useEffect(() => {
     // Vehicle picker: owned vehicles only (unchanged call).
-    dispatch(fetchAdminVehicles({ limit: 500, show_all: true, ownership: OwnershipType.OWNED }));
+    dispatch(fetchAdminVehicleOptions({ limit: 500, show_all: true, ownership: OwnershipType.OWNED }));
   }, [dispatch]);
 
   const lastQuery = useRef<string | null>(null);

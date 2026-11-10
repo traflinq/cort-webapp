@@ -38,6 +38,10 @@ interface AdminVehiclesState {
         category: string;
         ownership: string;
     };
+    // Vehicle pickers (fuel, maintenance, routes). Kept separate from the
+    // vehicles list so picker fetches never overwrite its filters/pagination.
+    vehicleOptions: Vehicle[];
+    vehicleOptionsStatus: 'idle' | 'loading' | 'succeeded' | 'failed';
 
     // Fuel
     fuelRecords: FuelRecord[];
@@ -90,6 +94,8 @@ const initialState: AdminVehiclesState = {
         category: "",
         ownership: ""
     },
+    vehicleOptions: [],
+    vehicleOptionsStatus: 'idle',
 
     // Fuel
     fuelRecords: [],
@@ -151,6 +157,19 @@ export const fetchAdminVehicles = createAsyncThunk(
             if (params && Object.keys(params).length > 0) return true;
             if (lastFetched && Date.now() - lastFetched < STALE_TIME_MS) return false;
             return true;
+        }
+    }
+);
+
+// Vehicles for dropdown pickers. Writes only to `vehicleOptions`.
+export const fetchAdminVehicleOptions = createAsyncThunk(
+    'adminVehicles/fetchVehicleOptions',
+    async (params: QueryVehicleParams = {}, { rejectWithValue }) => {
+        try {
+            const response = await apiClient.getVehicles(params);
+            return response.data.data;
+        } catch (err) {
+            return rejectWithValue(err instanceof Error ? err.message : 'Failed to fetch vehicles');
         }
     }
 );
@@ -464,6 +483,16 @@ export const adminVehiclesSlice = createSlice({
                 state.status = 'failed';
                 state.error = action.payload as string;
             })
+            .addCase(fetchAdminVehicleOptions.pending, (state) => {
+                state.vehicleOptionsStatus = 'loading';
+            })
+            .addCase(fetchAdminVehicleOptions.fulfilled, (state, action) => {
+                state.vehicleOptionsStatus = 'succeeded';
+                state.vehicleOptions = action.payload;
+            })
+            .addCase(fetchAdminVehicleOptions.rejected, (state) => {
+                state.vehicleOptionsStatus = 'failed';
+            })
             .addCase(createAdminVehicle.pending, (state) => { state.actionStatus = 'loading'; state.actionError = null; })
             .addCase(createAdminVehicle.fulfilled, (state, action) => {
                 state.actionStatus = 'succeeded';
@@ -597,6 +626,7 @@ export const selectAdminVehicles = (state: RootState) => state.adminVehicles.veh
 export const selectAdminVehiclesStatus = (state: RootState) => state.adminVehicles.status;
 export const selectAdminVehiclesError = (state: RootState) => state.adminVehicles.error;
 export const selectAdminVehiclesActionStatus = (state: RootState) => state.adminVehicles.actionStatus;
+export const selectAdminVehicleOptions = (state: RootState) => state.adminVehicles.vehicleOptions;
 export const selectVehicleFilters = (state: RootState) => state.adminVehicles.vehicleFilters;
 
 export const selectFuelRecords = (state: RootState) => state.adminVehicles.fuelRecords;

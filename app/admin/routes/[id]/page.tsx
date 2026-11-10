@@ -18,7 +18,7 @@ import {
     routeStatus,
 } from '@/app/lib/store/slices/adminRoutesSlice';
 import { fetchAdminDrivers, selectAdminDrivers } from '@/app/lib/store/slices/adminDriversSlice';
-import { fetchAdminVehicles, selectAdminVehicles } from '@/app/lib/store/slices/adminVehiclesSlice';
+import { fetchAdminVehicleOptions, selectAdminVehicleOptions } from '@/app/lib/store/slices/adminVehiclesSlice';
 import StopAddressSearch from '@/app/admin/ui/StopAddressSearch';
 import RosteringTab from './components/RosteringTab';
 import ManageStopsTab from './components/ManageStopsTab';
@@ -173,7 +173,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
     const hasMultipleOffices = officeStopIds.size > 1;
     const status = useAppSelector(selectAdminRoutesStatus);
     const drivers = useAppSelector(selectAdminDrivers);
-    const vehicles = useAppSelector(selectAdminVehicles);
+    const vehicles = useAppSelector(selectAdminVehicleOptions);
     const actionStatus = useAppSelector(selectAdminRoutesActionStatus);
 
     const { hasCrud } = useAuth();
@@ -254,7 +254,7 @@ export default function RouteDetailsPage({ params }: { params: Promise<{ id: str
     useEffect(() => {
         // Only show shuttle drivers for shuttle routes
         dispatch(fetchAdminDrivers({ limit: 100, driver_type: DriverType.SHUTTLE }));
-        dispatch(fetchAdminVehicles({ limit: 100 }));
+        dispatch(fetchAdminVehicleOptions({ limit: 100 }));
     }, [dispatch]);
 
     // Hydrate the edit form whenever the route's editable fields change.

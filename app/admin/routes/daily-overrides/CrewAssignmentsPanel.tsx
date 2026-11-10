@@ -8,7 +8,7 @@ import { Badge, Button, Card, CardSkeleton, ErrorState, Field, Select, StatusBad
 import { apiClient } from '@/app/lib/services/api-client';
 import { useAppDispatch, useAppSelector } from '@/app/lib/store/hooks';
 import { fetchAdminDrivers, selectAdminDrivers } from '@/app/lib/store/slices/adminDriversSlice';
-import { fetchAdminVehicles, selectAdminVehicles } from '@/app/lib/store/slices/adminVehiclesSlice';
+import { fetchAdminVehicleOptions, selectAdminVehicleOptions } from '@/app/lib/store/slices/adminVehiclesSlice';
 import { DriverType } from '@/app/lib/services/types/drivers';
 import { PlanEmptyState } from './PlanEmptyState';
 import {
@@ -45,7 +45,7 @@ export function CrewAssignmentsPanel({
 }) {
     const dispatch = useAppDispatch();
     const drivers = useAppSelector(selectAdminDrivers);
-    const vehicles = useAppSelector(selectAdminVehicles);
+    const vehicles = useAppSelector(selectAdminVehicleOptions);
 
     const [trips, setTrips] = useState<ScheduledTripRow[]>([]);
     const [loading, setLoading] = useState(true);
@@ -53,7 +53,7 @@ export function CrewAssignmentsPanel({
 
     useEffect(() => {
         dispatch(fetchAdminDrivers({ limit: 200, driver_type: DriverType.SHUTTLE }));
-        dispatch(fetchAdminVehicles({ limit: 200 }));
+        dispatch(fetchAdminVehicleOptions({ limit: 200 }));
     }, [dispatch]);
 
     const loadTrips = useCallback(async () => {
