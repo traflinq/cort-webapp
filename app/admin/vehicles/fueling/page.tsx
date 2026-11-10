@@ -14,13 +14,13 @@ import {
   createFuelRecord,
   updateFuelRecord,
   deleteFuelRecord,
-  fetchAdminVehicles,
+  fetchAdminVehicleOptions,
   markFuelRecordsAsPaid,
   selectFuelRecords,
   selectFuelStatus,
   selectFuelActionStatus,
   selectFuelPagination,
-  selectAdminVehicles,
+  selectAdminVehicleOptions,
   selectFuelFilters,
   selectFuelSummary,
   resetFuelActionStatus,
@@ -91,7 +91,7 @@ function FuelingPageContent() {
   const canDelete = ability.can("delete", ADMIN_SUBJECTS.fuel_records);
 
   const records = useAppSelector(selectFuelRecords);
-  const vehicles = useAppSelector(selectAdminVehicles);
+  const vehicles = useAppSelector(selectAdminVehicleOptions);
   const status = useAppSelector(selectFuelStatus);
   const actionStatus = useAppSelector(selectFuelActionStatus);
   const pagination = useAppSelector(selectFuelPagination);
@@ -140,7 +140,7 @@ function FuelingPageContent() {
 
   useEffect(() => {
     // Vehicle picker: owned vehicles only (same call as before the redesign).
-    dispatch(fetchAdminVehicles({ limit: 500, show_all: true, ownership: OwnershipType.OWNED }));
+    dispatch(fetchAdminVehicleOptions({ limit: 500, show_all: true, ownership: OwnershipType.OWNED }));
   }, [dispatch]);
 
   // Fetch whenever the query changes (filters, page, page size). Filters reset the page to 1.

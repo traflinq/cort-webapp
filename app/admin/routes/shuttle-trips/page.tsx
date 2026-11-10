@@ -35,7 +35,7 @@ import {
     selectAdminCompaniesStatus,
 } from '@/app/lib/store/slices/adminCompaniesSlice';
 import { fetchAdminDrivers, selectAdminDrivers } from '@/app/lib/store/slices/adminDriversSlice';
-import { fetchAdminVehicles, selectAdminVehicles } from '@/app/lib/store/slices/adminVehiclesSlice';
+import { fetchAdminVehicleOptions, selectAdminVehicleOptions } from '@/app/lib/store/slices/adminVehiclesSlice';
 import { DriverType } from '@/app/lib/services/types/drivers';
 import {
     businessTodayYmd,
@@ -104,7 +104,7 @@ function ShuttleTripsSchedulingContent() {
     const companies = useAppSelector(selectAdminCompanies);
     const companiesStatus = useAppSelector(selectAdminCompaniesStatus);
     const drivers = useAppSelector(selectAdminDrivers);
-    const vehicles = useAppSelector(selectAdminVehicles);
+    const vehicles = useAppSelector(selectAdminVehicleOptions);
 
     const [generationRoutes, setGenerationRoutes] = useState<GenerationRoute[]>([]);
     const [fromDate, setFromDate] = useState(businessTodayYmd);
@@ -173,7 +173,7 @@ function ShuttleTripsSchedulingContent() {
 
     useEffect(() => {
         dispatch(fetchAdminDrivers({ limit: 200, driver_type: DriverType.SHUTTLE }));
-        dispatch(fetchAdminVehicles({ limit: 200 }));
+        dispatch(fetchAdminVehicleOptions({ limit: 200 }));
     }, [dispatch]);
 
     const loadRoutesForFilter = useCallback(
