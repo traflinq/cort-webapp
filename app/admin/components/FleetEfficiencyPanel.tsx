@@ -182,6 +182,69 @@ type ChauffeurUtilizationSummary = {
   total_estimated_saving_pkr: number;
 };
 
+/** A chauffeur booking that actually ran, as listed under "Recent chauffeur trips". */
+type ChauffeurTripRow = {
+  booking_id: number;
+  status: string;
+  trip_type: string;
+  package_selected: string | null;
+  scheduled_for: string | null;
+  no_of_days: number;
+  pickup_address: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  duration_minutes: number | null;
+  distance_km: number | null;
+  meter_distance_km: number | null;
+  recommended_distance_km: number | null;
+  detour_ratio: number | null;
+  idle_minutes: number | null;
+  /** 0 means no GPS trail was recorded, so there is no map to open. */
+  telemetry_points: number;
+  vehicle: { id: number; plate_number: string; make: string | null; model: string | null } | null;
+  driver_name: string | null;
+  passenger_name: string | null;
+};
+
+type ChauffeurTripsSummary = {
+  count: number;
+  total_distance_km: number;
+  avg_detour: number | null;
+  total_idle_min: number;
+  tracked_count: number;
+};
+
+/**
+ * The chauffeur GPS trail. `actual_segments` is the same trail already split on
+ * long silences, so the map never draws a straight line across a tracking hole
+ * or across the overnight break in a multi-day booking.
+ */
+type ChauffeurTrail = {
+  booking_id: number;
+  status: string;
+  trip_type: string;
+  no_of_days: number;
+  pickup_address: string | null;
+  pickup_point: { lat: number; lng: number } | null;
+  planned_points: { lat: number; lng: number }[];
+  actual_points: { lat: number; lng: number }[];
+  actual_segments: { lat: number; lng: number }[][];
+  point_count: number;
+  first_point_at: string | null;
+  last_point_at: string | null;
+  gps_distance_km: number;
+  started_at: string | null;
+  ended_at: string | null;
+  metrics: {
+    total_distance_km: number | null;
+    meter_distance_km: number | null;
+    recommended_distance_km: number | null;
+    detour_ratio: number | null;
+    idle_minutes: number | null;
+    duration_minutes: number | null;
+  };
+};
+
 type PoolVehicleRow = {
   vehicle_id: number;
   plate_number: string;
@@ -236,6 +299,20 @@ function insightIcon(type: string) {
   if (type === 'POOL_UTILIZATION') return <Car />;
   return <AlertTriangle />;
 }
+
+/** Like fmt(), for endpoints that return real numbers rather than Decimal strings. */
+function fmtNum(v: number | null | undefined, decimals = 1) {
+  return v == null ? '—' : v.toFixed(decimals);
+}
+
+const CHAUFFEUR_STATUS_TONE: Record<string, BadgeTone> = {
+  COMPLETED: 'success',
+  ENDED: 'success',
+  DROPPED_OFF: 'info',
+  IN_PROGRESS: 'warning',
+  OTW: 'warning',
+  ARRIVED: 'warning',
+};
 
 /** Colour a table figure only when it crosses its threshold. */
 function toneText(level: 'danger' | 'warning' | null) {
@@ -376,6 +453,20 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
 
   // Chauffeur state
   const [chauffeurUtil, setChauffeurUtil] = useState<{ summary: ChauffeurUtilizationSummary; bookings: ChauffeurUtilizationRow[] } | null>(null);
+  const [chauffeurTrips, setChauffeurTrips] = useState<{ summary: ChauffeurTripsSummary; trips: ChauffeurTripRow[] } | null>(null);
+
+  // Recent chauffeur trips date filter — kept separate from the shuttle one so
+  // the two tables filter independently, same draft/applied split.
+  const [cfFromDateDraft, setCfFromDateDraft] = useState('');
+  const [cfToDateDraft, setCfToDateDraft] = useState('');
+  const [cfFromDate, setCfFromDate] = useState('');
+  const [cfToDate, setCfToDate] = useState('');
+  const [selectedCfVehicleId, setSelectedCfVehicleId] = useState('');
+
+  // Map state (chauffeur)
+  const [selectedBookingForMap, setSelectedBookingForMap] = useState<number | null>(null);
+  const [chauffeurTrail, setChauffeurTrail] = useState<ChauffeurTrail | null>(null);
+  const [chauffeurMapLoading, setChauffeurMapLoading] = useState(false);
 
   // Pool state
   const [poolUtil, setPoolUtil] = useState<{ summary: PoolUtilizationSummary; vehicles: PoolVehicleRow[] } | null>(null);
@@ -420,6 +511,11 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
       if (toDate) dateParams.set('to', toDate);
       const dateQuery = dateParams.toString() ? `?${dateParams.toString()}` : '';
 
+      const cfDateParams = new URLSearchParams();
+      if (cfFromDate) cfDateParams.set('from', cfFromDate);
+      if (cfToDate) cfDateParams.set('to', cfToDate);
+      const cfDateQuery = cfDateParams.toString() ? `?${cfDateParams.toString()}` : '';
+
       const fetches = await Promise.allSettled([
         isShuttle
           ? apiClient.request<{ summary: ShuttleMetricsSummary; metrics: ShuttleMetric[] }>(`/admin/companies/${companyId}/shuttle-metrics${dateQuery}`)
@@ -436,9 +532,12 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
         isPool
           ? apiClient.request<{ summary: PoolUtilizationSummary; vehicles: PoolVehicleRow[] }>(`/admin/companies/${companyId}/pool-utilization`)
           : Promise.resolve(null),
+        isChauffeur
+          ? apiClient.request<{ summary: ChauffeurTripsSummary; trips: ChauffeurTripRow[] }>(`/admin/companies/${companyId}/chauffeur-trips${cfDateQuery}`)
+          : Promise.resolve(null),
       ]);
 
-      const [metricsRes, fuelRes, insightsRes, chauffeurRes, poolRes] = fetches;
+      const [metricsRes, fuelRes, insightsRes, chauffeurRes, poolRes, chauffeurTripsRes] = fetches;
 
       if (metricsRes.status === 'fulfilled' && metricsRes.value) {
         setSummary(metricsRes.value.summary);
@@ -448,10 +547,11 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
       if (insightsRes.status === 'fulfilled') setInsights(insightsRes.value);
       if (chauffeurRes.status === 'fulfilled' && chauffeurRes.value) setChauffeurUtil(chauffeurRes.value);
       if (poolRes.status === 'fulfilled' && poolRes.value) setPoolUtil(poolRes.value);
+      if (chauffeurTripsRes.status === 'fulfilled' && chauffeurTripsRes.value) setChauffeurTrips(chauffeurTripsRes.value);
     } finally {
       setLoading(false);
     }
-  }, [companyId, fromDate, toDate]);
+  }, [companyId, fromDate, toDate, cfFromDate, cfToDate]);
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => void load());
@@ -483,6 +583,25 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
     }
   }, [selectedTripForMap]);
 
+  const loadChauffeurTrail = useCallback(async (bookingId: number) => {
+    if (selectedBookingForMap === bookingId) {
+      setSelectedBookingForMap(null);
+      setChauffeurTrail(null);
+      return;
+    }
+    setSelectedBookingForMap(bookingId);
+    setChauffeurTrail(null);
+    setChauffeurMapLoading(true);
+    try {
+      const trail = await apiClient.request<ChauffeurTrail>(`/admin/chauffeur-bookings/${bookingId}/route-comparison`);
+      setChauffeurTrail(trail);
+    } catch {
+      setChauffeurTrail(null);
+    } finally {
+      setChauffeurMapLoading(false);
+    }
+  }, [selectedBookingForMap]);
+
   const triggerGenerate = async () => {
     setGenerating(true);
     try {
@@ -506,6 +625,24 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
     setSelectedVehicleId('');
   };
 
+  const applyCfDateFilter = () => {
+    setCfFromDate(cfFromDateDraft);
+    setCfToDate(cfToDateDraft);
+  };
+
+  const clearCfFilters = () => {
+    setCfFromDateDraft('');
+    setCfToDateDraft('');
+    setCfFromDate('');
+    setCfToDate('');
+    setSelectedCfVehicleId('');
+  };
+
+  const cfDateFilterDirty = cfFromDateDraft !== cfFromDate || cfToDateDraft !== cfToDate;
+  const cfDateFilterActive = cfFromDate !== '' || cfToDate !== '';
+  const cfVehicleFilterActive = selectedCfVehicleId !== '';
+  const cfActiveFilterCount = (cfDateFilterActive || cfDateFilterDirty ? 1 : 0) + (cfVehicleFilterActive ? 1 : 0);
+
   const dateFilterDirty = fromDateDraft !== fromDate || toDateDraft !== toDate;
   const dateFilterActive = fromDate !== '' || toDate !== '';
   const vehicleFilterActive = selectedVehicleId !== '';
@@ -522,6 +659,24 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
       .map(([id, plate]) => [Number(id), plate] as [number, string])
       .sort((a, b) => a[1].localeCompare(b[1]));
   }, [allMetrics]);
+
+  const cfVehicleOptions = useMemo(() => {
+    const byId: Record<number, string> = {};
+    for (const t of chauffeurTrips?.trips ?? []) {
+      if (t.vehicle) byId[t.vehicle.id] = t.vehicle.plate_number ?? `#${t.vehicle.id}`;
+    }
+    return Object.entries(byId)
+      .map(([id, plate]) => [Number(id), plate] as [number, string])
+      .sort((a, b) => a[1].localeCompare(b[1]));
+  }, [chauffeurTrips]);
+
+  const recentChauffeurTrips = useMemo(() => {
+    const all = chauffeurTrips?.trips ?? [];
+    const filtered = selectedCfVehicleId
+      ? all.filter(t => String(t.vehicle?.id) === selectedCfVehicleId)
+      : all;
+    return filtered.slice(0, 25);
+  }, [chauffeurTrips, selectedCfVehicleId]);
 
   const recentMetrics = useMemo(() => {
     const filtered = selectedVehicleId
@@ -710,6 +865,107 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
       ),
     },
   ];
+
+  const chauffeurTripStats: StatItem[] = chauffeurTrips
+    ? [
+        { key: 'cf-trips', label: 'Trips run', value: formatNumber(chauffeurTrips.summary.count) },
+        { key: 'cf-km', label: 'Total distance', value: `${formatNumber(chauffeurTrips.summary.total_distance_km)} km` },
+        {
+          key: 'cf-idle',
+          label: 'Total idle (min)',
+          value: formatNumber(chauffeurTrips.summary.total_idle_min),
+          status: chauffeurTrips.summary.total_idle_min < 300 ? 'none' : 'warning',
+        },
+        {
+          key: 'cf-tracked',
+          label: 'With GPS trail',
+          value: `${formatNumber(chauffeurTrips.summary.tracked_count)} / ${formatNumber(chauffeurTrips.summary.count)}`,
+          status: chauffeurTrips.summary.tracked_count < chauffeurTrips.summary.count ? 'warning' : 'none',
+        },
+      ]
+    : [];
+
+  const chauffeurTripColumns: DataTableColumn<ChauffeurTripRow>[] = [
+    { key: 'date', header: 'Date', cell: t => formatDate(t.scheduled_for) },
+    {
+      key: 'booking',
+      header: 'Booking',
+      cell: t => (
+        <>
+          <div className="font-medium text-fg">#{t.booking_id}</div>
+          <div className="text-xs text-fg-muted">
+            {humanize(t.trip_type)}{t.no_of_days > 1 ? ` · ${t.no_of_days} days` : ''}
+          </div>
+        </>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      hideBelow: 'sm',
+      cell: t => <Badge tone={CHAUFFEUR_STATUS_TONE[t.status] ?? 'neutral'} size="sm">{humanize(t.status)}</Badge>,
+    },
+    {
+      key: 'vehicle',
+      header: 'Vehicle',
+      hideBelow: 'sm',
+      cell: t => (
+        <>
+          <div className="font-medium text-fg">{t.vehicle?.plate_number ?? '—'}</div>
+          {(t.vehicle?.make || t.vehicle?.model) && (
+            <div className="text-xs text-fg-muted">{[t.vehicle?.make, t.vehicle?.model].filter(Boolean).join(' ')}</div>
+          )}
+        </>
+      ),
+    },
+    { key: 'driver', header: 'Driver', hideBelow: 'md', cell: t => <span className="text-fg-secondary">{t.driver_name ?? '—'}</span> },
+    { key: 'passenger', header: 'Passenger', hideBelow: 'lg', cell: t => <span className="text-fg-secondary">{t.passenger_name ?? '—'}</span> },
+    {
+      // chauffeur_trip_logs.total_distance_km — the figure invoicing bills from.
+      // Its source varies by how the trip was ended (GPS accumulator, odometer
+      // delta, or an admin override), so expand the row to compare it against
+      // the drawn trail.
+      key: 'km',
+      header: 'Distance (km)',
+      align: 'right',
+      mono: true,
+      cell: t => <span className="text-fg">{fmtNum(t.distance_km)}</span>,
+    },
+    {
+      key: 'duration',
+      header: 'Duration',
+      align: 'right',
+      mono: true,
+      hideBelow: 'lg',
+      cell: t => <span className="text-fg-secondary">{t.duration_minutes != null ? `${(t.duration_minutes / 60).toFixed(1)}h` : '—'}</span>,
+    },
+    {
+      key: 'idle',
+      header: 'Idle (min)',
+      align: 'right',
+      mono: true,
+      hideBelow: 'lg',
+      cell: t => <span className="text-fg-secondary">{fmtNum(t.idle_minutes, 0)}</span>,
+    },
+    {
+      key: 'points',
+      header: 'GPS',
+      align: 'right',
+      mono: true,
+      hideBelow: 'md',
+      cell: t => (
+        t.telemetry_points > 1
+          ? <span className="text-fg-secondary">{formatNumber(t.telemetry_points)}</span>
+          : <span className="text-fg-muted">—</span>
+      ),
+    },
+  ];
+
+  const emptyChauffeurTripsTitle = cfVehicleFilterActive
+    ? 'No chauffeur trips for the selected vehicle'
+    : cfDateFilterActive
+      ? 'No chauffeur trips in this date range'
+      : 'No chauffeur trips recorded yet';
 
   // ── Pool ───────────────────────────────────────────────────────────────────
 
@@ -920,6 +1176,66 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
               />
             )}
 
+            <Card>
+              <CardHeader
+                title={
+                  <span className="flex items-center gap-2">
+                    <Navigation className="size-4 text-fg-muted" aria-hidden="true" />
+                    Recent chauffeur trips
+                  </span>
+                }
+                description="Distance, detour and idle time per booking. Expand a trip to see the route the car actually drove, rebuilt from its GPS trail."
+              />
+              <CardContent className="space-y-3 border-b border-line py-3">
+                {chauffeurTrips && <StatStrip aria-label="Chauffeur trip summary" items={chauffeurTripStats} />}
+                <FilterBar activeCount={cfActiveFilterCount} onClear={clearCfFilters}>
+                  <FilterField label="Vehicle">
+                    <Select
+                      width="auto"
+                      value={selectedCfVehicleId}
+                      onChange={e => setSelectedCfVehicleId(e.target.value)}
+                      placeholder="All vehicles"
+                    >
+                      {cfVehicleOptions.map(([id, plate]) => (
+                        <option key={id} value={id}>{plate}</option>
+                      ))}
+                    </Select>
+                  </FilterField>
+                  <FilterField label="From">
+                    <Input
+                      type="date"
+                      value={cfFromDateDraft}
+                      max={cfToDateDraft || undefined}
+                      onChange={e => setCfFromDateDraft(e.target.value)}
+                    />
+                  </FilterField>
+                  <FilterField label="To">
+                    <Input
+                      type="date"
+                      value={cfToDateDraft}
+                      min={cfFromDateDraft || undefined}
+                      onChange={e => setCfToDateDraft(e.target.value)}
+                    />
+                  </FilterField>
+                  <Button variant="secondary" onClick={applyCfDateFilter} disabled={!cfDateFilterDirty}>
+                    Apply
+                  </Button>
+                </FilterBar>
+              </CardContent>
+              <DataTable
+                rows={recentChauffeurTrips}
+                columns={chauffeurTripColumns}
+                rowKey={t => t.booking_id}
+                caption="Recent chauffeur trips"
+                empty={{ icon: <CarFront aria-hidden="true" />, title: emptyChauffeurTripsTitle }}
+                expandable={{
+                  isExpanded: t => selectedBookingForMap === t.booking_id,
+                  onToggle: t => void loadChauffeurTrail(t.booking_id),
+                  render: () => <ChauffeurTrailPanel loading={chauffeurMapLoading} trail={chauffeurTrail} />,
+                }}
+              />
+            </Card>
+
             {underutilisedBookings.length > 0 && (
               <Card>
                 <CardHeader
@@ -1033,6 +1349,168 @@ function RouteMapPanel({ loading, comparison, timeline, routeInsight }: { loadin
     return <EmptyState compact icon={<MapIcon aria-hidden="true" />} title="No route data available for this trip" />;
   }
   return <RouteMapOverlay comparison={comparison} timeline={timeline} routeInsight={routeInsight} />;
+}
+
+function ChauffeurTrailPanel({ loading, trail }: { loading: boolean; trail: ChauffeurTrail | null }) {
+  if (loading) return <LoadingBlock label="Loading GPS trail…" className="h-64" />;
+  if (!trail) {
+    return <EmptyState compact icon={<MapIcon aria-hidden="true" />} title="Could not load the trail for this booking" />;
+  }
+  if (trail.actual_points.length < 2) {
+    return (
+      <EmptyState
+        compact
+        icon={<MapIcon aria-hidden="true" />}
+        title="No GPS trail recorded for this trip"
+        description="The driver app records a point every 50 m or 25 s while a trip is running, so trips that ran before location tracking shipped have none."
+      />
+    );
+  }
+  return <ChauffeurTrailOverlay trail={trail} />;
+}
+
+function ChauffeurTrailOverlay({ trail }: { trail: ChauffeurTrail }) {
+  const chart = useChartTheme();
+  // Literal colours — Google Maps layers cannot read CSS variables.
+  const actualColor = chart.colors[0];
+  const plannedColor = chart.colors[1];
+  const startColor = chart.status.good;
+  const endColor = chart.status.bad;
+
+  // One polyline per segment: the server already split the trail wherever it
+  // went quiet for more than 10 minutes, so no line is drawn through a gap.
+  const polylines: MapPolyline[] = trail.actual_segments
+    .filter(seg => seg.length > 1)
+    .map(seg => ({
+      positions: seg.map(p => [p.lat, p.lng] as [number, number]),
+      color: actualColor,
+      weight: 4,
+      opacity: 0.9,
+    }));
+
+  // Only present while the pickup leg is still live; cleared once the trip ends.
+  if (trail.planned_points.length > 1) {
+    polylines.unshift({
+      positions: trail.planned_points.map(p => [p.lat, p.lng] as [number, number]),
+      color: plannedColor,
+      weight: 3,
+      opacity: 0.8,
+      dashArray: '6 4',
+    });
+  }
+
+  const first = trail.actual_points[0];
+  const last = trail.actual_points[trail.actual_points.length - 1];
+  const markers: MapMarker[] = [];
+  if (trail.pickup_point) {
+    markers.push({
+      id: 'cf-pickup',
+      position: [trail.pickup_point.lat, trail.pickup_point.lng],
+      label: 'Pickup',
+      description: trail.pickup_address ?? 'Booking pickup location',
+      color: plannedColor,
+      type: 'pickup',
+    });
+  }
+  markers.push({
+    id: 'cf-start',
+    position: [first.lat, first.lng],
+    label: 'Trail start',
+    description: `First GPS point${trail.first_point_at ? ` · ${formatTime(trail.first_point_at)}` : ''}`,
+    color: startColor,
+    type: 'actual-start',
+  });
+  markers.push({
+    id: 'cf-end',
+    position: [last.lat, last.lng],
+    label: 'Trail end',
+    description: `Last GPS point${trail.last_point_at ? ` · ${formatTime(trail.last_point_at)}` : ''}`,
+    color: endColor,
+    type: 'actual-end',
+  });
+
+  const m = trail.metrics;
+  const detour = m.detour_ratio;
+  const detourTone: 'danger' | 'warning' | 'success' =
+    detour != null && detour > 1.15 ? 'danger' : detour != null && detour > 1.05 ? 'warning' : 'success';
+  const detourCls = {
+    danger: 'border-danger-line bg-danger-soft text-danger-ink',
+    warning: 'border-warning-line bg-warning-soft text-warning-ink',
+    success: 'border-success-line bg-success-soft text-success-ink',
+  }[detourTone];
+  const breaks = Math.max(0, trail.actual_segments.length - 1);
+
+  return (
+    <div className="bg-card">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line px-4 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-semibold text-fg">
+          <MapIcon className="size-4 text-fg-muted" aria-hidden="true" />
+          Driven route
+        </span>
+        <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-fg-muted">
+          <LegendSwatch color={actualColor} label="GPS trail (map only)" />
+          {trail.planned_points.length > 1 && <LegendSwatch color={plannedColor} label="Planned pickup leg" />}
+          <LegendSwatch color={startColor} shape="dot" label="Start" />
+          <LegendSwatch color={endColor} shape="dot" label="End" />
+        </span>
+      </div>
+      <div className="flex flex-col lg:flex-row">
+        <div className="min-h-0 flex-1" style={{ height: 360 }}>
+          <Map markers={markers} polylines={polylines} height="360px" />
+        </div>
+        <div className="flex w-full flex-col gap-4 border-t border-line p-4 lg:w-64 lg:border-l lg:border-t-0">
+          {detour != null && (
+            <div className={`rounded-xl border px-3 py-2.5 text-center ${detourCls}`}>
+              <p className="mb-0.5 text-xs">Detour ratio</p>
+              <p className="text-2xl font-semibold tabular-nums">{detour.toFixed(2)}×</p>
+              <p className="text-xs">{((detour - 1) * 100).toFixed(1)}% over the best route</p>
+            </div>
+          )}
+          <dl className="space-y-2 text-sm">
+            {m.total_distance_km != null && (
+              <div className="flex items-center justify-between">
+                <dt className="text-fg-muted" title="chauffeur_trip_logs.total_distance_km — built live during the ride from every accepted GPS fix; this is the figure invoicing bills from">
+                  Recorded distance
+                </dt>
+                <dd className="font-semibold text-fg tabular-nums">{m.total_distance_km.toFixed(2)} km</dd>
+              </div>
+            )}
+            {m.recommended_distance_km != null && (
+              <div className="flex items-center justify-between">
+                <dt className="text-fg-muted">Best route</dt>
+                <dd className="font-medium text-fg tabular-nums">{m.recommended_distance_km.toFixed(2)} km</dd>
+              </div>
+            )}
+            {m.idle_minutes != null && (
+              <div className="flex items-center justify-between">
+                <dt className="text-fg-muted">Idle time</dt>
+                <dd className="font-medium text-fg tabular-nums">{m.idle_minutes.toFixed(0)} min</dd>
+              </div>
+            )}
+            {m.duration_minutes != null && (
+              <div className="flex items-center justify-between">
+                <dt className="text-fg-muted">Duration</dt>
+                <dd className="font-medium text-fg tabular-nums">{(m.duration_minutes / 60).toFixed(1)} h</dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <dt className="text-fg-muted">GPS points</dt>
+              <dd className="font-medium text-fg tabular-nums">{formatNumber(trail.point_count)}</dd>
+            </div>
+          </dl>
+          {breaks > 0 && (
+            <p className="rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-xs text-warning-ink">
+              The trail is drawn in {trail.actual_segments.length} parts: it went quiet {breaks} time{breaks > 1 ? 's' : ''} for
+              over 10 minutes.
+              {trail.no_of_days > 1
+                ? ' On a multi-day booking that is usually the overnight break between days, since every day reuses this booking.'
+                : ' That is either a tracking gap or the car standing still with the app suspended.'}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const STOP_STATUS: Record<StopStatus, { label: string; tone: BadgeTone }> = {
