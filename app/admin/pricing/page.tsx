@@ -24,6 +24,7 @@ import {
   saveShuttleChanges,
   deleteRateRow,
   setSelectedCompanyId,
+  setSelectedVendorLinkId,
   setGlobalSettings,
   setShuttleSettings,
   setSystemFuelPriceLocal,
@@ -87,6 +88,8 @@ function PricingPageContent() {
   const currentCompany = useAppSelector(selectPricingCurrentCompany);
   const {
     selectedCompanyId,
+    selectedVendorLinkId,
+    chauffeurVendorLinks,
     globalSettings,
     rateRows,
     systemFuelPrice,
@@ -133,18 +136,40 @@ function PricingPageContent() {
   }, [loadGlobals]);
 
   // Deep-link from company detail: /admin/pricing?companyId=123 (or ?company=)
+  // plus &vendorLinkId=45 to open that external vendor's chauffeur contract.
   useEffect(() => {
     const cid = searchParams.get("company") || searchParams.get("companyId");
     if (cid) dispatch(setSelectedCompanyId(cid));
+    const vid = searchParams.get("vendorLinkId");
+    if (cid && vid) dispatch(setSelectedVendorLinkId(vid));
   }, [dispatch, searchParams]);
 
-  // Load contract details when the company changes
+  // Load the chauffeur contract when the company or the contract owner (Cort / vendor) changes
   useEffect(() => {
-    if (selectedCompanyId) {
-      dispatch(fetchCompanyContractDetails(selectedCompanyId));
-      dispatch(fetchShuttleContract(selectedCompanyId));
-    }
+    if (selectedCompanyId) dispatch(fetchCompanyContractDetails(selectedCompanyId));
+  }, [selectedCompanyId, selectedVendorLinkId, dispatch]);
+
+  useEffect(() => {
+    if (selectedCompanyId) dispatch(fetchShuttleContract(selectedCompanyId));
   }, [selectedCompanyId, dispatch]);
+
+  const selectedVendorLink = chauffeurVendorLinks.find((l) => String(l.id) === selectedVendorLinkId) ?? null;
+  const selectedVendorName = selectedVendorLink?.external_vendors?.name ?? null;
+
+  const onVendorChange = async (id: string) => {
+    if (id === selectedVendorLinkId) return;
+    if (chauffeurDirty) {
+      const ok = await confirm({
+        title: "Discard unsaved chauffeur changes?",
+        message: "Switching contracts reloads the rates from the server.",
+        destructive: true,
+        confirmLabel: "Discard and switch",
+      });
+      if (!ok) return;
+    }
+    dispatch(setSelectedVendorLinkId(id));
+    setChauffeurDirty(false);
+  };
 
   const errorMessage = (result: { payload?: unknown; error?: { message?: string } }, fallback: string) =>
     typeof result.payload === "string" ? result.payload : result.error?.message || fallback;
@@ -463,8 +488,35 @@ function PricingPageContent() {
 
       {!isLoading && !loadFailed && currentCompany?.is_chauffeur_enabled && (
         <section className="space-y-4" aria-labelledby="chauffeur-terms">
+          {(chauffeurVendorLinks.length > 0 || selectedVendorLinkId) && (
+            <Card>
+              <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-fg">Chauffeur contract for</p>
+                  <p className="text-xs text-fg-muted">
+                    {selectedVendorLinkId
+                      ? "This company's own vendor. Trips fulfilled by this vendor are priced on these rates (no SST); the company can audit the vendor's bills against them."
+                      : "Cort's contract with this company — used for Cort-managed trips."}
+                  </p>
+                </div>
+                <Field inline label="Contract for" className="w-full sm:w-auto">
+                  <Select aria-label="Contract for" value={selectedVendorLinkId} onChange={(e) => onVendorChange(e.target.value)} className="w-full sm:w-64">
+                    <option value="">Cort (Traflinq)</option>
+                    {chauffeurVendorLinks.map((l) => (
+                      <option key={l.id} value={String(l.id)}>
+                        {`Vendor: ${l.external_vendors?.name ?? `#${l.vendor_id}`}${l.is_active ? "" : " (inactive)"}`}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </CardContent>
+            </Card>
+          )}
           <Card>
-            <CardHeader title={<span id="chauffeur-terms">Chauffeur contract terms</span>} description="Company-wide settings for chauffeur billing." />
+            <CardHeader
+              title={<span id="chauffeur-terms">{selectedVendorName ? `Chauffeur contract terms — ${selectedVendorName}` : "Chauffeur contract terms"}</span>}
+              description={selectedVendorName ? `Settings for trips fulfilled by ${selectedVendorName}.` : "Company-wide settings for chauffeur billing."}
+            />
             <CardContent>
               <FormGrid cols={3}>
                 <Field label="Base fuel price (PKR)">

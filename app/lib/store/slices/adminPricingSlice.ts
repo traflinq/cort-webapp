@@ -5,6 +5,7 @@ import {
     ChauffeurContract,
     ChauffeurContractRate,
     CreateChauffeurContractRequest,
+    CompanyVendorLink,
     ShuttleContract,
     ShuttleContractRoute,
     CreateShuttleContractRequest,
@@ -30,6 +31,13 @@ export type ShuttleRouteRow = Partial<ShuttleContractRoute> & { tempId?: string;
 interface AdminPricingState {
     companies: Company[];
     selectedCompanyId: string;
+    /**
+     * Whose chauffeur contract is being edited: "" = Cort's own contract with the company,
+     * otherwise a company↔external-vendor link id (that vendor's contract with the company).
+     */
+    selectedVendorLinkId: string;
+    /** Active chauffeur vendor links of the selected company (for the "Contract for" picker). */
+    chauffeurVendorLinks: CompanyVendorLink[];
     currentCompany: Company | null;
     contract: ChauffeurContract | null;
     shuttleContract: ShuttleContract | null;
@@ -72,6 +80,8 @@ interface AdminPricingState {
 const initialState: AdminPricingState = {
     companies: [],
     selectedCompanyId: "",
+    selectedVendorLinkId: "",
+    chauffeurVendorLinks: [],
     currentCompany: null,
     contract: null,
     shuttleContract: null,
@@ -206,15 +216,19 @@ export const fetchDieselPriceHistory = createAsyncThunk(
 
 export const fetchCompanyContractDetails = createAsyncThunk(
     'adminPricing/fetchCompanyContractDetails',
-    async (companyId: string, { rejectWithValue }) => {
+    async (companyId: string, { getState, rejectWithValue }) => {
         try {
-            const [compRes, contractsRes] = await Promise.all([
+            const vendorLinkId = (getState() as RootState).adminPricing.selectedVendorLinkId;
+            const [compRes, contractsRes, linksRes] = await Promise.all([
                 apiClient.getCompany(companyId),
-                apiClient.getChauffeurContracts(Number(companyId))
+                apiClient.getChauffeurContracts(Number(companyId), vendorLinkId ? Number(vendorLinkId) : null),
+                // Vendor links are optional context — never fail the page over them.
+                apiClient.getCompanyExternalVendors(Number(companyId)).catch(() => ({ data: [] as CompanyVendorLink[] })),
             ]);
             return {
                 company: compRes.data,
-                contracts: contractsRes.data
+                contracts: contractsRes.data,
+                vendorLinks: (linksRes.data ?? []).filter((l) => l.serves_chauffeur),
             };
         } catch (error: any) {
             return rejectWithValue(error.message || 'Failed to fetch contract details');
@@ -242,7 +256,9 @@ export const savePricingChanges = createAsyncThunk(
     'adminPricing/savePricingChanges',
     async (_, { getState, rejectWithValue, dispatch }) => {
         const state = getState() as RootState;
-        const { contract, globalSettings, selectedCompanyId, rateRows } = state.adminPricing;
+        const { contract, globalSettings, selectedCompanyId, selectedVendorLinkId, rateRows } = state.adminPricing;
+        // Scope new contracts / rate rows to the selected vendor (or Cort's own contract).
+        const companyVendorLinkId = selectedVendorLinkId ? Number(selectedVendorLinkId) : null;
 
         try {
             let currentContractId = contract?.id;
@@ -265,6 +281,7 @@ export const savePricingChanges = createAsyncThunk(
             } else {
                 const res = await apiClient.createChauffeurContract({
                     companyId: Number(selectedCompanyId),
+                    companyVendorLinkId,
                     fuelBasePrice: Number(globalSettings.fuelBasePrice),
                     revisionPercentage: revisionPct,
                     contractDuration: globalSettings.contractDuration,
@@ -304,6 +321,7 @@ export const savePricingChanges = createAsyncThunk(
                 if (row.isNew) {
                     await apiClient.createChauffeurContract({
                         companyId: Number(selectedCompanyId),
+                        companyVendorLinkId,
                         fuelBasePrice: Number(globalSettings.fuelBasePrice),
                         revisionPercentage: revisionPct,
                         contractDuration: globalSettings.contractDuration,
@@ -468,7 +486,15 @@ const adminPricingSlice = createSlice({
     initialState,
     reducers: {
         setSelectedCompanyId(state, action: PayloadAction<string>) {
+            if (state.selectedCompanyId !== action.payload) {
+                // A vendor link belongs to one company — reset to Cort's contract on company change.
+                state.selectedVendorLinkId = "";
+                state.chauffeurVendorLinks = [];
+            }
             state.selectedCompanyId = action.payload;
+        },
+        setSelectedVendorLinkId(state, action: PayloadAction<string>) {
+            state.selectedVendorLinkId = action.payload;
         },
         setGlobalSettings(state, action: PayloadAction<Partial<AdminPricingState['globalSettings']>>) {
             state.globalSettings = { ...state.globalSettings, ...action.payload };
@@ -596,6 +622,7 @@ const adminPricingSlice = createSlice({
             .addCase(fetchCompanyContractDetails.fulfilled, (state, action) => {
                 state.status = 'succeeded';
                 state.currentCompany = action.payload.company;
+                state.chauffeurVendorLinks = action.payload.vendorLinks;
                 const contracts = action.payload.contracts;
 
                 if (contracts && contracts.length > 0) {
@@ -750,6 +777,7 @@ const adminPricingSlice = createSlice({
 
 export const {
     setSelectedCompanyId,
+    setSelectedVendorLinkId,
     setGlobalSettings,
     setSystemFuelPriceLocal,
     setSystemDieselPriceLocal,

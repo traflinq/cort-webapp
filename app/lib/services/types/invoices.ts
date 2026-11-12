@@ -1,9 +1,16 @@
+/** CORT = Cort's own invoices; EXTERNAL_VENDOR = issued by a company's own vendor (not Cort revenue). */
+export type InvoiceIssuerType = 'CORT' | 'EXTERNAL_VENDOR';
+
 export interface QueryInvoiceParams {
     page?: number;
     limit?: number;
     status?: string;
     company_id?: number;
     search?: string;
+    /** Defaults to CORT on the server. */
+    issuer?: InvoiceIssuerType;
+    /** Vendor-issued invoices of one external vendor. */
+    vendor_id?: number;
 }
 
 export interface Invoice {
@@ -20,9 +27,42 @@ export interface Invoice {
     payment_status?: string | null;
     include_sst?: boolean;
     show_stamp?: boolean;
+    booking_id?: number | null;
+    issuer_type?: InvoiceIssuerType;
+    issuer_external_vendor_id?: number | null;
+    issuer_external_vendors?: { id: number; name: string } | null;
+    /** Vendor invoices only: the company's audit of what the vendor actually billed. */
+    chauffeur_bookings?: {
+        vendor_trip_audits?: {
+            vendor_charged_amount: string | number;
+            difference_amount: string | number;
+            audited_at: string;
+            vendor_invoice_reference: string | null;
+        } | null;
+    } | null;
     companies?: {
         name: string;
+        prefix?: string | null;
     }
+}
+
+/** Why a completed EXTERNAL_VENDOR trip has no invoice yet. */
+export type PendingVendorTripReason = 'NO_VENDOR_ASSIGNED' | 'NO_CONTRACT' | 'NO_RATE_FOR_MODEL' | 'READY';
+
+/** GET /invoices/vendor-pending-trips */
+export interface PendingVendorTrip {
+    id: number;
+    company_id: number;
+    vehicle_model: string | null;
+    scheduled_for: string | null;
+    company_vendor_link_id: number | null;
+    companies: { name: string } | null;
+    chauffeur_trip_logs: { completed_at: string | null; total_distance_km: string | number | null; total_duration_minutes: number | null } | null;
+    passenger_name: string | null;
+    vendor: { id: number; name: string } | null;
+    vendor_link_id: number | null;
+    contract_id: number | null;
+    reason: PendingVendorTripReason;
 }
 
 export interface QueryInvoiceProfitabilityParams {

@@ -11,6 +11,9 @@ import { PageHeader, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CL
 import Modal from "../../bookings/components/Modal";
 import TablePageSkeleton from "../../components/TablePageSkeleton";
 import TableSkeleton from "@/app/components/ui/TableSkeleton";
+import { VendorAuditBadge, VendorAuditPanel } from "./VendorAuditPanel";
+
+const isVendorTrip = (r: ChauffeurReport) => r.fulfillment_type === "EXTERNAL_VENDOR";
 
 function escapeCSV(value: string | number | null | undefined): string {
   const str = value == null ? "" : String(value);
@@ -20,13 +23,21 @@ function escapeCSV(value: string | number | null | undefined): string {
   return str;
 }
 
+function auditLabel(r: ChauffeurReport): string {
+  const a = r.vendor_audit;
+  if (!isVendorTrip(r) || !a) return "";
+  if (a.status === "DONE") return a.verdict;
+  return a.status === "NOT_RUN" ? "NOT_AUDITED" : "PENDING";
+}
+
 function exportChauffeurCSV(reports: ChauffeurReport[], companyName: string, startDate: string, endDate: string) {
   const headers = [
     "Date", "City", "Booking ID", "Passenger", "Employee ID",
     "Vehicle", "Plate Number", "Driver",
     "Pickup", "Dropoff",
     "Duration (min)", "Distance (km)",
-    "Service Charge (PKR)", "Fuel Cost (PKR)", "Toll (PKR)", "Parking (PKR)", "Accommodation (PKR)", "Outstation Allowance (PKR)", "Total (PKR)"
+    "Service Charge (PKR)", "Fuel Cost (PKR)", "Toll (PKR)", "Parking (PKR)", "Accommodation (PKR)", "Outstation Allowance (PKR)", "Total (PKR)",
+    "Vendor", "Vendor Audit", "Audit Difference (PKR)",
   ];
 
   const rows = reports.map((r) => [
@@ -42,13 +53,17 @@ function exportChauffeurCSV(reports: ChauffeurReport[], companyName: string, sta
     r.route?.dropoff || "",
     r.total_duration_minutes ?? "",
     r.total_distance_km ?? "",
-    Number(r.breakdown?.service_charge ?? 0),
-    Number(r.breakdown?.fuel_cost ?? 0),
-    Number(r.breakdown?.toll ?? 0),
-    Number(r.breakdown?.parking ?? 0),
-    Number(r.breakdown?.accommodation ?? 0),
-    Number(r.breakdown?.outstation_allowance ?? 0),
-    Number(r.total_cost ?? 0),
+    // Vendor trips: no calculated breakdown; total = what the vendor charged (once audited)
+    r.breakdown ? Number(r.breakdown.service_charge ?? 0) : "",
+    r.breakdown ? Number(r.breakdown.fuel_cost ?? 0) : "",
+    r.breakdown ? Number(r.breakdown.toll ?? 0) : "",
+    r.breakdown ? Number(r.breakdown.parking ?? 0) : "",
+    r.breakdown ? Number(r.breakdown.accommodation ?? 0) : "",
+    r.breakdown ? Number(r.breakdown.outstation_allowance ?? 0) : "",
+    r.total_cost != null ? Number(r.total_cost) : "",
+    isVendorTrip(r) ? r.vendor_audit?.vendor?.name ?? "" : "",
+    auditLabel(r),
+    r.vendor_audit?.status === "DONE" ? Math.round(r.vendor_audit.difference_amount) : "",
   ]);
 
   const csvContent = [
@@ -76,6 +91,7 @@ function exportChauffeurCSV(reports: ChauffeurReport[], companyName: string, sta
 export default function ChauffeurReportsPage() {
   const t = useTranslations("company.reports");
   const tCommon = useTranslations("common");
+  const tAudit = useTranslations("company.reports.vendorAudit");
   const company = useAppSelector(selectCompany);
 
   const [reports, setReports] = useState<ChauffeurReport[]>([]);
@@ -170,14 +186,15 @@ export default function ChauffeurReportsPage() {
                 <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("fuel")}</th>
                 <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("extras")}</th>
                 <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("totalPkr")}</th>
+                <th className={TABLE_HEADER_CELL_CLASS}>{tAudit("column")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-light)]/50">
               {isLoading && reports.length === 0 ? (
-                <TableSkeleton columns={12} rows={8} />
+                <TableSkeleton columns={13} rows={8} />
               ) : reports.length === 0 && !isLoading ? (
                 <tr>
-                  <td colSpan={12} className="px-6 py-12 text-center">
+                  <td colSpan={13} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center justify-center text-[var(--text-muted)]">
                       <span className="bg-[var(--surface-subtle)] p-4 rounded-full mb-3">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -232,22 +249,36 @@ export default function ChauffeurReportsPage() {
                     <td className={`${TABLE_CELL_CLASS} text-end text-[var(--text-primary)] font-mono text-xs`}>
                       {report.total_distance_km}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-right text-[var(--text-muted)] text-xs`}>
-                      {Number(report.breakdown.service_charge).toLocaleString()}
+                    <td className={`${TABLE_CELL_CLASS} text-end text-[var(--text-muted)] text-xs`}>
+                      {report.breakdown ? Number(report.breakdown.service_charge).toLocaleString() : "—"}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-right text-[var(--text-muted)] text-xs`}>
-                      {Number(report.breakdown.fuel_cost).toLocaleString()}
+                    <td className={`${TABLE_CELL_CLASS} text-end text-[var(--text-muted)] text-xs`}>
+                      {report.breakdown ? Number(report.breakdown.fuel_cost).toLocaleString() : "—"}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-right text-[var(--text-muted)] text-xs`}>
-                      {(
-                        Number(report.breakdown.toll) +
-                        Number(report.breakdown.parking) +
-                        Number(report.breakdown.accommodation) +
-                        Number(report.breakdown.outstation_allowance)
-                      ).toLocaleString()}
+                    <td className={`${TABLE_CELL_CLASS} text-end text-[var(--text-muted)] text-xs`}>
+                      {report.breakdown
+                        ? (
+                            Number(report.breakdown.toll) +
+                            Number(report.breakdown.parking) +
+                            Number(report.breakdown.accommodation) +
+                            Number(report.breakdown.outstation_allowance)
+                          ).toLocaleString()
+                        : "—"}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-right font-bold text-[var(--text-primary)]`}>
-                      {Number(report.total_cost).toLocaleString()}
+                    <td className={`${TABLE_CELL_CLASS} text-end font-bold text-[var(--text-primary)]`}>
+                      {report.total_cost != null ? Number(report.total_cost).toLocaleString() : "—"}
+                    </td>
+                    <td className={TABLE_CELL_CLASS}>
+                      {isVendorTrip(report) ? (
+                        <div className="flex flex-col items-start gap-1">
+                          <VendorAuditBadge audit={report.vendor_audit} />
+                          {report.vendor_audit?.vendor?.name && (
+                            <span className="text-[10px] text-[var(--text-muted)] truncate max-w-[10rem]">{report.vendor_audit.vendor.name}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[var(--text-muted)] text-xs">—</span>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -361,7 +392,22 @@ export default function ChauffeurReportsPage() {
               </div>
             )}
 
-            {/* Cost Breakdown */}
+            {isVendorTrip(selectedReport) && company?.id && (
+              <VendorAuditPanel
+                key={selectedReport.id}
+                companyId={company.id}
+                report={selectedReport}
+                onAudited={(audit) => {
+                  const charged = audit.status === "DONE" ? audit.vendor_charged_amount : null;
+                  const patch = (r: ChauffeurReport) => (r.id === selectedReport.id ? { ...r, vendor_audit: audit, total_cost: charged } : r);
+                  setReports((rows) => rows.map(patch));
+                  setSelectedReport((r) => (r ? patch(r) : r));
+                }}
+              />
+            )}
+
+            {/* Cost Breakdown (calculated amounts are not shown for vendor trips) */}
+            {selectedReport.breakdown && (
             <div>
               <h4 className="text-sm font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--cort-orange)]"></span>
@@ -410,8 +456,9 @@ export default function ChauffeurReportsPage() {
                 </table>
               </div>
             </div>
+            )}
 
-            {(selectedReport.breakdown.expense_toll_image_url || selectedReport.breakdown.expense_parking_image_url) && (
+            {selectedReport.breakdown && (selectedReport.breakdown.expense_toll_image_url || selectedReport.breakdown.expense_parking_image_url) && (
               <div>
                 <h4 className="text-sm font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--cort-orange)]"></span>

@@ -57,6 +57,9 @@ export interface CompanyVendorLink {
     updated_at: string | null;
     companies?: { id: number; name: string };
     external_vendors?: { id: number; name: string; contact_email: string | null; contact_phone: string | null; is_active: boolean };
+    /** Only on GET /admin/companies/:id/external-vendors — whether super admin set this vendor's chauffeur contract. */
+    has_chauffeur_contract?: boolean;
+    chauffeur_contract_id?: number | null;
 }
 
 // ─── Vendor Dashboard ────────────────────────────────────────────────────────

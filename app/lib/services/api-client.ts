@@ -68,9 +68,9 @@ import {
     CreateMaintenanceRecordRequest, QueryMaintenanceRecordParams, MaintenanceRecord, MaintenanceRecordResponse,
     UpdateMaintenanceRecordRequest, UpcomingMaintenanceResponse,
     // Reports
-    ChauffeurReport, ShuttleReport, ReportQueryParams,
+    ChauffeurReport, ShuttleReport, ReportQueryParams, VendorTripAudit, RunVendorAuditRequest,
     // Invoices
-    QueryInvoiceParams, Invoice, QueryInvoiceProfitabilityParams, InvoiceProfitabilityResponse,
+    QueryInvoiceParams, Invoice, QueryInvoiceProfitabilityParams, InvoiceProfitabilityResponse, PendingVendorTrip,
     // Expenses
     Expense, CreateExpenseRequest, UpdateExpenseRequest, ExpenseFilterParams, ExpensesListResult, TaggableInvoice,
 } from './types';
@@ -921,8 +921,10 @@ class ApiClient {
 
     // ===== CHAUFFEUR CONTRACTS =====
 
-    async getChauffeurContracts(companyId: number): Promise<ChauffeurContractResponse> {
-        return this.request<ChauffeurContractResponse>(`/contracts/chauffeur?companyId=${companyId}`);
+    /** Omit vendorLinkId for Cort's own contract; pass it for that external vendor's contract with the company. */
+    async getChauffeurContracts(companyId: number, vendorLinkId?: number | null): Promise<ChauffeurContractResponse> {
+        const vendorQuery = vendorLinkId ? `&vendorLinkId=${vendorLinkId}` : '';
+        return this.request<ChauffeurContractResponse>(`/contracts/chauffeur?companyId=${companyId}${vendorQuery}`);
     }
 
     async createChauffeurContract(data: CreateChauffeurContractRequest): Promise<SingleChauffeurContractResponse> {
@@ -1362,6 +1364,19 @@ class ApiClient {
         return this.request<PaginatedResponse<ChauffeurReport>>(endpoint);
     }
 
+    /** Financial audit of an external vendor's trip (company admin). */
+    async getVendorTripAudit(companyId: number, bookingId: number): Promise<{ data: VendorTripAudit }> {
+        return this.request<{ data: VendorTripAudit }>(`/companies/${companyId}/reports/chauffeur/${bookingId}/vendor-audit`);
+    }
+
+    /** Run (or re-run) the audit with what the vendor actually billed for the trip. */
+    async runVendorTripAudit(companyId: number, bookingId: number, data: RunVendorAuditRequest): Promise<{ data: VendorTripAudit }> {
+        return this.request<{ data: VendorTripAudit }>(`/companies/${companyId}/reports/chauffeur/${bookingId}/vendor-audit`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
     async getAllChauffeurReports(params: ReportQueryParams = {}): Promise<PaginatedResponse<ChauffeurReport>> {
         const query = new URLSearchParams();
         if (params.page) query.append('page', params.page.toString());
@@ -1458,12 +1473,20 @@ class ApiClient {
         return this.request('/invoices/pending-trips');
     }
 
+    /** Completed EXTERNAL_VENDOR trips with no vendor invoice yet, with the reason. */
+    async getPendingVendorTrips(companyId?: number): Promise<{ data: PendingVendorTrip[] }> {
+        const query = companyId ? `?company_id=${companyId}` : '';
+        return this.request<{ data: PendingVendorTrip[] }>(`/invoices/vendor-pending-trips${query}`);
+    }
+
     async getAllInvoices(params: QueryInvoiceParams = {}): Promise<PaginatedResponse<Invoice>> {
         const query = new URLSearchParams();
         if (params.page) query.append('page', String(params.page));
         if (params.limit) query.append('limit', String(params.limit));
         if (params.status) query.append('status', params.status);
         if (params.company_id) query.append('company_id', String(params.company_id));
+        if (params.issuer) query.append('issuer', params.issuer);
+        if (params.vendor_id) query.append('vendor_id', String(params.vendor_id));
 
         const queryString = query.toString();
         const endpoint = `/invoices${queryString ? `?${queryString}` : ''}`;
