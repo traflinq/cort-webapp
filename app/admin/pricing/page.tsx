@@ -495,7 +495,7 @@ function PricingPageContent() {
                   <p className="text-sm font-medium text-fg">Chauffeur contract for</p>
                   <p className="text-xs text-fg-muted">
                     {selectedVendorLinkId
-                      ? "This company's own vendor. Trips fulfilled by this vendor are priced on these rates (no SST); the company can audit the vendor's bills against them."
+                      ? "This company's own vendor. Trips fulfilled by this vendor are priced on these rates (plus 10% SST); the company can audit the vendor's bills against them."
                       : "Cort's contract with this company — used for Cort-managed trips."}
                   </p>
                 </div>

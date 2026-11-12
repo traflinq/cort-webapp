@@ -263,7 +263,7 @@ export function VendorInvoicesTab({ companies }: { companies: Company[] }) {
       </Card>
 
       <Card>
-        <CardHeader title="Vendor invoices" description="Issued in the vendor's name. No SST." />
+        <CardHeader title="Vendor invoices" description="Issued in the vendor's name, with SST." />
         <DataTable
           columns={invoiceColumns}
           rows={invoices}
