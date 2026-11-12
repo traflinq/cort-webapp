@@ -60,6 +60,8 @@ export interface CompanyVendorLink {
     /** Only on GET /admin/companies/:id/external-vendors — whether super admin set this vendor's chauffeur contract. */
     has_chauffeur_contract?: boolean;
     chauffeur_contract_id?: number | null;
+    /** Vehicle models priced on that contract (model names only) — the car types bookable through this vendor. */
+    chauffeur_contract_models?: string[];
 }
 
 // ─── Vendor Dashboard ────────────────────────────────────────────────────────

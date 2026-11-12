@@ -287,6 +287,8 @@
       "noVehiclesWhitelisted": "No vehicles whitelisted",
       "noVehiclesWhitelistedWarning": "No vehicles whitelisted.",
       "noVendorVehiclesFound": "No vendor vehicles found.",
+      "noVendorContractModels": "No vehicle types on the vendor contract",
+      "noVendorContractModelsFound": "No vehicle types are set on this vendor's contract yet. Contact Cort to set up the vendor contract.",
       "noOverlapVehicles": "No overlap between your contract vehicle list and vendor fleets. Add models or disable \"Also send to vendors\".",
       "specifyVehicle": "Specify Vehicle",
       "vehiclePlaceholder": "e.g. Honda Civic",

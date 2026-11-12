@@ -259,6 +259,23 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
         return models;
     }, [vendorVehicleMap, vendorMode]);
 
+    // EXTERNAL_VENDOR car types = vehicle models on the vendor's contract (set by Cort), so every
+    // booking can be priced on that contract. "All vendors" offers the union of their contracts.
+    const vendorContractModels = useMemo(() => {
+        const links = vendorMode === "all" ? vendorLinks : vendorLinks.filter((l) => l.id === vendorMode);
+        const seen = new Set<string>();
+        const models: string[] = [];
+        for (const link of links) {
+            for (const m of link.chauffeur_contract_models ?? []) {
+                if (m && !seen.has(m)) {
+                    seen.add(m);
+                    models.push(m);
+                }
+            }
+        }
+        return models;
+    }, [vendorLinks, vendorMode]);
+
     // Union of contract and vendor models when racing Cort + vendors (non–event shuttle)
     const cortBroadcastCarModels = useMemo(() => {
         if (isEventShuttle || !broadcastToAllVendors || fulfillmentType !== "CORT_MANAGED") return null;
@@ -720,12 +737,12 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                 value={vehicleModel}
                                 onChange={(e) => setVehicleModel(e.target.value)}
                                 required
-                                disabled={vendorsLoading || vendorCarModels.length === 0}
+                                disabled={vendorsLoading || vendorContractModels.length === 0}
                             >
                                 <option value="">
-                                    {vendorsLoading ? t("loadingVendorVehicles") : vendorCarModels.length === 0 ? t("noVendorVehicles") : t("selectVehicleType")}
+                                    {vendorsLoading ? t("loadingVendorVehicles") : vendorContractModels.length === 0 ? t("noVendorContractModels") : t("selectVehicleType")}
                                 </option>
-                                {vendorCarModels.map((model) => (
+                                {vendorContractModels.map((model) => (
                                     <option key={model} value={model}>{model}</option>
                                 ))}
                                 <option value="Other">{t("otherSpecialRequest")}</option>
@@ -791,9 +808,9 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                 {t("noVehiclesWhitelistedWarning")}
                             </div>
                         )}
-                        {!isEventShuttle && fulfillmentType === "EXTERNAL_VENDOR" && !vendorsLoading && vendorCarModels.length === 0 && (
+                        {!isEventShuttle && fulfillmentType === "EXTERNAL_VENDOR" && !vendorsLoading && vendorLinks.length > 0 && vendorContractModels.length === 0 && (
                             <div className="mt-1 text-[10px] text-rose-500 font-black uppercase">
-                                {t("noVendorVehiclesFound")}
+                                {t("noVendorContractModelsFound")}
                             </div>
                         )}
                         {!isEventShuttle && fulfillmentType === "CORT_MANAGED" && broadcastToAllVendors && !vendorsLoading && cortBroadcastCarModels && cortBroadcastCarModels.length === 0 && (

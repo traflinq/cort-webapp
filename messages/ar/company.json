@@ -287,6 +287,8 @@
       "noVehiclesWhitelisted": "لا توجد مركبات في القائمة البيضاء",
       "noVehiclesWhitelistedWarning": "لا توجد مركبات في القائمة البيضاء.",
       "noVendorVehiclesFound": "لم يتم العثور على مركبات مورد.",
+      "noVendorContractModels": "لا توجد أنواع مركبات في عقد المورد",
+      "noVendorContractModelsFound": "لم تُحدَّد أنواع مركبات في عقد هذا المورد بعد. تواصل مع Cort لإعداد عقد المورد.",
       "noOverlapVehicles": "لا يوجد تداخل بين قائمة مركبات عقدك وأساطيل الموردين. أضف طرازات أو عطّل \"الإرسال أيضاً للموردين\".",
       "specifyVehicle": "حدد المركبة",
       "vehiclePlaceholder": "مثال: هوندا سيفيك",
