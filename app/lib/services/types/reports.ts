@@ -1,12 +1,53 @@
 import { ChauffeurTripDailyLog } from './bookings';
 
+/** One line of the system-computed amount for a vendor trip. */
+export interface VendorAuditBreakdownLine {
+    category: 'SERVICE' | 'EXPENSE' | 'TAX' | 'DISCOUNT' | string;
+    description: string;
+    quantity: number | null;
+    unit_price: number | null;
+    amount: number;
+}
+
+/**
+ * Financial audit of an external vendor's trip: what the vendor billed vs. what the system computed
+ * from the vendor contract. The system amount is only present once an audit has been run (DONE).
+ */
+export type VendorTripAudit =
+    | { booking_id: number; vendor: { id: number; name: string } | null; status: 'NOT_AVAILABLE'; reason: 'TRIP_NOT_COMPLETED' | 'EXPECTED_NOT_READY' }
+    | { booking_id: number; vendor: { id: number; name: string } | null; status: 'NOT_RUN' }
+    | {
+        booking_id: number;
+        vendor: { id: number; name: string } | null;
+        status: 'DONE';
+        vendor_charged_amount: number;
+        expected_amount: number;
+        difference_amount: number;
+        difference_percentage: number | null;
+        verdict: 'OVERCHARGED' | 'UNDERCHARGED' | 'MATCHED';
+        expected_breakdown: VendorAuditBreakdownLine[];
+        expected_changed_since_audit: boolean;
+        expected_amount_at_audit: number;
+        vendor_invoice_reference: string | null;
+        notes: string | null;
+        audited_at: string;
+    };
+
+export interface RunVendorAuditRequest {
+    vendor_charged_amount: number;
+    vendor_invoice_reference?: string;
+    notes?: string;
+}
+
 export interface ChauffeurReport {
     id: number;
+    fulfillment_type?: 'CORT_MANAGED' | 'EXTERNAL_VENDOR' | 'SELF_MANAGED';
     city?: string;
     completed_at: string;
     total_duration_minutes: number;
     total_distance_km: number;
-    total_cost: number;
+    /** For EXTERNAL_VENDOR trips seen by company users: what the vendor charged (once audited), else null. */
+    total_cost: number | null;
     company?: {
         id: number;
         name: string;
@@ -38,8 +79,10 @@ export interface ChauffeurReport {
         overtime: number;
         expense_toll_image_url?: string | null;
         expense_parking_image_url?: string | null;
-    };
+    } | null;
     daily_logs?: ChauffeurTripDailyLog[];
+    /** EXTERNAL_VENDOR trips only. */
+    vendor_audit?: VendorTripAudit | null;
 }
 
 export interface ShuttlePassengerLog {

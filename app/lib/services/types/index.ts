@@ -157,6 +157,9 @@ export type {
 export type {
     QueryInvoiceParams,
     Invoice,
+    InvoiceIssuerType,
+    PendingVendorTrip,
+    PendingVendorTripReason,
     QueryInvoiceProfitabilityParams,
     InvoiceProfitabilityRow,
     InvoiceProfitabilityTotals,
@@ -166,6 +169,9 @@ export type {
 // Reports
 export type {
     ChauffeurReport,
+    VendorTripAudit,
+    VendorAuditBreakdownLine,
+    RunVendorAuditRequest,
     ShuttleReport,
     ShuttlePassengerLog,
     ReportQueryParams,

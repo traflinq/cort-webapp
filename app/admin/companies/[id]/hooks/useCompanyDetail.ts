@@ -468,7 +468,11 @@ export function useCompanyDetail(id: string) {
         const ok = await confirm({
             title: `Remove ${vendorLinkName(link)} from this company?`,
             message: "The vendor is unlinked from this company.",
-            consequences: ["The vendor no longer sees this company's work in its dashboard", "Link it again later if needed"],
+            consequences: [
+                "The vendor no longer sees this company's work in its dashboard",
+                ...(link.has_chauffeur_contract ? ["The vendor's chauffeur contract with this company is deleted"] : []),
+                "Link it again later if needed",
+            ],
             destructive: true,
             confirmLabel: "Remove link",
         });

@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, Link2, Plus, TriangleAlert } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, FileText, Link2, Plus, TriangleAlert } from "lucide-react";
 import type { CompanyVendorLink } from "../../../../lib/services/types/multi-mode";
 import type { useCompanyDetail } from "../hooks/useCompanyDetail";
 import {
@@ -54,6 +55,7 @@ function ModeRow({
 
 function VendorLinksPanel({
   service,
+  companyId,
   links,
   modeEnabled,
   canUpdate,
@@ -62,6 +64,7 @@ function VendorLinksPanel({
   onRemove,
 }: {
   service: "chauffeur" | "shuttle";
+  companyId: number;
   links: CompanyVendorLink[];
   modeEnabled: boolean;
   canUpdate: boolean;
@@ -81,6 +84,11 @@ function VendorLinksPanel({
               <th scope="col" className="px-3 py-2 text-left">
                 Status
               </th>
+              {service === "chauffeur" && (
+                <th scope="col" className="px-3 py-2 text-left">
+                  Contract
+                </th>
+              )}
               <th scope="col" className="px-3 py-2 text-right">
                 <span className="sr-only">Actions</span>
               </th>
@@ -93,6 +101,18 @@ function VendorLinksPanel({
                 <td className="px-3 py-2">
                   <StatusBadge status={link.is_active ? "ACTIVE" : "INACTIVE"} size="sm" />
                 </td>
+                {service === "chauffeur" && (
+                  <td className="px-3 py-2">
+                    {/* Trips by this vendor are priced on its contract; without one they wait for invoicing. */}
+                    <Link
+                      href={`/admin/pricing?companyId=${companyId}&vendorLinkId=${link.id}`}
+                      className={`inline-flex items-center gap-1 text-xs font-medium hover:underline ${link.has_chauffeur_contract ? "text-fg" : "text-warning-ink"}`}
+                    >
+                      <FileText className="size-3.5" aria-hidden />
+                      {link.has_chauffeur_contract ? "View contract" : "Set contract"}
+                    </Link>
+                  </td>
+                )}
                 <td className="px-3 py-2 text-right">
                   <div className="flex justify-end gap-1">
                     <Button variant="ghost" size="sm" onClick={() => onToggleActive(link)} disabled={!canUpdate}>
@@ -173,6 +193,7 @@ function ServiceCard({
           >
             <VendorLinksPanel
               service={service}
+              companyId={company.id}
               links={links}
               modeEnabled={feat(vendorKey)}
               canUpdate={d.canUpdate}

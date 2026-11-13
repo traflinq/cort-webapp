@@ -9,6 +9,7 @@ import { useInvoices } from "./hooks/useInvoices";
 import { useProfitability } from "./hooks/useProfitability";
 import { InvoicingLedger } from "./components/InvoicingLedger";
 import { ProfitabilityTab } from "./components/ProfitabilityTab";
+import { VendorInvoicesTab } from "./components/VendorInvoicesTab";
 
 export default function InvoicingPage() {
   return (
@@ -31,7 +32,9 @@ function InvoicingPageContent() {
         description={
           tab === "ledger"
             ? "General ledger of company invoices, payments and PDFs."
-            : "What each invoice billed, what the trip behind it cost, and the profit left over."
+            : tab === "vendor"
+              ? "Invoices issued by companies' own vendors under the vendor contracts you set."
+              : "What each invoice billed, what the trip behind it cost, and the profit left over."
         }
         actions={
           tab === "ledger" ? (
@@ -46,12 +49,16 @@ function InvoicingPageContent() {
         <TabsList>
           <TabsTrigger value="ledger">Ledger</TabsTrigger>
           <TabsTrigger value="profitability">Profitability</TabsTrigger>
+          <TabsTrigger value="vendor">Vendor invoices</TabsTrigger>
         </TabsList>
         <TabsContent value="ledger">
           <InvoicingLedger inv={inv} />
         </TabsContent>
         <TabsContent value="profitability">
           <ProfitabilityTab profit={profit} companies={inv.companies} companiesTruncated={inv.companiesTruncated} />
+        </TabsContent>
+        <TabsContent value="vendor">
+          {tab === "vendor" && <VendorInvoicesTab companies={inv.companies} />}
         </TabsContent>
       </Tabs>
     </div>

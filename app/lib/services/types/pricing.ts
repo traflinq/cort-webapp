@@ -24,6 +24,9 @@ export interface ChauffeurContractRate {
 export interface ChauffeurContract {
     id: number;
     company_id: number;
+    /** null = Cort's contract with the company; set = that external vendor's contract with the company. */
+    company_vendor_link_id?: number | null;
+    company_vendor_links?: { id: number; vendor_id: number; external_vendors?: { id: number; name: string } } | null;
     fuel_base_price: string;
     revision_percentage: string | null;
     contract_duration?: string | null;
@@ -38,6 +41,8 @@ export interface ChauffeurContract {
 
 export interface CreateChauffeurContractRequest {
     companyId: number;
+    /** Company↔external-vendor link: set to create that vendor's contract; omit for Cort's own. */
+    companyVendorLinkId?: number | null;
     //  Settings
     fuelBasePrice?: number;
     revisionPercentage?: number | null;
