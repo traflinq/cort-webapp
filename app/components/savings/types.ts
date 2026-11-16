@@ -102,10 +102,8 @@ export interface ChauffeurSection {
     avg_cost_per_ride: Comparison;
   };
   external_vendor_rides: number;
-  savings: {
-    total_pkr: Comparison;
-    cost_breakdown: { rental: number; fuel: number; overtime: number; parking: number; toll: number };
-  };
+  /** Where the money went (Cort-managed rides). Chauffeur has no savings figure. */
+  cost_breakdown: { rental: number; fuel: number; overtime: number; parking: number; toll: number };
   audit: {
     external_vendor_trips: number;
     audited_trips: number;
@@ -122,7 +120,8 @@ export interface SavingsDashboardFull {
   company: { id: number; name: string; savings_unlocked: boolean };
   period: SavingsPeriods;
   total_savings_pkr: number;
-  total_by_service: { shuttle: number | null; chauffeur: number | null };
+  /** Only shuttle produces a savings figure (vs the pre-Traflinq benchmark). */
+  total_by_service: { shuttle: number | null };
   analysis_ready: boolean;
   services: { shuttle: boolean; chauffeur: boolean; pool: boolean };
   shuttle: ShuttleSection | null;
@@ -146,7 +145,6 @@ export interface SavingsOverviewRow {
   services: SavingsDashboardFull["services"];
   total_savings_pkr: number;
   shuttle_savings_pkr: number | null;
-  chauffeur_savings_pkr: number | null;
   analysis_ready: boolean;
   error?: string;
 }

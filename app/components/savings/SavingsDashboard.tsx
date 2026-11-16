@@ -333,7 +333,6 @@ export function SavingsDashboard({
   onManageBenchmarks?: () => void;
 }) {
   const t = useTranslations("company.savings.dashboard");
-  const f = useFormat();
   const periodLabel = usePeriodLabel(data.period);
 
   const tabs = useMemo(
@@ -350,14 +349,10 @@ export function SavingsDashboard({
   const [tab, setTab] = useState<Tab>(tabs[0]?.id ?? "shuttle");
   const active = tabs.some((x) => x.id === tab) ? tab : tabs[0]?.id;
 
-  const chips = [
-    data.total_by_service.shuttle != null && { label: t("tabShuttle"), value: f.pkr(data.total_by_service.shuttle), icon: <Bus /> },
-    data.total_by_service.chauffeur != null && { label: t("tabChauffeur"), value: f.pkr(data.total_by_service.chauffeur), icon: <UserRound /> },
-  ].filter(Boolean) as { label: string; value: string; icon: ReactNode }[];
 
   return (
     <div className="flex flex-col gap-6">
-      <SavingsHero total={data.total_savings_pkr} periodLabel={periodLabel} analysisReady={data.analysis_ready} chips={chips} />
+      <SavingsHero total={data.total_savings_pkr} periodLabel={periodLabel} analysisReady={data.analysis_ready} />
 
       {tabs.length === 0 ? (
         <div className={cn(CARD, "p-6 text-sm text-fg-muted")}>{t("noServices")}</div>
@@ -600,7 +595,8 @@ function ChauffeurTab({ c, auditHref }: { c: ChauffeurSection; auditHref?: strin
   const t = useTranslations("company.savings.dashboard");
   const f = useFormat();
   const k = c.kpis;
-  const b = c.savings.cost_breakdown;
+  // Fallback keeps the tab rendering if the web app deploys before the backend.
+  const b = c.cost_breakdown ?? { rental: 0, fuel: 0, overtime: 0, parking: 0, toll: 0 };
   const parts = [
     { key: "rental", label: t("costRental"), value: b.rental },
     { key: "fuel", label: t("costFuel"), value: b.fuel },
@@ -630,20 +626,16 @@ function ChauffeurTab({ c, auditHref }: { c: ChauffeurSection; auditHref?: strin
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className={cn(CARD, "flex flex-col gap-4 p-5")}>
           <div className="flex items-center gap-3">
-            <IconTile tone="success">
-              <PiggyBank />
+            <IconTile tone="brand">
+              <Wallet />
             </IconTile>
             <div>
-              <p className="text-sm font-semibold text-fg">{t("chauffeurSavingsTitle")}</p>
-              <p className="text-xs text-fg-muted">{t("chauffeurSavingsDescription")}</p>
+              <p className="text-sm font-semibold text-fg">{t("costBreakdown")}</p>
+              <p className="text-xs text-fg-muted">{t("costBreakdownDescription")}</p>
             </div>
           </div>
-          <p className="text-2xl font-semibold tracking-tight text-fg tabular-nums">{f.pkr(c.savings.total_pkr.current)}</p>
-          <div className="text-xs">
-            <Delta delta={c.savings.total_pkr.delta_pct} label={t("prevValue", { value: f.pkr(c.savings.total_pkr.previous) })} />
-          </div>
+          <p className="text-2xl font-semibold tracking-tight text-fg tabular-nums">{f.pkr(partsTotal)}</p>
           <div className="mt-1 flex flex-col gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">{t("costBreakdown")}</p>
             {partsTotal === 0 ? (
               <p className="text-sm text-fg-muted">{t("noRides")}</p>
             ) : (

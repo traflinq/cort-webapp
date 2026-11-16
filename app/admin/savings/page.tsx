@@ -52,7 +52,6 @@ function SavingsOverviewContent() {
       ),
     },
     { key: "shuttle", header: "Shuttle", align: "right", mono: true, hideBelow: "md", cell: (r) => formatCurrency(r.shuttle_savings_pkr) },
-    { key: "chauffeur", header: "Chauffeur", align: "right", mono: true, hideBelow: "md", cell: (r) => formatCurrency(r.chauffeur_savings_pkr) },
     {
       key: "analysis",
       header: "Analysis",
