@@ -87,9 +87,17 @@ type TimelineRider = {
   boarded_at: string | null;
   dropped_at: string | null;
   dropped_at_trip_end: boolean;
+  /** Where the phone was when the driver tapped this rider's drop-off. */
+  drop_off_location?: TapLocation | null;
   absent_reason: string | null;
   marked_by: string | null;
 };
+
+/** A GPS fix the driver app sent with an Arrive / Proceed tap. */
+type TapLocation = { lat: number; lng: number; accuracy_m: number | null; fix_at?: string | null };
+
+/** A tap this far from the stop pin is outside what counts as "at the stop" (matches the 300 m GPS reach rule). */
+const TAP_FAR_FROM_STOP_M = 300;
 
 type TimelineStop = {
   id: number;
@@ -103,6 +111,11 @@ type TimelineStop = {
   arrived_at: string | null;
   departed_at: string | null;
   time_source: 'DRIVER' | 'ATTENDANCE' | 'TRIP_START' | 'TRIP_END' | null;
+  /** Optional: absent from backends and app builds before stop-tap locations. */
+  arrived_location?: TapLocation | null;
+  departed_location?: TapLocation | null;
+  /** Metres from the planned stop pin to where the driver tapped. */
+  tap_distance_m?: number | null;
   status: StopStatus;
   riders_expected: number;
   riders_riding: number;
@@ -1343,6 +1356,23 @@ function LegendSwatch({ color, shape = 'line', label }: { color: string; shape?:
   );
 }
 
+/** Straight-line metres between two points (haversine). */
+function metresBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6_371_000 * Math.asin(Math.sqrt(h));
+}
+
+function formatMetres(m: number): string {
+  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
+}
+
+function isEveningTrip(timeline: TripTimeline | null): boolean {
+  return timeline?.trip.direction === 'EVENING';
+}
+
 function RouteMapPanel({ loading, comparison, timeline, routeInsight }: { loading: boolean; comparison: RouteComparison | null; timeline: TripTimeline | null; routeInsight: FleetInsight | null }) {
   if (loading) return <LoadingBlock label="Loading route data…" className="h-64" />;
   if (!comparison) {
@@ -1623,6 +1653,14 @@ function TripTimelinePanel({ timeline }: { timeline: TripTimeline }) {
                         {s.departed_at && s.departed_at !== s.arrived_at && ` → left ${formatTime(s.departed_at)}`}
                         {note && <span className="text-fg-muted"> ({note})</span>}
                       </span>
+                      {s.tap_distance_m != null && (
+                        <span
+                          className={s.tap_distance_m > TAP_FAR_FROM_STOP_M ? 'font-medium text-warning-ink' : 'text-fg-muted'}
+                          title="Distance from the stop's saved location to where the phone was when the driver tapped"
+                        >
+                          tapped {formatMetres(s.tap_distance_m)} from stop
+                        </span>
+                      )}
                       <Badge tone={st.tone} size="sm" dot>{st.label}</Badge>
                     </span>
                   </div>
@@ -1729,6 +1767,54 @@ function RouteMapOverlay({ comparison, timeline, routeInsight }: { comparison: R
       type: 'stop',
     });
   }
+  // Where the driver actually was when they tapped each stop (newer app builds), joined
+  // to the stop's saved pin so a pin in the wrong place, or a tap made away from the
+  // stop, stands out. In the evening arrive and drop-off are one slide, so the
+  // departure dot is only drawn when it's somewhere else.
+  const tapColor = chart.colors[3] ?? actualColor; // purple: clear of the planned/actual lines and the green/red/amber stops
+  const tapPolylines: MapPolyline[] = [];
+  let hasTaps = false;
+  for (const s of timeline?.stops ?? []) {
+    const taps: { kind: 'arrived' | 'departed'; loc: TapLocation }[] = [];
+    if (s.arrived_location) taps.push({ kind: 'arrived', loc: s.arrived_location });
+    if (
+      s.departed_location &&
+      (!s.arrived_location || metresBetween(s.arrived_location, s.departed_location) > 30)
+    ) {
+      taps.push({ kind: 'departed', loc: s.departed_location });
+    }
+    for (const { kind, loc } of taps) {
+      hasTaps = true;
+      const fromStop = s.lat != null && s.lng != null ? metresBetween({ lat: s.lat, lng: s.lng }, loc) : null;
+      const what =
+        kind === 'arrived'
+          ? 'Driver tapped Arrive here'
+          : isEveningTrip(timeline) ? 'Driver tapped drop-off here' : 'Driver tapped Proceed here';
+      const details = [
+        loc.fix_at ? formatTime(loc.fix_at) : null,
+        fromStop != null ? `${formatMetres(fromStop)} from stop` : null,
+        loc.accuracy_m != null ? `GPS ±${Math.round(loc.accuracy_m)} m` : null,
+      ].filter(Boolean).join(' · ');
+      markers.push({
+        id: `tap-${kind}-${s.id}`,
+        position: [loc.lat, loc.lng],
+        label: `${s.sequence}. ${s.name}`,
+        description: `${what}${details ? ` · ${details}` : ''}`,
+        color: tapColor,
+        type: 'point',
+      });
+      if (s.lat != null && s.lng != null) {
+        tapPolylines.push({
+          positions: [[s.lat, s.lng], [loc.lat, loc.lng]],
+          color: tapColor,
+          weight: 2,
+          opacity: 0.8,
+          dashArray: '2 4',
+        });
+      }
+    }
+  }
+  polylines.push(...tapPolylines);
 
   const m = comparison.metrics;
   const detour = m?.detour_ratio ?? null;
@@ -1751,6 +1837,7 @@ function RouteMapOverlay({ comparison, timeline, routeInsight }: { comparison: R
           <LegendSwatch color={plannedColor} label="Planned" />
           <LegendSwatch color={actualColor} label="Actual" />
           <LegendSwatch color={actualColor} shape="dot" label="Departed / arrived" />
+          {hasTaps && <LegendSwatch color={tapColor} shape="dot" label="Where driver tapped stop" />}
           {timeline && timeline.stops.length > 0 && (
             <>
               <LegendSwatch color={chart.status.good} shape="dot" label="Stop visited" />

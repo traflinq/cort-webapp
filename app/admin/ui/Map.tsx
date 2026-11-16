@@ -170,6 +170,19 @@ async function getRotatedVehicleIconUrl(src: string, headingDeg: number): Promis
 
 function getStopMarkerIcon(marker: MapMarker): google.maps.Icon {
   const bg = marker.color ?? '#6366f1';
+  // A small unlabelled dot: a recorded point (e.g. where a driver tapped a stop)
+  // that sits next to a labelled stop marker without covering it.
+  if (marker.type === 'point') {
+    const s = 14;
+    const svg = `<svg width="${s}" height="${s}" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="7" cy="7" r="5.5" fill="${bg}" stroke="white" stroke-width="2"/>
+    </svg>`;
+    return {
+      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+      scaledSize: new google.maps.Size(s, s),
+      anchor: new google.maps.Point(s / 2, s / 2),
+    };
+  }
   const labelText = marker.label
     ? (marker.label.length <= 3 ? marker.label : marker.label.slice(0, 2))
     : '';
