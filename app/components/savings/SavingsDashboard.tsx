@@ -12,7 +12,7 @@ import {
   ChevronRight,
   Clock,
   CreditCard,
-  Fuel,
+  Navigation,
   Gauge,
   Lock,
   Minus,
@@ -403,7 +403,8 @@ function ShuttleTab({ s, onManageBenchmarks }: { s: ShuttleSection; onManageBenc
   const f = useFormat();
   const k = s.kpis;
   const sv = s.savings;
-  const fv = s.fuel_verification;
+  // Optional so the page still renders if the backend deploy lags behind.
+  const rv = s.route_variance;
 
   return (
     <div className="flex flex-col gap-6">
@@ -461,17 +462,17 @@ function ShuttleTab({ s, onManageBenchmarks }: { s: ShuttleSection; onManageBenc
               detail={t("kmReducedDetail", { km: f.km(sv.km_reduced) })}
             />
             <SavingCard
-              icon={<Fuel />}
-              tone={fv.ratio_pct != null && fv.ratio_pct > 110 ? "warning" : "info"}
-              title={t("fuelVerification")}
-              amount={fv.ratio_pct == null ? "—" : f.pct(fv.ratio_pct)}
+              icon={<Navigation />}
+              tone={rv?.ratio_pct != null && rv.ratio_pct > 110 ? "warning" : "info"}
+              title={t("routeVariance")}
+              amount={rv?.ratio_pct == null ? "—" : f.pct(rv.ratio_pct)}
               detail={
-                fv.ratio_pct == null
-                  ? t("fuelVerificationEmpty")
-                  : t("fuelVerificationDetail", {
-                      actual: f.n(fv.actual_litres, 1),
-                      expected: f.n(fv.expected_litres, 1),
-                      flagged: fv.flagged_vehicles,
+                rv?.ratio_pct == null
+                  ? t("routeVarianceEmpty")
+                  : t("routeVarianceDetail", {
+                      actual: f.km(rv.actual_km),
+                      planned: f.km(rv.planned_km),
+                      flagged: rv.flagged_vehicles,
                     })
               }
             />

@@ -725,7 +725,8 @@
       "estBillingSaving": "Est. billing saving",
       "estSavingMonth": "Est. saving: PKR {amount} / month",
       "start": "Start",
-      "end": "End"
+      "end": "End",
+      "generateFailed": "Could not run the analysis. Please try again later."
     },
     "invoicing": {
       "label": "Financials",
@@ -1009,9 +1010,9 @@
         "vehiclesReducedDetail": "{count} fewer vehicles than before. Includes their rental and fuel.",
         "kmReduced": "Kilometres reduced",
         "kmReducedDetail": "{km} fewer than your previous vendor's claimed distance. Fuel saved on the vehicles still running.",
-        "fuelVerification": "Fuel verification",
-        "fuelVerificationDetail": "Actual {actual} L vs expected {expected} L on the planned routes. {flagged} vehicles flagged for fuel variance.",
-        "fuelVerificationEmpty": "No fuel data for this period yet.",
+        "routeVariance": "Route distance check",
+        "routeVarianceDetail": "{actual} driven vs {planned} planned on the same trips. {flagged} vehicles went over plan on 3+ operating days in a row.",
+        "routeVarianceEmpty": "No trips with a planned distance in this period yet.",
         "colCategory": "Category",
         "colBenchmarkVehicles": "Before",
         "colActiveVehicles": "Now",
