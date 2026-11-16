@@ -64,9 +64,10 @@ export interface ShuttleSection {
       status: "OK" | "NO_FUEL_DATA";
     }[];
   };
-  fuel_verification: {
-    actual_litres: number;
-    expected_litres: number;
+  /** GPS km vs planned route km on the same trips (a distance check, not a fuel-receipt check). */
+  route_variance?: {
+    actual_km: number;
+    planned_km: number;
     ratio_pct: number | null;
     flagged_vehicles: number;
   };

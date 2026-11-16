@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { apiClient } from '@/app/lib/services/api-client';
@@ -308,6 +309,9 @@ export function FleetEfficiencyPanel() {
     try {
       await apiClient.request<{ generated: number }>('/company/fleet-insights/generate', { method: 'POST' });
       await load();
+    } catch (e) {
+      // e.g. the 15-minute cooldown or the AI insights feature being off
+      toast.error(e instanceof Error ? e.message : t('generateFailed'));
     } finally {
       setGenerating(false);
     }
