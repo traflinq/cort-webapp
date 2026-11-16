@@ -65,6 +65,8 @@ export function useCompanyDetail(id: string) {
     const [newEmpPassword, setNewEmpPassword] = useState("");
     const [newEmpHomeAddress, setNewEmpHomeAddress] = useState("");
 
+    // Benchmarks Modal
+    const [isBenchmarksModalOpen, setIsBenchmarksModalOpen] = useState(false);
     const [newEmpId, setNewEmpId] = useState("");
     const [newEmpDepartment, setNewEmpDepartment] = useState("");
     const [isCreatingEmp, setIsCreatingEmp] = useState(false);
@@ -821,7 +823,7 @@ export function useCompanyDetail(id: string) {
         features, featuresLoading, trackerForm, setTrackerForm, trackerSaving, trackerTesting, trackerTestResult, pendingToggleKeys,
         companyVendorLinks, vendorsLoading, allVendors, showLinkModal, setShowLinkModal, linkSaving, linkForm, setLinkForm,
         isEmpModalOpen, setIsEmpModalOpen, newEmpName, setNewEmpName, newEmpEmail, setNewEmpEmail, newEmpPhone, setNewEmpPhone,
-        newEmpPassword, setNewEmpPassword, newEmpId, setNewEmpId,
+        newEmpPassword, setNewEmpPassword, isBenchmarksModalOpen, setIsBenchmarksModalOpen, newEmpId, setNewEmpId,
         newEmpDepartment, setNewEmpDepartment, newEmpHomeAddress, setNewEmpHomeAddress, isCreatingEmp, isUploadingCsv, isExporting,
         toggleFeature, saveTrackerConfig, testTrackerConnection, updateLink, updateCompanyField,
         handleCreateEmployee,

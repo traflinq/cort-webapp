@@ -1,10 +1,13 @@
 "use client";
 
-import { use } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
-import { Download, FileText, Gauge, UserPlus } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { ClipboardCheck, Download, FileText, Gauge, UserPlus, Wallet } from "lucide-react";
 import { AdminProtectedPage } from "../../components/AdminProtectedPage";
 import { ADMIN_SUBJECTS } from "../../../lib/abilities/admin-subjects";
+import { BenchmarksModal } from "../components/BenchmarksModal";
+import { BenchmarkChangeRequestsModal } from "../components/BenchmarkChangeRequestsModal";
 import { useCompanyDetail } from "./hooks/useCompanyDetail";
 import { CompanyEmployeesTab } from "./components/CompanyEmployeesTab";
 import { CompanyServicesTab } from "./components/CompanyServicesTab";
@@ -38,8 +41,17 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
 
 function CompanyDetailsContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const searchParams = useSearchParams();
   const d = useCompanyDetail(id);
+  const [isChangeRequestsModalOpen, setIsChangeRequestsModalOpen] = useState(false);
   usePageBreadcrumbs(d.company ? [{ label: companyLabel(d.company) }] : null);
+
+  // The benchmark-change-request alert links here with ?benchmarkRequests=1.
+  useEffect(() => {
+    if (searchParams.get("benchmarkRequests") === "1") {
+      setIsChangeRequestsModalOpen(true);
+    }
+  }, [searchParams]);
 
   if (d.isLoading) return <PageSkeleton />;
 
@@ -96,6 +108,12 @@ function CompanyDetailsContent({ params }: { params: Promise<{ id: string }> }) 
                 <Gauge />
                 Fleet efficiency
               </Link>
+            </Button>
+            <Button variant="outline" onClick={() => d.setIsBenchmarksModalOpen(true)} leftIcon={<Wallet />}>
+              Vendor cost
+            </Button>
+            <Button variant="outline" onClick={() => setIsChangeRequestsModalOpen(true)} leftIcon={<ClipboardCheck />}>
+              Change requests
             </Button>
             <Button variant="outline" onClick={d.handleExportCredentials} loading={d.isExporting} leftIcon={<Download />}>
               Export roster
@@ -179,6 +197,20 @@ function CompanyDetailsContent({ params }: { params: Promise<{ id: string }> }) 
           </form>
         </DialogContent>
       </Dialog>
+
+      <BenchmarksModal
+        companyId={Number(id)}
+        companyName={company.name}
+        isOpen={d.isBenchmarksModalOpen}
+        onClose={() => d.setIsBenchmarksModalOpen(false)}
+      />
+
+      <BenchmarkChangeRequestsModal
+        companyId={Number(id)}
+        companyName={company.name}
+        isOpen={isChangeRequestsModalOpen}
+        onClose={() => setIsChangeRequestsModalOpen(false)}
+      />
     </div>
   );
 }

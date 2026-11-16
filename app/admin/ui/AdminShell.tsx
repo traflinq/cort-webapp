@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "../../lib/contexts/auth-context";
 import type { PermissionKey } from "../../lib/types/auth-types";
 import { BookingNotificationProvider } from "../components/BookingNotificationProvider";
+import { BenchmarkChangeRequestAlertProvider } from "../components/BenchmarkChangeRequestAlertProvider";
 import { useAdminTheme } from "../lib/theme-context";
 import { activeNavItem, visibleNavGroups, type NavViewer } from "../lib/nav";
 import { Drawer, DrawerContent } from "./Drawer";
@@ -154,6 +155,7 @@ function ShellFrame({ pathname, children }: { pathname: string; children: React.
             showDesignSystemLink={SHOW_DESIGN_SYSTEM && isSuperAdmin}
           />
           <BookingNotificationProvider />
+          <BenchmarkChangeRequestAlertProvider />
           <main id="main" tabIndex={-1} className="flex-1 px-4 py-5 outline-none md:px-6 lg:px-8">
             <div className="mx-auto w-full max-w-[1600px]">{children}</div>
           </main>
