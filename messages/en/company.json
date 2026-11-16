@@ -941,7 +941,7 @@
       "calculatedLitres": "Actual L/vehicle",
       "fuelSaving": "Fuel Saving",
       "statusAnalysisInProgress": "Analysis in progress",
-      "statusAnalysisPending": "Coming soon",
+      "statusNotApplicable": "Not applicable",
       "statusNoFuelData": "No fleet data",
       "noVehicleBenchmarks": "No vehicle benchmarks configured yet. Click Vendor Cost above to add your previous vendor costs per vehicle category.",
       "manageVendorCost": "Vendor Cost",

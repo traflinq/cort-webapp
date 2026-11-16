@@ -33,7 +33,6 @@ type ChangeRequest = {
 };
 
 type FormState = {
-  service_type: "SHUTTLE" | "CHAUFFEUR";
   vehicle_category: string;
   coaster_seater_size: string;
   cost_type: "FIXED" | "VARIABLE";
@@ -47,7 +46,7 @@ type FormState = {
   notes: string;
 };
 
-const VEHICLE_CATEGORIES = ["SEDAN", "HATCHBACK", "SUV", "DOUBLE_CABIN", "VAN", "COASTER", "BUS"];
+const VEHICLE_CATEGORIES = ["SEDAN", "HATCHBACK", "SUV", "DOUBLE_CABIN", "VAN", "COASTER", "HIACE", "BUS"];
 const COASTER_SEATER_OPTIONS = ["7 Seater", "14 Seater", "24 Seater", "32 Seater", "48 Seater", "62 Seater"];
 const VAN_SEATER_OPTIONS = ["7 Seater", "14 Seater"];
 
@@ -58,7 +57,6 @@ function seaterOptionsFor(category: string) {
 }
 
 const EMPTY_FORM: FormState = {
-  service_type: "SHUTTLE",
   vehicle_category: "",
   coaster_seater_size: "",
   cost_type: "VARIABLE",
@@ -82,7 +80,7 @@ function pkr(n: number) {
 
 function formToPayload(form: FormState) {
   return {
-    service_type: form.service_type,
+    service_type: "SHUTTLE" as const,
     vehicle_category: form.vehicle_category || null,
     coaster_seater_size:
       form.vehicle_category === "COASTER" || form.vehicle_category === "VAN"
@@ -102,7 +100,6 @@ function formToPayload(form: FormState) {
 
 function rowToForm(row: BenchmarkRow): FormState {
   return {
-    service_type: row.service_type,
     vehicle_category: row.vehicle_category ?? "",
     coaster_seater_size: row.coaster_seater_size ?? "",
     cost_type: row.cost_type,
@@ -120,18 +117,6 @@ function rowToForm(row: BenchmarkRow): FormState {
 function BenchmarkFields({ form, setForm }: { form: FormState; setForm: (f: FormState) => void }) {
   return (
     <div className="grid grid-cols-2 gap-3">
-      <div>
-        <label className={labelClass}>Service type *</label>
-        <select
-          value={form.service_type}
-          onChange={(e) => setForm({ ...form, service_type: e.target.value as FormState["service_type"] })}
-          className={fieldClass}
-        >
-          <option value="SHUTTLE">Shuttle</option>
-          <option value="CHAUFFEUR">Chauffeur</option>
-        </select>
-      </div>
-
       <div>
         <label className={labelClass}>Vehicle category *</label>
         <select
@@ -450,15 +435,11 @@ export function CompanyBenchmarksModal({ isOpen, onClose, onChanged }: CompanyBe
                       >
                         <div className="min-w-0 flex-1 space-y-2">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                b.service_type === "SHUTTLE"
-                                  ? "bg-blue-500/15 text-blue-400"
-                                  : "bg-purple-500/15 text-purple-400"
-                              }`}
-                            >
-                              {b.service_type}
-                            </span>
+                            {b.service_type !== "SHUTTLE" && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]">
+                                {b.service_type} — not applicable
+                              </span>
+                            )}
                             {b.vehicle_category && (
                               <span className="text-xs text-[var(--text-secondary)] font-medium">
                                 {(b.vehicle_category === "COASTER" || b.vehicle_category === "VAN") &&

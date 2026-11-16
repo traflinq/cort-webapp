@@ -42,7 +42,6 @@ type BenchmarkRow = {
 };
 
 type NewBenchmarkForm = {
-  service_type: 'SHUTTLE' | 'CHAUFFEUR';
   vehicle_category: string;
   coaster_seater_size: string;
   cost_type: 'FIXED' | 'VARIABLE';
@@ -68,7 +67,6 @@ function seaterOptionsFor(category: string) {
 }
 
 const EMPTY_FORM: NewBenchmarkForm = {
-  service_type: 'SHUTTLE',
   vehicle_category: '',
   coaster_seater_size: '',
   cost_type: 'VARIABLE',
@@ -158,7 +156,7 @@ export function BenchmarksModal({ companyId, companyName, isOpen, onClose }: Ben
       await apiClient.request(`/admin/companies/${companyId}/benchmarks`, {
         method: 'POST',
         body: JSON.stringify({
-          service_type: form.service_type,
+          service_type: 'SHUTTLE',
           vehicle_category: form.vehicle_category || null,
           coaster_seater_size: needsSeater ? form.coaster_seater_size || null : null,
           cost_type: form.cost_type,
@@ -267,9 +265,9 @@ export function BenchmarksModal({ companyId, companyName, isOpen, onClose }: Ben
                     <li key={b.id} className="flex items-start justify-between gap-4 px-4 py-3">
                       <div className="min-w-0 flex-1 space-y-1.5">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge tone={b.service_type === 'SHUTTLE' ? 'info' : 'purple'}>
-                            {b.service_type}
-                          </Badge>
+                          {b.service_type !== 'SHUTTLE' && (
+                            <Badge tone="warning">{b.service_type} — not applicable</Badge>
+                          )}
                           {categoryLabel(b) && <Badge tone="neutral">{categoryLabel(b)}</Badge>}
                           <Badge tone={b.cost_type === 'FIXED' ? 'warning' : 'brand'} variant="outline">
                             {b.cost_type === 'FIXED' ? 'Fixed' : 'Variable'}
@@ -349,26 +347,10 @@ export function BenchmarksModal({ companyId, companyName, isOpen, onClose }: Ben
                 <p className="text-sm font-semibold text-fg">New benchmark</p>
 
                 <FormGrid cols={2}>
-                  <Field label="Service type" required>
-                    <Select
-                      value={form.service_type}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, service_type: e.target.value as 'SHUTTLE' | 'CHAUFFEUR' }))
-                      }
-                    >
-                      <option value="SHUTTLE">Shuttle</option>
-                      <option value="CHAUFFEUR">Chauffeur</option>
-                    </Select>
-                  </Field>
-
                   <Field
                     label="Vehicle category"
                     required
-                    hint={
-                      form.service_type === 'CHAUFFEUR'
-                        ? 'Chauffeur rows report “Coming soon” until the chauffeur distance engine lands.'
-                        : undefined
-                    }
+                    hint="Shuttle only — chauffeur costs are audited against vendor contracts."
                   >
                     <Select
                       required
@@ -544,7 +526,7 @@ export function BenchmarksModal({ companyId, companyName, isOpen, onClose }: Ben
         title="Delete benchmark?"
         message={
           pendingDelete
-            ? `${pendingDelete.service_type}${categoryLabel(pendingDelete) ? ` · ${categoryLabel(pendingDelete)}` : ''} will be removed.`
+            ? `${categoryLabel(pendingDelete) || 'This benchmark'} will be removed.`
             : undefined
         }
         consequences={['Savings for this category stop being calculated.']}

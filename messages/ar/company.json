@@ -941,7 +941,7 @@
       "calculatedLitres": "اللترات الفعلية/مركبة",
       "fuelSaving": "توفير الوقود",
       "statusAnalysisInProgress": "التحليل قيد التقدم",
-      "statusAnalysisPending": "قريباً",
+      "statusNotApplicable": "لا ينطبق",
       "statusNoFuelData": "لا توجد بيانات أسطول",
       "noVehicleBenchmarks": "لم يتم تكوين معايير مركبات بعد. اضغط على تكلفة المورد أعلاه لإضافة تكاليف موردك السابق لكل فئة مركبة.",
       "manageVendorCost": "تكلفة المورد",
