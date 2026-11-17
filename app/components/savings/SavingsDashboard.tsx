@@ -888,6 +888,18 @@ export function ChauffeurTab({ c, auditHref }: { c: ChauffeurSection; auditHref?
                   <p className="text-sm font-semibold text-fg tabular-nums">{f.pkr(a.expected_pkr)}</p>
                 </div>
               </div>
+              {a.audited_trips > 0 && (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2.5">
+                  <div>
+                    <p className="text-[11px] text-fg-muted">{t("auditNet")}</p>
+                    <p className="text-xs text-fg-muted">{a.net_difference_pkr >= 0 ? t("auditNetPositive") : t("auditNetNegative")}</p>
+                  </div>
+                  <p className={cn("text-lg font-semibold tabular-nums", a.net_difference_pkr < 0 ? "text-danger-ink" : "text-success-ink")}>
+                    {a.net_difference_pkr < 0 ? "−" : "+"}
+                    {f.pkr(Math.abs(a.net_difference_pkr))}
+                  </p>
+                </div>
+              )}
               {a.unaudited_trips > 0 && (
                 <p className="text-sm text-fg-muted">
                   {t("unaudited", { count: a.unaudited_trips })}{" "}
