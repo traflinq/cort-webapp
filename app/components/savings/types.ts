@@ -73,6 +73,63 @@ export interface ShuttleSection {
   };
 }
 
+export type FuelFlagType = "LOW_KM_PER_LITRE" | "UNTRACKED_KM" | "RAPID_REFILL" | "OFF_HOURS";
+
+export interface FuelFlag {
+  transaction_id: number;
+  transacted_at: string;
+  plate_number: string | null;
+  station_name: string;
+  litres: number;
+  amount_pkr: number;
+  type: FuelFlagType;
+  odometer_km: number | null;
+  trip_km: number | null;
+  km_per_litre: number | null;
+  rated_km_per_litre: number | null;
+  hours_since_previous: number | null;
+}
+
+export interface FuelCardRow {
+  id: number;
+  provider: string;
+  card_last4: string;
+  fuel_type: string;
+  status: string;
+  plate_number: string | null;
+  driver_name: string | null;
+  monthly_limit_pkr: number | null;
+  spent_pkr: number;
+  litres: number;
+  fuelings: number;
+}
+
+export interface FuelVehicleRow {
+  vehicle_id: number;
+  plate_number: string;
+  make: string;
+  model: string;
+  litres: number;
+  spend_pkr: number;
+  odometer_km: number;
+  trip_km: number;
+  km_per_litre: number | null;
+  rated_km_per_litre: number | null;
+  flags: number;
+}
+
+export type PoolFueling =
+  | { status: "FUEL_CARD_NOT_CONNECTED" }
+  | {
+      status: "CONNECTED";
+      providers: string[];
+      last_synced_at: string | null;
+      kpis: { litres: Comparison; spend_pkr: Comparison; km_per_litre: Comparison; flagged_fuelings: Comparison };
+      cards: FuelCardRow[];
+      vehicles: FuelVehicleRow[];
+      flags: FuelFlag[];
+    };
+
 export interface PoolSection {
   kpis: {
     pool_vehicles: number;
@@ -82,7 +139,7 @@ export interface PoolSection {
     total_km: Comparison;
     avg_trip_duration_min: Comparison;
   };
-  fueling: { status: "FUEL_CARD_NOT_CONNECTED" };
+  fueling: PoolFueling;
   vehicles: {
     vehicle_id: number;
     plate_number: string;
