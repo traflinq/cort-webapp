@@ -888,7 +888,7 @@ export function ChauffeurTab({ c, auditHref }: { c: ChauffeurSection; auditHref?
                   <p className="text-sm font-semibold text-fg tabular-nums">{f.pkr(a.expected_pkr)}</p>
                 </div>
               </div>
-              {a.audited_trips > 0 && (
+              {a.audited_trips > 0 && a.net_difference_pkr != null && (
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2.5">
                   <div>
                     <p className="text-[11px] text-fg-muted">{t("auditNet")}</p>
