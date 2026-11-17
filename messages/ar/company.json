@@ -288,6 +288,8 @@
       "noMatchingVehicleTypes": "لا توجد أنواع مركبات مطابقة",
       "selectVehicleTypeContractVendor": "اختر نوع المركبة (العقد + أسطول المورد)",
       "noPoolVehicles": "لا تتوفر مركبات أسطول",
+      "noAvailablePoolVehicles": "لا توجد مركبات أسطول متاحة في هذا الوقت",
+      "noAvailablePoolDrivers": "لا يوجد سائقو أسطول متاحون في هذا الوقت",
       "selectPoolVehicle": "اختر مركبة الأسطول",
       "noVehiclesWhitelisted": "لا توجد مركبات في القائمة البيضاء",
       "noVehiclesWhitelistedWarning": "لا توجد مركبات في القائمة البيضاء.",

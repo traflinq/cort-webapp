@@ -28,6 +28,7 @@ import {
     VendorDriver,
     VendorRoute,
     PoolVehicle,
+    PoolAvailabilityWindow,
     PoolDriver,
     TrackerConfig,
     // Companies
@@ -1112,8 +1113,10 @@ class ApiClient {
         });
     }
 
-    async getAdminBookingOptions(companyId: number) {
-        return this.request<any>(`/admin/bookings/companies/${companyId}/options`);
+    async getAdminBookingOptions(companyId: number, availableFor?: PoolAvailabilityWindow) {
+        return this.request<any>(
+            `/admin/bookings/companies/${companyId}/options${this.poolAvailabilityQuery(availableFor)}`,
+        );
     }
 
     async assignBooking(id: number, vehicleId: number, driverId: string): Promise<void> {
@@ -2033,8 +2036,23 @@ class ApiClient {
 
     // ===== COMPANY POOL =====
 
-    async getPoolVehicles(companyId: number) {
-        return this.request<{ success: boolean; data: PoolVehicle[] }>(`/companies/${companyId}/pool/vehicles`);
+    /**
+     * Window a booking would occupy its driver + vehicle for. Pass it to the pool
+     * list endpoints to get back only the resources that are free for that window.
+     */
+    private poolAvailabilityQuery(availableFor?: PoolAvailabilityWindow): string {
+        if (!availableFor) return '';
+        const params = new URLSearchParams({ available_only: 'true' });
+        if (availableFor.scheduled_for) params.set('scheduled_for', availableFor.scheduled_for);
+        if (availableFor.package_selected) params.set('package_selected', availableFor.package_selected);
+        if (availableFor.no_of_days) params.set('no_of_days', String(availableFor.no_of_days));
+        return `?${params.toString()}`;
+    }
+
+    async getPoolVehicles(companyId: number, availableFor?: PoolAvailabilityWindow) {
+        return this.request<{ success: boolean; data: PoolVehicle[] }>(
+            `/companies/${companyId}/pool/vehicles${this.poolAvailabilityQuery(availableFor)}`,
+        );
     }
 
     async createPoolVehicle(companyId: number, dto: {
@@ -2067,8 +2085,10 @@ class ApiClient {
         });
     }
 
-    async getPoolDrivers(companyId: number) {
-        return this.request<{ success: boolean; data: PoolDriver[] }>(`/companies/${companyId}/pool/drivers`);
+    async getPoolDrivers(companyId: number, availableFor?: PoolAvailabilityWindow) {
+        return this.request<{ success: boolean; data: PoolDriver[] }>(
+            `/companies/${companyId}/pool/drivers${this.poolAvailabilityQuery(availableFor)}`,
+        );
     }
 
     async invitePoolDriver(companyId: number, dto: {

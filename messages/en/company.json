@@ -288,6 +288,8 @@
       "noMatchingVehicleTypes": "No matching vehicle types",
       "selectVehicleTypeContractVendor": "Select vehicle type (contract + vendor fleet)",
       "noPoolVehicles": "No pool vehicles available",
+      "noAvailablePoolVehicles": "No pool vehicles free for this time",
+      "noAvailablePoolDrivers": "No pool drivers free for this time",
       "selectPoolVehicle": "Select pool vehicle",
       "noVehiclesWhitelisted": "No vehicles whitelisted",
       "noVehiclesWhitelistedWarning": "No vehicles whitelisted.",

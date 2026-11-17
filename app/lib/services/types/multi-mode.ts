@@ -165,6 +165,17 @@ export interface VendorRoute {
 
 // ─── Company Pool ────────────────────────────────────────────────────────────
 
+/**
+ * Time window a prospective booking would occupy a pool driver + vehicle for.
+ * Passed to the pool list endpoints so they return only free resources.
+ */
+export interface PoolAvailabilityWindow {
+    /** ISO timestamp of the booking start. Omit for an immediate ("now") booking. */
+    scheduled_for?: string;
+    package_selected?: string;
+    no_of_days?: number;
+}
+
 export interface PoolVehicle {
     id: number;
     plate_number: string;

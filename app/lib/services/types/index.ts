@@ -204,5 +204,6 @@ export type {
     VendorRoute,
     PoolVehicle,
     PoolDriver,
+    PoolAvailabilityWindow,
     TrackerConfig,
 } from './multi-mode';

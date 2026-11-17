@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { apiClient } from "../../../../lib/services/api-client";
 import Map from "../../../ui/Map";
@@ -9,6 +9,7 @@ import { Button, Checkbox, Dialog, DialogContent, Field, FormGrid, Input, Inline
 import { errorMessage } from "./booking-status";
 import type { CompanyOption } from "../hooks/usePendingBookings";
 import { companyLabel } from "@/app/admin/lib/format";
+import type { PoolAvailabilityWindow } from "../../../../lib/services/types/multi-mode";
 
 type Fulfillment = "CORT_MANAGED" | "EXTERNAL_VENDOR" | "SELF_MANAGED";
 
@@ -48,6 +49,9 @@ export function CreateBookingDialog({ open, companies, onClose, onCreated }: Pro
   const [optionsError, setOptionsError] = useState<string | null>(null);
 
   const requestRef = useRef(0);
+  // Separate token: the availability refresh must not invalidate a company load.
+  const poolRequestRef = useRef(0);
+  const [poolLoading, setPoolLoading] = useState(false);
   const options = companyId ? loadedOptions : null;
 
   const [fulfillment, setFulfillment] = useState<Fulfillment>("CORT_MANAGED");
@@ -97,6 +101,42 @@ export function CreateBookingDialog({ open, companies, onClose, onCreated }: Pro
       .catch((err) => token === requestRef.current && setOptionsError(errorMessage(err, "Failed to load company options")))
       .finally(() => token === requestRef.current && setOptionsLoading(false));
   }
+
+  /**
+   * The pool pickers must only offer drivers and vehicles that are free for the
+   * slot being booked, so the lists are refreshed whenever the schedule changes.
+   * The server re-checks the window on submit, so a stale list cannot slip a
+   * double booking through.
+   */
+  useEffect(() => {
+    if (!companyId || fulfillment !== "SELF_MANAGED") return;
+    const token = ++poolRequestRef.current;
+
+    const availableFor: PoolAvailabilityWindow = {
+      package_selected: packageSelected,
+      no_of_days: Number(noOfDays) || 1,
+    };
+    if (scheduledFor) {
+      const d = new Date(scheduledFor);
+      if (!Number.isNaN(d.getTime())) availableFor.scheduled_for = d.toISOString();
+    }
+
+    setPoolLoading(true);
+    apiClient
+      .getAdminBookingOptions(Number(companyId), availableFor)
+      .then((res) => {
+        if (token !== poolRequestRef.current) return;
+        const data = (res?.data ?? res) as Options;
+        setOptions((prev) => (prev ? { ...prev, pool_vehicles: data.pool_vehicles, pool_drivers: data.pool_drivers } : data));
+        // Drop a selection that just became reserved.
+        setPoolVehicleId((prev) => (prev && !data.pool_vehicles.some((v) => String(v.id) === prev) ? "" : prev));
+        setPoolDriverId((prev) => (prev && !data.pool_drivers.some((d) => String(d.id) === prev) ? "" : prev));
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (token === poolRequestRef.current) setPoolLoading(false);
+      });
+  }, [companyId, fulfillment, scheduledFor, packageSelected, noOfDays]);
 
   const fulfillmentChoices = useMemo<Fulfillment[]>(() => {
     if (!options) return [];
@@ -237,7 +277,14 @@ export function CreateBookingDialog({ open, companies, onClose, onCreated }: Pro
                           const v = options.pool_vehicles.find((x) => String(x.id) === e.target.value);
                           if (v) setVehicleModel(`${v.make} ${v.model}`);
                         }}
-                        placeholder="Select vehicle"
+                        placeholder={
+                          poolLoading
+                            ? "Loading…"
+                            : options.pool_vehicles.length === 0
+                              ? "No pool vehicles free for this time"
+                              : "Select vehicle"
+                        }
+                        disabled={poolLoading || options.pool_vehicles.length === 0}
                       >
                         {options.pool_vehicles.map((v) => (
                           <option key={v.id} value={v.id}>
@@ -247,7 +294,18 @@ export function CreateBookingDialog({ open, companies, onClose, onCreated }: Pro
                       </Select>
                     </Field>
                     <Field label="Pool driver" required>
-                      <Select value={poolDriverId} onChange={(e) => setPoolDriverId(e.target.value)} placeholder="Select driver">
+                      <Select
+                        value={poolDriverId}
+                        onChange={(e) => setPoolDriverId(e.target.value)}
+                        placeholder={
+                          poolLoading
+                            ? "Loading…"
+                            : options.pool_drivers.length === 0
+                              ? "No pool drivers free for this time"
+                              : "Select driver"
+                        }
+                        disabled={poolLoading || options.pool_drivers.length === 0}
+                      >
                         {options.pool_drivers.map((d) => (
                           <option key={d.id} value={d.id}>
                             {d.full_name ?? d.id}

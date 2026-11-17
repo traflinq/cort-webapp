@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
 import { selectCompany } from "../../../lib/store/slices/companySlice";
@@ -15,10 +15,22 @@ import { pakistaniCities } from "../../../lib/data/pakistaniCities";
 import { apiClient, canServeChauffeur } from "../../../lib/services/api-client";
 import { selectContract } from "../../../lib/store/slices/contractSlice";
 import OutstationEstimatePanel from "./OutstationEstimatePanel";
-import { PoolVehicle, PoolDriver, CompanyVendorLink, VendorVehicle } from "../../../lib/services/types/multi-mode";
+import { PoolVehicle, PoolDriver, CompanyVendorLink, VendorVehicle, PoolAvailabilityWindow } from "../../../lib/services/types/multi-mode";
 
 function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
+}
+
+const PACKAGE_API_VALUE: Record<string, string> = {
+    '5hr': 'HOURS_5',
+    '10hr': 'HOURS_10',
+    '24hr': 'HOURS_24',
+    'monthly_10hr': 'HOURS_10',
+    'monthly_24hr': 'HOURS_24',
+};
+
+function toApiPackage(pkg: string): string {
+    return PACKAGE_API_VALUE[pkg] || 'HOURS_10';
 }
 
 function CardSection({ title, children, icon }: { title: string; children: React.ReactNode; icon?: React.ReactNode }) {
@@ -115,6 +127,14 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
     const [poolDrivers, setPoolDrivers] = useState<PoolDriver[]>([]);
     const [poolVehicleId, setPoolVehicleId] = useState<number | null>(null);
     const [poolDriverId, setPoolDriverId] = useState<string | null>(null);
+    // Mirrors of the current selection, so the availability fetch can prune a
+    // now-reserved choice without re-running every time the user picks one.
+    const poolVehicleIdRef = useRef<number | null>(null);
+    const poolDriverIdRef = useRef<string | null>(null);
+    useEffect(() => {
+        poolVehicleIdRef.current = poolVehicleId;
+        poolDriverIdRef.current = poolDriverId;
+    }, [poolVehicleId, poolDriverId]);
 
     // Vendor state for EXTERNAL_VENDOR fulfillment
     const [vendorLinks, setVendorLinks] = useState<CompanyVendorLink[]>([]);
@@ -136,14 +156,9 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
         // This also prevents duplicate fetches when switching between fulfillment types.
         setVendorsLoading(true);
 
-        Promise.all([
-            apiClient.getPoolVehicles(companyId).catch(() => ({ data: [] as PoolVehicle[] })),
-            apiClient.getPoolDrivers(companyId).catch(() => ({ data: [] as PoolDriver[] })),
-            apiClient.getCompanyExternalVendors(companyId).catch(() => ({ data: [] as CompanyVendorLink[] })),
-        ]).then(async ([poolVehiclesRes, poolDriversRes, vendorsRes]) => {
-            setPoolVehicles(poolVehiclesRes.data);
-            setPoolDrivers(poolDriversRes.data);
-
+        apiClient.getCompanyExternalVendors(companyId)
+            .catch(() => ({ data: [] as CompanyVendorLink[] }))
+            .then(async (vendorsRes) => {
             const chauffeurLinks = (vendorsRes.data as CompanyVendorLink[]).filter(
                 (l) => l.serves_chauffeur && l.is_active,
             );
@@ -215,6 +230,66 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
     const [noOfDays, setNoOfDays] = useState<number>(1);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [poolLoading, setPoolLoading] = useState(false);
+
+    /**
+     * The pool pickers must only offer drivers and vehicles that are free for the
+     * slot being booked. The window depends on when the ride starts and how long it
+     * runs, so the lists are refetched whenever those inputs change. Until a
+     * scheduled date is entered the window is "starting now"; the server re-checks
+     * the real window on submit, so a stale list cannot create a double booking.
+     */
+    const availabilityWindow = useMemo<PoolAvailabilityWindow>(() => {
+        const base: PoolAvailabilityWindow = {
+            package_selected: toApiPackage(packageType),
+            no_of_days: noOfDays,
+        };
+        if (timeType !== "scheduled" || !scheduledDateTime) return base; // "now"
+        const d = new Date(scheduledDateTime);
+        if (Number.isNaN(d.getTime())) return base;
+        return { ...base, scheduled_for: d.toISOString() };
+    }, [timeType, scheduledDateTime, packageType, noOfDays]);
+
+    useEffect(() => {
+        if (!company?.id) return;
+        const companyId = Number(company.id);
+        let cancelled = false;
+
+        setPoolLoading(true);
+        Promise.all([
+            apiClient.getPoolVehicles(companyId, availabilityWindow)
+                .catch(() => ({ data: [] as PoolVehicle[] })),
+            apiClient.getPoolDrivers(companyId, availabilityWindow)
+                .catch(() => ({ data: [] as PoolDriver[] })),
+        ]).then(([vehiclesRes, driversRes]) => {
+            if (cancelled) return;
+            const vehicles = vehiclesRes.data;
+            const drivers = driversRes.data;
+            setPoolVehicles(vehicles);
+            setPoolDrivers(drivers);
+
+            // A resource that just became reserved must not stay selected.
+            const selectedVehicle = poolVehicleIdRef.current;
+            if (selectedVehicle !== null && !vehicles.some((v) => v.id === selectedVehicle)) {
+                setPoolVehicleId(null);
+                setVehicleModel("");
+            }
+            const selectedDriver = poolDriverIdRef.current;
+            if (selectedDriver !== null && !drivers.some((d) => d.user_id === selectedDriver)) {
+                setPoolDriverId(null);
+            }
+        }).finally(() => {
+            if (!cancelled) setPoolLoading(false);
+        });
+
+        return () => { cancelled = true; };
+    }, [company?.id, availabilityWindow]);
+
+    /** Pool drivers that can take a chauffeur ride and are free for this window. */
+    const availablePoolDrivers = useMemo(
+        () => poolDrivers.filter((d) => canServeChauffeur(d.driver_type) && d.users.status === "ACTIVE"),
+        [poolDrivers],
+    );
 
     const EVENT_SHUTTLE_SEATER_OPTIONS = [
         "7 Seater",
@@ -468,16 +543,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
     }
 
     // Helpers
-    const transformPackageType = useCallback((pkg: string): string => {
-        const pkgMap: Record<string, string> = {
-            '5hr': 'HOURS_5',
-            '10hr': 'HOURS_10',
-            '24hr': 'HOURS_24',
-            'monthly_10hr': 'HOURS_10',
-            'monthly_24hr': 'HOURS_24',
-        };
-        return pkgMap[pkg] || 'HOURS_10';
-    }, []);
+    const transformPackageType = useCallback((pkg: string): string => toApiPackage(pkg), []);
 
     const transformTripType = useCallback((tripType: string): string => {
         return tripType === 'in_city' ? 'IN_CITY' : 'OUT_STATION';
@@ -651,13 +717,18 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                     <select
                                         value={poolDriverId ?? ""}
                                         onChange={(e) => setPoolDriverId(e.target.value || null)}
-                                        className="w-full h-10 rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)]"
+                                        className="w-full h-10 rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)] disabled:opacity-60"
                                         required
+                                        disabled={poolLoading || availablePoolDrivers.length === 0}
                                     >
-                                        <option value="">{t("selectDriverOption")}</option>
-                                        {poolDrivers
-                                            .filter((d) => canServeChauffeur(d.driver_type) && d.users.status === "ACTIVE")
-                                            .map((d) => (
+                                        <option value="">
+                                            {poolLoading
+                                                ? t("loadingShort")
+                                                : availablePoolDrivers.length === 0
+                                                    ? t("noAvailablePoolDrivers")
+                                                    : t("selectDriverOption")}
+                                        </option>
+                                        {availablePoolDrivers.map((d) => (
                                             <option key={d.user_id} value={d.user_id}>{d.users.full_name}</option>
                                         ))}
                                     </select>
@@ -776,10 +847,14 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                     }
                                 }}
                                 required
-                                disabled={poolVehicles.length === 0}
+                                disabled={poolLoading || poolVehicles.length === 0}
                             >
                                 <option value="">
-                                    {poolVehicles.length === 0 ? t("noPoolVehicles") : t("selectPoolVehicle")}
+                                    {poolLoading
+                                        ? t("loadingShort")
+                                        : poolVehicles.length === 0
+                                            ? t("noAvailablePoolVehicles")
+                                            : t("selectPoolVehicle")}
                                 </option>
                                 {poolVehicles.map((v) => (
                                     <option key={v.id} value={v.id}>
