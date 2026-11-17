@@ -173,6 +173,8 @@ export interface ChauffeurSection {
     expected_pkr: number;
     overcharge_caught_pkr: number;
     overcharged_trips: number;
+    /** Σ (vendor charged − system amount) on audited trips; counted in total savings */
+    net_difference_pkr: number;
   };
 }
 
@@ -181,8 +183,8 @@ export interface SavingsDashboardFull {
   company: { id: number; name: string; savings_unlocked: boolean };
   period: SavingsPeriods;
   total_savings_pkr: number;
-  /** Only shuttle produces a savings figure (vs the pre-Traflinq benchmark). */
-  total_by_service: { shuttle: number | null };
+  /** Shuttle vs the pre-Traflinq benchmark; vendor audit = net of vendor charged − system amount. */
+  total_by_service: { shuttle: number | null; vendor_audit: number | null };
   analysis_ready: boolean;
   services: { shuttle: boolean; chauffeur: boolean; pool: boolean };
   shuttle: ShuttleSection | null;
@@ -218,6 +220,7 @@ export interface SavingsOverviewRow {
   services: SavingsDashboardFull["services"];
   total_savings_pkr: number;
   shuttle_savings_pkr: number | null;
+  vendor_audit_pkr: number | null;
   analysis_ready: boolean;
   error?: string;
 }

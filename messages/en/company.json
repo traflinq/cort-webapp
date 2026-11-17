@@ -1146,7 +1146,10 @@
         "noFuelCards": "No fuel cards.",
         "flagLocation": "Card used away from the car",
         "flagLocationDetail": "The card was used at this pump while the car's GPS put it {km} away, at {place}. The fuel likely went into another vehicle.",
-        "flagLocationMap": "View pump and car on map"
+        "flagLocationMap": "View pump and car on map",
+        "auditNet": "Counted in total savings",
+        "auditNetPositive": "Vendors billed above the system amount; the difference is saved.",
+        "auditNetNegative": "Vendors billed below the system amount; the difference is subtracted."
       }
     },
     "mobility": {

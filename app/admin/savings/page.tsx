@@ -53,6 +53,14 @@ function SavingsOverviewContent() {
     },
     { key: "shuttle", header: "Shuttle", align: "right", mono: true, hideBelow: "md", cell: (r) => formatCurrency(r.shuttle_savings_pkr) },
     {
+      key: "vendorAudit",
+      header: "Vendor audit",
+      align: "right",
+      mono: true,
+      hideBelow: "md",
+      cell: (r) => <span className={(r.vendor_audit_pkr ?? 0) < 0 ? "text-danger-ink" : undefined}>{formatCurrency(r.vendor_audit_pkr)}</span>,
+    },
+    {
       key: "analysis",
       header: "Analysis",
       hideBelow: "lg",
