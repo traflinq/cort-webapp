@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { getSaudiBasePath, withSaudiBase } from "@/app/lib/i18n/saudi-route";
 import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import { useAppSelector } from "../../lib/store/hooks";
@@ -15,7 +16,6 @@ import { toast } from "sonner";
 import { Card } from "../components/DashboardComponents";
 import { AccountCredentialsReveal, SaveCredentialsNote } from "../components/AccountCredentialsReveal";
 import { PageHeader, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
-import { AlertTriangle, Car, Clock, TrendingDown, RefreshCw, BarChart2 } from "lucide-react";
 import {
     getPhoneValidationError,
     PHONE_MAX_LENGTH,
@@ -26,33 +26,6 @@ import {
 function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
 }
-
-type PoolVehicleRow = {
-    vehicle_id: number;
-    plate_number: string;
-    make: string | null;
-    model: string | null;
-    category: string | null;
-    trips_count: number;
-    total_hours_booked: number;
-    utilization_pct: number;
-};
-
-type PoolUtilizationSummary = {
-    total_pool_vehicles: number;
-    avg_utilization_pct: number;
-    idle_vehicle_count: number;
-    underutilized_count: number;
-};
-
-type PoolInsight = {
-    id: number;
-    insight_type: string;
-    severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-    estimated_saving_pkr: string;
-    data: { summary: string; recommendation: string; metric_value?: number | string | null };
-    generated_at: string;
-};
 
 const VEHICLE_CATEGORIES = Object.values(VehicleCategory);
 
@@ -99,17 +72,19 @@ export default function CompanyFleetPage() {
     const company = useAppSelector(selectCompany);
     const companyId = Number(company?.id);
 
-    const fleetTabs = useMemo(
-        () => (isTrialUser ? (["vehicles", "drivers"] as const) : (["vehicles", "drivers", "analytics"] as const)),
-        [isTrialUser],
-    );
+    const fleetTabs = ["vehicles", "drivers"] as const;
 
     const [features, setFeatures] = useState<CompanyFeature[]>([]);
     const [featureLoaded, setFeatureLoaded] = useState(false);
     const initialTab = searchParams.get("tab");
-    const [activeTab, setActiveTab] = useState<"vehicles" | "drivers" | "analytics">(
-        initialTab === "drivers" ? "drivers" : initialTab === "analytics" && !isTrialUser ? "analytics" : "vehicles",
-    );
+    const [activeTab, setActiveTab] = useState<"vehicles" | "drivers">(initialTab === "drivers" ? "drivers" : "vehicles");
+
+    // Pool analytics moved to Analytics → Pool cars; keep old links working.
+    const router = useRouter();
+    const basePath = getSaudiBasePath(usePathname());
+    useEffect(() => {
+        if (initialTab === "analytics" && !isTrialUser) router.replace(withSaudiBase("/company/analytics?tab=pool", basePath));
+    }, [initialTab, isTrialUser, router, basePath]);
 
     const [vehicles, setVehicles] = useState<PoolVehicle[]>([]);
     const [vehiclesLoading, setVehiclesLoading] = useState(false);
@@ -137,10 +112,6 @@ export default function CompanyFleetPage() {
     });
     const [driverSaving, setDriverSaving] = useState(false);
 
-    const [poolUtil, setPoolUtil] = useState<{ summary: PoolUtilizationSummary; vehicles: PoolVehicleRow[] } | null>(null);
-    const [poolInsights, setPoolInsights] = useState<PoolInsight[]>([]);
-    const [analyticsLoading, setAnalyticsLoading] = useState(false);
-    const [generating, setGenerating] = useState(false);
 
     const atVehicleLimit = isTrialUser && vehicles.length >= (trialHasPool(trialModules) && trialHasShuttle(trialModules) ? 2 : 1);
     const chauffeurDriverCount = drivers.filter((d) => canServeChauffeur(d.driver_type)).length;
@@ -161,10 +132,6 @@ export default function CompanyFleetPage() {
 
     const canAddChauffeurDriver = isTrialUser ? trialHasPool(trialModules) : isChauffeurFleetEnabled;
     const canAddShuttleDriver = isTrialUser ? trialHasShuttle(trialModules) : isShuttleFleetEnabled;
-
-    useEffect(() => {
-        if (isTrialUser && activeTab === "analytics") setActiveTab("vehicles");
-    }, [isTrialUser, activeTab]);
 
     useEffect(() => {
         if (!companyId) return;
@@ -209,38 +176,11 @@ export default function CompanyFleetPage() {
         }
     }, [companyId, t]);
 
-    const fetchAnalytics = useCallback(async () => {
-        if (!companyId) return;
-        setAnalyticsLoading(true);
-        try {
-            const [utilRes, insightsRes] = await Promise.allSettled([
-                apiClient.request<{ summary: PoolUtilizationSummary; vehicles: PoolVehicleRow[] }>("/company/pool-utilization"),
-                apiClient.request<PoolInsight[]>("/company/fleet-insights"),
-            ]);
-            if (utilRes.status === "fulfilled") setPoolUtil(utilRes.value);
-            if (insightsRes.status === "fulfilled") {
-                setPoolInsights((insightsRes.value as PoolInsight[]).filter((i) => i.insight_type === "POOL_UTILIZATION"));
-            }
-        } catch { /* silent */ }
-        finally { setAnalyticsLoading(false); }
-    }, [companyId]);
-
-    const triggerGenerate = async () => {
-        setGenerating(true);
-        try {
-            await apiClient.request<{ generated: number }>("/company/fleet-insights/generate", { method: "POST" });
-            await fetchAnalytics();
-        } finally {
-            setGenerating(false);
-        }
-    };
-
     useEffect(() => {
         if (!showFleet) return;
         if (activeTab === "vehicles") fetchVehicles();
         if (activeTab === "drivers") fetchDrivers();
-        if (activeTab === "analytics") fetchAnalytics();
-    }, [activeTab, showFleet, fetchVehicles, fetchDrivers, fetchAnalytics]);
+    }, [activeTab, showFleet, fetchVehicles, fetchDrivers]);
 
     const handleAddVehicle = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -425,9 +365,7 @@ export default function CompanyFleetPage() {
                         >
                             {tab === "vehicles"
                                 ? (isTrialUser ? t("vehicles") : t("poolVehicles"))
-                                : tab === "drivers"
-                                    ? (isTrialUser ? t("drivers") : t("poolDrivers"))
-                                    : t("analytics")}
+                                : (isTrialUser ? t("drivers") : t("poolDrivers"))}
                         </button>
                     ))}
                 </nav>
@@ -535,104 +473,6 @@ export default function CompanyFleetPage() {
                 </Card>
             )}
 
-            {activeTab === "analytics" && (
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h2 className="text-base font-bold text-[var(--text-primary)]">{t("poolAnalyticsTitle")}</h2>
-                            <p className="text-xs text-[var(--text-muted)] mt-0.5">{t("poolAnalyticsSubtitle")}</p>
-                        </div>
-                        <button
-                            onClick={triggerGenerate}
-                            disabled={generating}
-                            className="flex items-center gap-2 rounded-xl bg-[var(--cort-orange)] px-4 py-2 text-sm font-bold text-[var(--text-primary)] transition-all hover:bg-[var(--cort-orange-hover)] hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(244,127,0,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <RefreshCw className={cx("h-4 w-4", generating && "animate-spin")} />
-                            {generating ? t("generating") : t("runAiAnalysis")}
-                        </button>
-                    </div>
-
-                    {analyticsLoading ? (
-                        <div className="flex items-center justify-center py-16 text-[var(--text-muted)]">
-                            <RefreshCw className="h-5 w-5 animate-spin me-2" /> {t("loadingAnalytics")}
-                        </div>
-                    ) : (
-                        <>
-                            {poolInsights.length > 0 && (
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    {poolInsights.map((i) => <InsightCard key={i.id} insight={i} />)}
-                                </div>
-                            )}
-
-                            {poolUtil && (
-                                <>
-                                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                                        <KpiCard label={t("poolVehiclesKpi")} value={poolUtil.summary.total_pool_vehicles.toString()} icon={<Car className="h-5 w-5 text-violet-400" />} />
-                                        <KpiCard label={t("avgUtilization")} value={`${poolUtil.summary.avg_utilization_pct}%`} icon={<Clock className="h-5 w-5 text-blue-400" />} good={poolUtil.summary.avg_utilization_pct >= 30} />
-                                        <KpiCard label={t("idleVehicles")} value={poolUtil.summary.idle_vehicle_count.toString()} icon={<AlertTriangle className="h-5 w-5 text-amber-400" />} good={poolUtil.summary.idle_vehicle_count === 0} />
-                                        <KpiCard label={t("underutilized")} value={poolUtil.summary.underutilized_count.toString()} icon={<TrendingDown className="h-5 w-5 text-rose-400" />} good={poolUtil.summary.underutilized_count === 0} />
-                                    </div>
-
-                                    {poolUtil.vehicles.length > 0 && (
-                                        <Card className={TABLE_CARD_CLASS}>
-                                            <div className={TABLE_TOP_BAR_CLASS}>
-                                                <div className="flex items-center gap-2">
-                                                    <BarChart2 className="h-4 w-4 text-violet-400" />
-                                                    <span className="text-sm font-semibold text-[var(--text-primary)]">{t("vehicleUtilization")}</span>
-                                                </div>
-                                            </div>
-                                            <div className="overflow-x-auto">
-                                                <table className="min-w-full text-sm text-start">
-                                                    <thead>
-                                                        <tr className="border-b border-[var(--border-light)]">
-                                                            {[t("vehicle"), t("category"), t("trips"), t("hoursUsed"), t("utilization")].map((h) => (
-                                                                <th key={h} className={TABLE_HEADER_CELL_CLASS}>{h}</th>
-                                                            ))}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-[var(--border-light)]/50">
-                                                        {poolUtil.vehicles.map((v) => (
-                                                            <tr key={v.vehicle_id} className="group transition-colors hover:bg-[var(--surface-subtle)]/80">
-                                                                <td className={TABLE_CELL_CLASS}>
-                                                                    <div className="font-bold text-[var(--text-primary)]">{v.plate_number}</div>
-                                                                    {(v.make || v.model) && (
-                                                                        <div className="text-xs text-[var(--text-muted)]">{[v.make, v.model].filter(Boolean).join(" ")}</div>
-                                                                    )}
-                                                                </td>
-                                                                <td className={TABLE_CELL_CLASS}>
-                                                                    {v.category ? (
-                                                                        <span className="inline-flex items-center rounded-full bg-violet-500/10 text-violet-400 text-xs font-bold border border-violet-500/20 px-2.5 py-0.5">
-                                                                            {v.category}
-                                                                        </span>
-                                                                    ) : "—"}
-                                                                </td>
-                                                                <td className={`${TABLE_CELL_CLASS} text-[var(--text-secondary)]`}>{v.trips_count}</td>
-                                                                <td className={`${TABLE_CELL_CLASS} text-[var(--text-secondary)]`}>{v.total_hours_booked}h</td>
-                                                                <td className={TABLE_CELL_CLASS}>
-                                                                    <UtilBar pct={v.utilization_pct} />
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </Card>
-                                    )}
-                                </>
-                            )}
-
-                            {!poolUtil && poolInsights.length === 0 && (
-                                <div className="flex flex-col items-center justify-center py-16 text-[var(--text-muted)]">
-                                    <BarChart2 className="h-8 w-8 mb-3 opacity-30" />
-                                    <p className="text-sm font-medium">{t("noAnalyticsData")}</p>
-                                    <p className="text-xs mt-1 opacity-60">{t("noAnalyticsHint")}</p>
-                                </div>
-                            )}
-                        </>
-                    )}
-                </div>
-            )}
-
             {showAddVehicle && (
                 <Modal title={isTrialUser ? t("addFleetVehicle") : t("addPoolVehicle")} onClose={() => setShowAddVehicle(false)}>
                     <form onSubmit={handleAddVehicle} className="space-y-4">
@@ -723,61 +563,6 @@ export default function CompanyFleetPage() {
                     )}
                 </Modal>
             )}
-        </div>
-    );
-}
-
-function severityColor(s: string) {
-    if (s === "CRITICAL") return "bg-rose-500/10 text-rose-400 border-rose-500/20";
-    if (s === "HIGH") return "bg-[var(--cort-orange)]/10 text-[var(--cort-orange)] border-[var(--cort-orange)]/20";
-    if (s === "MEDIUM") return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
-    return "bg-blue-500/10 text-blue-400 border-blue-500/20";
-}
-
-function InsightCard({ insight }: { insight: PoolInsight }) {
-    const t = useTranslations("company.fleet");
-    return (
-        <div className={cx("rounded-2xl border p-4", severityColor(insight.severity))}>
-            <div className="flex items-start gap-3">
-                <Car className="h-5 w-5 text-violet-400 mt-0.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-semibold uppercase tracking-wide">{insight.insight_type.replace(/_/g, " ")}</span>
-                        <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-white/10">{insight.severity}</span>
-                    </div>
-                    <p className="text-sm font-medium">{insight.data.summary}</p>
-                    <p className="text-xs mt-1 opacity-80">{insight.data.recommendation}</p>
-                    {insight.data.metric_value != null && (
-                        <p className="text-xs mt-1 font-mono opacity-70">{t("metric", { value: insight.data.metric_value })}</p>
-                    )}
-                    {insight.estimated_saving_pkr && parseFloat(insight.estimated_saving_pkr) > 0 && (
-                        <p className="text-xs mt-2 font-semibold">
-                            {t("estSaving", { amount: parseFloat(insight.estimated_saving_pkr).toLocaleString() })}
-                        </p>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function KpiCard({ label, value, icon, good }: { label: string; value: string; icon: React.ReactNode; good?: boolean }) {
-    return (
-        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-4">
-            <div className="flex items-center gap-2 mb-2">{icon}<span className="text-xs text-[var(--text-muted)] font-medium">{label}</span></div>
-            <p className={cx("text-2xl font-bold", good === true ? "text-emerald-400" : good === false ? "text-rose-400" : "text-[var(--text-primary)]")}>{value}</p>
-        </div>
-    );
-}
-
-function UtilBar({ pct }: { pct: number }) {
-    const color = pct >= 80 ? "bg-emerald-500" : pct >= 30 ? "bg-yellow-400" : "bg-rose-500";
-    return (
-        <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 rounded-full bg-[var(--surface-subtle)] overflow-hidden">
-                <div className={cx("h-full rounded-full", color)} style={{ width: `${Math.min(100, pct)}%` }} />
-            </div>
-            <span className={cx("text-xs font-bold w-10 text-end", pct < 30 ? "text-rose-400" : "text-[var(--text-secondary)]")}>{pct}%</span>
         </div>
     );
 }

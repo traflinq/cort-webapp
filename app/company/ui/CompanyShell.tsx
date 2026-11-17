@@ -21,7 +21,6 @@ import {
   Menu,
   Car,
   BarChart2,
-  TrendingDown,
   Building2,
   Sun,
   Moon,
@@ -154,11 +153,9 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
         || (servicesEnabled.shuttle_enabled && hasFeature("shuttle_self_managed"))) {
         groups[1].items.push({ href: withSaudiBase("/company/fleet", basePath), labelKey: "nav.poolFleet", icon: Car });
       }
+      // One analytics area: savings, per-service performance and AI recommendations.
       if (servicesEnabled.shuttle_enabled || servicesEnabled.chauffeur_enabled) {
-        groups[1].items.push({ href: withSaudiBase("/company/fleet-analytics", basePath), labelKey: "nav.fleetAnalytics", icon: BarChart2 });
-      }
-      if (servicesEnabled.shuttle_enabled || servicesEnabled.chauffeur_enabled) {
-        groups[1].items.push({ href: withSaudiBase("/company/savings", basePath), labelKey: "nav.savings", icon: TrendingDown });
+        groups[1].items.push({ href: withSaudiBase("/company/analytics", basePath), labelKey: "nav.analytics", icon: BarChart2 });
       }
       if (
         !hideInvoicing

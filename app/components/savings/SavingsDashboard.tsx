@@ -38,6 +38,7 @@ import type {
   SavingsDashboardFull,
   SavingsDashboardLocked,
   ShuttleSection,
+  LockedShuttleSection,
 } from "./types";
 import { monthKey, shiftMonth } from "./types";
 
@@ -246,7 +247,7 @@ const titleCase = (s: string) => s.replace(/_/g, " ").toLowerCase().replace(/\b\
 
 // ── Hero ──────────────────────────────────────────────────────────────────────
 
-function SavingsHero({
+export function SavingsHero({
   total,
   periodLabel,
   analysisReady,
@@ -294,7 +295,7 @@ function SavingsHero({
   );
 }
 
-function usePeriodLabel(period: { month: string; is_mtd: boolean; from?: string; to?: string }) {
+export function usePeriodLabel(period: { month: string; is_mtd: boolean; from?: string; to?: string }) {
   const t = useTranslations("company.savings.dashboard");
   const monthLabel = useMonthLabel();
   return period.is_mtd ? t("periodMtd", { month: monthLabel(period.month) }) : monthLabel(period.month);
@@ -397,7 +398,8 @@ export function SavingsDashboard({
 
 // ── Shuttle ───────────────────────────────────────────────────────────────────
 
-function ShuttleTab({ s, onManageBenchmarks }: { s: ShuttleSection; onManageBenchmarks?: () => void }) {
+/** Shuttle figures for the month. `s.savings` is null while the company's savings are locked. */
+export function ShuttleTab({ s, onManageBenchmarks }: { s: ShuttleSection | LockedShuttleSection; onManageBenchmarks?: () => void }) {
   const t = useTranslations("company.savings.dashboard");
   const f = useFormat();
   const k = s.kpis;
@@ -437,7 +439,17 @@ function ShuttleTab({ s, onManageBenchmarks }: { s: ShuttleSection; onManageBenc
         }
       />
 
-      {!sv.has_benchmarks ? (
+      {sv === null ? (
+        <div className={cn(CARD, "flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center")}>
+          <IconTile tone="brand">
+            <Lock />
+          </IconTile>
+          <div className="flex-1">
+            <p className="text-base font-semibold text-fg">{t("lockedTitle")}</p>
+            <p className="mt-1 max-w-2xl text-sm text-fg-muted">{t("lockedDescription")}</p>
+          </div>
+        </div>
+      ) : !sv.has_benchmarks ? (
         <div className={cn(CARD, "flex flex-col items-start gap-2 p-6")}>
           <p className="text-sm font-semibold text-fg">{t("noBenchmarkTitle")}</p>
           <p className="max-w-2xl text-sm text-fg-muted">{t("noBenchmarkDescription")}</p>
@@ -531,7 +543,7 @@ function ShuttleTab({ s, onManageBenchmarks }: { s: ShuttleSection; onManageBenc
 
 // ── Pool cars ─────────────────────────────────────────────────────────────────
 
-function PoolTab({ p }: { p: PoolSection }) {
+export function PoolTab({ p }: { p: PoolSection }) {
   const t = useTranslations("company.savings.dashboard");
   const f = useFormat();
   const k = p.kpis;
@@ -760,7 +772,7 @@ function PoolFuelingConnected({ fu }: { fu: ConnectedFueling }) {
 
 // ── Chauffeur ─────────────────────────────────────────────────────────────────
 
-function ChauffeurTab({ c, auditHref }: { c: ChauffeurSection; auditHref?: string }) {
+export function ChauffeurTab({ c, auditHref }: { c: ChauffeurSection; auditHref?: string }) {
   const t = useTranslations("company.savings.dashboard");
   const f = useFormat();
   const k = c.kpis;

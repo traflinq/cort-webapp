@@ -2,6 +2,9 @@
 
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { getSaudiBasePath, withSaudiBase } from '@/app/lib/i18n/saudi-route';
 import {
     Zap,
     Bus,
@@ -69,6 +72,7 @@ const CostLeakageDetector = ({ data }: CostLeakageDetectorProps) => {
     const aiEnabled = data?.aiInsightsEnabled ?? false;
     const hasCards = insights.length > 0;
     const totalSaving = data?.totalPotentialSavingPkr ?? 0;
+    const analyticsHref = withSaudiBase('/company/analytics', getSaudiBasePath(usePathname()));
 
     return (
         <div className="flex flex-col gap-6 sm:gap-8">
@@ -97,6 +101,15 @@ const CostLeakageDetector = ({ data }: CostLeakageDetectorProps) => {
                                 <span className="text-[var(--cort-orange)]">Rs {Math.round(totalSaving).toLocaleString()}</span>
                                 {t('perMonth')}
                             </p>
+                        )}
+                        {aiEnabled && hasCards && (
+                            <Link
+                                href={analyticsHref}
+                                className="mt-3 inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-[var(--cort-orange)] hover:underline"
+                            >
+                                {t('seeAllInAnalytics')}
+                                <ArrowRight size={14} className="rtl-flip" />
+                            </Link>
                         )}
                     </div>
                 </div>

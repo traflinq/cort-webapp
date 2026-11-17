@@ -186,11 +186,23 @@ export interface SavingsDashboardFull {
   chauffeur: ChauffeurSection | null;
 }
 
+/** Shuttle section with the savings block withheld (company not yet unlocked). */
+export type LockedShuttleSection = Omit<ShuttleSection, "savings"> & { savings: null };
+
+/**
+ * Company not yet unlocked: the operational figures are present, only the savings figures are
+ * withheld (shuttle `savings`, per-service split). The headline total stays as the teaser.
+ * Sections are optional for an older backend that returned only the teaser.
+ */
 export interface SavingsDashboardLocked {
   locked: true;
-  period: { month: string; is_mtd: boolean; from: string; to: string };
+  period: { month: string; is_mtd: boolean };
   total_savings_pkr: number;
   analysis_ready: boolean;
+  services?: SavingsDashboardFull["services"];
+  shuttle?: LockedShuttleSection | null;
+  pool?: PoolSection | null;
+  chauffeur?: ChauffeurSection | null;
 }
 
 export type SavingsDashboardResponse = SavingsDashboardFull | SavingsDashboardLocked;
