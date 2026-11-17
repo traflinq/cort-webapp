@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import {
+  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
   Bus,
@@ -12,6 +13,7 @@ import {
   ChevronRight,
   Clock,
   CreditCard,
+  Fuel,
   Navigation,
   Gauge,
   Lock,
@@ -30,6 +32,8 @@ import type { Locale } from "@/i18n/config";
 import type {
   ChauffeurSection,
   Comparison,
+  FuelFlag,
+  PoolFueling,
   PoolSection,
   SavingsDashboardFull,
   SavingsDashboardLocked,
@@ -546,25 +550,29 @@ function PoolTab({ p }: { p: PoolSection }) {
         <Kpi label={t("idleCars")} icon={<Gauge />} cmp={k.idle_vehicles} format={(v) => f.n(v)} invert />
       </div>
 
-      <div className={cn(CARD, "flex flex-col gap-4 p-5 sm:flex-row sm:items-center")}>
-        <IconTile tone="warning">
-          <CreditCard />
-        </IconTile>
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-fg">{t("fuelCardTitle")}</p>
-          <p className="mt-1 max-w-3xl text-sm text-fg-muted">{t("fuelCardDescription")}</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 text-center">
-          <div className="rounded-xl bg-subtle px-3 py-2">
-            <p className="text-[11px] text-fg-muted">{t("kmPerLitre")}</p>
-            <p className="text-sm font-semibold text-fg-muted">—</p>
+      {p.fueling.status === "CONNECTED" ? (
+        <PoolFuelingConnected fu={p.fueling} />
+      ) : (
+        <div className={cn(CARD, "flex flex-col gap-4 p-5 sm:flex-row sm:items-center")}>
+          <IconTile tone="warning">
+            <CreditCard />
+          </IconTile>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-fg">{t("fuelCardTitle")}</p>
+            <p className="mt-1 max-w-3xl text-sm text-fg-muted">{t("fuelCardDescription")}</p>
           </div>
-          <div className="rounded-xl bg-subtle px-3 py-2">
-            <p className="text-[11px] text-fg-muted">{t("fuelingErrors")}</p>
-            <p className="text-sm font-semibold text-fg-muted">—</p>
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="rounded-xl bg-subtle px-3 py-2">
+              <p className="text-[11px] text-fg-muted">{t("kmPerLitre")}</p>
+              <p className="text-sm font-semibold text-fg-muted">—</p>
+            </div>
+            <div className="rounded-xl bg-subtle px-3 py-2">
+              <p className="text-[11px] text-fg-muted">{t("fuelingErrors")}</p>
+              <p className="text-sm font-semibold text-fg-muted">—</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <SectionTitle title={t("kmPerCar")} />
       <Table
@@ -584,6 +592,167 @@ function PoolTab({ p }: { p: PoolSection }) {
           f.min(v.avg_duration_min),
         ])}
         empty={t("noPoolCars")}
+      />
+    </div>
+  );
+}
+
+type ConnectedFueling = Extract<PoolFueling, { status: "CONNECTED" }>;
+
+function useDateTime() {
+  const locale = useLocale();
+  return useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        timeZone: "Asia/Karachi",
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    [locale],
+  );
+}
+
+function PoolFuelingConnected({ fu }: { fu: ConnectedFueling }) {
+  const t = useTranslations("company.savings.dashboard");
+  const f = useFormat();
+  const dt = useDateTime();
+  const k = fu.kpis;
+  const litres = (v: number | null) => (v == null ? "—" : t("unitLitres", { value: f.n(v, v < 100 ? 1 : 0) }));
+  const kmpl = (v: number | null) => (v == null ? "—" : t("unitKmpl", { value: f.n(v, 1) }));
+
+  const flagText = (x: FuelFlag) => {
+    switch (x.type) {
+      case "LOW_KM_PER_LITRE":
+        return t("flagLowKmplDetail", { kmpl: kmpl(x.km_per_litre), rated: kmpl(x.rated_km_per_litre), km: f.km(x.odometer_km) });
+      case "UNTRACKED_KM":
+        return t("flagUntrackedDetail", {
+          odo: f.km(x.odometer_km),
+          trips: f.km(x.trip_km),
+          gap: f.km(x.odometer_km != null && x.trip_km != null ? x.odometer_km - x.trip_km : null),
+        });
+      case "RAPID_REFILL":
+        return t("flagRapidDetail", { hours: f.n(x.hours_since_previous, 1) });
+      case "OFF_HOURS":
+        return t("flagOffHoursDetail");
+    }
+  };
+  const flagLabel: Record<FuelFlag["type"], string> = {
+    LOW_KM_PER_LITRE: t("flagLowKmpl"),
+    UNTRACKED_KM: t("flagUntracked"),
+    RAPID_REFILL: t("flagRapid"),
+    OFF_HOURS: t("flagOffHours"),
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className={cn(CARD, "flex flex-col gap-3 p-5 sm:flex-row sm:items-center")}>
+        <IconTile tone="success">
+          <CreditCard />
+        </IconTile>
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-fg">{t("fuelCardsConnectedTitle", { providers: fu.providers.join(", ") })}</p>
+          <p className="mt-1 max-w-3xl text-sm text-fg-muted">
+            {t("fuelCardsConnectedDescription", { count: fu.cards.length })}
+            {fu.last_synced_at && <> · {t("lastSynced", { time: dt.format(new Date(fu.last_synced_at)) })}</>}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Kpi label={t("fuelLitres")} icon={<Fuel />} cmp={k.litres} format={litres} invert />
+        <Kpi label={t("fuelSpend")} icon={<Wallet />} cmp={k.spend_pkr} format={f.pkr} invert />
+        <Kpi label={t("kmPerLitre")} icon={<Gauge />} cmp={k.km_per_litre} format={kmpl} />
+        <Kpi label={t("fuelingErrors")} icon={<AlertTriangle />} cmp={k.flagged_fuelings} format={(v) => f.n(v)} invert />
+      </div>
+
+      <SectionTitle title={t("fuelPerCar")} description={t("fuelPerCarDescription")} />
+      <Table
+        head={[
+          { label: t("colVehicle") },
+          { label: t("colLitres"), numeric: true },
+          { label: t("colFuelSpend"), numeric: true },
+          { label: t("colOdometerKm"), numeric: true },
+          { label: t("colTripKm"), numeric: true },
+          { label: t("kmPerLitre"), numeric: true },
+          { label: t("colFlags"), numeric: true },
+        ]}
+        rows={fu.vehicles.map((v) => {
+          const low = v.km_per_litre != null && v.rated_km_per_litre != null && v.km_per_litre < v.rated_km_per_litre * 0.85;
+          return [
+            <div key="v">
+              <p className="font-medium">{v.plate_number}</p>
+              <p className="text-xs text-fg-muted">{`${v.make} ${v.model}`}</p>
+            </div>,
+            litres(v.litres),
+            f.pkr(v.spend_pkr),
+            f.km(v.odometer_km),
+            f.km(v.trip_km),
+            <div key="k">
+              <p className={cn("font-medium", low && "text-danger-ink")}>{kmpl(v.km_per_litre)}</p>
+              <p className="text-xs text-fg-muted">{t("ratedKmpl", { value: kmpl(v.rated_km_per_litre) })}</p>
+            </div>,
+            v.flags ? <span key="f" className="font-medium text-danger-ink">{f.n(v.flags)}</span> : f.n(0),
+          ];
+        })}
+        empty={t("noFuelings")}
+      />
+
+      <SectionTitle title={t("fuelingErrorsTitle")} description={t("fuelingErrorsDescription")} />
+      <Table
+        head={[
+          { label: t("colWhen") },
+          { label: t("colVehicle") },
+          { label: t("colIssue") },
+          { label: t("colLitres"), numeric: true },
+          { label: t("colAmount"), numeric: true },
+        ]}
+        rows={fu.flags.map((x) => [
+          <div key="w">
+            <p className="font-medium">{dt.format(new Date(x.transacted_at))}</p>
+            <p className="text-xs text-fg-muted">{x.station_name}</p>
+          </div>,
+          x.plate_number ?? "—",
+          <div key="i" className="max-w-sm">
+            <span className="inline-flex rounded-full bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger-ink">{flagLabel[x.type]}</span>
+            <p className="mt-1 text-xs text-fg-muted">{flagText(x)}</p>
+          </div>,
+          litres(x.litres),
+          f.pkr(x.amount_pkr),
+        ])}
+        empty={t("noFuelingErrors")}
+      />
+
+      <SectionTitle title={t("fuelCardsTitle")} />
+      <Table
+        head={[
+          { label: t("colCard") },
+          { label: t("colVehicle") },
+          { label: t("colDriver") },
+          { label: t("colFuelings"), numeric: true },
+          { label: t("colSpentVsLimit"), numeric: true },
+        ]}
+        rows={fu.cards.map((c) => {
+          const over = c.monthly_limit_pkr != null && c.spent_pkr > c.monthly_limit_pkr;
+          return [
+            <div key="c">
+              <p className="font-medium tabular-nums">•••• {c.card_last4}</p>
+              <p className="text-xs text-fg-muted">
+                {c.provider} · {titleCase(c.fuel_type)}
+                {c.status !== "ACTIVE" && <> · {titleCase(c.status)}</>}
+              </p>
+            </div>,
+            c.plate_number ?? "—",
+            c.driver_name ?? "—",
+            f.n(c.fuelings),
+            <div key="s">
+              <p className={cn("font-medium", over && "text-danger-ink")}>{f.pkr(c.spent_pkr)}</p>
+              <p className="text-xs text-fg-muted">{c.monthly_limit_pkr != null ? t("ofLimit", { limit: f.pkr(c.monthly_limit_pkr) }) : t("noLimit")}</p>
+            </div>,
+          ];
+        })}
+        empty={t("noFuelCards")}
       />
     </div>
   );
