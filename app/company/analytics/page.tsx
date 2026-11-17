@@ -228,7 +228,7 @@ function AnalyticsContent() {
 
             {active === "pool" && (
               <>
-                {data?.pool && <PoolTab p={data.pool} />}
+                {data?.pool && <PoolTab p={data.pool} range={"current" in data.period ? data.period.current : undefined} />}
                 <InsightsSection title={t("serviceInsightsTitle")} insights={insightsFor(allInsights, "pool")} aiEnabled={ai} />
                 {!detailLoading && detail.pool && <PoolCarUtilization data={detail.pool} />}
               </>

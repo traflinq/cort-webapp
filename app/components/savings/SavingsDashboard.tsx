@@ -17,6 +17,7 @@ import {
   Navigation,
   Gauge,
   Lock,
+  MapPin,
   Minus,
   PiggyBank,
   Route,
@@ -41,6 +42,7 @@ import type {
   LockedShuttleSection,
 } from "./types";
 import { monthKey, shiftMonth } from "./types";
+import { withDemoLocationMismatches } from "./demoFuelLocation";
 
 const MONTH_KEYS = [
   "january", "february", "march", "april", "may", "june",
@@ -388,7 +390,7 @@ export function SavingsDashboard({
           </p>
 
           {active === "shuttle" && data.shuttle && <ShuttleTab s={data.shuttle} onManageBenchmarks={onManageBenchmarks} />}
-          {active === "pool" && data.pool && <PoolTab p={data.pool} />}
+          {active === "pool" && data.pool && <PoolTab p={data.pool} range={data.period.current} />}
           {active === "chauffeur" && data.chauffeur && <ChauffeurTab c={data.chauffeur} auditHref={auditHref} />}
         </>
       )}
@@ -543,7 +545,7 @@ export function ShuttleTab({ s, onManageBenchmarks }: { s: ShuttleSection | Lock
 
 // ── Pool cars ─────────────────────────────────────────────────────────────────
 
-export function PoolTab({ p }: { p: PoolSection }) {
+export function PoolTab({ p, range }: { p: PoolSection; range?: { from: string; to: string } }) {
   const t = useTranslations("company.savings.dashboard");
   const f = useFormat();
   const k = p.kpis;
@@ -563,7 +565,7 @@ export function PoolTab({ p }: { p: PoolSection }) {
       </div>
 
       {p.fueling.status === "CONNECTED" ? (
-        <PoolFuelingConnected fu={p.fueling} />
+        <PoolFuelingConnected fu={withDemoLocationMismatches(p.fueling, range)} />
       ) : (
         <div className={cn(CARD, "flex flex-col gap-4 p-5 sm:flex-row sm:items-center")}>
           <IconTile tone="warning">
@@ -648,6 +650,11 @@ function PoolFuelingConnected({ fu }: { fu: ConnectedFueling }) {
         return t("flagRapidDetail", { hours: f.n(x.hours_since_previous, 1) });
       case "OFF_HOURS":
         return t("flagOffHoursDetail");
+      case "LOCATION_MISMATCH":
+        return t("flagLocationDetail", {
+          km: f.km(x.distance_km ?? null),
+          place: x.vehicle_location?.label ?? "—",
+        });
     }
   };
   const flagLabel: Record<FuelFlag["type"], string> = {
@@ -655,6 +662,7 @@ function PoolFuelingConnected({ fu }: { fu: ConnectedFueling }) {
     UNTRACKED_KM: t("flagUntracked"),
     RAPID_REFILL: t("flagRapid"),
     OFF_HOURS: t("flagOffHours"),
+    LOCATION_MISMATCH: t("flagLocation"),
   };
 
   return (
@@ -729,6 +737,17 @@ function PoolFuelingConnected({ fu }: { fu: ConnectedFueling }) {
           <div key="i" className="max-w-sm">
             <span className="inline-flex rounded-full bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger-ink">{flagLabel[x.type]}</span>
             <p className="mt-1 text-xs text-fg-muted">{flagText(x)}</p>
+            {x.pump_location && x.vehicle_location && (
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&origin=${x.vehicle_location.lat},${x.vehicle_location.lng}&destination=${x.pump_location.lat},${x.pump_location.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-brand-ink hover:underline"
+              >
+                <MapPin className="size-3.5" aria-hidden="true" />
+                {t("flagLocationMap")}
+              </a>
+            )}
           </div>,
           litres(x.litres),
           f.pkr(x.amount_pkr),
