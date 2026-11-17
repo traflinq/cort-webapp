@@ -1143,7 +1143,10 @@
         "colSpentVsLimit": "Spent this period",
         "ofLimit": "of {limit} monthly limit",
         "noLimit": "No limit",
-        "noFuelCards": "No fuel cards."
+        "noFuelCards": "No fuel cards.",
+        "flagLocation": "Card used away from the car",
+        "flagLocationDetail": "The card was used at this pump while the car's GPS put it {km} away, at {place}. The fuel likely went into another vehicle.",
+        "flagLocationMap": "View pump and car on map"
       }
     },
     "mobility": {

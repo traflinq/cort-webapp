@@ -73,7 +73,7 @@ export interface ShuttleSection {
   };
 }
 
-export type FuelFlagType = "LOW_KM_PER_LITRE" | "UNTRACKED_KM" | "RAPID_REFILL" | "OFF_HOURS";
+export type FuelFlagType = "LOW_KM_PER_LITRE" | "UNTRACKED_KM" | "RAPID_REFILL" | "OFF_HOURS" | "LOCATION_MISMATCH";
 
 export interface FuelFlag {
   transaction_id: number;
@@ -88,6 +88,10 @@ export interface FuelFlag {
   km_per_litre: number | null;
   rated_km_per_litre: number | null;
   hours_since_previous: number | null;
+  /** LOCATION_MISMATCH: where the pump is and where the car's GPS was when the card was used */
+  pump_location?: { lat: number; lng: number };
+  vehicle_location?: { lat: number; lng: number; label: string };
+  distance_km?: number;
 }
 
 export interface FuelCardRow {
