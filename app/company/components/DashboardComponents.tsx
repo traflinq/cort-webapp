@@ -36,15 +36,16 @@ const formatCurrency = (value: number) => {
     return sign + absValue.toLocaleString();
 };
 
+/** Legacy card API over the design-system surface (flat, hairline border, 8px corners). */
 export const Card = ({ children, className = "", withLeftBorder = false }: { children: React.ReactNode; className?: string; withLeftBorder?: boolean }) => (
-    <div className={`bg-[var(--bg-card)] border border-[var(--border-default)] rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 h-full min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200 hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] ${withLeftBorder ? 'border-s-4 border-s-[#fe8503]' : ''} ${className}`}>
+    <div className={`h-full min-w-0 rounded-lg border border-line bg-card p-4 sm:p-5 ${withLeftBorder ? 'border-s-2 border-s-highlight' : ''} ${className}`}>
         {children}
     </div>
 );
 
 export const SectionTitle = ({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) => (
-    <h3 className="text-base sm:text-lg font-bold text-[var(--text-primary)] mb-3 sm:mb-4 flex items-center gap-2 min-w-0 flex-wrap">
-        {icon && <span className="text-[#fe8503] shrink-0">{icon}</span>}
+    <h3 className="mb-3 flex min-w-0 flex-wrap items-center gap-2 text-[15px] font-semibold text-fg">
+        {icon && <span className="shrink-0 text-fg-muted">{icon}</span>}
         {children}
     </h3>
 );

@@ -307,6 +307,198 @@ html:not([data-theme="light"]):has(.admin-portal) {
     --glass-border: rgba(255,255,255,0.08);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Company portal — "Navy rail" design system (app/company/ui)
+   Scoped with :has(.company-portal) on <html>, so the body, overscroll area and
+   portalled dialogs get it too, and the admin / vendor portals are unaffected.
+   Light is the default theme. Rules: app/company/ui/README.md
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+    /* Defaults so the utilities resolve everywhere; the scoped blocks below own the real values. */
+    --co-action: #0c225e;
+    --co-action-hover: #14307a;
+    --co-on-action: #ffffff;
+    --co-highlight: #f47f00;
+    --co-highlight-hover: #e07400;
+    --co-on-highlight: #0a1b4a;
+    --co-rail: #0a1b4a;
+    --co-rail-fg: rgba(255,255,255,0.74);
+    --co-rail-strong: #ffffff;
+    --co-rail-muted: rgba(255,255,255,0.46);
+    --co-rail-hover: rgba(255,255,255,0.07);
+    --co-rail-active: rgba(255,255,255,0.13);
+    --co-rail-line: rgba(255,255,255,0.10);
+}
+
+html[data-theme="light"]:has(.company-portal) {
+    /* Navy = primary action; orange = the one key action per page + warnings. */
+    --co-action: #0c225e;
+    --co-action-hover: #14307a;
+    --co-on-action: #ffffff;
+    --co-highlight: #f47f00;
+    --co-highlight-hover: #e07400;
+    --co-on-highlight: #0a1b4a;
+    --co-rail: #0a1b4a;
+    --co-rail-fg: rgba(255,255,255,0.74);
+    --co-rail-strong: #ffffff;
+    --co-rail-muted: rgba(255,255,255,0.46);
+    --co-rail-hover: rgba(255,255,255,0.07);
+    --co-rail-active: rgba(255,255,255,0.13);
+    --co-rail-line: rgba(255,255,255,0.10);
+    --ring: #2b4cb3;
+
+    --bg-page: #f6f8fb;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f9fafc;
+    --bg-subtle: #f1f4f8;
+    --bg-input: #ffffff;
+    --bg-input-focus: #ffffff;
+    --bg-sidebar: #0a1b4a;
+    --bg-header: #ffffff;
+    --bg-elevated: #ffffff;
+    --bg-overlay: rgba(10, 27, 74, 0.38);
+
+    --border-default: #e3e8ef;
+    --border-strong: #cfd7e2;
+    --border-input: #cfd7e2;
+
+    --text-primary: #0f1b33;
+    --text-secondary: #3a465c;
+    --text-muted: #5b6779;
+    --text-light: #c4ccd8;
+    --text-placeholder: #8792a3;
+
+    --shadow-card: none;
+    --shadow-card-hover: 0 1px 2px rgba(15,27,51,0.06);
+    --shadow-modal: 0 16px 40px rgba(15,27,51,0.16), 0 2px 6px rgba(15,27,51,0.06);
+
+    --row-hover: #f6f8fb;
+    --divider: #e3e8ef;
+
+    --tone-neutral-ink: #3a465c;
+    --tone-neutral-soft: #f1f4f8;
+    --tone-neutral-line: #dbe2eb;
+    --tone-brand-ink: #9a4a00;
+    --tone-brand-soft: #fff4e5;
+    --tone-brand-line: #fdd9a8;
+
+    --chart-grid: #e3e8ef;
+    --chart-axis: #5b6779;
+
+    /* Legacy vars, re-pointed so pages not yet migrated stay coherent */
+    --cort-orange: #f47f00;
+    --cort-orange-hover: #e07400;
+    --nav-active-bg: rgba(255,255,255,0.13);
+    --nav-active-text: #ffffff;
+    --nav-inactive-text: rgba(255,255,255,0.74);
+    --nav-hover-bg: rgba(255,255,255,0.07);
+    --nav-group-label: rgba(255,255,255,0.46);
+    --nav-border: rgba(255,255,255,0.10);
+    --nav-footer-bg: transparent;
+    --surface-white: #ffffff;
+    --surface-subtle: #f6f8fb;
+    --surface-muted: #f1f4f8;
+    --surface-card: #ffffff;
+    --border-light: #e3e8ef;
+    --border-dark: #cfd7e2;
+    --background: #f6f8fb;
+    --foreground: #0f1b33;
+    --surface: #f6f8fb;
+    --border: #e3e8ef;
+    --muted: #5b6779;
+    --text-main: #0f1b33;
+    --glass-border: #e3e8ef;
+    --cort-navy-border: #e3e8ef;
+}
+
+html:not([data-theme="light"]):has(.company-portal) {
+    --co-action: #9db2ff;
+    --co-action-hover: #b6c6ff;
+    --co-on-action: #0b1220;
+    --co-highlight: #f47f00;
+    --co-highlight-hover: #ff9320;
+    --co-on-highlight: #0a1b4a;
+    --co-rail: #070d1a;
+    --co-rail-fg: rgba(232,237,247,0.72);
+    --co-rail-strong: #ffffff;
+    --co-rail-muted: rgba(232,237,247,0.44);
+    --co-rail-hover: rgba(255,255,255,0.06);
+    --co-rail-active: rgba(157,178,255,0.16);
+    --co-rail-line: rgba(255,255,255,0.08);
+    --ring: #9db2ff;
+
+    --bg-page: #0b1220;
+    --bg-card: #111a2e;
+    --bg-card-hover: #152039;
+    --bg-subtle: rgba(255,255,255,0.045);
+    --bg-input: #0e1728;
+    --bg-input-focus: #111a2e;
+    --bg-sidebar: #070d1a;
+    --bg-header: #0e1728;
+    --bg-elevated: #162038;
+    --bg-overlay: rgba(3, 7, 18, 0.66);
+
+    --border-default: rgba(255,255,255,0.09);
+    --border-strong: rgba(255,255,255,0.15);
+    --border-input: rgba(255,255,255,0.15);
+
+    --text-primary: #e8edf7;
+    --text-secondary: rgba(232,237,247,0.76);
+    --text-muted: rgba(232,237,247,0.58);
+    --text-light: rgba(232,237,247,0.16);
+    --text-placeholder: rgba(232,237,247,0.42);
+
+    --shadow-card: none;
+    --shadow-card-hover: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-modal: 0 20px 56px rgba(0,0,0,0.6);
+
+    --row-hover: rgba(255,255,255,0.035);
+    --divider: rgba(255,255,255,0.09);
+
+    --chart-grid: rgba(255,255,255,0.07);
+    --chart-axis: rgba(232,237,247,0.5);
+
+    --cort-orange: #f47f00;
+    --cort-orange-hover: #ff9320;
+    --nav-active-bg: rgba(157,178,255,0.16);
+    --nav-active-text: #ffffff;
+    --nav-inactive-text: rgba(232,237,247,0.72);
+    --nav-hover-bg: rgba(255,255,255,0.06);
+    --nav-group-label: rgba(232,237,247,0.44);
+    --nav-border: rgba(255,255,255,0.08);
+    --nav-footer-bg: transparent;
+    --surface-white: #111a2e;
+    --surface-subtle: rgba(255,255,255,0.03);
+    --surface-muted: rgba(255,255,255,0.045);
+    --surface-card: rgba(255,255,255,0.03);
+    --border-light: rgba(255,255,255,0.09);
+    --border-dark: rgba(255,255,255,0.15);
+    --background: #0b1220;
+    --foreground: #e8edf7;
+    --surface: #0b1220;
+    --border: rgba(255,255,255,0.09);
+    --muted: rgba(232,237,247,0.58);
+    --text-main: #e8edf7;
+    --glass-border: rgba(255,255,255,0.09);
+    --cort-navy-border: rgba(255,255,255,0.09);
+}
+
+/* Company typography: Plus Jakarta Sans (Latin), Noto Sans Arabic first in RTL. */
+html:has(.company-portal) body {
+    font-family: var(--font-jakarta), var(--font-geist-sans), system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+}
+html[dir="rtl"]:has(.company-portal) body {
+    font-family: var(--font-noto-arabic), var(--font-jakarta), system-ui, sans-serif;
+}
+
+/* Sheets slide from the inline-end edge; mirror them in RTL. */
+html[dir="rtl"] .co-sheet-end[data-state="open"] { animation-name: sheet-in-left; }
+html[dir="rtl"] .co-sheet-end[data-state="closed"] { animation-name: sheet-out-left; }
+html[dir="rtl"] .co-sheet-start[data-state="open"] { animation-name: sheet-in-right; }
+html[dir="rtl"] .co-sheet-start[data-state="closed"] { animation-name: sheet-out-right; }
+
 /* Theme-aware tinted alert banners (readable in light + dark mode) */
 .alert-banner-warning {
     border-radius: 0.75rem;
@@ -392,6 +584,21 @@ html:not([data-theme="light"]):has(.admin-portal) {
     --color-purple-soft: var(--tone-purple-soft);
     --color-purple-line: var(--tone-purple-line);
     --color-purple-solid: var(--tone-purple-solid);
+
+    /* Company portal (Navy rail) */
+    --color-action: var(--co-action);
+    --color-action-hover: var(--co-action-hover);
+    --color-on-action: var(--co-on-action);
+    --color-highlight: var(--co-highlight);
+    --color-highlight-hover: var(--co-highlight-hover);
+    --color-on-highlight: var(--co-on-highlight);
+    --color-rail: var(--co-rail);
+    --color-rail-fg: var(--co-rail-fg);
+    --color-rail-strong: var(--co-rail-strong);
+    --color-rail-muted: var(--co-rail-muted);
+    --color-rail-hover: var(--co-rail-hover);
+    --color-rail-active: var(--co-rail-active);
+    --color-rail-line: var(--co-rail-line);
 
     --color-chart-1: var(--chart-1);
     --color-chart-2: var(--chart-2);

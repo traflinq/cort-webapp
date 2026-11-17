@@ -1,483 +1,241 @@
 "use client";
 
-import Link from "next/link";
+import { Suspense, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, useMemo, useState, useEffect } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
-import { fetchCompanyProfile, fetchCompanyFeatures, selectCompany, selectCompanyFeatures } from "../../lib/store/slices/companySlice";
+import { fetchCompanyFeatures, fetchCompanyProfile, selectCompany, selectCompanyFeatures } from "../../lib/store/slices/companySlice";
 import { apiClient } from "../../lib/services/api-client";
-import {
-  LayoutDashboard,
-  Users,
-  Map,
-  Calendar,
-  FileBarChart,
-  FileSpreadsheet,
-  Receipt,
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-  Menu,
-  Car,
-  BarChart2,
-  Building2,
-  Sun,
-  Moon,
-  Languages,
-} from "lucide-react";
 import { useAuth } from "../../lib/contexts/auth-context";
-import type { TrialModules } from "../../lib/types/auth-types";
+import { getSaudiBasePath, withSaudiBase } from "../../lib/i18n/saudi-route";
 import { useCompanyTheme } from "../lib/theme-context";
 import { useCompanyLocale } from "../lib/locale-context";
-import { getSaudiBasePath, stripSaudiPrefix, withSaudiBase } from "../../lib/i18n/saudi-route";
-import { Toaster } from "sonner";
+import { activeNavItem, buildCompanyNav, isTrialAllowedPath } from "../lib/nav";
 import { TrialOnboardingWalkthrough } from "../components/TrialOnboardingWalkthrough";
+import { Button } from "./Button";
+import { Alert, Toaster } from "./Feedback";
+import { ConfirmProvider } from "./Overlay";
+import { TooltipProvider } from "./Tooltip";
+import { BreadcrumbsProvider } from "./shell/breadcrumbs";
+import { SidebarBrand, SidebarNav } from "./shell/Sidebar";
+import { TopBar } from "./shell/TopBar";
 
-type ServicesEnabled = { shuttle_enabled: boolean; chauffeur_enabled: boolean };
-type FeatureLike = { feature_key: string; is_enabled: boolean };
+const DEMO_BOOKING_URL = "https://calendar.app.google/qeHQgMANfWNr77yz6";
+const SIDEBAR_KEY = "cort-company-sidebar";
 
-type NavItem = {
-  href: string;
-  labelKey: string;
-  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+/* Sidebar collapsed state, persisted across visits. */
+const sidebarListeners = new Set<() => void>();
+const subscribeSidebar = (l: () => void) => {
+  sidebarListeners.add(l);
+  return () => {
+    sidebarListeners.delete(l);
+  };
 };
-
-const TRIAL_FLEET_PREFIXES = ["/company/fleet"];
-const TRIAL_POOL_PREFIXES = ["/company/bookings"];
-const TRIAL_SHUTTLE_PREFIXES = ["/company/routes", "/company/employees"];
-
-/** Company IDs for which the Invoices nav tab is temporarily hidden. */
-const HIDE_INVOICING_COMPANY_IDS = new Set<number>([
-  2,
-]);
-
-function trialHasPool(modules?: TrialModules): boolean {
-  return modules === "pool" || modules === "both" || !modules;
+const readSidebar = () => {
+  try {
+    return localStorage.getItem(SIDEBAR_KEY) === "collapsed";
+  } catch {
+    return false;
+  }
+};
+function writeSidebar(collapsed: boolean) {
+  try {
+    localStorage.setItem(SIDEBAR_KEY, collapsed ? "collapsed" : "expanded");
+  } catch {
+    /* ignore */
+  }
+  sidebarListeners.forEach((l) => l());
 }
 
-function trialHasShuttle(modules?: TrialModules): boolean {
-  return modules === "shuttle" || modules === "both";
-}
-
-function isTrialAllowedPath(pathname: string, modules?: TrialModules): boolean {
-  const normalized = stripSaudiPrefix(pathname);
-  if (normalized === "/company") return true;
-  const prefixes: string[] = [...TRIAL_FLEET_PREFIXES];
-  if (trialHasPool(modules)) prefixes.push(...TRIAL_POOL_PREFIXES);
-  if (trialHasShuttle(modules)) prefixes.push(...TRIAL_SHUTTLE_PREFIXES);
-  return prefixes.some((prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`));
-}
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
+/**
+ * Company portal frame: navy rail + top bar (breadcrumbs, theme, language, account) + content.
+ * Also owns the portal-wide providers (tooltips, confirm dialog, toasts) and the
+ * `.company-portal` class that switches on the Navy rail tokens.
+ */
 export function CompanyShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/company";
   const router = useRouter();
   const dispatch = useAppDispatch();
   const company = useAppSelector(selectCompany);
+  const features = useAppSelector(selectCompanyFeatures);
   const { logout, user } = useAuth();
   const { theme, toggle } = useCompanyTheme();
-  const { locale, setLocale, isRtl, isSaudiRoute: onSaudiRoute } = useCompanyLocale();
+  const { locale, setLocale, isSaudiRoute: onSaudiRoute } = useCompanyLocale();
   const t = useTranslations("company");
-  const tCommon = useTranslations("common");
-  const [collapsed, setCollapsed] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const tUi = useTranslations("common.ui");
+
+  const collapsed = useSyncExternalStore(subscribeSidebar, readSidebar, () => false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [hasVendors, setHasVendors] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
-  const features = useAppSelector(selectCompanyFeatures);
-  const companyId = user?.company_id?.toString();
+  // Captured once so the trial countdown is stable across renders.
+  const [now] = useState(() => Date.now());
+
+  const companyId = user?.company_id;
   const basePath = getSaudiBasePath(pathname);
-  const normalizedPath = pathname ? stripSaudiPrefix(pathname) : "/company";
-
-  const buildNavGroups = useMemo(() => {
-    return (
-      servicesEnabled: ServicesEnabled,
-      featureList: FeatureLike[],
-      vendors = false,
-      isTrial = false,
-      trialModules?: TrialModules,
-      currentCompanyId?: number | null,
-    ) => {
-      if (isTrial) {
-        const items: NavItem[] = [
-          { href: withSaudiBase("/company", basePath), labelKey: "nav.dashboard", icon: LayoutDashboard },
-        ];
-        if (trialHasPool(trialModules) || trialHasShuttle(trialModules)) {
-          items.push({ href: withSaudiBase("/company/fleet", basePath), labelKey: "nav.poolFleet", icon: Car });
-        }
-        if (trialHasPool(trialModules)) {
-          items.push({ href: withSaudiBase("/company/bookings", basePath), labelKey: "nav.bookings", icon: Calendar });
-        }
-        if (trialHasShuttle(trialModules)) {
-          items.push({ href: withSaudiBase("/company/routes", basePath), labelKey: "nav.routeRoster", icon: Map });
-          items.push({ href: withSaudiBase("/company/employees", basePath), labelKey: "nav.employees", icon: Users });
-        }
-        return [{ titleKey: "", items }];
-      }
-
-      const hasFeature = (key: string) => featureList.find((f) => f.feature_key === key)?.is_enabled ?? false;
-      const hideInvoicing = currentCompanyId != null && HIDE_INVOICING_COMPANY_IDS.has(currentCompanyId);
-
-      const adminItems: NavItem[] = [
-        { href: withSaudiBase("/company/employees", basePath), labelKey: "nav.employees", icon: Users },
-      ];
-      if (vendors) {
-        adminItems.push({ href: withSaudiBase("/company/vendors", basePath), labelKey: "nav.vendors", icon: Building2 });
-      }
-
-      const groups: { titleKey: string; items: NavItem[] }[] = [
-        {
-          titleKey: "",
-          items: [{ href: withSaudiBase("/company", basePath), labelKey: "nav.dashboard", icon: LayoutDashboard }],
-        },
-        { titleKey: "nav.operations", items: [] },
-        { titleKey: "nav.administration", items: adminItems },
-      ];
-
-      if (servicesEnabled.shuttle_enabled) {
-        groups[1].items.push({ href: withSaudiBase("/company/routes", basePath), labelKey: "nav.routeRoster", icon: Map });
-      }
-      if (servicesEnabled.chauffeur_enabled) {
-        groups[1].items.push({ href: withSaudiBase("/company/bookings", basePath), labelKey: "nav.bookings", icon: Calendar });
-      }
-      if (servicesEnabled.shuttle_enabled) {
-        groups[1].items.push({ href: withSaudiBase("/company/reports/shuttle", basePath), labelKey: "nav.shuttleReports", icon: FileBarChart });
-      }
-      if (servicesEnabled.chauffeur_enabled) {
-        groups[1].items.push({ href: withSaudiBase("/company/reports/chauffeur", basePath), labelKey: "nav.chauffeurReports", icon: FileSpreadsheet });
-      }
-      if ((servicesEnabled.chauffeur_enabled && hasFeature("chauffeur_self_managed"))
-        || (servicesEnabled.shuttle_enabled && hasFeature("shuttle_self_managed"))) {
-        groups[1].items.push({ href: withSaudiBase("/company/fleet", basePath), labelKey: "nav.poolFleet", icon: Car });
-      }
-      // One analytics area: savings, per-service performance and AI recommendations.
-      if (servicesEnabled.shuttle_enabled || servicesEnabled.chauffeur_enabled) {
-        groups[1].items.push({ href: withSaudiBase("/company/analytics", basePath), labelKey: "nav.analytics", icon: BarChart2 });
-      }
-      if (
-        !hideInvoicing
-        && (hasFeature("chauffeur_cort_managed") || hasFeature("shuttle_cort_managed"))
-      ) {
-        groups[2].items.push({ href: withSaudiBase("/company/invoicing", basePath), labelKey: "nav.invoices", icon: Receipt });
-      }
-
-      return groups.filter((g) => g.items.length > 0);
-    };
-  }, [basePath]);
+  const hrefFor = (href: string) => withSaudiBase(href, basePath);
 
   useEffect(() => {
-    if (companyId && !company) {
-      dispatch(fetchCompanyProfile(companyId));
-    }
-    if (companyId) {
-      dispatch(fetchCompanyFeatures(Number(companyId)));
-    }
+    if (!companyId) return;
+    if (!company) dispatch(fetchCompanyProfile(companyId.toString()));
+    dispatch(fetchCompanyFeatures(Number(companyId)));
   }, [companyId, company, dispatch]);
 
   useEffect(() => {
-    if (!user?.company_id) return;
-    apiClient.getCompanyExternalVendors(user.company_id)
-      .then((res: { data?: unknown }) => {
+    if (!companyId) return;
+    let cancelled = false;
+    apiClient
+      .getCompanyExternalVendors(companyId)
+      .then((res) => {
         const data = (res as { data?: unknown })?.data ?? res;
-        setHasVendors(Array.isArray(data) && data.some((l: { is_active?: boolean; external_vendors?: { is_active?: boolean } }) => l.is_active && l.external_vendors?.is_active));
+        const active =
+          Array.isArray(data) &&
+          data.some((l: { is_active?: boolean; external_vendors?: { is_active?: boolean } }) => l.is_active && l.external_vendors?.is_active);
+        if (!cancelled) setHasVendors(active);
       })
-      .catch(() => setHasVendors(false));
-  }, [user?.company_id]);
+      .catch(() => {
+        if (!cancelled) setHasVendors(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId]);
 
-  const isTrialUser = !!user?.is_trial;
+  const isTrial = !!user?.is_trial;
   const trialModules = user?.trial_modules;
 
   useEffect(() => {
-    if (!isTrialUser || !pathname) return;
-    if (!isTrialAllowedPath(pathname, trialModules)) {
+    if (isTrial && !isTrialAllowedPath(pathname, trialModules)) {
       router.replace(withSaudiBase("/company", basePath));
     }
-  }, [isTrialUser, pathname, router, trialModules, basePath]);
+  }, [isTrial, pathname, router, trialModules, basePath]);
 
-  const servicesEnabled = useMemo(() => {
-    if (company?.services_enabled) {
-      return company.services_enabled;
-    }
-    return {
-      shuttle_enabled: user?.enabled_services?.shuttle ?? false,
-      chauffeur_enabled: user?.enabled_services?.chauffeur ?? false,
-    };
-  }, [company, user]);
-
-  const isLogin =
-    normalizedPath === "/company/login" ||
-    normalizedPath === "/login";
-  const navGroups = buildNavGroups(servicesEnabled, features, hasVendors, isTrialUser, trialModules, user?.company_id);
-
-  const activeHref = useMemo(() => {
-    const allItems = navGroups.flatMap((g) => g.items);
-    const found = allItems.find((n) => normalizedPath === stripSaudiPrefix(n.href));
-    if (found) return found.href;
-    const prefix = allItems.find(
-      (n) => stripSaudiPrefix(n.href) !== "/company" && normalizedPath.startsWith(stripSaudiPrefix(n.href)),
-    );
-    return prefix?.href ?? withSaudiBase("/company", basePath);
-  }, [normalizedPath, navGroups, basePath]);
-
-  if (isLogin) return <>{children}</>;
-
-  const trialInfo = useMemo(() => {
-    if (!user?.is_trial || !user.trial_expires_at) return null;
-    const expiresAtMs = new Date(user.trial_expires_at).getTime();
-    const remainingMs = expiresAtMs - Date.now();
-    const remainingHours = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60)));
-    return { expiresAtMs, remainingHours };
-  }, [user?.is_trial, user?.trial_expires_at]);
-
-  const SidebarContent = ({ isMobile = false }) => (
-    <>
-      <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-        <div className={cx("flex flex-col gap-6 transition-all duration-300", (collapsed && !isMobile) ? "items-center py-8 px-2" : "items-center px-6 py-10")}>
-          <div className="relative h-14 w-full flex items-center justify-center transition-all duration-300">
-            <img
-              src={
-                collapsed && !isMobile
-                  ? "/app_icon.png"
-                  : theme === "light"
-                    ? "/traflinq_light_no_tagline-Photoroom.png"
-                    : "/traflinq_dark_no_tagline-Photoroom.png"
-              }
-              alt="TrafLinq"
-              className={cx(
-                "object-contain transition-all duration-300",
-                collapsed && !isMobile ? "h-9 w-9 rounded-lg" : "h-14 w-auto",
-              )}
-            />
-          </div>
-        </div>
-
-        <nav className="px-3 mt-2 space-y-6">
-          {navGroups.map((group, groupIndex) => (
-            <div key={groupIndex}>
-              {group.titleKey && (
-                <div className={cx(
-                  "px-3 mb-2 text-[11px] font-bold text-[var(--nav-group-label)] uppercase tracking-wider transition-all duration-300 overflow-hidden whitespace-nowrap text-start",
-                  (collapsed && !isMobile) ? "opacity-0 max-h-0 mb-0" : "opacity-100 max-h-5"
-                )}>
-                  {t(group.titleKey)}
-                </div>
-              )}
-              <div className="space-y-1.5">
-                {group.items.map((item, itemIndex) => {
-                  const active = item.href === activeHref;
-                  const Icon = item.icon;
-                  const label = t(item.labelKey);
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      title={(collapsed && !isMobile) ? label : undefined}
-                      onClick={() => isMobile && setIsMobileMenuOpen(false)}
-                      style={isMobile ? { animationDelay: `${(itemIndex + 1 + groupIndex * 3) * 50}ms` } : undefined}
-                      className={cx(
-                        "group flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200 relative overflow-hidden",
-                        isMobile && "animate-fade-slide-up opacity-0",
-                        active
-                          ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-text)]"
-                          : "text-[var(--nav-inactive-text)] hover:text-[var(--text-primary)] hover:bg-[var(--nav-hover-bg)]"
-                      )}
-                    >
-                      {active && <div className="absolute start-0 top-1/2 -translate-y-1/2 h-8 w-1 rounded-e-full bg-[var(--cort-orange)]" />}
-
-                      <Icon size={20} strokeWidth={active ? 2 : 1.5} className={cx("shrink-0 transition-transform duration-200", active ? "text-[var(--nav-active-text)]" : "group-hover:text-[var(--text-primary)]")} />
-
-                      <span className={cx(
-                        "whitespace-nowrap transition-all duration-300 ease-in-out overflow-hidden",
-                        (collapsed && !isMobile) ? "opacity-0 max-w-0" : "opacity-100 max-w-[200px]"
-                      )}>
-                        {label}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
-      </div>
-
-      <div className="border-t border-[var(--nav-border)] p-3 mt-auto bg-[var(--nav-footer-bg)]">
-        <div className={cx("flex items-center gap-3 rounded-lg p-2 transition-all duration-300", (collapsed && !isMobile) ? "justify-center" : "justify-between hover:bg-[var(--nav-hover-bg)]")}>
-          <div className="flex items-center gap-3 overflow-hidden">
-            {company?.logo_url ? (
-              <img
-                src={company.logo_url}
-                alt={company.name || "Company"}
-                className="h-8 w-8 rounded-full object-cover shrink-0 ring-1 ring-white/10"
-              />
-            ) : (
-              <div className="h-8 w-8 rounded-full bg-[#fe8503]/20 border border-[#fe8503]/30 flex items-center justify-center text-xs text-[#fe8503] ring-1 ring-[var(--border-default)] shrink-0">
-                {company?.name?.[0]?.toUpperCase() || <Users size={14} />}
-              </div>
-            )}
-
-            <div className={cx(
-              "flex flex-col overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap text-start",
-              (collapsed && !isMobile) ? "max-w-0 opacity-0" : "max-w-[150px] opacity-100"
-            )}>
-              <span className="truncate text-xs font-semibold text-[var(--text-secondary)] ltr-content">
-                {user?.email}
-              </span>
-              <span className="text-[10px] text-[var(--text-muted)]">{t("shell.companyAccount")}</span>
-            </div>
-          </div>
-
-          <div className={cx("flex items-center gap-1", (collapsed && !isMobile) ? "hidden" : "flex")}>
-            {onSaudiRoute && (
-              <button
-                type="button"
-                onClick={() => setLocale(locale === "en" ? "ar" : "en")}
-                className="shrink-0 rounded-md px-2 py-1.5 text-[10px] font-bold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors flex items-center gap-1"
-                title={locale === "en" ? t("locale.switchToArabic") : t("locale.switchToEnglish")}
-              >
-                <Languages size={14} />
-                <span>{locale === "en" ? t("locale.arabic") : t("locale.english")}</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={toggle}
-              className="shrink-0 rounded-md p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
-              title={theme === "dark" ? t("shell.switchToLight") : t("shell.switchToDark")}
-            >
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-            <button
-              type="button"
-              onClick={() => logout()}
-              className="shrink-0 rounded-md p-1.5 text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors"
-              title={tCommon("actions.signOut")}
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
+  const servicesEnabled = useMemo(
+    () =>
+      company?.services_enabled ?? {
+        shuttle_enabled: user?.enabled_services?.shuttle ?? false,
+        chauffeur_enabled: user?.enabled_services?.chauffeur ?? false,
+      },
+    [company, user],
   );
 
+  const groups = useMemo(
+    () => buildCompanyNav({ servicesEnabled, features, hasVendors, isTrial, trialModules, companyId }),
+    [servicesEnabled, features, hasVendors, isTrial, trialModules, companyId],
+  );
+  const active = useMemo(() => activeNavItem(groups, pathname), [groups, pathname]);
+
+  const trialHoursLeft =
+    user?.is_trial && user.trial_expires_at ? Math.max(0, Math.ceil((new Date(user.trial_expires_at).getTime() - now) / 3_600_000)) : null;
+
   return (
-    <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text-primary)] font-sans">
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-[var(--nav-border)] bg-[var(--bg-header)] px-6 md:hidden">
-        <button
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="rounded-xl p-2.5 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] active:scale-95 transition-all"
-        >
-          <Menu size={24} />
-        </button>
-        <div className="absolute start-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <img src="/traflinq_dark_no_tagline-Photoroom.png" alt="TrafLinq" className="h-10 w-auto" />
-        </div>
-        {onSaudiRoute ? (
-          <button
-            type="button"
-            onClick={() => setLocale(locale === "en" ? "ar" : "en")}
-            className="rounded-lg px-2 py-1 text-[10px] font-bold text-[var(--text-muted)]"
-          >
-            {locale === "en" ? t("locale.arabic") : t("locale.english")}
-          </button>
-        ) : (
-          <div className="w-10" />
-        )}
-      </header>
+    <TooltipProvider>
+      <ConfirmProvider>
+        <BreadcrumbsProvider>
+          <div className="company-portal flex min-h-dvh bg-page text-fg">
+            <a
+              href="#company-main"
+              className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-[90] focus:rounded-md focus:bg-action focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-on-action"
+            >
+              {tUi("skipToContent")}
+            </a>
 
-      <div className="flex min-h-screen">
-        <aside
-          className={cx(
-            "sticky top-4 h-[calc(100vh-2rem)] hidden shrink-0 border border-[var(--border-default)] bg-[var(--bg-sidebar)] text-[var(--text-primary)] md:flex md:flex-col transition-all duration-300 ease-in-out relative z-20 ms-4 my-4 rounded-[2rem] shadow-xl",
-            collapsed ? "w-20" : "w-72"
-          )}
-        >
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="absolute -end-3 top-9 z-50 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--bg-sidebar)] border border-[var(--border-input)] text-[var(--text-muted)] shadow-sm hover:text-[var(--text-primary)] hover:scale-105 transition-all focus:outline-none"
-          >
-            {collapsed ? (
-              <ChevronRight size={14} className={isRtl ? "rtl-flip" : ""} />
-            ) : (
-              <ChevronLeft size={14} className={isRtl ? "rtl-flip" : ""} />
-            )}
-          </button>
-          <SidebarContent />
-        </aside>
+            {/* Desktop rail */}
+            <aside
+              className={cn(
+                "sticky top-0 z-40 hidden h-dvh shrink-0 flex-col bg-rail transition-[width] duration-200 md:flex",
+                collapsed ? "w-16" : "w-60",
+              )}
+            >
+              <SidebarBrand collapsed={collapsed} href={hrefFor("/company")} />
+              <SidebarNav groups={groups} activeHref={active?.item.href ?? null} collapsed={collapsed} hrefFor={hrefFor} />
+            </aside>
 
-        {isMobileMenuOpen && (
-          <div className="fixed inset-0 z-50 flex md:hidden">
-            <div
-              className="fixed inset-0 bg-black/70 backdrop-blur-sm animate-fade-in"
-              onClick={() => setIsMobileMenuOpen(false)}
-            />
-            <div className="relative flex w-full max-w-xs flex-1 flex-col bg-[var(--bg-sidebar)] animate-slide-in-left">
-              <div className="absolute end-2 top-2">
-                <button
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] active:scale-95 transition-all"
+            {/* Mobile navigation drawer */}
+            <DialogPrimitive.Root open={mobileOpen} onOpenChange={setMobileOpen}>
+              <DialogPrimitive.Portal>
+                <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-overlay data-[state=open]:animate-overlay-in data-[state=closed]:animate-overlay-out md:hidden" />
+                <DialogPrimitive.Content
+                  aria-describedby={undefined}
+                  className="co-sheet-start fixed inset-y-0 start-0 z-[61] flex w-72 max-w-[85vw] flex-col bg-rail outline-none data-[state=open]:animate-sheet-in-left data-[state=closed]:animate-sheet-out-left md:hidden"
                 >
-                  <ChevronLeft size={24} className={isRtl ? "" : "rtl-flip"} />
-                </button>
-              </div>
-              <SidebarContent isMobile />
-            </div>
-          </div>
-        )}
-
-        <div className="relative flex min-w-0 flex-1 flex-col">
-          <Suspense fallback={null}>
-            <TrialOnboardingWalkthrough
-              forceOpen={guideOpen}
-              onClose={() => setGuideOpen(false)}
-              sidebarCollapsed={collapsed}
-            />
-          </Suspense>
-          <main
-            data-company-main
-            className="mx-auto w-full max-w-full flex-1 px-4 py-4 md:px-8 bg-[var(--bg-page)] min-h-screen"
-          >
-            {trialInfo && (
-              <div className="mb-4 alert-banner-brand flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex flex-col">
-                  <div className="font-semibold">{t("trial.banner.title")}</div>
-                  <div className="text-xs text-[var(--text-secondary)]">
-                    {t.rich("trial.banner.expires", {
-                      hours: () => <span className="text-[var(--cort-orange)] font-semibold">{trialInfo.remainingHours}h</span>,
-                    })}
-                  </div>
-                  {!user?.trial_onboarding_completed && (
-                    <button
-                      type="button"
-                      onClick={() => setGuideOpen(true)}
-                      className="mt-1 text-start text-xs font-semibold text-[#f47f00] hover:underline w-fit"
+                  <DialogPrimitive.Title className="sr-only">{tUi("navigation")}</DialogPrimitive.Title>
+                  <div className="relative">
+                    <SidebarBrand href={hrefFor("/company")} />
+                    <DialogPrimitive.Close
+                      aria-label={tUi("closeMenu")}
+                      className="absolute end-3 top-3 flex size-8 cursor-pointer items-center justify-center rounded-md text-rail-fg outline-none hover:bg-rail-hover hover:text-rail-strong focus-visible:ring-2 focus-visible:ring-rail-strong/70"
                     >
-                      {t("trial.banner.viewGuide")}
-                    </button>
-                  )}
-                </div>
-                <a
-                  href="https://calendar.app.google/qeHQgMANfWNr77yz6"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center rounded-lg bg-[#f47f00] px-4 py-2 text-xs font-bold text-white hover:bg-[#f47f00]/90 transition-colors"
-                >
-                  {t("trial.banner.bookDemo")}
-                </a>
-              </div>
-            )}
-            <div key={pathname} className="page-transition-enter min-h-full">
-              {children}
+                      <X className="size-4" aria-hidden="true" />
+                    </DialogPrimitive.Close>
+                  </div>
+                  <SidebarNav groups={groups} activeHref={active?.item.href ?? null} hrefFor={hrefFor} onNavigate={() => setMobileOpen(false)} />
+                </DialogPrimitive.Content>
+              </DialogPrimitive.Portal>
+            </DialogPrimitive.Root>
+
+            <div className="flex min-w-0 flex-1 flex-col">
+              <TopBar
+                section={active ? { label: t(active.item.labelKey), href: active.item.href } : null}
+                collapsed={collapsed}
+                onToggleCollapsed={() => writeSidebar(!collapsed)}
+                onOpenMobileNav={() => setMobileOpen(true)}
+                theme={theme}
+                onToggleTheme={toggle}
+                locale={
+                  onSaudiRoute
+                    ? {
+                        current: locale,
+                        nextLabel: locale === "en" ? t("locale.arabic") : t("locale.english"),
+                        onToggle: () => setLocale(locale === "en" ? "ar" : "en"),
+                      }
+                    : null
+                }
+                user={{ email: user?.email, companyName: company?.name, logoUrl: company?.logo_url }}
+                onSignOut={() => logout()}
+              />
+
+              <Suspense fallback={null}>
+                <TrialOnboardingWalkthrough forceOpen={guideOpen} onClose={() => setGuideOpen(false)} sidebarCollapsed={collapsed} />
+              </Suspense>
+
+              <main id="company-main" data-company-main className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-8">
+                {trialHoursLeft !== null && (
+                  <Alert
+                    tone="brand"
+                    title={t("trial.banner.title")}
+                    className="mx-auto mb-5 max-w-[1440px]"
+                    action={
+                      <div className="flex flex-wrap items-center gap-2">
+                        {!user?.trial_onboarding_completed && (
+                          <Button variant="ghost" size="sm" onClick={() => setGuideOpen(true)}>
+                            {t("trial.banner.viewGuide")}
+                          </Button>
+                        )}
+                        <Button asChild variant="accent" size="sm">
+                          <a href={DEMO_BOOKING_URL} target="_blank" rel="noopener noreferrer">
+                            {t("trial.banner.bookDemo")}
+                          </a>
+                        </Button>
+                      </div>
+                    }
+                  >
+                    {t.rich("trial.banner.expires", {
+                      hours: () => <strong className="font-semibold text-fg">{trialHoursLeft}h</strong>,
+                    })}
+                  </Alert>
+                )}
+                {children}
+              </main>
             </div>
-          </main>
-        </div>
-      </div>
-      <Toaster position={isRtl ? "top-left" : "top-right"} richColors dir={isRtl ? "rtl" : "ltr"} />
-    </div>
+
+            <Toaster />
+          </div>
+        </BreadcrumbsProvider>
+      </ConfirmProvider>
+    </TooltipProvider>
   );
 }

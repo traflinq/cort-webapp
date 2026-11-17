@@ -256,7 +256,7 @@ export function TrialOnboardingWalkthrough({
       className={cx(
         "fixed top-0 end-0 bottom-0 z-[100] flex items-center justify-center bg-black/70 px-4 py-8 backdrop-blur-sm",
         "start-0",
-        sidebarCollapsed ? "md:start-[6rem]" : "md:start-[19rem]",
+        sidebarCollapsed ? "md:start-16" : "md:start-60",
       )}
     >
       <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-[#0f172a] p-8 shadow-2xl text-white">
