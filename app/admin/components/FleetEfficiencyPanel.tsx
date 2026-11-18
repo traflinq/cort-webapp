@@ -7,7 +7,7 @@ import { apiClient } from '@/app/lib/services/api-client';
 import { useAuth } from '@/app/lib/contexts/auth-context';
 import {
   AlertTriangle, Fuel, Bus, Navigation, TrendingDown, TrendingUp, Zap, RefreshCw, Map as MapIcon,
-  Users, Package, CarFront, Lock, Car, Sparkles, Clock, MapPin,
+  Users, Package, CarFront, Lock, Car, Sparkles, Clock, MapPin, Pencil,
 } from 'lucide-react';
 import {
   Badge,
@@ -16,9 +16,14 @@ import {
   CardContent,
   CardHeader,
   DataTable,
+  Dialog,
+  DialogContent,
   EmptyState,
+  Field,
   FilterBar,
   FilterField,
+  FormGrid,
+  IconButton,
   Input,
   KpiSkeleton,
   LoadingBlock,
@@ -26,12 +31,14 @@ import {
   Select,
   Skeleton,
   StatStrip,
+  Textarea,
   type BadgeTone,
   type DataTableColumn,
   type StatItem,
 } from '@/app/admin/ui';
 import { useChartTheme } from '@/app/admin/ui/chart-theme';
-import { formatCurrency, formatDate, formatNumber, formatTime, humanize } from '@/app/admin/lib/format';
+import { formatCurrency, formatDate, formatNumber, formatTime, fromTimeInput, humanize, toTimeInput } from '@/app/admin/lib/format';
+import { toast } from 'sonner';
 import type { MapMarker, MapPolyline } from '@/app/admin/ui/Map';
 
 const Map = dynamic(() => import('@/app/admin/ui/Map'), { ssr: false });
@@ -96,9 +103,6 @@ type TimelineRider = {
 /** A GPS fix the driver app sent with an Arrive / Proceed tap. */
 type TapLocation = { lat: number; lng: number; accuracy_m: number | null; fix_at?: string | null };
 
-/** A tap this far from the stop pin is outside what counts as "at the stop" (matches the 300 m GPS reach rule). */
-const TAP_FAR_FROM_STOP_M = 300;
-
 type TimelineStop = {
   id: number;
   sequence: number;
@@ -128,6 +132,7 @@ type TripTimeline = {
     id: number;
     direction: 'MORNING' | 'EVENING';
     status: string;
+    trip_date: string | null;
     started_at: string | null;
     completed_at: string | null;
     route_name: string | null;
@@ -1157,7 +1162,7 @@ export function FleetEfficiencyPanel({ companyId }: { companyId: number }) {
                         timeline={timeline}
                         routeInsight={shuttleInsights.find(i => i.insight_type === 'ROUTE_DETOUR' && i.route_id === selectedRouteId) ?? null}
                       />
-                      {!mapLoading && timeline && <TripTimelinePanel timeline={timeline} />}
+                      {!mapLoading && timeline && <TripTimelinePanel timeline={timeline} onTimelineChange={setTimeline} />}
                     </>
                   ),
                 }}
@@ -1343,16 +1348,50 @@ function UtilizationBar({ pct }: { pct: number }) {
   );
 }
 
-function LegendSwatch({ color, shape = 'line', label }: { color: string; shape?: 'line' | 'dot'; label: string }) {
+function LegendSwatch({
+  color,
+  shape = 'line',
+  label,
+  /** When given, the swatch becomes an on/off chip for its map layer. */
+  onToggle,
+  active,
+  title,
+}: {
+  color: string;
+  shape?: 'line' | 'dot';
+  label: string;
+  onToggle?: () => void;
+  active?: boolean;
+  title?: string;
+}) {
+  const swatch = (
+    <span
+      aria-hidden="true"
+      className={shape === 'line' ? 'inline-block h-1 w-5 rounded-full' : 'inline-block size-2.5 rounded-full'}
+      style={{ background: color, opacity: onToggle && !active ? 0.35 : 1 }}
+    />
+  );
+  if (!onToggle) {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        {swatch}
+        {label}
+      </span>
+    );
+  }
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <span
-        aria-hidden="true"
-        className={shape === 'line' ? 'inline-block h-1 w-5 rounded-full' : 'inline-block size-2.5 rounded-full'}
-        style={{ background: color }}
-      />
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={active}
+      title={title}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 transition-colors ${
+        active ? 'border-line bg-subtle text-fg' : 'border-transparent text-fg-muted hover:bg-subtle'
+      }`}
+    >
+      {swatch}
       {label}
-    </span>
+    </button>
   );
 }
 
@@ -1588,8 +1627,236 @@ function RiderRow({ rider, direction }: { rider: TimelineRider; direction: 'MORN
   );
 }
 
-function TripTimelinePanel({ timeline }: { timeline: TripTimeline }) {
+/** One editable time field: the value as typed, plus the timestamp it replaces. */
+type TimeDraft = { value: string; original: string | null };
+
+const draftFrom = (iso: string | null): TimeDraft => ({ value: iso ? toTimeInput(iso) : '', original: iso });
+
+/**
+ * Ops correction of the times recorded at one stop. Pre-filled from what the driver's
+ * taps produced; a cleared field removes the time. Only fields the user actually
+ * changed are sent, and every save is written to the shuttle audit log.
+ */
+function EditStopTimesModal({
+  tripId,
+  tripDate,
+  direction,
+  stop,
+  onClose,
+  onSaved,
+}: {
+  tripId: number;
+  tripDate: string | null;
+  direction: 'MORNING' | 'EVENING';
+  stop: TimelineStop;
+  onClose: () => void;
+  onSaved: (timeline: TripTimeline) => void;
+}) {
+  const [arrived, setArrived] = useState<TimeDraft>(() => draftFrom(stop.arrived_at));
+  const [departed, setDeparted] = useState<TimeDraft>(() => draftFrom(stop.departed_at));
+  const [riders, setRiders] = useState<Record<string, { boarded: TimeDraft; dropped: TimeDraft }>>(() =>
+    Object.fromEntries(
+      stop.riders.map(r => [r.user_id, { boarded: draftFrom(r.boarded_at), dropped: draftFrom(r.dropped_at) }]),
+    ),
+  );
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const boardedLabel = direction === 'EVENING' ? 'Boarded at office' : 'Picked up';
+  // A today-only stop is a synthetic id with no stop_logs row, so there is no stored
+  // arrival to correct — only its riders' own times exist.
+  const stopTimesEditable = !stop.is_override;
+
+  /**
+   * What to send for one field: nothing when it was not touched, an ISO string for a
+   * new time, null to clear it. A time that cannot be parsed is reported rather than
+   * sent — sending it as null would silently delete the time instead of rejecting it.
+   */
+  type Change = { touched: false } | { touched: true; value: string | null } | { touched: true; invalid: true };
+
+  function changed(draft: TimeDraft): Change {
+    const current = draft.original ? toTimeInput(draft.original) : '';
+    const typed = draft.value.trim();
+    if (typed === current) return { touched: false };
+    if (!typed) return { touched: true, value: null };
+    const iso = fromTimeInput(typed, draft.original ?? tripDate);
+    return iso ? { touched: true, value: iso } : { touched: true, invalid: true };
+  }
+
+  async function save() {
+    const body: Record<string, unknown> = {};
+    const invalid: string[] = [];
+    let touchedAny = false;
+
+    /** Writes `field` into `target` when it changed; records the label if unparseable. */
+    const apply = (target: Record<string, unknown>, field: string, label: string, draft: TimeDraft) => {
+      const change = changed(draft);
+      if (!change.touched) return;
+      touchedAny = true;
+      if ('invalid' in change) {
+        invalid.push(label);
+        return;
+      }
+      target[field] = change.value;
+    };
+
+    if (stopTimesEditable) {
+      apply(body, 'arrived_at', 'Arrived', arrived);
+      apply(body, 'departed_at', 'Left', departed);
+    }
+    const riderPayload: Record<string, unknown>[] = [];
+    for (const r of stop.riders) {
+      const draft = riders[r.user_id];
+      if (!draft) continue;
+      const entry: Record<string, unknown> = {};
+      const who = r.name ?? 'a rider';
+      apply(entry, 'boarded_at', `${boardedLabel} for ${who}`, draft.boarded);
+      if (direction === 'EVENING') apply(entry, 'dropped_at', `Dropped for ${who}`, draft.dropped);
+      if (Object.keys(entry).length) riderPayload.push({ user_id: r.user_id, ...entry });
+    }
+    if (riderPayload.length) body.riders = riderPayload;
+    if (reason.trim()) body.reason = reason.trim();
+
+    if (invalid.length) {
+      setError(`Not a valid time: ${invalid.join(', ')}.`);
+      return;
+    }
+    if (!touchedAny) {
+      setError('Nothing was changed.');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await apiClient.request<TripTimeline>(`/shuttle-trips/${tripId}/stops/${stop.id}/times`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      });
+      onSaved(updated);
+      toast.success(`Times updated for ${stop.name}`);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save the times.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const setRider = (userId: string, key: 'boarded' | 'dropped', value: string) =>
+    setRiders(prev => ({ ...prev, [userId]: { ...prev[userId], [key]: { ...prev[userId][key], value } } }));
+
+  return (
+    <Dialog open onOpenChange={open => !open && onClose()}>
+      <DialogContent
+        size="lg"
+        title={`Edit times · ${stop.sequence}. ${stop.name}`}
+        description="Correct what the driver's taps recorded. Changes are written to the shuttle audit log with your name."
+        footer={
+          <>
+            <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {error && (
+            <p className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger-ink">{error}</p>
+          )}
+          {stopTimesEditable ? (
+            <FormGrid cols={2}>
+              <Field label="Arrived">
+                <Input
+                  type="time"
+                  value={arrived.value}
+                  onChange={e => setArrived(d => ({ ...d, value: e.target.value }))}
+                />
+              </Field>
+              <Field label="Left">
+                <Input
+                  type="time"
+                  value={departed.value}
+                  onChange={e => setDeparted(d => ({ ...d, value: e.target.value }))}
+                />
+              </Field>
+            </FormGrid>
+          ) : (
+            <p className="rounded-lg border border-line bg-subtle px-3 py-2 text-xs text-fg-muted">
+              This is a today-only stop — it has no stored arrival time of its own. Only the riders&apos; times below can be corrected.
+            </p>
+          )}
+
+          {stop.riders.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-fg-muted">Riders</p>
+              <ul className="divide-y divide-line rounded-xl border border-line">
+                {stop.riders.map(r => {
+                  const draft = riders[r.user_id];
+                  if (!draft) return null;
+                  const absent = r.status === 'ABSENT';
+                  return (
+                    <li key={r.user_id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 py-2">
+                      <span className="min-w-0 text-sm text-fg">
+                        {r.name ?? 'Unknown employee'}
+                        {absent && <span className="ml-2 text-xs text-fg-muted">Absent — no times recorded</span>}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <Field label={boardedLabel} inline>
+                          <Input
+                            type="time"
+                            className="w-32"
+                            disabled={absent}
+                            value={draft.boarded.value}
+                            onChange={e => setRider(r.user_id, 'boarded', e.target.value)}
+                          />
+                        </Field>
+                        {direction === 'EVENING' && (
+                          <Field label="Dropped" inline>
+                            <Input
+                              type="time"
+                              className="w-32"
+                              disabled={absent}
+                              value={draft.dropped.value}
+                              onChange={e => setRider(r.user_id, 'dropped', e.target.value)}
+                            />
+                          </Field>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          <Field label="Reason" hint="Optional, but it is what makes the audit entry readable later.">
+            <Textarea
+              rows={2}
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              placeholder="e.g. driver tapped Arrive 20 minutes late; corrected from the rider's call"
+            />
+          </Field>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TripTimelinePanel({
+  timeline,
+  onTimelineChange,
+}: {
+  timeline: TripTimeline;
+  onTimelineChange: (timeline: TripTimeline) => void;
+}) {
   const { trip, summary, stops, other_riders } = timeline;
+  const { hasCrud } = useAuth();
+  // Same rule the backend enforces on the edit endpoint (either permission is enough).
+  const canEditTimes = hasCrud('ops_shuttle', 'update') || hasCrud('fleet_efficiency', 'update');
+  const [editingStopId, setEditingStopId] = useState<number | null>(null);
+  const editingStop = stops.find(s => s.id === editingStopId) ?? null;
   const shortKm =
     trip.actual_distance_km != null && trip.planned_distance_km != null && trip.planned_distance_km > 0
       ? trip.planned_distance_km - trip.actual_distance_km
@@ -1653,15 +1920,16 @@ function TripTimelinePanel({ timeline }: { timeline: TripTimeline }) {
                         {s.departed_at && s.departed_at !== s.arrived_at && ` → left ${formatTime(s.departed_at)}`}
                         {note && <span className="text-fg-muted"> ({note})</span>}
                       </span>
-                      {s.tap_distance_m != null && (
-                        <span
-                          className={s.tap_distance_m > TAP_FAR_FROM_STOP_M ? 'font-medium text-warning-ink' : 'text-fg-muted'}
-                          title="Distance from the stop's saved location to where the phone was when the driver tapped"
-                        >
-                          tapped {formatMetres(s.tap_distance_m)} from stop
-                        </span>
-                      )}
                       <Badge tone={st.tone} size="sm" dot>{st.label}</Badge>
+                      {canEditTimes && (
+                        <IconButton
+                          label="Edit recorded times"
+                          size="icon-sm"
+                          onClick={() => setEditingStopId(s.id)}
+                        >
+                          <Pencil className="size-3.5" aria-hidden="true" />
+                        </IconButton>
+                      )}
                     </span>
                   </div>
                   {s.riders.length > 0 && (
@@ -1673,6 +1941,16 @@ function TripTimelinePanel({ timeline }: { timeline: TripTimeline }) {
               );
             })}
           </ol>
+        )}
+        {editingStop && (
+          <EditStopTimesModal
+            tripId={trip.id}
+            tripDate={trip.trip_date}
+            direction={trip.direction}
+            stop={editingStop}
+            onClose={() => setEditingStopId(null)}
+            onSaved={onTimelineChange}
+          />
         )}
         {other_riders.length > 0 && (
           <div>
@@ -1689,6 +1967,9 @@ function TripTimelinePanel({ timeline }: { timeline: TripTimeline }) {
 
 function RouteMapOverlay({ comparison, timeline, routeInsight }: { comparison: RouteComparison; timeline: TripTimeline | null; routeInsight: FleetInsight | null }) {
   const chart = useChartTheme();
+  // Stop-tap dots and their leashes to the stop pins: an extra layer you turn on from
+  // the legend, off on load so it never competes with the planned/actual routes.
+  const [showTaps, setShowTaps] = useState(false);
   // Map layers need literal colours (Google Maps can't read CSS variables); take them from the
   // theme-aware chart palette so they match the legend and both themes.
   const plannedColor = chart.colors[1];
@@ -1772,6 +2053,7 @@ function RouteMapOverlay({ comparison, timeline, routeInsight }: { comparison: R
   // stop, stands out. In the evening arrive and drop-off are one slide, so the
   // departure dot is only drawn when it's somewhere else.
   const tapColor = chart.colors[3] ?? actualColor; // purple: clear of the planned/actual lines and the green/red/amber stops
+  const tapMarkers: MapMarker[] = [];
   const tapPolylines: MapPolyline[] = [];
   let hasTaps = false;
   for (const s of timeline?.stops ?? []) {
@@ -1795,7 +2077,7 @@ function RouteMapOverlay({ comparison, timeline, routeInsight }: { comparison: R
         fromStop != null ? `${formatMetres(fromStop)} from stop` : null,
         loc.accuracy_m != null ? `GPS ±${Math.round(loc.accuracy_m)} m` : null,
       ].filter(Boolean).join(' · ');
-      markers.push({
+      tapMarkers.push({
         id: `tap-${kind}-${s.id}`,
         position: [loc.lat, loc.lng],
         label: `${s.sequence}. ${s.name}`,
@@ -1814,7 +2096,12 @@ function RouteMapOverlay({ comparison, timeline, routeInsight }: { comparison: R
       }
     }
   }
-  polylines.push(...tapPolylines);
+  // Off by default: the leashes are only wanted when someone is actually
+  // looking at where taps happened, and left on they drown the route lines.
+  if (showTaps) {
+    markers.push(...tapMarkers);
+    polylines.push(...tapPolylines);
+  }
 
   const m = comparison.metrics;
   const detour = m?.detour_ratio ?? null;
@@ -1837,7 +2124,16 @@ function RouteMapOverlay({ comparison, timeline, routeInsight }: { comparison: R
           <LegendSwatch color={plannedColor} label="Planned" />
           <LegendSwatch color={actualColor} label="Actual" />
           <LegendSwatch color={actualColor} shape="dot" label="Departed / arrived" />
-          {hasTaps && <LegendSwatch color={tapColor} shape="dot" label="Where driver tapped stop" />}
+          {hasTaps && (
+            <LegendSwatch
+              color={tapColor}
+              shape="dot"
+              label="Where driver tapped stop"
+              active={showTaps}
+              onToggle={() => setShowTaps((v) => !v)}
+              title="Show the phone location sent with each Arrive / Proceed tap, joined to the stop's saved pin"
+            />
+          )}
           {timeline && timeline.stops.length > 0 && (
             <>
               <LegendSwatch color={chart.status.good} shape="dot" label="Stop visited" />

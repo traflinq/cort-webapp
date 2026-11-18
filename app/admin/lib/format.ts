@@ -168,3 +168,66 @@ export function companyLabel(company: { name: string; prefix?: string | null }):
   if (!prefix || prefix.toLowerCase() === company.name.trim().toLowerCase()) return company.name;
   return `${prefix} – ${company.name}`;
 }
+
+/** Milliseconds BUSINESS_TZ is ahead of UTC at a given instant. */
+function businessTzOffsetMs(at: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: BUSINESS_TZ,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(at);
+  const get = (type: string) => Number(parts.find(p => p.type === type)?.value ?? "0");
+  // Intl renders midnight as hour 24 in some runtimes.
+  const asIfUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour") % 24, get("minute"), get("second"));
+  return asIfUtc - at.getTime();
+}
+
+/** An ISO timestamp as "HH:MM" in business time, for an <input type="time">. */
+export function toTimeInput(value: DateInput): string {
+  const d = toDate(value);
+  if (!d) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: BUSINESS_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+}
+
+/**
+ * "HH:MM" typed in business time, back to a UTC ISO string.
+ *
+ * `onDate` fixes which calendar day the time lands on: pass the timestamp being
+ * replaced so an edit keeps its own day (a trip running past midnight keeps its
+ * late stops on the next day), falling back to the trip's date.
+ */
+export function fromTimeInput(hhmm: string, onDate: DateInput): string | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  const base = toDate(onDate);
+  if (!match || !base) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+
+  // The calendar day of `base` as seen in business time, not the viewer's zone.
+  const [day, month, year] = new Intl.DateTimeFormat("en-GB", {
+    timeZone: BUSINESS_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(base)
+    .split("/")
+    .map(Number);
+
+  const guess = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  // Subtract the zone's offset to get the real instant. Asia/Karachi has no DST, so
+  // one pass is exact; re-reading the offset at the result keeps it right if that changes.
+  const firstPass = guess - businessTzOffsetMs(new Date(guess));
+  return new Date(guess - businessTzOffsetMs(new Date(firstPass))).toISOString();
+}
