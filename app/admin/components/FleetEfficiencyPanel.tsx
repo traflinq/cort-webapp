@@ -103,6 +103,9 @@ type TimelineRider = {
 /** A GPS fix the driver app sent with an Arrive / Proceed tap. */
 type TapLocation = { lat: number; lng: number; accuracy_m: number | null; fix_at?: string | null };
 
+/** A tap beyond this from the stop pin was not made at the stop. Matches STOP_TAP_AT_STOP_M in cort-backend. */
+const TAP_FAR_FROM_STOP_M = 300;
+
 type TimelineStop = {
   id: number;
   sequence: number;
@@ -1404,6 +1407,15 @@ function metresBetween(a: { lat: number; lng: number }, b: { lat: number; lng: n
   return 2 * 6_371_000 * Math.asin(Math.sqrt(h));
 }
 
+/**
+ * Everyone expected at this stop was marked absent. The driver then often taps Arrive
+ * from the road without driving there, so the stop carries an arrival time it did not
+ * earn — the backend reclassifies it as skipped when the tap fix proves the distance.
+ */
+function allRidersAbsent(stop: TimelineStop): boolean {
+  return stop.riders.length > 0 && stop.riders.every(r => r.status === 'ABSENT');
+}
+
 function formatMetres(m: number): string {
   return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
 }
@@ -2065,11 +2077,17 @@ function RouteMapOverlay({ comparison, timeline, routeInsight }: { comparison: R
     ) {
       taps.push({ kind: 'departed', loc: s.departed_location });
     }
+    const absentStop = allRidersAbsent(s);
     for (const { kind, loc } of taps) {
       hasTaps = true;
       const fromStop = s.lat != null && s.lng != null ? metresBetween({ lat: s.lat, lng: s.lng }, loc) : null;
-      const what =
-        kind === 'arrived'
+      // A stop nobody was waiting at, tapped from somewhere else: the van never went.
+      // Say so on the dot, so it reads as the explanation for the missing distance
+      // rather than as a tracking glitch.
+      const skippedAllAbsent = absentStop && fromStop != null && fromStop > TAP_FAR_FROM_STOP_M;
+      const what = skippedAllAbsent
+        ? `All riders absent · driver tapped ${kind === 'arrived' ? 'Arrive' : 'Proceed'} without going to the stop`
+        : kind === 'arrived'
           ? 'Driver tapped Arrive here'
           : isEveningTrip(timeline) ? 'Driver tapped drop-off here' : 'Driver tapped Proceed here';
       const details = [
@@ -2085,7 +2103,10 @@ function RouteMapOverlay({ comparison, timeline, routeInsight }: { comparison: R
         color: tapColor,
         type: 'point',
       });
-      if (s.lat != null && s.lng != null) {
+      // No leash for a stop the van never visited: the line would stretch across the whole
+      // map to assert a trip that never happened. The amber "skipped" pin and the dot's own
+      // label carry the point without it.
+      if (s.lat != null && s.lng != null && !skippedAllAbsent) {
         tapPolylines.push({
           positions: [[s.lat, s.lng], [loc.lat, loc.lng]],
           color: tapColor,
