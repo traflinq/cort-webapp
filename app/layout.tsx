@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "./lib/contexts/auth-context";
 import { AdminThemeScript } from "./admin/lib/theme-script";
-import { geistSans, geistMono, notoSansArabic } from "./fonts";
+import { geistSans, geistMono, notoSansArabic, jakarta } from "./fonts";
 
 export const metadata: Metadata = {
   title: "Traflinq Portal",
@@ -24,7 +24,7 @@ export default function RootLayout({
         <AdminThemeScript />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${notoSansArabic.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${notoSansArabic.variable} ${jakarta.variable} antialiased`}
       >
         <AuthProvider>{children}</AuthProvider>
       </body>
