@@ -17,7 +17,7 @@ export function OverviewPanel({ filters, onOpenTab, onManageBenchmarks }: { filt
   const ov = useCostFetch<Overview>(`/company/cost-optimization/overview?${filterQuery(filters)}`);
   const hist = useCostFetch<SpendHistory>(`/company/cost-optimization/overview/history?months=6&to=${filters.to}`);
 
-  if (ov.error) return <ErrorNote message={tc("loadFailed")} />;
+  if (ov.error) return <ErrorNote message={tc("loadFailed")} detail={ov.error} onRetry={ov.reload} />;
   if (!ov.data) return <Skeleton className="h-72" />;
   const d = ov.data;
   const o = d.opportunities;
@@ -116,6 +116,8 @@ export function OverviewPanel({ filters, onOpenTab, onManageBenchmarks }: { filt
       </div>
 
       {/* Spend history */}
+      {hist.error && <ErrorNote message={tc("loadFailed")} detail={hist.error} onRetry={hist.reload} />}
+      {hist.loading && <Skeleton className="h-56" />}
       {hist.data && hist.data.months.some((m) => m.contracted_fixed !== null || m.estimated_fuel !== null) && (
         <section className="flex flex-col gap-3">
           <SectionHeading title={t("historyTitle")} description={t("historyDescription")} />

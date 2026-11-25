@@ -225,8 +225,27 @@ export function EmptyNote({ children }: { children: ReactNode }) {
   return <div className="rounded-2xl border border-dashed border-line bg-card p-6 text-center text-sm text-fg-muted">{children}</div>;
 }
 
-export function ErrorNote({ message }: { message: string }) {
-  return <div className="rounded-2xl border border-danger-line bg-danger-soft p-4 text-sm text-danger-ink">{message}</div>;
+/** A failed section: what failed, the reason the server gave (when it gave one) and a way to try again. */
+export function ErrorNote({ message, detail, onRetry }: { message: string; detail?: string | null; onRetry?: () => void }) {
+  const t = useTranslations("company.costOptimization");
+  const reason = detail && detail !== "error" ? detail : null;
+  return (
+    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-danger-line bg-danger-soft p-4 text-sm text-danger-ink">
+      <div className="min-w-0">
+        <p>{message}</p>
+        {reason && (
+          <p className="mt-0.5 text-xs opacity-80" dir="auto">
+            {reason}
+          </p>
+        )}
+      </div>
+      {onRetry && (
+        <button type="button" onClick={onRetry} className="shrink-0 rounded-xl border border-danger-line bg-card px-3 py-1.5 text-xs font-semibold text-danger-ink hover:bg-danger-soft">
+          {t("retry")}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function Skeleton({ className }: { className?: string }) {

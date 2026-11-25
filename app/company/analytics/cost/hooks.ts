@@ -22,6 +22,29 @@ const PKT_OFFSET_MS = 5 * 3600_000;
 export const todayPkt = () => new Date(Date.now() + PKT_OFFSET_MS).toISOString().slice(0, 10);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Longest range the API accepts (days, inclusive). */
+export const MAX_RANGE_DAYS = 366;
+const dayMs = 86_400_000;
+const isRealDate = (s: string) => DATE_RE.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
+export const rangeDays = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / dayMs) + 1;
+
+/** Why a typed range cannot be used, or null when it is fine. */
+export function rangeProblem(from: string, to: string): "invalid" | "order" | "tooLong" | null {
+  if (!isRealDate(from) || !isRealDate(to)) return "invalid";
+  if (from > to) return "order";
+  if (rangeDays(from, to) > MAX_RANGE_DAYS) return "tooLong";
+  return null;
+}
+
+/** A range from the URL that the API would reject is repaired instead of failing every panel. */
+function saneRange(from: string, to: string): { from: string; to: string } {
+  const def = presetRange("thisMonth");
+  if (!isRealDate(from) || !isRealDate(to)) return def;
+  if (from > to) [from, to] = [to, from];
+  if (rangeDays(from, to) > MAX_RANGE_DAYS) from = new Date(Date.parse(`${to}T00:00:00Z`) - (MAX_RANGE_DAYS - 1) * dayMs).toISOString().slice(0, 10);
+  return { from, to };
+}
+
 export type Preset = "thisMonth" | "lastMonth" | "last30" | "last90";
 
 export function presetRange(p: Preset): { from: string; to: string } {
@@ -44,9 +67,10 @@ export function useCostFilters() {
   const def = presetRange("thisMonth");
   const from = params.get("from");
   const to = params.get("to");
+  const range = saneRange(from && DATE_RE.test(from) ? from : def.from, to && DATE_RE.test(to) ? to : def.to);
   const filters: CostFilters = {
-    from: from && DATE_RE.test(from) ? from : def.from,
-    to: to && DATE_RE.test(to) ? to : def.to,
+    from: range.from,
+    to: range.to,
     routeId: params.get("route") ?? "",
     vehicleId: params.get("vehicle") ?? "",
     vendor: params.get("vendor") ?? "",
@@ -87,12 +111,15 @@ export function useCostFetch<T>(path: string | null) {
   useEffect(() => {
     if (!path) return;
     let cancelled = false;
+    // A superseded request (filter or tab changed) is aborted, not just ignored.
+    const controller = new AbortController();
     apiClient
-      .request<T>(path)
+      .request<T>(path, { signal: controller.signal })
       .then((data) => !cancelled && setState({ key, data, error: null }))
-      .catch((e: unknown) => !cancelled && setState({ key, data: null, error: e instanceof Error ? e.message : "error" }));
+      .catch((e: unknown) => !cancelled && setState({ key, data: null, error: e instanceof Error && e.message ? e.message : "error" }));
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [key, path]);
   const reload = useCallback(() => setNonce((x) => x + 1), []);

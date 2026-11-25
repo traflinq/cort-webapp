@@ -164,7 +164,7 @@ export function RecommendationDrawer({ id, onClose, onChanged }: { id: number | 
       footer={rec ? <DecisionBar rec={rec} onDone={() => { res.reload(); onChanged(); }} /> : undefined}
     >
       {res.error ? (
-        <ErrorNote message={tc("loadFailed")} />
+        <ErrorNote message={tc("loadFailed")} detail={res.error} onRetry={res.reload} />
       ) : !rec ? (
         <Skeleton className="h-96" />
       ) : (
@@ -440,7 +440,7 @@ export function RecommendationsPanel({
   const [type, setType] = useState<RecType | "ALL">("ALL");
   const [showRejected, setShowRejected] = useState(false);
 
-  if (list.error) return <ErrorNote message={tc("loadFailed")} />;
+  if (list.error) return <ErrorNote message={tc("loadFailed")} detail={list.error} onRetry={list.reload} />;
   if (!list.data) return <Skeleton className="h-60" />;
   const { run, recommendations, savings_locked } = list.data;
   const pool = recommendations.filter((r) => !types || types.includes(r.type));

@@ -1390,7 +1390,10 @@
         "allVehicles": "All vehicles",
         "vendor": "Vendor",
         "allVendors": "All vendors",
-        "clear": "Clear filters"
+        "clear": "Clear filters",
+        "rangeInvalid": "Enter a valid date.",
+        "rangeOrder": "The start date must be on or before the end date.",
+        "rangeTooLong": "Choose a range of up to {days} days."
       },
       "overview": {
         "spendTitle": "Shuttle spend (your vendors)",
@@ -1839,7 +1842,9 @@
         "beforeHint": "For the same service, {period}",
         "saved": "Saved with Traflinq",
         "savedBreakdown": "{vehicles} fewer vehicles ({vehiclesPkr}) and {km} fewer km ({kmPkr})"
-      }
+      },
+      "retry": "Try again",
+      "filtersFailed": "Could not load your shuttle setup, so some tabs may be missing."
     }
   }
 }

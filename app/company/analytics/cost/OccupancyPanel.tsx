@@ -25,7 +25,7 @@ export function OccupancyPanel({ filters }: { filters: CostFilters }) {
   const report = useCostFetch<OccupancyReport>(`/company/cost-optimization/occupancy?${filterQuery(filters)}`);
   const [selected, setSelected] = useState<OccupancyRow | null>(null);
 
-  if (report.error) return <ErrorNote message={tc("loadFailed")} />;
+  if (report.error) return <ErrorNote message={tc("loadFailed")} detail={report.error} onRetry={report.reload} />;
   if (!report.data) return <Skeleton className="h-72" />;
   const r = report.data;
   const s = r.summary;

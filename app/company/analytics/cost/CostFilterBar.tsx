@@ -1,14 +1,49 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CalendarRange, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { presetRange, todayPkt, type CostFilters, type Preset } from "./hooks";
+import { MAX_RANGE_DAYS, presetRange, rangeProblem, todayPkt, type CostFilters, type Preset } from "./hooks";
 import type { FilterOptions } from "./types";
 
 const PRESETS: Preset[] = ["thisMonth", "lastMonth", "last30", "last90"];
 
 const field = "h-9 rounded-xl border border-line bg-card px-3 text-sm text-fg outline-none focus:border-brand-line";
+
+/**
+ * Custom range. What is typed stays local until it is a complete, usable range and the user has paused,
+ * so a half-typed year or a start after the end never reaches the API.
+ */
+function DateRange({ from, to, onApply }: { from: string; to: string; onApply: (patch: Partial<CostFilters>) => void }) {
+  const t = useTranslations("company.costOptimization.filters");
+  const [draft, setDraft] = useState({ from, to });
+  const problem = draft.from && draft.to ? rangeProblem(draft.from, draft.to) : "invalid";
+  const changed = draft.from !== from || draft.to !== to;
+  useEffect(() => {
+    if (!changed || problem) return;
+    const timer = setTimeout(() => onApply({ from: draft.from, to: draft.to }), 500);
+    return () => clearTimeout(timer);
+  }, [changed, problem, draft.from, draft.to, onApply]);
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <label className="sr-only" htmlFor="co-from">
+        {t("from")}
+      </label>
+      <input id="co-from" type="date" className={cn(field, changed && problem && "border-danger-line")} value={draft.from} max={draft.to || todayPkt()} aria-invalid={changed && !!problem} onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value }))} />
+      <span className="text-fg-muted">–</span>
+      <label className="sr-only" htmlFor="co-to">
+        {t("to")}
+      </label>
+      <input id="co-to" type="date" className={cn(field, changed && problem && "border-danger-line")} value={draft.to} min={draft.from} max={todayPkt()} aria-invalid={changed && !!problem} onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))} />
+      {changed && problem && (
+        <span role="alert" className="text-xs text-danger-ink">
+          {problem === "order" ? t("rangeOrder") : problem === "tooLong" ? t("rangeTooLong", { days: MAX_RANGE_DAYS }) : t("rangeInvalid")}
+        </span>
+      )}
+    </div>
+  );
+}
 
 /** Date range (presets or custom) plus route / vehicle / vendor, all kept in the URL. */
 export function CostFilterBar({
@@ -50,17 +85,8 @@ export function CostFilterBar({
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1.5">
-          <label className="sr-only" htmlFor="co-from">
-            {t("from")}
-          </label>
-          <input id="co-from" type="date" className={field} value={filters.from} max={filters.to} onChange={(e) => e.target.value && onChange({ from: e.target.value })} />
-          <span className="text-fg-muted">–</span>
-          <label className="sr-only" htmlFor="co-to">
-            {t("to")}
-          </label>
-          <input id="co-to" type="date" className={field} value={filters.to} min={filters.from} max={todayPkt()} onChange={(e) => e.target.value && onChange({ to: e.target.value })} />
-        </div>
+        {/* Keyed by the applied range, so a preset or the back button resets what is typed. */}
+        <DateRange key={`${filters.from}|${filters.to}`} from={filters.from} to={filters.to} onApply={onChange} />
       </div>
 
       {showScope && options && (

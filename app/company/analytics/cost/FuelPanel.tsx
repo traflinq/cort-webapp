@@ -22,7 +22,7 @@ export function FuelPanel({ filters, recommendations, onOpenRecommendation }: { 
   const report = useCostFetch<FuelReport>(`/company/cost-optimization/fuel?${filterQuery(filters)}`);
   const [selected, setSelected] = useState<FuelVehicleReport | null>(null);
 
-  if (report.error) return <ErrorNote message={tc("loadFailed")} />;
+  if (report.error) return <ErrorNote message={tc("loadFailed")} detail={report.error} onRetry={report.reload} />;
   if (!report.data) return <Skeleton className="h-72" />;
   const r = report.data;
   const recFor = (vehicleId: number) => recommendations.find((x) => x.type === "FUEL_DISCREPANCY" && x.vehicle_ids.includes(vehicleId));
@@ -113,6 +113,7 @@ function FuelVehicleDrawer({
   onOpenRecommendation: (id: number) => void;
 }) {
   const t = useTranslations("company.costOptimization.fuel");
+  const tc = useTranslations("company.costOptimization");
   const fmt = useFmt();
   const trips = useCostFetch<FuelTrips>(vehicle ? `/company/cost-optimization/fuel/vehicles/${vehicle.vehicle.id}/trips?${filterQuery(filters, { withScope: false })}` : null);
   if (!vehicle) return null;
@@ -170,7 +171,9 @@ function FuelVehicleDrawer({
 
         <div>
           <h3 className="mb-2 text-sm font-semibold text-fg">{t("tripsTitle")}</h3>
-          {!trips.data ? (
+          {trips.error ? (
+            <ErrorNote message={tc("loadFailed")} detail={trips.error} onRetry={trips.reload} />
+          ) : !trips.data ? (
             <Skeleton className="h-32" />
           ) : trips.data.trips.length === 0 ? (
             <EmptyNote>{t("noTrips")}</EmptyNote>

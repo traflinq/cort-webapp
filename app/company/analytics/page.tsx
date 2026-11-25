@@ -28,6 +28,7 @@ import { PoolCarUtilization } from "./components/PoolCarUtilization";
 import { Panel, SectionHeading, Tabs } from "./components/ui";
 import { useCostFetch, useCostFilters } from "./cost/hooks";
 import { CostFilterBar } from "./cost/CostFilterBar";
+import { ErrorNote } from "./cost/ui";
 import { OverviewPanel } from "./cost/OverviewPanel";
 import { FuelPanel } from "./cost/FuelPanel";
 import { OccupancyPanel } from "./cost/OccupancyPanel";
@@ -62,6 +63,7 @@ function AnalyticsContent() {
   const { filters, set: setFilters } = useCostFilters();
   const month = filters.to.slice(0, 7);
   const { services, ai, savings, detail, detailLoading, reloadDetail, companyReady } = useAnalyticsData(month);
+  const tCost = useTranslations("company.costOptimization");
   const [benchmarksOpen, setBenchmarksOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [openRec, setOpenRec] = useState<number | null>(null);
@@ -162,6 +164,8 @@ function AnalyticsContent() {
       ) : (
         <>
           <Tabs tabs={tabs} active={active} onChange={setTab} label={t("tabsLabel")} />
+
+          {filterOptions.error && <ErrorNote message={tCost("filtersFailed")} detail={filterOptions.error} onRetry={filterOptions.reload} />}
 
           <CostFilterBar
             filters={filters}
