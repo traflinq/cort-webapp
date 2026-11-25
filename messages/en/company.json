@@ -1420,8 +1420,8 @@
         "open": "Open",
         "fuelLitresDiff": "Litres difference",
         "flaggedVehicles": "{flagged} of {total} vehicles flagged",
-        "fuelCostDiff": "Potential discrepancy",
-        "requiresVerification": "Requires verification",
+        "fuelCostDiff": "Fuel saving to claim",
+        "fuelClaimHint": "Vendor claim above the fuel the distance driven needs",
         "utilisationTitle": "Utilisation",
         "utilisationDescription": "Assigned employees against seats, and how often vehicles run.",
         "avgOccupancy": "Average occupancy",
@@ -1468,13 +1468,13 @@
       },
       "fuel": {
         "title": "Fuel utilisation vs vendor claims",
-        "description": "For each vehicle: the fuel your vendor benchmark claims versus what the vehicle should have used for the distance it drove. Differences beyond ±{tolerance}% are flagged for verification.",
+        "description": "For each vehicle: the fuel your vendor benchmark claims versus what the vehicle needs for the distance it drove. A claim more than {tolerance}% above the estimate is a saving to claim from the vendor.",
         "contracted": "Vendor-claimed fuel",
         "estimated": "Estimated consumption",
         "difference": "Litres difference",
         "flaggedOf": "{flagged} of {total} vehicles flagged",
         "costDifference": "Cost difference",
-        "requiresVerification": "Potential — requires verification",
+        "claimHint": "Saving to claim from the vendor",
         "empty": "No completed shuttle trips in this period.",
         "colVehicle": "Vehicle",
         "colRoutes": "Routes",
@@ -1501,7 +1501,7 @@
         "contractedCost": "Vendor fuel charge",
         "fuelInclusive": "Fuel included in vendor rate",
         "coverage": "GPS covers {pct}% of {trips} trips over {days} days",
-        "discrepancyNote": "This is a potential discrepancy based on estimated consumption. It is not a confirmed overcharge — verify it with the vendor before acting.",
+        "discrepancyNote": "The vendor claims more fuel than this vehicle needs for the distance it drove. The difference is a saving you can claim from the vendor.",
         "tripsTitle": "Trips behind the estimate",
         "noTrips": "No trips in this period.",
         "colDate": "Date",
@@ -1597,7 +1597,7 @@
           "SUPERSEDED": "Superseded"
         },
         "counted": "In total",
-        "verifyFirst": "Verify first",
+        "reviewOnly": "Review only",
         "overlaps": "Overlaps another",
         "feasible": "Feasible",
         "feasibility": {
@@ -1641,7 +1641,8 @@
           "capacity": "Vehicle seat capacity",
           "benchmark": "Vendor cost (benchmark)",
           "fuel_type": "Fuel type",
-          "routing": "Road routing"
+          "routing": "Road routing",
+          "model_match": "Planned route matches driven distance"
         },
         "partActions": "Decision",
         "actionsNote": "Approving records your decision only. It does not change live routes, schedules or vendor contracts.",
@@ -1657,7 +1658,7 @@
         },
         "realizedMeasuring": "Change detected. Measuring the saving after {days} of {needed} post-change trip days.",
         "realizedMeasured": "Realised saving {amount} measured from {from} to {to}.",
-        "realizedVerified": "Verified: {amount} recovered from the vendor.",
+        "realizedVerified": "Recovered: {amount} from the vendor.",
         "decided": {
           "APPROVED": "Recommendation approved",
           "REJECTED": "Recommendation rejected",
@@ -1816,8 +1817,8 @@
         },
         "fuel": {
           "identified": "{vehicle} drove {km} km (GPS). At its rated {kmpl} km/L that is about {estimated} L, but the vendor's claimed fuel for the period is {contracted} L — {diff} L ({pct}%) more.",
-          "recommendation": "Review the vendor's fuel billing for {vehicle} and verify the difference before approving fuel charges.",
-          "why": "At the recorded fuel price the difference is {amount} for the period. This is a potential discrepancy that requires verification, not a confirmed overcharge."
+          "recommendation": "Ask the vendor to bill {vehicle}'s fuel for the distance it actually drives.",
+          "why": "At the recorded fuel price the vendor's claimed fuel costs {amount} more for the period than the fuel the distance driven needs."
         },
         "redistribute": {
           "identified": "{route} carries {assigned} assigned employees in {seats} seats ({pct}%), while {receivers} other routes to the same office have {freeSeats} free seats.",

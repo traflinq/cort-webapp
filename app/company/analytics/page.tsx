@@ -65,6 +65,8 @@ function AnalyticsContent() {
   const [benchmarksOpen, setBenchmarksOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [openRec, setOpenRec] = useState<number | null>(null);
+  // Bumped after a run, a decision or a rate change so the cost panels refetch.
+  const [refresh, setRefresh] = useState(0);
   const filterOptions = useCostFetch<FilterOptions>(services.shuttle ? "/company/cost-optimization/filters" : null);
   // Two kinds of shuttle operation: the company's own vendors' / own cars (vendor-rate analysis and recommendations),
   // and Traflinq's managed service (savings since switching, against what they paid their vendor before).
@@ -113,9 +115,10 @@ function AnalyticsContent() {
     setGenerating(true);
     const jobs: Promise<unknown>[] = [];
     if (ownOps) {
-      jobs.push(apiClient.request(`/company/cost-optimization/runs?from=${filters.from}&to=${filters.to}`, { method: "POST" }));
+      // No range: the engine analyses its default window (the last 30 days), whatever the page filter shows.
+      jobs.push(apiClient.request("/company/cost-optimization/runs", { method: "POST" }));
     }
-    if (services.chauffeur || services.pool) jobs.push(apiClient.request<{ generated: number }>("/company/fleet-insights/generate", { method: "POST" }));
+    if (!ownOps || services.chauffeur || services.pool) jobs.push(apiClient.request<{ generated: number }>("/company/fleet-insights/generate", { method: "POST" }));
     const results = await Promise.allSettled(jobs);
     const failed = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
     // e.g. the 15-minute cooldown
@@ -123,6 +126,7 @@ function AnalyticsContent() {
     if (failed.length < results.length) toast.success(t("analysisDone"));
     recs.reload();
     reloadDetail();
+    setRefresh((x) => x + 1);
     setGenerating(false);
   };
 
@@ -177,7 +181,7 @@ function AnalyticsContent() {
             {active === "overview" && (
               <>
                 {ownOps && (
-                  <OverviewPanel filters={filters} onOpenTab={setTab} onManageBenchmarks={() => setBenchmarksOpen(true)} />
+                  <OverviewPanel key={refresh} filters={filters} onOpenTab={setTab} onManageBenchmarks={() => setBenchmarksOpen(true)} />
                 )}
 
                 {/* Traflinq-managed service: what they paid their vendor before vs what switching saved. */}
@@ -267,10 +271,10 @@ function AnalyticsContent() {
             )}
 
             {active === "fuel" && (
-              <FuelPanel filters={filters} recommendations={recs.data?.recommendations ?? []} onOpenRecommendation={setOpenRec} />
+              <FuelPanel key={refresh} filters={filters} recommendations={recs.data?.recommendations ?? []} onOpenRecommendation={setOpenRec} />
             )}
 
-            {active === "occupancy" && <OccupancyPanel filters={filters} />}
+            {active === "occupancy" && <OccupancyPanel key={refresh} filters={filters} />}
 
             {active === "routes" && (
               <>
@@ -325,10 +329,20 @@ function AnalyticsContent() {
       <CompanyBenchmarksModal
         isOpen={benchmarksOpen}
         onClose={() => setBenchmarksOpen(false)}
-        onChanged={savings.reload}
+        onChanged={() => {
+          savings.reload();
+          setRefresh((x) => x + 1);
+        }}
         purpose={ownOps ? "vendorRates" : "preTraflinq"}
       />
-      <RecommendationDrawer id={openRec} onClose={() => setOpenRec(null)} onChanged={recs.reload} />
+      <RecommendationDrawer
+        id={openRec}
+        onClose={() => setOpenRec(null)}
+        onChanged={() => {
+          recs.reload();
+          setRefresh((x) => x + 1);
+        }}
+      />
     </div>
   );
 }

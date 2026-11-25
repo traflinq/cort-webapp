@@ -35,7 +35,7 @@ export function FuelPanel({ filters, recommendations, onOpenRecommendation }: { 
         <StatBlock label={t("contracted")} figure={r.totals.contracted_litres} />
         <StatBlock label={t("estimated")} figure={r.totals.estimated_litres} />
         <StatBlock label={t("difference")} figure={r.totals.litres_difference} hint={t("flaggedOf", { flagged: r.totals.flagged, total: r.totals.vehicles })} />
-        <StatBlock label={t("costDifference")} figure={r.totals.cost_difference} hint={t("requiresVerification")} />
+        <StatBlock label={t("costDifference")} figure={r.totals.cost_difference} hint={t("claimHint")} />
       </div>
 
       {r.vehicles.length === 0 ? (

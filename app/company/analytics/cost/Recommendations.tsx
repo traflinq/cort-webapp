@@ -63,7 +63,7 @@ function StatusTag({ status }: { status: RecStatus }) {
 function FeasibilityTag({ rec }: { rec: Recommendation }) {
   const t = useTranslations("company.costOptimization.recs");
   if (rec.feasibility === "FEASIBLE")
-    return rec.counted ? <Tag tone="success">{t("counted")}</Tag> : rec.evidence.excluded_from_total ? <Tag tone="warning">{t("verifyFirst")}</Tag> : rec.overlaps_with.length ? <Tag>{t("overlaps")}</Tag> : <Tag tone="success">{t("feasible")}</Tag>;
+    return rec.counted ? <Tag tone="success">{t("counted")}</Tag> : rec.evidence.excluded_from_total ? <Tag tone="warning">{t("reviewOnly")}</Tag> : rec.overlaps_with.length ? <Tag>{t("overlaps")}</Tag> : <Tag tone="success">{t("feasible")}</Tag>;
   return <Tag tone={rec.feasibility === "REJECTED" ? "danger" : "neutral"}>{t(`feasibility.${rec.feasibility}` as never)}</Tag>;
 }
 
@@ -372,7 +372,8 @@ function DecisionBar({ rec, onDone }: { rec: Recommendation; onDone: () => void 
     try {
       const body: Record<string, unknown> = { status };
       if (note.trim()) body.note = note.trim();
-      if (status === "APPROVED" && rec.type === "FUEL_DISCREPANCY" && recovered.trim()) body.recovered_amount_pkr = Number(recovered);
+      const amount = Number(recovered);
+      if (status === "APPROVED" && rec.type === "FUEL_DISCREPANCY" && recovered.trim() && Number.isFinite(amount)) body.recovered_amount_pkr = amount;
       await apiClient.request(`/company/cost-optimization/recommendations/${rec.id}/decision`, { method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
       toast.success(t(`decided.${status}` as never));
       setNote("");

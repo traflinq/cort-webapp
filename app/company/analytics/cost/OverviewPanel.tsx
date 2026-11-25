@@ -94,7 +94,7 @@ export function OverviewPanel({ filters, onOpenTab, onManageBenchmarks }: { filt
           />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <StatBlock label={t("fuelLitresDiff")} figure={d.fuel.litres_difference} hint={t("flaggedVehicles", { flagged: d.fuel.flagged, total: d.fuel.vehicles })} />
-            <StatBlock label={t("fuelCostDiff")} figure={d.fuel.cost_difference} hint={t("requiresVerification")} />
+            <StatBlock label={t("fuelCostDiff")} figure={d.fuel.cost_difference} hint={t("fuelClaimHint")} />
           </div>
         </section>
         <section className="flex flex-col gap-3">
