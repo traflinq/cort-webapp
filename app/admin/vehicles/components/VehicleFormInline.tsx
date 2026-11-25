@@ -22,6 +22,7 @@ export const initialVehicleFormData: VehicleFormData = {
   fuel_avg_city: 0,
   fuel_avg_highway: 0,
   fuel_type: null,
+  ac_on: null,
   seat_capacity: 0,
   rent_per_day_city: 0,
   rent_per_day_outstation: 0,
@@ -74,6 +75,7 @@ export const VehicleFormInline = memo(function VehicleFormInline({
       fuel_avg_city: vehicle.fuel_avg_city,
       fuel_avg_highway: vehicle.fuel_avg_highway,
       fuel_type: vehicle.fuel_type ?? null,
+      ac_on: vehicle.ac_on ?? null,
       seat_capacity: vehicle.seat_capacity || 0,
       owner_company_id: vehicle.owner_company_id || undefined,
       rent_per_day_city: vehicle.rent_per_day_city || 0,
@@ -170,6 +172,13 @@ export const VehicleFormInline = memo(function VehicleFormInline({
             <option value="">Auto (from category)</option>
             <option value="PETROL">Petrol</option>
             <option value="DIESEL">Diesel</option>
+          </Select>
+        </Field>
+        <Field label="AC" hint="Picks the idle burn rate in Carbon & ESG">
+          <Select value={formData.ac_on === true ? "on" : formData.ac_on === false ? "off" : ""} onChange={(e) => handleChange("ac_on", e.target.value === "on" ? true : e.target.value === "off" ? false : null)} disabled={isSaving}>
+            <option value="">Not set (AC-off idle rate)</option>
+            <option value="on">AC on</option>
+            <option value="off">AC off</option>
           </Select>
         </Field>
         <Field label="Category">

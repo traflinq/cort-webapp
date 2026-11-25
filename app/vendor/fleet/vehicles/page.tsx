@@ -29,7 +29,11 @@ const getDefaultForm = () => ({
     seat_capacity: 0,
     /** "" = infer from category */
     fuel_type: "" as "" | "PETROL" | "DIESEL",
+    /** "" = not set (idling CO2 then uses the AC-off rate) */
+    ac_on: "" as "" | "on" | "off",
 });
+
+const acValue = (v: boolean | null | undefined): "" | "on" | "off" => (v === true ? "on" : v === false ? "off" : "");
 
 export default function VendorVehiclesPage() {
     const { selectedLink } = useVendorContext();
@@ -62,6 +66,7 @@ export default function VendorVehiclesPage() {
                 ...form,
                 color: form.color || undefined,
                 fuel_type: form.fuel_type || undefined,
+                ac_on: form.ac_on ? form.ac_on === "on" : undefined,
             });
             toast.success("Vehicle added");
             setShowAdd(false);
@@ -90,6 +95,7 @@ export default function VendorVehiclesPage() {
                 fuel_avg_highway: form.fuel_avg_highway,
                 seat_capacity: form.seat_capacity,
                 ...(form.fuel_type ? { fuel_type: form.fuel_type } : {}),
+                ac_on: form.ac_on ? form.ac_on === "on" : null,
             });
             toast.success("Vehicle updated");
             setEditingVehicle(null);
@@ -112,7 +118,7 @@ export default function VendorVehiclesPage() {
 
     const openEdit = (v: VendorVehicle) => {
         setEditingVehicle(v);
-        setForm({ plate_number: v.plate_number, make: v.make, model: v.model, year: v.year, color: v.color ?? "", category: v.category as VehicleCategory, fuel_avg_city: v.fuel_avg_city, fuel_avg_highway: v.fuel_avg_highway, seat_capacity: v.seat_capacity ?? 0, fuel_type: (v.fuel_type === "PETROL" || v.fuel_type === "DIESEL" ? v.fuel_type : "") });
+        setForm({ plate_number: v.plate_number, make: v.make, model: v.model, year: v.year, color: v.color ?? "", category: v.category as VehicleCategory, fuel_avg_city: v.fuel_avg_city, fuel_avg_highway: v.fuel_avg_highway, seat_capacity: v.seat_capacity ?? 0, fuel_type: (v.fuel_type === "PETROL" || v.fuel_type === "DIESEL" ? v.fuel_type : ""), ac_on: acValue(v.ac_on) });
     };
 
     const resetForm = () => setForm(getDefaultForm());
@@ -197,6 +203,13 @@ export default function VendorVehiclesPage() {
                                         <option value="">Auto (from category)</option>
                                         <option value="PETROL">Petrol</option>
                                         <option value="DIESEL">Diesel</option>
+                                    </select>
+                                </Field>
+                                <Field label="AC">
+                                    <select value={form.ac_on} onChange={(e) => setForm((f) => ({ ...f, ac_on: e.target.value as "" | "on" | "off" }))} className={inputCls}>
+                                        <option value="">Not set (AC-off idle rate)</option>
+                                        <option value="on">AC on</option>
+                                        <option value="off">AC off</option>
                                     </select>
                                 </Field>
                                 <Field label="Fuel City (km/L) *"><input required type="number" step="0.1" min={1} value={form.fuel_avg_city} onChange={(e) => setForm((f) => ({ ...f, fuel_avg_city: Number(e.target.value) }))} className={inputCls} /></Field>

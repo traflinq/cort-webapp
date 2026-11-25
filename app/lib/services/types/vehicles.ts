@@ -28,6 +28,8 @@ export interface CreateVehicleRequest {
     fuel_avg_highway: number;
     /** PETROL | DIESEL; null = infer from the category (coaster/bus = diesel) */
     fuel_type?: 'PETROL' | 'DIESEL' | null;
+    /** AC on / off; null = not set (idling CO2 then uses the AC-off rate) */
+    ac_on?: boolean | null;
     seat_capacity: number;
     owner_company_id?: number;
     vendor_id?: number;
@@ -71,6 +73,8 @@ export interface Vehicle {
     fuel_avg_city: number;
     fuel_avg_highway: number;
     fuel_type?: 'PETROL' | 'DIESEL' | null;
+    /** AC on / off; null = not set (idling CO2 then uses the AC-off rate) */
+    ac_on?: boolean | null;
     seat_capacity: number;
     owner_company_id: number | null;
     created_at?: string;

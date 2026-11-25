@@ -122,6 +122,7 @@ export interface VendorVehicle {
     fuel_avg_highway: number;
     seat_capacity?: number;
     fuel_type?: string | null;
+    ac_on?: boolean | null;
     company_vendor_link_id: number | null;
     is_company_pool: boolean;
 }
