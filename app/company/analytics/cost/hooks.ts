@@ -147,7 +147,14 @@ export function useFmt() {
       if (v == null) return "—";
       if (u === "PKR") return pkr(v);
       if (u === "%") return `${n(v, 1)}%`;
-      const dp = u === "count" || u === "seats" || u === "trips" || u === "days" ? 0 : u === "km/L" || u === "PKR/L" ? 2 : 1;
+      const dp =
+        u === "count" || u === "seats" || u === "trips" || u === "days" || u === "trees"
+          ? 0
+          : u === "km/L" || u === "PKR/L" || u === "kg/L" || u === "L/h"
+            ? 2
+            : u === "kgCO2e" && Math.abs(v) >= 100
+              ? 0
+              : 1;
       return `${n(v, dp)} ${unit(u)}`;
     };
     const fig = (f: Figure | null | undefined) => (f ? value(f.value, f.unit) : "—");

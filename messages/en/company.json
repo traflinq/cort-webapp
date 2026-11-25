@@ -669,7 +669,11 @@
       "fuelType": "Fuel type",
       "fuelTypeAuto": "Auto (from category)",
       "fuelPetrol": "Petrol",
-      "fuelDiesel": "Diesel"
+      "fuelDiesel": "Diesel",
+      "acLabel": "AC",
+      "acUnset": "Not set (AC-off idle rate)",
+      "acOn": "AC on",
+      "acOff": "AC off"
     },
     "analytics": {
       "label": "Insights",
@@ -719,7 +723,8 @@
       "routesTitle": "Route optimization and merging",
       "routesDescription": "Simulated changes to stop order and route combinations, each with its road-routed comparison, feasibility checks and net saving.",
       "recsTitle": "Recommendations",
-      "recsDescription": "Every recommendation shows what was found, the data behind it, the calculation, the trade-offs and how confident the system is."
+      "recsDescription": "Every recommendation shows what was found, the data behind it, the calculation, the trade-offs and how confident the system is.",
+      "tabCarbon": "Carbon & ESG"
     },
     "fleetAnalytics": {
       "colBooking": "Booking",
@@ -1359,7 +1364,12 @@
         "count": "",
         "seats": "seats",
         "days": "days",
-        "trips": "trips"
+        "trips": "trips",
+        "kgCO2e": "kg CO₂e",
+        "kg_L": "kg/L",
+        "h": "h",
+        "L_h": "L/h",
+        "trees": "trees"
       },
       "basis": {
         "MEASURED": "Measured",
@@ -1833,7 +1843,72 @@
         "savedBreakdown": "{vehicles} fewer vehicles ({vehiclesPkr}) and {km} fewer km ({kmPkr})"
       },
       "retry": "Try again",
-      "filtersFailed": "Could not load your shuttle setup, so some tabs may be missing."
+      "filtersFailed": "Could not load your shuttle setup, so some tabs may be missing.",
+      "carbon": {
+        "title": "Carbon & ESG impact",
+        "description": "The CO₂ your shuttle vehicles emit while driving and idling, and how much the recommendations would avoid. Tap ⓘ on any number to see how it was calculated.",
+        "heroEyebrow": "CO₂ you could avoid every month",
+        "heroUnit": "kg CO₂e / month",
+        "heroYear": "≈ {year} a year",
+        "fromRecs": "Recommendations",
+        "fromIdling": "Idling",
+        "fuelSaved": "Fuel saved",
+        "treesLine": "Same as ≈ {trees} trees absorbing CO₂ for a year",
+        "ringCaption": "abatement",
+        "ringLabel": "of today’s {current} a month",
+        "noRun": "Run the analysis to see how much CO₂ the recommendations would avoid. Until then only idling is counted.",
+        "oldRun": "The latest analysis ran before CO₂ was tracked. Run the analysis again to include the recommendations. Until then only idling is counted.",
+        "footprintTitle": "Footprint in the selected range",
+        "driving": "Driving",
+        "idlingShort": "Idling",
+        "footprintNote": "Idling is standing still for more than 2 minutes with the engine on, including waiting at pickup stops.",
+        "emitted": "CO₂e from driving",
+        "emittedHint": "{litres} of fuel",
+        "idling": "CO₂e from idling",
+        "idlingHint": "{hours} idle · {litres}",
+        "perEmployee": "Per employee",
+        "perEmployeeHint": "Driving + idling ÷ {employees} assigned employees",
+        "perMonth": "Per month today",
+        "perMonthHint": "Driving + idling, the baseline for the abatement rate",
+        "nowVsAfter": "Now vs after the changes",
+        "nowVsAfterHint": "CO₂e per month",
+        "now": "Now",
+        "after": "After the changes",
+        "savedLine": "{kg} less every month",
+        "sourcesTitle": "Where the saving comes from",
+        "sourcesHint": "Counted recommendations of the latest analysis, plus idling. Tap a recommendation to open it.",
+        "idlingSource": "Idling that could be avoided",
+        "idlingSourceSub": "{hours} standing still with the engine on",
+        "recsEmpty": "No counted recommendation in the latest analysis saves fuel.",
+        "vehiclesTitle": "By vehicle",
+        "acUnsetNote": "Vehicles without an AC setting: {count}. They use the AC-off idle rate (the lower one). Set AC on the vehicle in its fleet form.",
+        "seatsNote": "Vans, coasters or buses without a seat count: {count}. Their usual size is assumed for the idle rate.",
+        "kmplNote": "Vehicles without km/L: {count}. Their driving CO₂e is left out.",
+        "empty": "No completed trips by your own vehicles in this range.",
+        "colVehicle": "Vehicle",
+        "colClass": "Idle class",
+        "colAc": "AC",
+        "colRate": "Idle burn rate",
+        "colFootprint": "Footprint",
+        "colCo2": "CO₂e driving",
+        "colIdleHours": "Idle hours",
+        "colIdleCo2": "CO₂e idling",
+        "seatsAssumed": "Seats not set: usual size assumed",
+        "fuelMismatch": "Rate table lists diesel only",
+        "noClass": "No idle rate for this category",
+        "ac": {
+          "ON": "AC on",
+          "OFF": "AC off",
+          "UNSET": "AC not set"
+        },
+        "range": "range {min}–{max}",
+        "fuel": {
+          "PETROL": "Petrol",
+          "DIESEL": "Diesel"
+        },
+        "factorsTitle": "Emission factors",
+        "factor": "{fuel}: {value} kg CO₂e per litre"
+      }
     }
   }
 }

@@ -44,6 +44,8 @@ const getDefaultVehicleForm = () => ({
     seat_capacity: 14,
     /** "" = infer from the category (coaster/bus = diesel) */
     fuel_type: "" as "" | "PETROL" | "DIESEL",
+    /** "" = not set (idling CO2 then uses the AC-off rate) */
+    ac_on: "" as "" | "on" | "off",
 });
 
 function trialHasPool(modules?: TrialModules): boolean {
@@ -198,6 +200,7 @@ export default function CompanyFleetPage() {
                 fuel_avg_city: vehicleForm.fuel_avg_city,
                 fuel_avg_highway: vehicleForm.fuel_avg_highway,
                 ...(vehicleForm.fuel_type ? { fuel_type: vehicleForm.fuel_type } : {}),
+                ...(vehicleForm.ac_on ? { ac_on: vehicleForm.ac_on === "on" } : {}),
                 ...(showShuttleSeatCapacity ? { seat_capacity: vehicleForm.seat_capacity } : {}),
             });
             toast.success(isTrialUser ? t("vehicleAddedFleet") : t("vehicleAdded"));
@@ -499,6 +502,13 @@ export default function CompanyFleetPage() {
                                     <option value="">{t("fuelTypeAuto")}</option>
                                     <option value="PETROL">{t("fuelPetrol")}</option>
                                     <option value="DIESEL">{t("fuelDiesel")}</option>
+                                </select>
+                            </Field>
+                            <Field label={t("acLabel")}>
+                                <select value={vehicleForm.ac_on} onChange={(e) => setVehicleForm((f) => ({ ...f, ac_on: e.target.value as "" | "on" | "off" }))} className={inputCls}>
+                                    <option value="">{t("acUnset")}</option>
+                                    <option value="on">{t("acOn")}</option>
+                                    <option value="off">{t("acOff")}</option>
                                 </select>
                             </Field>
                             {showShuttleSeatCapacity && (

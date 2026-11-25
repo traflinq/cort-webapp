@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { AlertCircle, ArrowRight, Bus, Car, Fuel, GitMerge, LayoutGrid, Lightbulb, RefreshCw, UserRound, Users } from "lucide-react";
+import { AlertCircle, ArrowRight, Bus, Car, Fuel, GitMerge, LayoutGrid, Leaf, Lightbulb, RefreshCw, UserRound, Users } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/app/lib/services/api-client";
 import { formatLocaleNumber } from "@/app/lib/i18n/format";
@@ -32,12 +32,13 @@ import { ErrorNote } from "./cost/ui";
 import { OverviewPanel } from "./cost/OverviewPanel";
 import { FuelPanel } from "./cost/FuelPanel";
 import { OccupancyPanel } from "./cost/OccupancyPanel";
+import { CarbonPanel } from "./cost/CarbonPanel";
 import { RecommendationDrawer, RecommendationsPanel } from "./cost/Recommendations";
 import { BeforeAfter } from "./cost/BeforeAfter";
 import type { FilterOptions, RecommendationList } from "./cost/types";
 
-type TabId = "overview" | "shuttle" | "fuel" | "occupancy" | "routes" | "recommendations" | "chauffeur" | "pool";
-const TAB_IDS: TabId[] = ["overview", "shuttle", "fuel", "occupancy", "routes", "recommendations", "chauffeur", "pool"];
+type TabId = "overview" | "shuttle" | "fuel" | "occupancy" | "routes" | "recommendations" | "carbon" | "chauffeur" | "pool";
+const TAB_IDS: TabId[] = ["overview", "shuttle", "fuel", "occupancy", "routes", "recommendations", "carbon", "chauffeur", "pool"];
 
 export default function AnalyticsPage() {
   return (
@@ -93,6 +94,7 @@ function AnalyticsContent() {
           { id: "occupancy", label: t("tabOccupancy"), icon: <Users />, show: ownOps },
           { id: "routes", label: t("tabRoutes"), icon: <GitMerge />, show: ownOps },
           { id: "recommendations", label: t("tabRecommendations"), icon: <Lightbulb />, show: ownOps },
+          { id: "carbon", label: t("tabCarbon"), icon: <Leaf />, show: ownOps },
           { id: "chauffeur", label: t("tabChauffeur"), icon: <UserRound />, show: services.chauffeur },
           { id: "pool", label: t("tabPool"), icon: <Car />, show: services.pool },
         ] as const
@@ -171,7 +173,7 @@ function AnalyticsContent() {
             filters={filters}
             onChange={setFilters}
             options={filterOptions.data}
-            showScope={ownOps && ["overview", "fuel", "occupancy"].includes(active)}
+            showScope={ownOps && ["overview", "fuel", "occupancy", "carbon"].includes(active)}
           />
 
           {savingsFailed && (
@@ -304,6 +306,8 @@ function AnalyticsContent() {
             {active === "recommendations" && (
               <RecommendationsPanel list={recs} onOpen={setOpenRec} title={t("recsTitle")} description={t("recsDescription")} aiEnabled={ai} />
             )}
+
+            {active === "carbon" && <CarbonPanel key={refresh} filters={filters} onOpenRecommendation={setOpenRec} />}
 
             {active === "chauffeur" && (
               <>
