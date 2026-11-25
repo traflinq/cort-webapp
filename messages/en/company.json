@@ -1796,7 +1796,7 @@
         },
         "fuel": {
           "identified": "{vehicle} drove {km} km (GPS). At its rated {kmpl} km/L that is about {estimated} L, but the vendor's claimed fuel for the period is {contracted} L — {diff} L ({pct}%) more.",
-          "recommendation": "Ask the vendor to bill {vehicle}'s fuel for the distance it actually drives.",
+          "recommendation": "The vendor is charging {pct}% more fuel than {vehicle} actually needs.",
           "why": "At the recorded fuel price the vendor's claimed fuel costs {amount} more for the period than the fuel the distance driven needs."
         },
         "redistribute": {
