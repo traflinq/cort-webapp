@@ -51,7 +51,7 @@ export function OverviewPanel({ filters, onOpenTab, onManageBenchmarks }: { filt
         )}
       </section>
 
-      {/* Opportunities — potential, approved and realised are never added together */}
+      {/* Opportunities — one amount the company can save */}
       <section className="flex flex-col gap-3">
         <SectionHeading
           title={t("opportunitiesTitle")}
@@ -70,11 +70,9 @@ export function OverviewPanel({ filters, onOpenTab, onManageBenchmarks }: { filt
             {t("noRunYet")}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatBlock label={t("potentialMonthly")} figure={o.potential_monthly} hint={t("openCount", { count: o.counts.open })} />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <StatBlock label={t("potentialMonthly")} figure={o.potential_monthly} hint={t("openCount", { count: o.recommendations })} />
             <StatBlock label={t("potentialAnnual")} figure={o.potential_annual} />
-            <StatBlock label={t("approved")} figure={o.approved_monthly} hint={t("approvedHint", { count: o.counts.approved })} />
-            <StatBlock label={t("realized")} figure={o.realized_total} hint={t("realizedHint", { count: o.counts.realized })} />
           </div>
         )}
       </section>

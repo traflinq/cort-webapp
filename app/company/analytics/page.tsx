@@ -67,7 +67,7 @@ function AnalyticsContent() {
   const [benchmarksOpen, setBenchmarksOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [openRec, setOpenRec] = useState<number | null>(null);
-  // Bumped after a run, a decision or a rate change so the cost panels refetch.
+  // Bumped after a run or a rate change so the cost panels refetch.
   const [refresh, setRefresh] = useState(0);
   const filterOptions = useCostFetch<FilterOptions>(services.shuttle ? "/company/cost-optimization/filters" : null);
   // Two kinds of shuttle operation: the company's own vendors' / own cars (vendor-rate analysis and recommendations),
@@ -342,10 +342,6 @@ function AnalyticsContent() {
       <RecommendationDrawer
         id={openRec}
         onClose={() => setOpenRec(null)}
-        onChanged={() => {
-          recs.reload();
-          setRefresh((x) => x + 1);
-        }}
       />
     </div>
   );

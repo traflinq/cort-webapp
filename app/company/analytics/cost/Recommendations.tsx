@@ -2,16 +2,14 @@
 
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
 import { ArrowLeftRight, CheckCircle2, CircleDashed, CircleX, Fuel, GitMerge, Info, Route, Shrink, Split, TriangleAlert } from "lucide-react";
-import { apiClient } from "@/app/lib/services/api-client";
 import { cn } from "@/lib/utils";
 import { SectionHeading } from "../components/ui";
 import { useCostFetch, useFmt } from "./hooks";
 import { CompareBarChart } from "./charts";
 import { RouteCompareMap } from "./RouteCompareMap";
 import { BasisBadge, Drawer, EmptyNote, ErrorNote, FigureValue, Skeleton, Tag } from "./ui";
-import type { Check, Figure, NarrativePart, Recommendation, RecommendationList, RecStatus, RecType } from "./types";
+import type { Check, Figure, NarrativePart, Recommendation, RecommendationList, RecType } from "./types";
 
 const TYPE_ICON: Record<RecType, ReactNode> = {
   ROUTE_MERGE: <GitMerge />,
@@ -54,12 +52,6 @@ export function useNarrative() {
 
 const netOf = (r: Recommendation) => (r.net_monthly_pkr === null ? null : Number(r.net_monthly_pkr));
 
-function StatusTag({ status }: { status: RecStatus }) {
-  const t = useTranslations("company.costOptimization.recs.status");
-  const tone = status === "APPROVED" || status === "IMPLEMENTED" ? "brand" : status === "REALIZED" ? "success" : status === "REJECTED" ? "danger" : status === "INVESTIGATING" ? "warning" : "neutral";
-  return <Tag tone={tone}>{t(status)}</Tag>;
-}
-
 function FeasibilityTag({ rec }: { rec: Recommendation }) {
   const t = useTranslations("company.costOptimization.recs");
   if (rec.feasibility === "FEASIBLE")
@@ -90,7 +82,6 @@ export function RecommendationCard({ rec, onOpen, locked }: { rec: Recommendatio
         </span>
         <span className="flex flex-wrap justify-end gap-1">
           <FeasibilityTag rec={rec} />
-          {rec.status !== "OPEN" && <StatusTag status={rec.status} />}
         </span>
       </div>
       <p className="text-sm font-semibold text-fg" dir="auto">
@@ -144,7 +135,7 @@ function useLabel() {
   return (key: string) => (t.has(key as never) ? t(key as never) : key.replace(/_/g, " "));
 }
 
-export function RecommendationDrawer({ id, onClose, onChanged }: { id: number | null; onClose: () => void; onChanged: () => void }) {
+export function RecommendationDrawer({ id, onClose }: { id: number | null; onClose: () => void }) {
   const t = useTranslations("company.costOptimization.recs");
   const tc = useTranslations("company.costOptimization");
   const fmt = useFmt();
@@ -160,8 +151,7 @@ export function RecommendationDrawer({ id, onClose, onChanged }: { id: number | 
       open
       onClose={onClose}
       title={rec ? t(`type.${rec.type}` as never) : t("loading")}
-      subtitle={rec ? <span className="flex flex-wrap items-center gap-2"><FeasibilityTag rec={rec} /><StatusTag status={rec.status} /></span> : undefined}
-      footer={rec ? <DecisionBar rec={rec} onDone={() => { res.reload(); onChanged(); }} /> : undefined}
+      subtitle={rec ? <FeasibilityTag rec={rec} /> : undefined}
     >
       {res.error ? (
         <ErrorNote message={tc("loadFailed")} detail={res.error} onRetry={res.reload} />
@@ -237,12 +227,6 @@ export function RecommendationDrawer({ id, onClose, onChanged }: { id: number | 
                 </li>
               ))}
             </ul>
-          </Part>
-
-          <Part n={8} title={t("partActions")}>
-            <p className="text-sm text-fg-muted">{t("actionsNote")}</p>
-            {rec.decision_note && <p className="mt-2 rounded-xl bg-subtle p-3 text-sm" dir="auto">“{rec.decision_note}” <span className="text-xs text-fg-muted">· {fmt.date(rec.decided_at)}</span></p>}
-            {rec.realized && <Realized data={rec.realized} />}
           </Part>
 
           {rec.assumptions.length > 0 && (
@@ -349,72 +333,6 @@ function Checks({ checks }: { checks: Check[] }) {
   );
 }
 
-function Realized({ data }: { data: Record<string, unknown> }) {
-  const t = useTranslations("company.costOptimization.recs");
-  const fmt = useFmt();
-  const status = String(data.status ?? "");
-  return (
-    <div className="mt-2 rounded-xl border border-success-line bg-success-soft p-3 text-sm text-success-ink">
-      {status === "MEASURING" && t("realizedMeasuring", { days: Number(data.post_trip_days ?? 0), needed: Number(data.needed_days ?? 0) })}
-      {status === "MEASURED" && t("realizedMeasured", { amount: data.realized_pkr == null ? fmt.locked : fmt.pkr(Number(data.realized_pkr)), from: fmt.date(String(data.post_from)), to: fmt.date(String(data.post_to)) })}
-      {status === "VERIFIED" && t("realizedVerified", { amount: data.recovered_pkr == null ? fmt.locked : fmt.pkr(Number(data.recovered_pkr)) })}
-    </div>
-  );
-}
-
-function DecisionBar({ rec, onDone }: { rec: Recommendation; onDone: () => void }) {
-  const t = useTranslations("company.costOptimization.recs");
-  const [note, setNote] = useState("");
-  const [recovered, setRecovered] = useState("");
-  const [busy, setBusy] = useState(false);
-  const decide = async (status: "APPROVED" | "REJECTED" | "INVESTIGATING" | "OPEN") => {
-    setBusy(true);
-    try {
-      const body: Record<string, unknown> = { status };
-      if (note.trim()) body.note = note.trim();
-      const amount = Number(recovered);
-      if (status === "APPROVED" && rec.type === "FUEL_DISCREPANCY" && recovered.trim() && Number.isFinite(amount)) body.recovered_amount_pkr = amount;
-      await apiClient.request(`/company/cost-optimization/recommendations/${rec.id}/decision`, { method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
-      toast.success(t(`decided.${status}` as never));
-      setNote("");
-      setRecovered("");
-      onDone();
-    } catch (e) {
-      toast.error(e instanceof Error && e.message ? e.message : t("decisionFailed"));
-    } finally {
-      setBusy(false);
-    }
-  };
-  const btn = "rounded-xl px-3 py-2 text-sm font-semibold transition-colors disabled:opacity-50";
-  const canApprove = rec.feasibility === "FEASIBLE";
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} placeholder={t("notePlaceholder")} aria-label={t("notePlaceholder")} className="h-9 flex-1 rounded-xl border border-line bg-card px-3 text-sm outline-none focus:border-brand-line" />
-        {rec.type === "FUEL_DISCREPANCY" && (
-          <input value={recovered} onChange={(e) => setRecovered(e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" placeholder={t("recoveredPlaceholder")} aria-label={t("recoveredPlaceholder")} className="h-9 rounded-xl border border-line bg-card px-3 text-sm outline-none focus:border-brand-line sm:w-48" />
-        )}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={busy || !canApprove} onClick={() => decide("APPROVED")} className={cn(btn, "bg-brand text-white hover:opacity-90")} title={canApprove ? undefined : t("cannotApprove")}>
-          {rec.type === "FUEL_DISCREPANCY" ? t("actionConfirm") : t("actionApprove")}
-        </button>
-        <button type="button" disabled={busy} onClick={() => decide("INVESTIGATING")} className={cn(btn, "border border-line bg-card hover:bg-subtle")}>
-          {t("actionInvestigate")}
-        </button>
-        <button type="button" disabled={busy} onClick={() => decide("REJECTED")} className={cn(btn, "border border-line bg-card text-danger-ink hover:bg-danger-soft")}>
-          {t("actionReject")}
-        </button>
-        {rec.status !== "OPEN" && rec.status !== "REALIZED" && (
-          <button type="button" disabled={busy} onClick={() => decide("OPEN")} className={cn(btn, "text-fg-muted hover:bg-subtle")}>
-            {t("actionReopen")}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── Recommendations tab ─────────────────────────────────────────────────────
 
 const TYPE_FILTERS: Array<RecType | "ALL"> = ["ALL", "ROUTE_REDISTRIBUTE", "ROUTE_MERGE", "ROUTE_RESEQUENCE", "VEHICLE_DOWNSIZE", "ROUTE_DETOUR", "FUEL_DISCREPANCY"];
@@ -444,8 +362,8 @@ export function RecommendationsPanel({
   if (!list.data) return <Skeleton className="h-60" />;
   const { run, recommendations, savings_locked } = list.data;
   const pool = recommendations.filter((r) => !types || types.includes(r.type));
-  const shown = pool.filter((r) => (type === "ALL" || r.type === type) && (showRejected || r.feasibility === "FEASIBLE" || r.status !== "OPEN"));
-  const hiddenRejected = pool.filter((r) => (type === "ALL" || r.type === type) && r.feasibility !== "FEASIBLE" && r.status === "OPEN").length;
+  const shown = pool.filter((r) => (type === "ALL" || r.type === type) && (showRejected || r.feasibility === "FEASIBLE"));
+  const hiddenRejected = pool.filter((r) => (type === "ALL" || r.type === type) && r.feasibility !== "FEASIBLE").length;
   const filters = TYPE_FILTERS.filter((f) => f === "ALL" || (!types || types.includes(f)) && pool.some((r) => r.type === f));
 
   return (

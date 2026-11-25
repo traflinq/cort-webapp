@@ -71,10 +71,7 @@ export interface Overview extends Locked {
   opportunities: {
     potential_monthly: Figure;
     potential_annual: Figure;
-    approved_monthly: Figure;
-    realized_total: Figure;
-    verified_fuel_recovered: Figure;
-    counts: { open: number; approved: number; realized: number; rejected: number };
+    recommendations: number;
     last_run: { id: number; generated_at: string } | null;
   };
   utilisation: { average_occupancy: Figure; vehicle_utilisation: Figure; trips: number; service_days: number };
@@ -197,7 +194,6 @@ export interface OccupancyReport extends Locked {
 // ─── Recommendations ─────────────────────────────────────────────────────────
 
 export type RecType = "ROUTE_MERGE" | "ROUTE_REDISTRIBUTE" | "ROUTE_RESEQUENCE" | "VEHICLE_DOWNSIZE" | "ROUTE_DETOUR" | "FUEL_DISCREPANCY";
-export type RecStatus = "OPEN" | "APPROVED" | "REJECTED" | "INVESTIGATING" | "IMPLEMENTED" | "REALIZED" | "SUPERSEDED";
 export type Feasibility = "FEASIBLE" | "REJECTED" | "ROUTING_UNAVAILABLE" | "INSUFFICIENT_DATA";
 
 export interface Check {
@@ -270,10 +266,6 @@ export interface Recommendation {
   net_monthly_pkr: string | number | null;
   overlaps_with: number[];
   counted: boolean;
-  status: RecStatus;
-  decided_at: string | null;
-  decision_note: string | null;
-  realized: Record<string, unknown> | null;
   calculated_at: string;
   savings_locked?: boolean;
   run?: { id: number; generated_at: string; period_start: string; period_end: string; engine_version: string };
