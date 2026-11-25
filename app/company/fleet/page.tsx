@@ -42,6 +42,8 @@ const getDefaultVehicleForm = () => ({
     fuel_avg_city: 10,
     fuel_avg_highway: 13,
     seat_capacity: 14,
+    /** "" = infer from the category (coaster/bus = diesel) */
+    fuel_type: "" as "" | "PETROL" | "DIESEL",
 });
 
 function trialHasPool(modules?: TrialModules): boolean {
@@ -195,6 +197,7 @@ export default function CompanyFleetPage() {
                 category: vehicleForm.category,
                 fuel_avg_city: vehicleForm.fuel_avg_city,
                 fuel_avg_highway: vehicleForm.fuel_avg_highway,
+                ...(vehicleForm.fuel_type ? { fuel_type: vehicleForm.fuel_type } : {}),
                 ...(showShuttleSeatCapacity ? { seat_capacity: vehicleForm.seat_capacity } : {}),
             });
             toast.success(isTrialUser ? t("vehicleAddedFleet") : t("vehicleAdded"));
@@ -491,6 +494,13 @@ export default function CompanyFleetPage() {
                             <Field label={t("color")}><input value={vehicleForm.color} onChange={(e) => setVehicleForm((f) => ({ ...f, color: e.target.value }))} className={inputCls} /></Field>
                             <Field label={t("fuelAvgCity")}><input type="number" step="0.1" value={vehicleForm.fuel_avg_city} onChange={(e) => setVehicleForm((f) => ({ ...f, fuel_avg_city: Number(e.target.value) }))} className={inputCls} /></Field>
                             <Field label={t("fuelAvgHighway")}><input type="number" step="0.1" value={vehicleForm.fuel_avg_highway} onChange={(e) => setVehicleForm((f) => ({ ...f, fuel_avg_highway: Number(e.target.value) }))} className={inputCls} /></Field>
+                            <Field label={t("fuelType")}>
+                                <select value={vehicleForm.fuel_type} onChange={(e) => setVehicleForm((f) => ({ ...f, fuel_type: e.target.value as "" | "PETROL" | "DIESEL" }))} className={inputCls}>
+                                    <option value="">{t("fuelTypeAuto")}</option>
+                                    <option value="PETROL">{t("fuelPetrol")}</option>
+                                    <option value="DIESEL">{t("fuelDiesel")}</option>
+                                </select>
+                            </Field>
                             {showShuttleSeatCapacity && (
                                 <Field label={t("seatCapacity")}>
                                     <input type="number" min={1} value={vehicleForm.seat_capacity} onChange={(e) => setVehicleForm((f) => ({ ...f, seat_capacity: Number(e.target.value) }))} className={inputCls} />

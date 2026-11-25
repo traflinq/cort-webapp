@@ -26,6 +26,8 @@ export interface CreateVehicleRequest {
     ownership: OwnershipType;
     fuel_avg_city: number;
     fuel_avg_highway: number;
+    /** PETROL | DIESEL; null = infer from the category (coaster/bus = diesel) */
+    fuel_type?: 'PETROL' | 'DIESEL' | null;
     seat_capacity: number;
     owner_company_id?: number;
     vendor_id?: number;
@@ -68,6 +70,7 @@ export interface Vehicle {
     ownership: OwnershipType;
     fuel_avg_city: number;
     fuel_avg_highway: number;
+    fuel_type?: 'PETROL' | 'DIESEL' | null;
     seat_capacity: number;
     owner_company_id: number | null;
     created_at?: string;

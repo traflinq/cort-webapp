@@ -38,6 +38,7 @@ type BenchmarkRow = {
   fuel_litres: number | null;
   claimed_avg_distance_km: number | null;
   fuel_avg_kmpl: number | null;
+  fuel_type?: 'PETROL' | 'DIESEL' | null;
   notes: string | null;
 };
 
@@ -52,6 +53,7 @@ type NewBenchmarkForm = {
   fuel_litres: string;
   claimed_avg_distance_km: string;
   fuel_avg_kmpl: string;
+  fuel_type: 'PETROL' | 'DIESEL';
   notes: string;
 };
 
@@ -77,6 +79,7 @@ const EMPTY_FORM: NewBenchmarkForm = {
   fuel_litres: '',
   claimed_avg_distance_km: '',
   fuel_avg_kmpl: '',
+  fuel_type: 'PETROL',
   notes: '',
 };
 
@@ -168,6 +171,7 @@ export function BenchmarksModal({ companyId, companyName, isOpen, onClose }: Ben
           claimed_avg_distance_km:
             form.fuel_mode === 'AVERAGE' ? parseFloat(form.claimed_avg_distance_km) : null,
           fuel_avg_kmpl: form.fuel_mode === 'AVERAGE' ? parseFloat(form.fuel_avg_kmpl) : null,
+          fuel_type: form.fuel_type,
           notes: form.notes || null,
         }),
       });
@@ -442,6 +446,15 @@ export function BenchmarksModal({ companyId, companyName, isOpen, onClose }: Ben
 
                 <div className="border-t border-line pt-4">
                   <FormGrid cols={2}>
+                    <Field label="Fuel type" required className="sm:col-span-2">
+                      <Select
+                        value={form.fuel_type}
+                        onChange={(e) => setForm((f) => ({ ...f, fuel_type: e.target.value as 'PETROL' | 'DIESEL' }))}
+                      >
+                        <option value="PETROL">Petrol</option>
+                        <option value="DIESEL">Diesel</option>
+                      </Select>
+                    </Field>
                     <Field label="Fuel benchmark mode" required className="sm:col-span-2">
                       <Select
                         value={form.fuel_mode}
