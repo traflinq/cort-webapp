@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { AlertCircle, Car, CheckCircle2, CreditCard, Plus, Route, Users, Wallet } from "lucide-react";
+import { Car, CreditCard, Plus, Route, Users } from "lucide-react";
 import { Button, CardSkeleton, Drawer, DrawerContent, Dialog, DialogContent, ErrorState, KpiCard, KpiGrid, KpiSkeleton, PageHeader, RefreshButton, useFormatters } from "@/app/ui";
 import { useAppDispatch, useAppSelector } from "../lib/store/hooks";
 import { clearDashboardCache, fetchDashboardStats, selectDashboardStats, selectDashboardStatus } from "../lib/store/slices/dashboardSlice";
@@ -142,8 +142,6 @@ export default function CompanyDashboardPage() {
   }
 
   const ch = stats.chauffeur;
-  const completedTrend = parseTrend(ch.completedTrend);
-  const spendTrend = parseTrend(ch.spendTrend);
   const avgTripCost = hasChauffeur && ch.completedThisMonth > 0 ? Math.round(ch.totalSpend / ch.completedThisMonth) : 0;
   const costPerEmployee = hasChauffeur && stats.employees.active > 0 ? Math.round(ch.totalSpend / stats.employees.active) : 0;
   const outstanding = hasChauffeur ? (ch.outstandingAmount ?? 0) : 0;
@@ -155,54 +153,9 @@ export default function CompanyDashboardPage() {
       {header}
 
       <KpiGrid cols={4}>
-        {hasChauffeur && (
-          <KpiCard
-            label={t("unassignedBookings")}
-            value={ch.unassignedBookings ?? 0}
-            icon={<AlertCircle />}
-            tone={(ch.unassignedBookings ?? 0) > 0 ? "warning" : "success"}
-            emphasis={(ch.unassignedBookings ?? 0) > 0 ? "brand" : "none"}
-            hint={(ch.unassignedBookings ?? 0) > 0 ? t("requiresAttention") : t("allCaughtUp")}
-            href={companyPath("/company/bookings")}
-          />
-        )}
-        {hasChauffeur && (
-          <KpiCard
-            label={t("ridesCompleted")}
-            value={ch.completedThisMonth}
-            icon={<CheckCircle2 />}
-            tone="success"
-            delta={completedTrend !== null ? { value: completedTrend, label: t("vsLastMonth") } : undefined}
-            hint={t("totalTripsLifetime") + `: ${ch.completedAllTime ?? 0}`}
-          />
-        )}
-        {hasChauffeur && (
-          <KpiCard
-            label={t("totalSpendMtd")}
-            value={formatCurrency(ch.totalSpend)}
-            icon={<CreditCard />}
-            tone="brand"
-            delta={spendTrend !== null ? { value: spendTrend, label: t("vsLastMonth"), invert: true } : undefined}
-            hint={`${t("avgTripCost")}: ${formatCurrency(avgTripCost)}`}
-          />
-        )}
-        {hasChauffeur && (
-          <KpiCard
-            label={t("outstandingBalance")}
-            value={formatCurrency(outstanding)}
-            icon={<Wallet />}
-            tone={outstanding > 0 ? "danger" : "success"}
-            emphasis={outstanding > 0 ? "danger" : "none"}
-            hint={outstanding > 0 ? t("invoicesCount", { count: outstandingInvoices.length }) : t("noPendingActions")}
-            onClick={outstanding > 0 && outstandingInvoices.length > 0 ? () => setInvoicesOpen(true) : undefined}
-          />
-        )}
-        {hasChauffeur && <KpiCard label={t("activeChauffeurRides")} value={ch.activeRides ?? 0} icon={<Car />} tone="brand" hint={t("inProgress")} />}
-        {hasShuttle && (
-          <KpiCard label={t("shuttleTrips")} value={stats.shuttle.monthlyTrips} icon={<Route />} tone="info" hint={`${t("totalRunsMtd")} · ${t("totalTripsLifetime")}: ${stats.shuttle.totalTripsAllTime ?? 0}`} href={companyPath("/company/routes")} />
-        )}
         {hasShuttle && (
           <KpiCard
+            size="lg"
             label={t("peopleAddedToRoutes")}
             value={rosterChanges.added_count}
             icon={<Users />}
@@ -210,18 +163,20 @@ export default function CompanyDashboardPage() {
             hint={rosterChanges.top_route ? t("topRouteAdded", { id: rosterChanges.top_route.route_id, name: rosterChanges.top_route.route_name, count: rosterChanges.top_route.added_count }) : t("peopleRemovedThisMonth", { count: rosterChanges.removed_count })}
           />
         )}
-        <KpiCard
-          label={t("activePassengers")}
-          value={
-            <>
-              {stats.employees.active}
-              <span className="text-sm font-normal text-fg-muted"> / {stats.employees.total}</span>
-            </>
-          }
-          icon={<Users />}
-          tone="neutral"
-          href={companyPath("/company/employees")}
-        />
+        {hasChauffeur && (
+          <KpiCard
+            size="lg"
+            label={t("avgTripCost")}
+            value={formatCurrency(avgTripCost)}
+            icon={<CreditCard />}
+            tone="brand"
+            hint={`${t("perCompletedRide")} · ${t("totalSpendLifetime")}: ${formatCurrency(ch.totalSpendAllTime ?? 0)}`}
+          />
+        )}
+        {hasChauffeur && <KpiCard size="lg" label={t("activeChauffeurRides")} value={ch.activeRides ?? 0} icon={<Car />} tone="brand" hint={t("inProgress")} />}
+        {hasShuttle && (
+          <KpiCard size="lg" label={t("shuttleTrips")} value={stats.shuttle.monthlyTrips} icon={<Route />} tone="info" hint={`${t("totalRunsMtd")} · ${t("totalTripsLifetime")}: ${stats.shuttle.totalTripsAllTime ?? 0}`} href={companyPath("/company/routes")} />
+        )}
       </KpiGrid>
 
       <LiveMobilityCenter data={stats.mobility ?? { activeRides: 0, employeesTraveling: 0, shuttlesRunning: 0, chauffeurRides: 0, upcomingBookings: 0 }} />

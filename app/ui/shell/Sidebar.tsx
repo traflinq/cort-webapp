@@ -42,7 +42,9 @@ function NavLink({ item, active, show, onNavigate }: { item: PortalNavItem; acti
       title={show ? undefined : item.label}
       onClick={onNavigate}
       className={cn(
-        "group relative flex h-9 items-center overflow-hidden whitespace-nowrap rounded-lg text-sm font-medium transition-colors duration-150",
+        "group relative flex h-9 items-center overflow-hidden whitespace-nowrap rounded-lg text-sm font-medium transition-[width,background-color,color] duration-200",
+        // Rail clips the 240px layout at 64px; keep the pill inside the visible slot when collapsed.
+        show ? "w-full" : "w-10",
         active ? "bg-brand-soft text-brand-ink" : "text-fg-secondary hover:bg-subtle hover:text-fg",
         focusRing,
       )}
@@ -98,7 +100,7 @@ export function Sidebar({ groups, activeHref, expanded = false, mobile = false, 
               {gi > 0 && (
                 <span
                   aria-hidden="true"
-                  className={cn("absolute inset-x-1 top-1/2 h-px bg-line transition-opacity duration-150", show ? "opacity-0" : "opacity-100")}
+                  className={cn("absolute start-1 top-1/2 h-px bg-line transition-opacity duration-150", show ? "w-[calc(100%-0.5rem)] opacity-0" : "w-8 opacity-100")}
                 />
               )}
             </div>

@@ -32,6 +32,8 @@ export interface KpiCardProps {
   loading?: boolean;
   /** Visually emphasised (danger tone border) for critical alerts. */
   emphasis?: "none" | "danger" | "brand";
+  /** `lg` for hero KPIs: bigger number, roomier padding. */
+  size?: "default" | "lg";
   className?: string;
 }
 
@@ -62,7 +64,7 @@ function Sparkline({ points, className }: { points: number[]; className?: string
   );
 }
 
-export function KpiCard({ label, value, delta, hint, icon, tone = "neutral", sparkline, href, onClick, loading, emphasis = "none", className }: KpiCardProps) {
+export function KpiCard({ label, value, delta, hint, icon, tone = "neutral", sparkline, href, onClick, loading, emphasis = "none", size = "default", className }: KpiCardProps) {
   if (loading) return <KpiSkeleton className={className} />;
 
   const dir = delta ? (delta.value > 0 ? "up" : delta.value < 0 ? "down" : "flat") : null;
@@ -79,8 +81,8 @@ export function KpiCard({ label, value, delta, hint, icon, tone = "neutral", spa
         <p className="text-[13px] font-medium text-fg-muted">{label}</p>
         {icon && <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4", iconTone[tone])}>{icon}</span>}
       </div>
-      <div className="mt-2 flex items-end justify-between gap-3">
-        <p className="text-2xl font-semibold tracking-tight text-fg tabular-nums">{value}</p>
+      <div className={cn("flex items-end justify-between gap-3", size === "lg" ? "mt-3" : "mt-2")}>
+        <p className={cn("font-semibold tracking-tight text-fg tabular-nums", size === "lg" ? "text-4xl leading-tight" : "text-2xl")}>{value}</p>
         {sparkline && sparkline.length > 1 && <Sparkline points={sparkline} className={good ? "text-success" : bad ? "text-danger" : "text-brand"} />}
       </div>
       {(delta || hint) && (
@@ -101,10 +103,11 @@ export function KpiCard({ label, value, delta, hint, icon, tone = "neutral", spa
 
   const cls = cn(
     surface,
-    "flex flex-col p-4 text-start",
+    "flex flex-col text-start",
+    size === "lg" ? "p-5" : "p-4",
     emphasis === "danger" && "border-danger-line",
     emphasis === "brand" && "border-brand-line",
-    interactive && cn("cursor-pointer transition-shadow duration-150 hover:shadow-[var(--shadow-card-hover)]", focusRing),
+    interactive && cn("cursor-pointer transition-shadow duration-150", "hover:shadow-[var(--shadow-card-hover)]", focusRing),
     className,
   );
 

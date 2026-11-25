@@ -311,7 +311,7 @@ export default function LiveMobilityCenter({ data }: LiveMobilityCenterProps) {
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* Map */}
-        <div className="relative order-2 h-[320px] sm:h-[400px] lg:order-1 lg:h-auto lg:min-h-[440px] lg:flex-1">
+        <div className="relative isolate order-2 h-[320px] sm:h-[400px] lg:order-1 lg:h-auto lg:min-h-[440px] lg:flex-1">
           {markers.length > 0 && mapCenter ? (
             <div className="absolute inset-0">
               <Map height="100%" markers={markers} center={mapCenter} zoom={12} className="!rounded-none !border-0 !shadow-none" onMarkerClick={handleMarkerClick} />

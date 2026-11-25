@@ -70,6 +70,7 @@
       "peopleRemovedThisMonth": "{count} تمت إزالتهم هذا الشهر",
       "noPeopleAdded": "لم يُضف أحد إلى مسار هذا الشهر",
       "avgTripCost": "متوسط تكلفة الرحلة",
+      "perCompletedRide": "لكل رحلة مكتملة",
       "activeChauffeurRides": "رحلات السائق الخاص النشطة",
       "inProgress": "قيد التنفيذ",
       "shuttleTrips": "رحلات النقل الجماعي",

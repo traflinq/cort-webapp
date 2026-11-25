@@ -224,6 +224,14 @@ html[data-theme="light"]:has(.portal, .admin-portal) {
     --bg-page: #ffffff;
     --bg-header: #ffffff;
 }
+/* Same tokens set on the portal roots themselves, so the white page doesn't hinge on :has() on <html> being re-evaluated
+   (the company shell mounts late, behind ProtectedRoute, and kept the tinted fallback). */
+[data-theme="light"] .portal,
+[data-theme="light"] .admin-portal,
+.portal[data-theme="light"] {
+    --bg-page: #ffffff;
+    --bg-header: #ffffff;
+}
 
 /* Design-system portals, dark mode: neutral graphite palette with clear elevation steps.
    Scoped so the vendor portal keeps the shared dark tokens above. */
