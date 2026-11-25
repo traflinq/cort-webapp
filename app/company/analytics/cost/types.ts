@@ -1,7 +1,7 @@
 /** Mirrors cort-backend src/modules/cost-optimization (reports + recommendations). */
 
 export type Basis = "MEASURED" | "REPORTED" | "CONTRACTED" | "ESTIMATED" | "SIMULATED" | "CALCULATED";
-export type Unit = "PKR" | "L" | "km" | "min" | "%" | "km/L" | "PKR/L" | "count" | "seats" | "days" | "trips";
+export type Unit = "PKR" | "L" | "km" | "min" | "%" | "km/L" | "PKR/L" | "count" | "seats" | "days" | "trips" | "kgCO2e" | "kg/L" | "h" | "L/h" | "trees";
 
 export interface FigureInput {
   label: string;
@@ -282,4 +282,61 @@ export interface FilterOptions {
   vendors: string[];
   /** company = its own vendors' or own cars (analysed with its vendor rates); cort = Traflinq's managed service */
   scope: { company_managed_vehicles: number; cort_managed_vehicles: number };
+}
+
+// ─── Carbon & ESG ────────────────────────────────────────────────────────────
+
+export type AcState = "ON" | "OFF" | "UNSET";
+export type FuelKind = "PETROL" | "DIESEL";
+
+export interface CarbonVehicleRow {
+  vehicle: { id: number; plate: string; label: string; category: string; fuel_type: FuelKind; fuel_type_explicit: boolean; seats: number | null; ac: AcState; vendor: string | null };
+  idle_class: { key: string; label: string; seats_assumed: boolean; fuel_mismatch: boolean } | null;
+  /** litres per hour; `used` is the low end of the min–max range */
+  idle_rate: { used: number; min: number; max: number; source: string } | null;
+  trips: number;
+  trips_without_idle: number;
+  km_estimated: number;
+  litres: Figure;
+  co2e: Figure;
+  idle_hours: Figure;
+  idle_litres: Figure;
+  idle_co2e: Figure;
+}
+
+export interface CarbonRecRow {
+  id: number;
+  type: RecType;
+  routes: Array<{ id: number; name: string }>;
+  litres_per_month: Figure;
+  co2e_per_month: Figure;
+}
+
+export interface CarbonReport extends Locked {
+  window: Window & { month_equivalents: number };
+  factors: Array<{ fuel_type: FuelKind; kg_per_litre: number; source: string }>;
+  totals: {
+    litres: Figure;
+    co2e: Figure;
+    employees: Figure;
+    intensity_per_employee: Figure;
+    idle_hours: Figure;
+    idle_litres: Figure;
+    idle_co2e: Figure;
+    current_co2e_per_month: Figure;
+    recs_litres_per_month: Figure;
+    recs_co2e_per_month: Figure;
+    idle_co2e_per_month: Figure;
+    potential_co2e_per_month: Figure;
+    potential_co2e_per_year: Figure;
+    after_co2e_per_month: Figure;
+    abatement_pct: Figure;
+    trees: Figure;
+  };
+  vehicles: CarbonVehicleRow[];
+  recommendations: CarbonRecRow[];
+  recommendation_status: "OK" | "NO_RUN" | "OLD_ENGINE";
+  last_run: { id: number; generated_at: string; engine_version: string; from: string; to: string } | null;
+  data: { vehicles_without_kmpl: number; vehicles_ac_unset: number; vehicles_seats_assumed: number; vehicles_without_idle_rate: number; trips_without_idle: number };
+  method: string[];
 }
