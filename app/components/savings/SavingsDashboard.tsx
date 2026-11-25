@@ -42,7 +42,6 @@ import type {
   LockedShuttleSection,
 } from "./types";
 import { monthKey, shiftMonth } from "./types";
-import { withDemoLocationMismatches } from "./demoFuelLocation";
 
 const MONTH_KEYS = [
   "january", "february", "march", "april", "may", "june",
@@ -390,7 +389,7 @@ export function SavingsDashboard({
           </p>
 
           {active === "shuttle" && data.shuttle && <ShuttleTab s={data.shuttle} onManageBenchmarks={onManageBenchmarks} />}
-          {active === "pool" && data.pool && <PoolTab p={data.pool} range={data.period.current} />}
+          {active === "pool" && data.pool && <PoolTab p={data.pool} />}
           {active === "chauffeur" && data.chauffeur && <ChauffeurTab c={data.chauffeur} auditHref={auditHref} />}
         </>
       )}
@@ -545,7 +544,7 @@ export function ShuttleTab({ s, onManageBenchmarks }: { s: ShuttleSection | Lock
 
 // ── Pool cars ─────────────────────────────────────────────────────────────────
 
-export function PoolTab({ p, range }: { p: PoolSection; range?: { from: string; to: string } }) {
+export function PoolTab({ p }: { p: PoolSection }) {
   const t = useTranslations("company.savings.dashboard");
   const f = useFormat();
   const k = p.kpis;
@@ -565,7 +564,7 @@ export function PoolTab({ p, range }: { p: PoolSection; range?: { from: string; 
       </div>
 
       {p.fueling.status === "CONNECTED" ? (
-        <PoolFuelingConnected fu={withDemoLocationMismatches(p.fueling, range)} />
+        <PoolFuelingConnected fu={p.fueling} />
       ) : (
         <div className={cn(CARD, "flex flex-col gap-4 p-5 sm:flex-row sm:items-center")}>
           <IconTile tone="warning">

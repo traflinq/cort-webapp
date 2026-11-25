@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { AlertCircle, ArrowRight, Bus, Car, LayoutGrid, RefreshCw, UserRound } from "lucide-react";
+import { AlertCircle, ArrowRight, Bus, Car, Fuel, GitMerge, LayoutGrid, Lightbulb, RefreshCw, UserRound, Users } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/app/lib/services/api-client";
 import { formatLocaleNumber } from "@/app/lib/i18n/format";
@@ -15,21 +15,28 @@ import {
   PoolTab,
   SavingsHero,
   SavingsLockedView,
-  SavingsMonthPicker,
   ShuttleTab,
   usePeriodLabel,
 } from "@/app/components/savings/SavingsDashboard";
-import { monthKey, type SavingsDashboardFull, type SavingsDashboardResponse } from "@/app/components/savings/types";
+import type { SavingsDashboardFull, SavingsDashboardResponse } from "@/app/components/savings/types";
 import { getSaudiBasePath, withSaudiBase } from "@/app/lib/i18n/saudi-route";
 import { useAnalyticsData } from "./useAnalyticsData";
-import { bySaving, insightsFor, InsightsSection, potentialSaving, type AnalyticsService } from "./components/insights";
+import { bySaving, insightsFor, InsightsSection, potentialSaving } from "./components/insights";
 import { ShuttleTripQuality } from "./components/ShuttleTripQuality";
 import { ChauffeurPackageUse } from "./components/ChauffeurPackageUse";
 import { PoolCarUtilization } from "./components/PoolCarUtilization";
-import { Panel, Tabs } from "./components/ui";
+import { Panel, SectionHeading, Tabs } from "./components/ui";
+import { useCostFetch, useCostFilters } from "./cost/hooks";
+import { CostFilterBar } from "./cost/CostFilterBar";
+import { OverviewPanel } from "./cost/OverviewPanel";
+import { FuelPanel } from "./cost/FuelPanel";
+import { OccupancyPanel } from "./cost/OccupancyPanel";
+import { RecommendationDrawer, RecommendationsPanel } from "./cost/Recommendations";
+import { BeforeAfter } from "./cost/BeforeAfter";
+import type { FilterOptions, RecommendationList } from "./cost/types";
 
-type TabId = "overview" | AnalyticsService;
-const TAB_IDS: TabId[] = ["overview", "shuttle", "chauffeur", "pool"];
+type TabId = "overview" | "shuttle" | "fuel" | "occupancy" | "routes" | "recommendations" | "chauffeur" | "pool";
+const TAB_IDS: TabId[] = ["overview", "shuttle", "fuel", "occupancy", "routes", "recommendations", "chauffeur", "pool"];
 
 export default function AnalyticsPage() {
   return (
@@ -51,28 +58,44 @@ function AnalyticsContent() {
     v == null ? "—" : formatLocaleNumber(v, locale, { maximumFractionDigits: dp, minimumFractionDigits: 0 });
   const pkr = (v: number) => `${tCommon("currency.pkr")} ${n(Math.round(v))}`;
 
-  const [month, setMonth] = useState(() => monthKey());
+  // One date range for the whole page; the monthly savings sections follow the month of its end date.
+  const { filters, set: setFilters } = useCostFilters();
+  const month = filters.to.slice(0, 7);
   const { services, ai, savings, detail, detailLoading, reloadDetail, companyReady } = useAnalyticsData(month);
   const [benchmarksOpen, setBenchmarksOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [openRec, setOpenRec] = useState<number | null>(null);
+  const filterOptions = useCostFetch<FilterOptions>(services.shuttle ? "/company/cost-optimization/filters" : null);
+  // Two kinds of shuttle operation: the company's own vendors' / own cars (vendor-rate analysis and recommendations),
+  // and Traflinq's managed service (savings since switching, against what they paid their vendor before).
+  const scope = filterOptions.data?.scope;
+  const ownOps = services.shuttle && (scope?.company_managed_vehicles ?? 0) > 0;
+  const cortOps = services.shuttle && (scope?.cort_managed_vehicles ?? 0) > 0;
+  const recs = useCostFetch<RecommendationList>(ownOps ? "/company/cost-optimization/recommendations" : null);
 
   // Don't show last month's figures under the new month's heading.
   const data: SavingsDashboardResponse | null = savings.loading || savings.error ? null : savings.data;
   const savingsFailed = !savings.loading && !!savings.error;
+  const beforeAfterPeriod = usePeriodLabel(data?.period ?? { month, is_mtd: false });
 
   const tabs = useMemo(
     () =>
       (
         [
           { id: "overview", label: t("tabOverview"), icon: <LayoutGrid />, show: true },
-          { id: "shuttle", label: t("tabShuttle"), icon: <Bus />, show: services.shuttle },
+          // Traflinq-managed shuttle (or scope not known yet): before / after savings, KPIs, vehicles, trip quality.
+          { id: "shuttle", label: t("tabShuttle"), icon: <Bus />, show: services.shuttle && (cortOps || !ownOps) },
+          { id: "fuel", label: t("tabFuel"), icon: <Fuel />, show: ownOps },
+          { id: "occupancy", label: t("tabOccupancy"), icon: <Users />, show: ownOps },
+          { id: "routes", label: t("tabRoutes"), icon: <GitMerge />, show: ownOps },
+          { id: "recommendations", label: t("tabRecommendations"), icon: <Lightbulb />, show: ownOps },
           { id: "chauffeur", label: t("tabChauffeur"), icon: <UserRound />, show: services.chauffeur },
           { id: "pool", label: t("tabPool"), icon: <Car />, show: services.pool },
         ] as const
       )
         .filter((x) => x.show)
         .map(({ id, label, icon }) => ({ id: id as TabId, label, icon })),
-    [services, t],
+    [services, ownOps, cortOps, t],
   );
 
   const requested = searchParams.get("tab") as TabId | null;
@@ -85,21 +108,27 @@ function AnalyticsContent() {
     router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
   };
 
+  // Shuttle → the evidence-based optimization engine; chauffeur / pool → the existing fleet insights.
   const runAnalysis = async () => {
     setGenerating(true);
-    try {
-      await apiClient.request<{ generated: number }>("/company/fleet-insights/generate", { method: "POST" });
-      reloadDetail();
-    } catch (e) {
-      // e.g. the 15-minute cooldown
-      toast.error(e instanceof Error && e.message ? e.message : t("generateFailed"));
-    } finally {
-      setGenerating(false);
+    const jobs: Promise<unknown>[] = [];
+    if (ownOps) {
+      jobs.push(apiClient.request(`/company/cost-optimization/runs?from=${filters.from}&to=${filters.to}`, { method: "POST" }));
     }
+    if (services.chauffeur || services.pool) jobs.push(apiClient.request<{ generated: number }>("/company/fleet-insights/generate", { method: "POST" }));
+    const results = await Promise.allSettled(jobs);
+    const failed = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    // e.g. the 15-minute cooldown
+    for (const f of failed) toast.error(f.reason instanceof Error && f.reason.message ? f.reason.message : t("generateFailed"));
+    if (failed.length < results.length) toast.success(t("analysisDone"));
+    recs.reload();
+    reloadDetail();
+    setGenerating(false);
   };
 
   const anyService = services.shuttle || services.chauffeur || services.pool;
-  const allInsights = [...detail.insights].sort(bySaving);
+  // Shuttle insights now come from the optimization engine (Recommendations); keep chauffeur / pool ones.
+  const allInsights = [...insightsFor(detail.insights, "chauffeur"), ...insightsFor(detail.insights, "pool")].sort(bySaving);
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6 pb-12">
@@ -120,7 +149,6 @@ function AnalyticsContent() {
                 {generating ? t("generating") : t("runAiAnalysis")}
               </button>
             )}
-            <SavingsMonthPicker month={month} onChange={setMonth} />
           </>
         }
       />
@@ -130,6 +158,13 @@ function AnalyticsContent() {
       ) : (
         <>
           <Tabs tabs={tabs} active={active} onChange={setTab} label={t("tabsLabel")} />
+
+          <CostFilterBar
+            filters={filters}
+            onChange={setFilters}
+            options={filterOptions.data}
+            showScope={ownOps && ["overview", "fuel", "occupancy"].includes(active)}
+          />
 
           {savingsFailed && (
             <div className="flex items-center gap-3 rounded-2xl border border-danger-line bg-danger-soft p-4 text-sm text-danger-ink">
@@ -141,7 +176,13 @@ function AnalyticsContent() {
           <div role="tabpanel" id={`panel-${active}`} aria-labelledby={`tab-${active}`} className="flex flex-col gap-8">
             {active === "overview" && (
               <>
-                <OverviewSavings data={data} loading={savings.loading} />
+                {ownOps && (
+                  <OverviewPanel filters={filters} onOpenTab={setTab} onManageBenchmarks={() => setBenchmarksOpen(true)} />
+                )}
+
+                {/* Traflinq-managed service: what they paid their vendor before vs what switching saved. */}
+                {/* Headline savings (Traflinq-managed service, chauffeur audit); the shuttle detail is in its tab. */}
+                {(!ownOps || cortOps) && <OverviewSavings data={data} loading={savings.loading} />}
 
                 {data && (
                   <section className="flex flex-col gap-4">
@@ -155,7 +196,7 @@ function AnalyticsContent() {
                             { label: t("occupancy"), value: `${n(data.shuttle.kpis.occupancy_pct.current, 1)}%` },
                             { label: t("totalKm"), value: n(data.shuttle.kpis.total_km.current) },
                           ]}
-                          onOpen={() => setTab("shuttle")}
+                          onOpen={() => setTab(ownOps && !cortOps ? "occupancy" : "shuttle")}
                         />
                       )}
                       {services.chauffeur && data.chauffeur && (
@@ -205,8 +246,15 @@ function AnalyticsContent() {
 
             {active === "shuttle" && (
               <>
-                {data?.shuttle && <ShuttleTab s={data.shuttle} onManageBenchmarks={() => setBenchmarksOpen(true)} />}
-                <InsightsSection title={t("serviceInsightsTitle")} insights={insightsFor(allInsights, "shuttle")} aiEnabled={ai} />
+                {/* Traflinq-managed service: what they paid their vendor before vs what switching saved. */}
+                <section className="flex flex-col gap-4">
+                  <SectionHeading title={t("benchmarkTitle")} description={t("benchmarkDescription")} />
+                  {data?.shuttle?.savings && (
+                    <BeforeAfter savings={data.shuttle.savings} periodLabel={beforeAfterPeriod} onManageBenchmarks={() => setBenchmarksOpen(true)} />
+                  )}
+                  {data?.shuttle && <ShuttleTab s={data.shuttle} onManageBenchmarks={() => setBenchmarksOpen(true)} />}
+                  {!data && savings.loading && <div className="h-44 animate-pulse rounded-3xl border border-line bg-card" />}
+                </section>
                 {!detailLoading && (
                   <ShuttleTripQuality
                     summary={detail.shuttleSummary}
@@ -216,6 +264,37 @@ function AnalyticsContent() {
                   />
                 )}
               </>
+            )}
+
+            {active === "fuel" && (
+              <FuelPanel filters={filters} recommendations={recs.data?.recommendations ?? []} onOpenRecommendation={setOpenRec} />
+            )}
+
+            {active === "occupancy" && <OccupancyPanel filters={filters} />}
+
+            {active === "routes" && (
+              <>
+                <RecommendationsPanel
+                  list={recs}
+                  onOpen={setOpenRec}
+                  types={["ROUTE_REDISTRIBUTE", "ROUTE_MERGE", "ROUTE_RESEQUENCE"]}
+                  title={t("routesTitle")}
+                  description={t("routesDescription")}
+                  aiEnabled={ai}
+                />
+                {!detailLoading && (
+                  <ShuttleTripQuality
+                    summary={detail.shuttleSummary}
+                    metrics={detail.shuttleMetrics}
+                    fuelFlags={detail.fuelFlags}
+                    insights={detail.insights}
+                  />
+                )}
+              </>
+            )}
+
+            {active === "recommendations" && (
+              <RecommendationsPanel list={recs} onOpen={setOpenRec} title={t("recsTitle")} description={t("recsDescription")} aiEnabled={ai} />
             )}
 
             {active === "chauffeur" && (
@@ -228,13 +307,13 @@ function AnalyticsContent() {
 
             {active === "pool" && (
               <>
-                {data?.pool && <PoolTab p={data.pool} range={"current" in data.period ? data.period.current : undefined} />}
+                {data?.pool && <PoolTab p={data.pool} />}
                 <InsightsSection title={t("serviceInsightsTitle")} insights={insightsFor(allInsights, "pool")} aiEnabled={ai} />
                 {!detailLoading && detail.pool && <PoolCarUtilization data={detail.pool} />}
               </>
             )}
 
-            {(savings.loading || (active !== "overview" && detailLoading)) && (
+            {(active === "shuttle" || active === "chauffeur" || active === "pool") && (savings.loading || detailLoading) && (
               <div className="flex items-center justify-center py-10 text-sm text-fg-muted" aria-busy="true">
                 <RefreshCw className="me-2 size-5 animate-spin" /> {t("loading")}
               </div>
@@ -243,7 +322,13 @@ function AnalyticsContent() {
         </>
       )}
 
-      <CompanyBenchmarksModal isOpen={benchmarksOpen} onClose={() => setBenchmarksOpen(false)} onChanged={savings.reload} />
+      <CompanyBenchmarksModal
+        isOpen={benchmarksOpen}
+        onClose={() => setBenchmarksOpen(false)}
+        onChanged={savings.reload}
+        purpose={ownOps ? "vendorRates" : "preTraflinq"}
+      />
+      <RecommendationDrawer id={openRec} onClose={() => setOpenRec(null)} onChanged={recs.reload} />
     </div>
   );
 }
