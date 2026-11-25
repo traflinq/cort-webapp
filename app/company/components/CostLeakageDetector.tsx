@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { getSaudiBasePath, withSaudiBase } from '@/app/lib/i18n/saudi-route';
-import { Zap, Bus, Navigation, Fuel, Clock, Crown, ArrowRight, Lock, Car, Package, GitMerge, ArrowLeftRight, Shrink, Split } from 'lucide-react';
+import { Zap, Bus, Navigation, Fuel, Clock, Crown, ArrowRight, Lock, Car, Package, GitMerge, ArrowLeftRight, Shrink, Split, Waypoints } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,6 +39,7 @@ function insightIcon(type: string) {
     if (type === 'CHAUFFEUR_PACKAGE_UNDERUTILIZATION') return <Package className="w-7 h-7" />;
     if (type === 'POOL_UTILIZATION') return <Car className="w-7 h-7" />;
     if (type === 'ROUTE_MERGE') return <GitMerge className="w-7 h-7" />;
+    if (type === 'FLEET_REPLAN') return <Waypoints className="w-7 h-7" />;
     if (type === 'ROUTE_REDISTRIBUTE') return <Split className="w-7 h-7" />;
     if (type === 'ROUTE_RESEQUENCE') return <ArrowLeftRight className="w-7 h-7" />;
     if (type === 'VEHICLE_DOWNSIZE') return <Shrink className="w-7 h-7" />;

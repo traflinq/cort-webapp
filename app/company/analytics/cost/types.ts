@@ -193,7 +193,7 @@ export interface OccupancyReport extends Locked {
 
 // ─── Recommendations ─────────────────────────────────────────────────────────
 
-export type RecType = "ROUTE_MERGE" | "ROUTE_REDISTRIBUTE" | "ROUTE_RESEQUENCE" | "VEHICLE_DOWNSIZE" | "ROUTE_DETOUR" | "FUEL_DISCREPANCY";
+export type RecType = "FLEET_REPLAN" | "ROUTE_MERGE" | "ROUTE_REDISTRIBUTE" | "ROUTE_RESEQUENCE" | "VEHICLE_DOWNSIZE" | "ROUTE_DETOUR" | "FUEL_DISCREPANCY";
 export type Feasibility = "FEASIBLE" | "REJECTED" | "ROUTING_UNAVAILABLE" | "INSUFFICIENT_DATA";
 
 export interface Check {

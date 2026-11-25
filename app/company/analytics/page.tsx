@@ -285,7 +285,7 @@ function AnalyticsContent() {
                 <RecommendationsPanel
                   list={recs}
                   onOpen={setOpenRec}
-                  types={["ROUTE_REDISTRIBUTE", "ROUTE_MERGE", "ROUTE_RESEQUENCE"]}
+                  types={["FLEET_REPLAN", "ROUTE_REDISTRIBUTE", "ROUTE_MERGE", "ROUTE_RESEQUENCE"]}
                   title={t("routesTitle")}
                   description={t("routesDescription")}
                   aiEnabled={ai}

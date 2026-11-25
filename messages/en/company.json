@@ -1596,6 +1596,7 @@
           "INSUFFICIENT_DATA": "Insufficient data"
         },
         "type": {
+          "FLEET_REPLAN": "Fleet re-plan",
           "ROUTE_MERGE": "Route merge",
           "ROUTE_RESEQUENCE": "Stop order",
           "VEHICLE_DOWNSIZE": "Smaller vehicle",
@@ -1670,7 +1671,8 @@
         "availability": "Smaller vehicle available",
         "placement": "Every employee placed on another route",
         "receiver_capacity": "Seats on the receiving route",
-        "office_time": "Office times match"
+        "office_time": "Office times match",
+        "fleet_minimum": "Fewer vehicles possible"
       },
       "labels": {
         "current_total": "Current cost / month",
@@ -1749,7 +1751,14 @@
         "receivers": "Routes with free seats",
         "placements": "Moves",
         "unplaced": "Could not be placed",
-        "free_seats": "Free seats"
+        "free_seats": "Free seats",
+        "vehicles_before": "Vehicles today",
+        "vehicles_after": "Vehicles after the re-plan",
+        "unchanged_routes": "Routes not changed",
+        "assigned_after": "Assigned after",
+        "from": "From route",
+        "moves_to": "Moves to",
+        "vehicle_id": "Vehicle ID"
       },
       "narrative": {
         "merge": {
@@ -1799,6 +1808,19 @@
           "tradeoff": {
             "distance": "{receivers} drive {km} km more per day in total.",
             "headroom": "The fullest receiving route is left with {spare} free seat(s) for new employees."
+          }
+        },
+        "replan": {
+          "identified": "{routes} routes to the same office carry {assigned} assigned employees in {seats} seats ({pct}%), using {vehicles} vehicles.",
+          "recommendation": "Run these routes with {after} vehicles instead of {before}: stop using {vehicles} and move the stops of {removed} as shown.",
+          "why": "Removing {vehicles} saves {fixed} of fixed cost per month. The remaining routes burn {added} more fuel per month. After that extra fuel, the estimated net saving is {net} per month.",
+          "recommendation_rejected": "These {routes} routes cannot run with fewer vehicles within the limits.",
+          "why_unplaced": "{stops} pickup stop(s) cannot be served within the limits.",
+          "why_minimum": "Every plan with fewer than {vehicles} vehicles breaks a ride-time, office-time or detour limit, or costs more.",
+          "tradeoff": {
+            "moved": "{employees} employees at {stops} pickup stop(s) change route.",
+            "distance": "{receivers} drive {km} km more per day in total.",
+            "headroom": "The fullest remaining route is left with {spare} free seat(s) for new employees."
           }
         }
       },

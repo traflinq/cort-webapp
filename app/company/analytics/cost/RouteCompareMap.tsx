@@ -24,7 +24,7 @@ export function RouteCompareMap({ geometry }: { geometry: MapGeometry }) {
   const [view, setView] = useState<View>("both");
   const routeColor = useMemo(() => {
     const ids = [...new Set([...geometry.stops.map((s) => s.route_id), ...geometry.routes.map((r) => r.route_id).filter((x): x is number => x !== null)])];
-    const palette = [c.series[1], c.series[0], c.series[3], c.series[4], c.series[5]];
+    const palette = [c.series[1], c.series[0], c.series[3], c.series[4], c.series[5], c.series[2]];
     return new globalThis.Map(ids.map((id, i) => [id, palette[i % palette.length]]));
   }, [geometry, c]);
 

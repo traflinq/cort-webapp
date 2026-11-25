@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowLeftRight, CheckCircle2, CircleDashed, CircleX, Fuel, GitMerge, Info, Route, Shrink, Split, TriangleAlert } from "lucide-react";
+import { ArrowLeftRight, CheckCircle2, CircleDashed, CircleX, Fuel, GitMerge, Info, Route, Shrink, Split, TriangleAlert, Waypoints } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SectionHeading } from "../components/ui";
 import { useCostFetch, useFmt } from "./hooks";
@@ -12,6 +12,7 @@ import { BasisBadge, Drawer, EmptyNote, ErrorNote, FigureValue, Skeleton, Tag } 
 import type { Check, Figure, NarrativePart, Recommendation, RecommendationList, RecType } from "./types";
 
 const TYPE_ICON: Record<RecType, ReactNode> = {
+  FLEET_REPLAN: <Waypoints />,
   ROUTE_MERGE: <GitMerge />,
   ROUTE_REDISTRIBUTE: <Split />,
   ROUTE_RESEQUENCE: <ArrowLeftRight />,
@@ -185,7 +186,7 @@ export function RecommendationDrawer({ id, onClose }: { id: number | null; onClo
             ) : (
               <>
                 <FigureTable figures={rec.financials} order={FINANCIAL_ORDER} label={label} highlight="net_saving" />
-                {!locked && (rec.type === "ROUTE_MERGE" || rec.type === "ROUTE_REDISTRIBUTE") && rec.financials.current_total && (
+                {!locked && (rec.type === "ROUTE_MERGE" || rec.type === "ROUTE_REDISTRIBUTE" || rec.type === "FLEET_REPLAN") && rec.financials.current_total && (
                   <CompareBarChart
                     rows={[
                       { label: t("monthlyCost"), current: rec.financials.current_total?.value ?? null, proposed: rec.financials.proposed_total?.value ?? null, format: fmt.pkr },
@@ -335,7 +336,7 @@ function Checks({ checks }: { checks: Check[] }) {
 
 // ─── Recommendations tab ─────────────────────────────────────────────────────
 
-const TYPE_FILTERS: Array<RecType | "ALL"> = ["ALL", "ROUTE_REDISTRIBUTE", "ROUTE_MERGE", "ROUTE_RESEQUENCE", "VEHICLE_DOWNSIZE", "ROUTE_DETOUR", "FUEL_DISCREPANCY"];
+const TYPE_FILTERS: Array<RecType | "ALL"> = ["ALL", "FLEET_REPLAN", "ROUTE_REDISTRIBUTE", "ROUTE_MERGE", "ROUTE_RESEQUENCE", "VEHICLE_DOWNSIZE", "ROUTE_DETOUR", "FUEL_DISCREPANCY"];
 
 export function RecommendationsPanel({
   list,
