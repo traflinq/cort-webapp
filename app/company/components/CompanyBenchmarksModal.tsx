@@ -20,6 +20,7 @@ type BenchmarkRow = {
   fuel_litres: number | null;
   claimed_avg_distance_km: number | null;
   fuel_avg_kmpl: number | null;
+  fuel_type?: FuelType | null;
   notes: string | null;
   locked_at: string | null;
 };
@@ -43,8 +44,11 @@ type FormState = {
   fuel_litres: string;
   claimed_avg_distance_km: string;
   fuel_avg_kmpl: string;
+  fuel_type: FuelType;
   notes: string;
 };
+
+type FuelType = "PETROL" | "DIESEL";
 
 const VEHICLE_CATEGORIES = ["SEDAN", "HATCHBACK", "SUV", "DOUBLE_CABIN", "VAN", "COASTER", "HIACE", "BUS"];
 const COASTER_SEATER_OPTIONS = ["7 Seater", "14 Seater", "24 Seater", "32 Seater", "48 Seater", "62 Seater"];
@@ -67,6 +71,7 @@ const EMPTY_FORM: FormState = {
   fuel_litres: "",
   claimed_avg_distance_km: "",
   fuel_avg_kmpl: "",
+  fuel_type: "PETROL",
   notes: "",
 };
 
@@ -94,6 +99,7 @@ function formToPayload(form: FormState) {
     fuel_litres: form.fuel_mode === "LITRES" ? parseFloat(form.fuel_litres) : null,
     claimed_avg_distance_km: form.fuel_mode === "AVERAGE" ? parseFloat(form.claimed_avg_distance_km) : null,
     fuel_avg_kmpl: form.fuel_mode === "AVERAGE" ? parseFloat(form.fuel_avg_kmpl) : null,
+    fuel_type: form.fuel_type,
     notes: form.notes || null,
   };
 }
@@ -110,6 +116,7 @@ function rowToForm(row: BenchmarkRow): FormState {
     fuel_litres: row.fuel_litres != null ? String(row.fuel_litres) : "",
     claimed_avg_distance_km: row.claimed_avg_distance_km != null ? String(row.claimed_avg_distance_km) : "",
     fuel_avg_kmpl: row.fuel_avg_kmpl != null ? String(row.fuel_avg_kmpl) : "",
+    fuel_type: row.fuel_type ?? (row.vehicle_category === "COASTER" || row.vehicle_category === "BUS" ? "DIESEL" : "PETROL"),
     notes: row.notes ?? "",
   };
 }
@@ -202,6 +209,18 @@ function BenchmarkFields({ form, setForm }: { form: FormState; setForm: (f: Form
       </div>
 
       <div className="col-span-2 border-t border-[var(--border-default)] pt-3 mt-1">
+        <label className={labelClass}>Fuel type *</label>
+        <select
+          value={form.fuel_type}
+          onChange={(e) => setForm({ ...form, fuel_type: e.target.value as FuelType })}
+          className={fieldClass}
+        >
+          <option value="PETROL">Petrol</option>
+          <option value="DIESEL">Diesel</option>
+        </select>
+      </div>
+
+      <div className="col-span-2">
         <label className={labelClass}>Fuel benchmark mode *</label>
         <select
           value={form.fuel_mode}
@@ -275,9 +294,34 @@ interface CompanyBenchmarksModalProps {
   isOpen: boolean;
   onClose: () => void;
   onChanged?: () => void;
+  /**
+   * vendorRates: a company running its own vendors on Traflinq enters the rates it pays them now.
+   * preTraflinq: a Cort-managed company enters what it paid its vendor before switching (the savings baseline).
+   */
+  purpose?: "vendorRates" | "preTraflinq";
 }
 
-export function CompanyBenchmarksModal({ isOpen, onClose, onChanged }: CompanyBenchmarksModalProps) {
+const COPY = {
+  vendorRates: {
+    title: "Your Vendor Rates",
+    description:
+      "The monthly rate and claimed fuel your vendors charge you per vehicle type. Used to price your routes, compare fuel and work out savings. Once saved, rows are locked — submit a change request for superadmin review.",
+    list: "Your Vendor Rates",
+    add: "New Vendor Rate",
+    save: "Save Vendor Rate",
+  },
+  preTraflinq: {
+    title: "Vendor Cost Benchmarks",
+    description:
+      "What you paid before Traflinq, including claimed fuel. Once saved, rows are locked — submit a change request for superadmin review.",
+    list: "Your Benchmarks",
+    add: "New Benchmark",
+    save: "Save Benchmark",
+  },
+} as const;
+
+export function CompanyBenchmarksModal({ isOpen, onClose, onChanged, purpose = "preTraflinq" }: CompanyBenchmarksModalProps) {
+  const copy = COPY[purpose];
   const [benchmarks, setBenchmarks] = useState<BenchmarkRow[]>([]);
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
   const [loading, setLoading] = useState(false);
@@ -377,11 +421,10 @@ export function CompanyBenchmarksModal({ isOpen, onClose, onChanged }: CompanyBe
         <div className="flex items-start justify-between border-b border-[var(--border-input)] px-6 py-5 gap-4 shrink-0">
           <div>
             <h3 className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em]">
-              Vendor Cost Benchmarks
+              {copy.title}
             </h3>
             <p className="text-sm text-[var(--text-secondary)] mt-2 max-w-lg font-normal normal-case tracking-normal">
-              What you paid before Traflinq, including claimed fuel. Once saved, rows are locked — submit a
-              change request for superadmin review.
+              {copy.description}
             </p>
           </div>
           <button
@@ -406,7 +449,7 @@ export function CompanyBenchmarksModal({ isOpen, onClose, onChanged }: CompanyBe
             <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-default)]">
                 <p className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wide">
-                  Your Benchmarks
+                  {copy.list}
                 </p>
                 <button
                   type="button"
@@ -457,6 +500,11 @@ export function CompanyBenchmarksModal({ isOpen, onClose, onChanged }: CompanyBe
                             >
                               {b.cost_type === "FIXED" ? "Fixed" : "Variable"}
                             </span>
+                            {b.fuel_type && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border-default)]">
+                                {b.fuel_type === "DIESEL" ? "Diesel" : "Petrol"}
+                              </span>
+                            )}
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-[var(--bg-subtle)] text-[var(--text-muted)] border border-[var(--border-default)]">
                               <Lock className="h-3 w-3" /> Locked
                             </span>
@@ -512,7 +560,7 @@ export function CompanyBenchmarksModal({ isOpen, onClose, onChanged }: CompanyBe
               className="rounded-2xl border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/5 p-5 space-y-4"
             >
               <div className="flex items-center justify-between">
-                <p className="text-sm font-bold text-[var(--text-primary)]">New Benchmark</p>
+                <p className="text-sm font-bold text-[var(--text-primary)]">{copy.add}</p>
                 <button
                   type="button"
                   onClick={() => {
@@ -530,7 +578,7 @@ export function CompanyBenchmarksModal({ isOpen, onClose, onChanged }: CompanyBe
                 disabled={saving}
                 className="text-sm bg-[var(--cort-orange)] text-white px-4 py-2.5 rounded-xl hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 font-bold"
               >
-                {saving ? "Saving…" : "Save Benchmark"}
+                {saving ? "Saving…" : copy.save}
               </button>
             </form>
           )}

@@ -25,6 +25,10 @@ const getDefaultForm = () => ({
     category: VehicleCategory.SEDAN,
     fuel_avg_city: 10,
     fuel_avg_highway: 13,
+    /** passenger seats — needed for occupancy and route recommendations */
+    seat_capacity: 0,
+    /** "" = infer from category */
+    fuel_type: "" as "" | "PETROL" | "DIESEL",
 });
 
 export default function VendorVehiclesPage() {
@@ -57,6 +61,7 @@ export default function VendorVehiclesPage() {
                 company_vendor_link_id: selectedLink.id,
                 ...form,
                 color: form.color || undefined,
+                fuel_type: form.fuel_type || undefined,
             });
             toast.success("Vehicle added");
             setShowAdd(false);
@@ -83,6 +88,8 @@ export default function VendorVehiclesPage() {
                 category: form.category,
                 fuel_avg_city: form.fuel_avg_city,
                 fuel_avg_highway: form.fuel_avg_highway,
+                seat_capacity: form.seat_capacity,
+                ...(form.fuel_type ? { fuel_type: form.fuel_type } : {}),
             });
             toast.success("Vehicle updated");
             setEditingVehicle(null);
@@ -105,7 +112,7 @@ export default function VendorVehiclesPage() {
 
     const openEdit = (v: VendorVehicle) => {
         setEditingVehicle(v);
-        setForm({ plate_number: v.plate_number, make: v.make, model: v.model, year: v.year, color: v.color ?? "", category: v.category as VehicleCategory, fuel_avg_city: v.fuel_avg_city, fuel_avg_highway: v.fuel_avg_highway });
+        setForm({ plate_number: v.plate_number, make: v.make, model: v.model, year: v.year, color: v.color ?? "", category: v.category as VehicleCategory, fuel_avg_city: v.fuel_avg_city, fuel_avg_highway: v.fuel_avg_highway, seat_capacity: v.seat_capacity ?? 0, fuel_type: (v.fuel_type === "PETROL" || v.fuel_type === "DIESEL" ? v.fuel_type : "") });
     };
 
     const resetForm = () => setForm(getDefaultForm());
@@ -124,22 +131,27 @@ export default function VendorVehiclesPage() {
                 <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            {["Plate", "Make / Model", "Year", "Category", "Status", "Actions"].map((h) => (
+                            {["Plate", "Make / Model", "Year", "Category", "Seats", "Status", "Actions"].map((h) => (
                                 <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
                             ))}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {loading ? (
-                            <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Loading…</td></tr>
+                            <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Loading…</td></tr>
                         ) : vehicles.length === 0 ? (
-                            <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No vehicles in your fleet yet</td></tr>
+                            <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No vehicles in your fleet yet</td></tr>
                         ) : vehicles.map((v) => (
                             <tr key={v.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-3 font-mono text-xs font-medium">{v.plate_number}</td>
                                 <td className="px-4 py-3">{v.make} {v.model}</td>
                                 <td className="px-4 py-3">{v.year}</td>
                                 <td className="px-4 py-3">{formatVehicleCategory(v.category)}</td>
+                                <td className="px-4 py-3">
+                                    {v.seat_capacity ? v.seat_capacity : (
+                                        <button onClick={() => openEdit(v)} className="text-xs font-medium text-amber-700 hover:underline" title="Seats are needed for occupancy and route recommendations">Add seats</button>
+                                    )}
+                                </td>
                                 <td className="px-4 py-3">
                                     <span className={cx("inline-flex px-2 py-0.5 rounded-full text-xs font-medium", v.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500")}>
                                         {v.status ?? "—"}
@@ -179,7 +191,15 @@ export default function VendorVehiclesPage() {
                                 <Field label="Model *"><input required value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} className={inputCls} /></Field>
                                 <Field label="Year *"><input required type="number" value={form.year} onChange={(e) => setForm((f) => ({ ...f, year: Number(e.target.value) }))} className={inputCls} /></Field>
                                 <Field label="Color"><input value={form.color} onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))} className={inputCls} /></Field>
-                                <Field label="Fuel City (km/L)"><input type="number" step="0.1" value={form.fuel_avg_city} onChange={(e) => setForm((f) => ({ ...f, fuel_avg_city: Number(e.target.value) }))} className={inputCls} /></Field>
+                                <Field label="Passenger Seats *"><input required type="number" min={1} max={100} value={form.seat_capacity || ""} onChange={(e) => setForm((f) => ({ ...f, seat_capacity: Number(e.target.value) }))} className={inputCls} /></Field>
+                                <Field label="Fuel Type">
+                                    <select value={form.fuel_type} onChange={(e) => setForm((f) => ({ ...f, fuel_type: e.target.value as "" | "PETROL" | "DIESEL" }))} className={inputCls}>
+                                        <option value="">Auto (from category)</option>
+                                        <option value="PETROL">Petrol</option>
+                                        <option value="DIESEL">Diesel</option>
+                                    </select>
+                                </Field>
+                                <Field label="Fuel City (km/L) *"><input required type="number" step="0.1" min={1} value={form.fuel_avg_city} onChange={(e) => setForm((f) => ({ ...f, fuel_avg_city: Number(e.target.value) }))} className={inputCls} /></Field>
                                 <Field label="Fuel Highway (km/L)"><input type="number" step="0.1" value={form.fuel_avg_highway} onChange={(e) => setForm((f) => ({ ...f, fuel_avg_highway: Number(e.target.value) }))} className={inputCls} /></Field>
                             </div>
                             <div className="flex justify-end gap-3 pt-2">

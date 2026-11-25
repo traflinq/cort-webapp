@@ -1840,6 +1840,8 @@ class ApiClient {
         category: string;
         fuel_avg_city: number;
         fuel_avg_highway: number;
+        seat_capacity?: number;
+        fuel_type?: "PETROL" | "DIESEL";
     }) {
         return this.request<{ success: boolean; data: VendorVehicle }>('/vendor/fleet/vehicles', {
             method: 'POST',
@@ -1847,7 +1849,7 @@ class ApiClient {
         });
     }
 
-    async updateVendorVehicle(id: number, dto: Partial<{ plate_number: string; make: string; model: string; year: number; color: string; category: string; fuel_avg_city: number; fuel_avg_highway: number }>) {
+    async updateVendorVehicle(id: number, dto: Partial<{ plate_number: string; make: string; model: string; year: number; color: string; category: string; fuel_avg_city: number; fuel_avg_highway: number; seat_capacity: number; fuel_type: "PETROL" | "DIESEL" }>) {
         return this.request<{ success: boolean; data: VendorVehicle }>(`/vendor/fleet/vehicles/${id}`, {
             method: 'PATCH',
             body: JSON.stringify(dto),
@@ -2065,6 +2067,7 @@ class ApiClient {
         fuel_avg_city: number;
         fuel_avg_highway: number;
         seat_capacity?: number;
+        fuel_type?: 'PETROL' | 'DIESEL';
     }) {
         return this.request<{ success: boolean; data: PoolVehicle }>(`/companies/${companyId}/pool/vehicles`, {
             method: 'POST',
@@ -2128,6 +2131,7 @@ class ApiClient {
         fuel_avg_city: number;
         fuel_avg_highway: number;
         seat_capacity: number;
+        fuel_type?: 'PETROL' | 'DIESEL';
     }) {
         return this.request<{ success: boolean; data: PoolVehicle }>(`/companies/${companyId}/shuttle/vehicles`, {
             method: 'POST',

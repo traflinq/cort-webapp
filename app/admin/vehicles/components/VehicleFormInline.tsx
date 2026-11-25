@@ -21,6 +21,7 @@ export const initialVehicleFormData: VehicleFormData = {
   ownership: OwnershipType.OWNED,
   fuel_avg_city: 0,
   fuel_avg_highway: 0,
+  fuel_type: null,
   seat_capacity: 0,
   rent_per_day_city: 0,
   rent_per_day_outstation: 0,
@@ -72,6 +73,7 @@ export const VehicleFormInline = memo(function VehicleFormInline({
       ownership: vehicle.ownership,
       fuel_avg_city: vehicle.fuel_avg_city,
       fuel_avg_highway: vehicle.fuel_avg_highway,
+      fuel_type: vehicle.fuel_type ?? null,
       seat_capacity: vehicle.seat_capacity || 0,
       owner_company_id: vehicle.owner_company_id || undefined,
       rent_per_day_city: vehicle.rent_per_day_city || 0,
@@ -162,6 +164,13 @@ export const VehicleFormInline = memo(function VehicleFormInline({
         </Field>
         <Field label="Fuel average (highway)" hint="km per litre">
           <Input type="number" step="0.1" min={0} value={formData.fuel_avg_highway} onChange={(e) => handleChange("fuel_avg_highway", num(e.target.value))} disabled={isSaving} />
+        </Field>
+        <Field label="Fuel type" hint="Used to price fuel in savings analytics">
+          <Select value={formData.fuel_type ?? ""} onChange={(e) => handleChange("fuel_type", (e.target.value || null) as VehicleFormData["fuel_type"])} disabled={isSaving}>
+            <option value="">Auto (from category)</option>
+            <option value="PETROL">Petrol</option>
+            <option value="DIESEL">Diesel</option>
+          </Select>
         </Field>
         <Field label="Category">
           <Select value={formData.category} onChange={(e) => handleChange("category", e.target.value as VehicleCategory)} disabled={isSaving}>

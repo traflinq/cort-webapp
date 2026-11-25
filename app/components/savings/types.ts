@@ -49,6 +49,8 @@ export interface ShuttleSection {
     km_reduced: number;
     km_reduced_pkr: number;
     total_pkr: number;
+    /** What the company paid its vendor(s) before Traflinq for the same period (older backends omit it). */
+    benchmark_cost_pkr?: number;
     rows: {
       vehicle_category: string;
       cost_type: "FIXED" | "VARIABLE";
