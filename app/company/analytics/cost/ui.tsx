@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { Info, Lock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/app/admin/ui/Popover";
 import { useFmt } from "./hooks";
 import type { Basis, Figure } from "./types";
 
@@ -63,42 +64,25 @@ export function FigureValue({
   );
 }
 
+/**
+ * "How is this calculated?" panel. Rendered in a portal and kept inside the viewport, so a card with
+ * clipped corners or a figure near the page edge never cuts it off.
+ */
 export function HowCalculated({ figure }: { figure: Figure }) {
   const t = useTranslations("company.costOptimization");
   const fmt = useFmt();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-  const id = useId();
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [open]);
   return (
-    <span ref={ref} className="relative inline-flex">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={id}
-        aria-label={t("howCalculated")}
-        onClick={() => setOpen((o) => !o)}
-        className="rounded-full p-0.5 text-fg-muted transition-colors hover:bg-subtle hover:text-fg"
-      >
-        <Info className="size-3.5" />
-      </button>
-      {open && (
-        <span
-          id={id}
-          role="dialog"
-          className="absolute end-0 top-6 z-30 w-[min(22rem,80vw)] rounded-xl border border-line bg-card p-3 text-start text-xs font-normal text-fg shadow-xl"
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={t("howCalculated")}
+          className="inline-flex rounded-full p-0.5 text-fg-muted transition-colors hover:bg-subtle hover:text-fg"
         >
+          <Info className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" collisionPadding={16} className="w-[min(22rem,calc(100vw-2rem))] max-h-[min(24rem,var(--radix-popover-content-available-height))] overflow-y-auto bg-card p-3 text-start text-xs font-normal">
           <span className="mb-2 flex items-center justify-between gap-2">
             <span className="font-semibold">{t("howCalculated")}</span>
             <BasisBadge basis={figure.basis} />
@@ -122,9 +106,8 @@ export function HowCalculated({ figure }: { figure: Figure }) {
               ))}
             </span>
           )}
-        </span>
-      )}
-    </span>
+      </PopoverContent>
+    </Popover>
   );
 }
 

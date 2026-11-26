@@ -48,13 +48,13 @@ export function OverviewPanel({ filters, onOpenTab, onManageBenchmarks }: { filt
               <div className="relative flex flex-col gap-3">
                 <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-success-ink">
                   <PiggyBank className="size-4" aria-hidden />
-                  {t("potentialMonthly")}
+                  {t("potentialAnnual")}
                 </p>
                 {o.potential_monthly.locked ? (
-                  <FigureValue figure={o.potential_monthly} size="lg" />
+                  <FigureValue figure={o.potential_annual} size="lg" />
                 ) : (
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                    <span className="text-4xl font-semibold tracking-tight text-fg tabular-nums sm:text-5xl">{fmt.fig(o.potential_monthly)}</span>
+                    <span className="text-4xl font-semibold tracking-tight text-fg tabular-nums sm:text-5xl">{fmt.fig(o.potential_annual)}</span>
                     {o.saving_pct && o.saving_pct.value !== null && (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-success-ink px-3 py-1.5 text-sm font-semibold text-card">
                         <TrendingDown className="size-4" aria-hidden />
@@ -65,7 +65,7 @@ export function OverviewPanel({ filters, onOpenTab, onManageBenchmarks }: { filt
                   </div>
                 )}
                 <p className="text-sm text-fg-muted">
-                  {!o.potential_annual.locked && <span className="font-medium text-fg">{t("perYear", { amount: fmt.fig(o.potential_annual) })} · </span>}
+                  {!o.potential_monthly.locked && <span className="font-medium text-fg">{t("perMonth", { amount: fmt.fig(o.potential_monthly) })} · </span>}
                   {t("openCount", { count: o.recommendations })}
                 </p>
               </div>
