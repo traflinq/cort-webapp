@@ -1414,7 +1414,7 @@
         "vehiclesInService": "{count} vehicles in service",
         "contractedFuel": "Vendor fuel (contracted)",
         "contractedFuelHint": "Claimed fuel in your benchmarks",
-        "estimatedFuel": "Fuel used (estimated)",
+        "estimatedFuel": "Fuel used (actual)",
         "estimatedFuelHint": "GPS km ÷ rated km/L × fuel price",
         "noBenchmark": "{count} vehicles have no vendor benchmark, so their cost is unknown.",
         "manageVendorCost": "Manage vendor cost",
