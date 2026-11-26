@@ -22,33 +22,6 @@ export function OverviewPanel({ filters, onOpenTab, onManageBenchmarks }: { filt
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Spend */}
-      <section className="flex flex-col gap-3">
-        <SectionHeading title={t("spendTitle")} description={t("spendDescription")} badge={`${fmt.date(d.window.from)} – ${fmt.date(d.window.to)}`} />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <StatBlock label={t("contractedFixed")} figure={d.spend.contracted_fixed} hint={t("vehiclesInService", { count: d.spend.vehicles_in_service })} />
-          <StatBlock label={t("contractedFuel")} figure={d.spend.contracted_fuel} hint={t("contractedFuelHint")} />
-          <StatBlock label={t("estimatedFuel")} figure={d.spend.estimated_fuel} hint={t("estimatedFuelHint")} />
-        </div>
-        {d.scope.cort_vehicles > 0 && (
-          <p className="flex items-center gap-2 rounded-2xl border border-line bg-card px-4 py-3 text-sm text-fg-muted">
-            <Info className="size-4 shrink-0" />
-            {t("cortExcluded", { count: d.scope.cort_vehicles })}
-          </p>
-        )}
-        {d.spend.vehicles_without_benchmark.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning-line bg-warning-soft px-4 py-3 text-sm text-warning-ink">
-            <span className="flex items-center gap-2">
-              <AlertTriangle className="size-4 shrink-0" />
-              {t("noBenchmark", { count: d.spend.vehicles_without_benchmark.length })}
-            </span>
-            <button type="button" onClick={onManageBenchmarks} className="rounded-lg bg-card px-3 py-1.5 text-xs font-semibold text-fg hover:bg-subtle">
-              {t("manageVendorCost")}
-            </button>
-          </div>
-        )}
-      </section>
-
       {/* Opportunities — one amount the company can save */}
       <section className="flex flex-col gap-3">
         <SectionHeading
@@ -104,6 +77,33 @@ export function OverviewPanel({ filters, onOpenTab, onManageBenchmarks }: { filt
               </div>
             )}
           </>
+        )}
+      </section>
+
+      {/* Spend */}
+      <section className="flex flex-col gap-3">
+        <SectionHeading title={t("spendTitle")} description={t("spendDescription")} badge={`${fmt.date(d.window.from)} – ${fmt.date(d.window.to)}`} />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatBlock label={t("contractedFixed")} figure={d.spend.contracted_fixed} hint={t("vehiclesInService", { count: d.spend.vehicles_in_service })} />
+          <StatBlock label={t("contractedFuel")} figure={d.spend.contracted_fuel} hint={t("contractedFuelHint")} />
+          <StatBlock label={t("estimatedFuel")} figure={d.spend.estimated_fuel} hint={t("estimatedFuelHint")} />
+        </div>
+        {d.scope.cort_vehicles > 0 && (
+          <p className="flex items-center gap-2 rounded-2xl border border-line bg-card px-4 py-3 text-sm text-fg-muted">
+            <Info className="size-4 shrink-0" />
+            {t("cortExcluded", { count: d.scope.cort_vehicles })}
+          </p>
+        )}
+        {d.spend.vehicles_without_benchmark.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning-line bg-warning-soft px-4 py-3 text-sm text-warning-ink">
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="size-4 shrink-0" />
+              {t("noBenchmark", { count: d.spend.vehicles_without_benchmark.length })}
+            </span>
+            <button type="button" onClick={onManageBenchmarks} className="rounded-lg bg-card px-3 py-1.5 text-xs font-semibold text-fg hover:bg-subtle">
+              {t("manageVendorCost")}
+            </button>
+          </div>
         )}
       </section>
 
