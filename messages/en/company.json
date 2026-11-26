@@ -1599,6 +1599,8 @@
         "movesTo": "moves to {route}"
       },
       "recs": {
+        "tripLink": "Trip {id}",
+        "tripKm": "{km} km driven · {planned} km planned",
         "current": "Current",
         "proposed": "Proposed",
         "counted": "In total",

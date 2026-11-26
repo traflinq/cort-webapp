@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeftRight, CheckCircle2, CircleDashed, CircleX, Fuel, GitMerge, Info, Route, Shrink, Split, TriangleAlert, Waypoints } from "lucide-react";
+import { ArrowLeftRight, CheckCircle2, CircleDashed, CircleX, ExternalLink, Fuel, GitMerge, Info, Route, Shrink, Split, TriangleAlert, Waypoints } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getSaudiBasePath, withSaudiBase } from "@/app/lib/i18n/saudi-route";
 import { SectionHeading } from "../components/ui";
 import { useCostFetch, useFmt } from "./hooks";
 import { CompareBarChart } from "./charts";
@@ -169,7 +172,7 @@ export function RecommendationDrawer({ id, onClose }: { id: number | null; onClo
           <Part n={2} title={t("partEvidence")}>
             <p className="text-sm text-fg-muted">{t("evidenceWindow", { from: fmt.date(rec.evidence.window.from), to: fmt.date(rec.evidence.window.to), trips: rec.evidence.trips_analysed })}</p>
             {Object.keys(rec.evidence.comparison ?? {}).length > 0 && <FigureTable figures={rec.evidence.comparison} label={label} />}
-            <EvidenceData data={rec.evidence.data} label={label} />
+            <EvidenceData data={rec.evidence.data} label={label} routeId={rec.route_ids.length === 1 ? rec.route_ids[0] : undefined} />
           </Part>
 
           <Part n={3} title={t("partRecommendation")}>
@@ -284,8 +287,17 @@ function FigureTable({ figures, order, label, highlight }: { figures: Record<str
   );
 }
 
-/** Raw evidence values (route, roster, seats, rates…), shown as a compact list. */
-function EvidenceData({ data, label }: { data: Record<string, unknown>; label: (k: string) => string }) {
+type TripRef = { id: number; date: string; km?: number | null; planned_km?: number | null };
+const isTripList = (v: unknown): v is TripRef[] =>
+  Array.isArray(v) && v.length > 0 && v.every((x) => x && typeof x === "object" && typeof (x as TripRef).id === "number" && typeof (x as TripRef).date === "string");
+
+/** Raw evidence values (route, roster, seats, rates…), shown as a compact list. Trips link to their details. */
+function EvidenceData({ data, label, routeId }: { data: Record<string, unknown>; label: (k: string) => string; routeId?: number }) {
+  const t = useTranslations("company.costOptimization.recs");
+  const fmt = useFmt();
+  const basePath = getSaudiBasePath(usePathname());
+  const tripHref = (x: TripRef) =>
+    withSaudiBase(`/company/reports/shuttle?trip=${x.id}&date=${x.date}${routeId ? `&route=${routeId}` : ""}`, basePath);
   const render = (v: unknown): string => {
     if (v === null || v === undefined) return "—";
     if (Array.isArray(v)) return v.map((x) => (typeof x === "object" ? Object.values(x as object).join(" · ") : String(x))).join("; ");
@@ -295,13 +307,34 @@ function EvidenceData({ data, label }: { data: Record<string, unknown>; label: (
   const entries = Object.entries(data ?? {});
   if (!entries.length) return null;
   return (
-    <details className="rounded-xl border border-line bg-card px-3 py-2">
+    <details className="rounded-xl border border-line bg-card px-3 py-2" open={entries.some(([, v]) => isTripList(v))}>
       <summary className="cursor-pointer text-sm font-medium">{label("source_records")}</summary>
       <dl className="mt-2 grid gap-2 text-xs">
         {entries.map(([k, v]) => (
           <div key={k} className="grid grid-cols-[8rem_1fr] gap-2">
             <dt className="text-fg-muted">{label(k)}</dt>
-            <dd className="break-words" dir="auto">{render(v)}</dd>
+            {isTripList(v) ? (
+              <dd>
+                <ul className="flex flex-col gap-1">
+                  {v.map((x) => (
+                    <li key={x.id}>
+                      <Link href={tripHref(x)} target="_blank" rel="noopener" className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg px-1.5 py-1 hover:bg-subtle">
+                        <span className="inline-flex items-center gap-1 font-semibold text-brand-ink">
+                          {t("tripLink", { id: x.id })}
+                          <ExternalLink className="size-3" aria-hidden />
+                        </span>
+                        <span className="text-fg-muted">
+                          {fmt.date(x.date)}
+                          {x.km != null && x.planned_km != null && ` · ${t("tripKm", { km: fmt.n(x.km, 1), planned: fmt.n(x.planned_km, 1) })}`}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </dd>
+            ) : (
+              <dd className="break-words" dir="auto">{render(v)}</dd>
+            )}
           </div>
         ))}
       </dl>

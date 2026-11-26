@@ -1599,6 +1599,8 @@
         "movesTo": "ينتقل إلى {route}"
       },
       "recs": {
+        "tripLink": "الرحلة {id}",
+        "tripKm": "{km} كم مقطوعة · {planned} كم مخططة",
         "current": "الحالي",
         "proposed": "المقترح",
         "counted": "ضمن الإجمالي",
