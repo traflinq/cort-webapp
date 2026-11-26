@@ -70,6 +70,11 @@ export interface Overview extends Locked {
   fuel: { vehicles: number; flagged: number; litres_difference: Figure; cost_difference: Figure };
   opportunities: {
     potential_monthly: Figure;
+    /** Parts of the monthly total: fixed cost + fuel = potential_monthly. Absent on an older backend. */
+    fixed_monthly?: Figure;
+    fuel_monthly?: Figure;
+    /** Total saving as a share of the contracted monthly spend; null with a route / vehicle / vendor filter. */
+    saving_pct?: Figure;
     potential_annual: Figure;
     recommendations: number;
     last_run: { id: number; generated_at: string } | null;
