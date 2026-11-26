@@ -308,6 +308,34 @@ export default function ShuttleReportsPage() {
   const [routeId, setRouteId] = useState<string>("");
   const [routes, setRoutes] = useState<Array<{ id: number; name: string }>>([]);
 
+  // Deep link from analytics (?trip=ID&date=YYYY-MM-DD&route=ID): narrow the list to that day and
+  // route, then open the trip's details once it has loaded.
+  const pendingTrip = useRef<number | null>(null);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const trip = Number(q.get("trip"));
+    if (!Number.isInteger(trip) || trip <= 0) return;
+    pendingTrip.current = trip;
+    const date = q.get("date") ?? "";
+    const route = q.get("route") ?? "";
+    // Applied after mount (the URL is not known while the page renders on the server).
+    const timer = setTimeout(() => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        setStartDate(date);
+        setEndDate(date);
+      }
+      if (/^\d+$/.test(route)) setRouteId(route);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (pendingTrip.current === null) return;
+    const match = reports.find((r) => r.id === pendingTrip.current);
+    if (!match) return;
+    pendingTrip.current = null;
+    setSelectedReport(match);
+  }, [reports]);
+
   const selectedRouteId = routeId ? Number(routeId) : undefined;
   const selectedRouteName = routes.find((route) => String(route.id) === routeId)?.name;
 

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { CalendarRange, X } from "lucide-react";
+import { CalendarDays, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MAX_RANGE_DAYS, presetRange, rangeProblem, todayPkt, type CostFilters, type Preset } from "./hooks";
+import { Popover, PopoverContent, PopoverTrigger } from "@/app/admin/ui/Popover";
+import { MAX_RANGE_DAYS, presetRange, rangeProblem, todayPkt, useFmt, type CostFilters, type Preset } from "./hooks";
 import type { FilterOptions } from "./types";
 
 const PRESETS: Preset[] = ["thisMonth", "lastMonth", "last30", "last90"];
@@ -12,40 +13,88 @@ const PRESETS: Preset[] = ["thisMonth", "lastMonth", "last30", "last90"];
 const field = "h-9 rounded-xl border border-line bg-card px-3 text-sm text-fg outline-none focus:border-brand-line";
 
 /**
- * Custom range. What is typed stays local until it is a complete, usable range and the user has paused,
- * so a half-typed year or a start after the end never reaches the API.
+ * Date range behind one button (calendar icon + the current range), like the super-admin picker:
+ * presets apply at once; a custom range applies on "Apply" and only when it is a usable range.
  */
-function DateRange({ from, to, onApply }: { from: string; to: string; onApply: (patch: Partial<CostFilters>) => void }) {
+function DateRangeButton({ from, to, onApply }: { from: string; to: string; onApply: (patch: Partial<CostFilters>) => void }) {
   const t = useTranslations("company.costOptimization.filters");
+  const fmt = useFmt();
+  const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState({ from, to });
+  const activePreset = PRESETS.find((p) => {
+    const r = presetRange(p);
+    return r.from === from && r.to === to;
+  });
+  const text = activePreset ? t(activePreset) : `${fmt.date(from)} – ${fmt.date(to)}`;
   const problem = draft.from && draft.to ? rangeProblem(draft.from, draft.to) : "invalid";
-  const changed = draft.from !== from || draft.to !== to;
-  useEffect(() => {
-    if (!changed || problem) return;
-    const timer = setTimeout(() => onApply({ from: draft.from, to: draft.to }), 500);
-    return () => clearTimeout(timer);
-  }, [changed, problem, draft.from, draft.to, onApply]);
+  const touched = draft.from !== from || draft.to !== to;
+  const apply = (range: { from: string; to: string }) => {
+    onApply(range);
+    setOpen(false);
+  };
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <label className="sr-only" htmlFor="co-from">
-        {t("from")}
-      </label>
-      <input id="co-from" type="date" className={cn(field, changed && problem && "border-danger-line")} value={draft.from} max={draft.to || todayPkt()} aria-invalid={changed && !!problem} onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value }))} />
-      <span className="text-fg-muted">–</span>
-      <label className="sr-only" htmlFor="co-to">
-        {t("to")}
-      </label>
-      <input id="co-to" type="date" className={cn(field, changed && problem && "border-danger-line")} value={draft.to} min={draft.from} max={todayPkt()} aria-invalid={changed && !!problem} onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))} />
-      {changed && problem && (
-        <span role="alert" className="text-xs text-danger-ink">
-          {problem === "order" ? t("rangeOrder") : problem === "tooLong" ? t("rangeTooLong", { days: MAX_RANGE_DAYS }) : t("rangeInvalid")}
-        </span>
-      )}
-    </div>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (next) setDraft({ from, to });
+        setOpen(next);
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button type="button" aria-label={`${t("period")}: ${text}`} className={cn(field, "flex items-center gap-2 hover:bg-subtle")}>
+          <CalendarDays className="size-4 text-fg-muted" aria-hidden />
+          <span className="truncate">{text}</span>
+          <ChevronDown className="size-4 text-fg-muted" aria-hidden />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[calc(100vw-2rem)] max-w-[26rem] p-0">
+        <div className="flex flex-col sm:flex-row">
+          <div role="group" aria-label={t("period")} className="flex flex-row flex-wrap gap-1 border-b border-line p-2 sm:w-36 sm:flex-col sm:border-b-0 sm:border-e">
+            {PRESETS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                aria-pressed={activePreset === p}
+                onClick={() => apply(presetRange(p))}
+                className={cn(
+                  "rounded-md px-2.5 py-1.5 text-start text-sm transition-colors hover:bg-subtle hover:text-fg",
+                  activePreset === p ? "bg-brand-soft font-medium text-brand-ink" : "text-fg-muted",
+                )}
+              >
+                {t(p)}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-1 flex-col gap-3 p-3">
+            <label className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
+              {t("from")}
+              <input type="date" className={field} value={draft.from} max={draft.to || todayPkt()} onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value }))} />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
+              {t("to")}
+              <input type="date" className={field} value={draft.to} min={draft.from} max={todayPkt()} onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))} />
+            </label>
+            {touched && problem && (
+              <span role="alert" className="text-xs text-danger-ink">
+                {problem === "order" ? t("rangeOrder") : problem === "tooLong" ? t("rangeTooLong", { days: MAX_RANGE_DAYS }) : t("rangeInvalid")}
+              </span>
+            )}
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button type="button" onClick={() => setOpen(false)} className="h-8 rounded-lg border border-line px-3 text-xs font-semibold text-fg hover:bg-subtle">
+                {t("cancel")}
+              </button>
+              <button type="button" disabled={!!problem} onClick={() => apply(draft)} className="h-8 rounded-lg bg-brand px-3 text-xs font-semibold text-white disabled:opacity-50">
+                {t("apply")}
+              </button>
+            </div>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
-/** Date range (presets or custom) plus route / vehicle / vendor, all kept in the URL. */
+/** Date range (one button) plus route / vehicle / vendor on the same row, all kept in the URL. */
 export function CostFilterBar({
   filters,
   onChange,
@@ -59,38 +108,14 @@ export function CostFilterBar({
   showScope: boolean;
 }) {
   const t = useTranslations("company.costOptimization.filters");
-  const activePreset = PRESETS.find((p) => {
-    const r = presetRange(p);
-    return r.from === filters.from && r.to === filters.to;
-  });
   const scoped = !!(filters.routeId || filters.vehicleId || filters.vendor);
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <CalendarRange className="size-4 text-fg-muted" aria-hidden />
-        <div role="group" aria-label={t("period")} className="flex flex-wrap gap-1">
-          {PRESETS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              aria-pressed={activePreset === p}
-              onClick={() => onChange(presetRange(p))}
-              className={cn(
-                "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                activePreset === p ? "bg-brand text-white" : "text-fg-muted hover:bg-subtle hover:text-fg",
-              )}
-            >
-              {t(p)}
-            </button>
-          ))}
-        </div>
-        {/* Keyed by the applied range, so a preset or the back button resets what is typed. */}
-        <DateRange key={`${filters.from}|${filters.to}`} from={filters.from} to={filters.to} onApply={onChange} />
-      </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <DateRangeButton from={filters.from} to={filters.to} onApply={onChange} />
 
       {showScope && options && (
-        <div className="flex flex-wrap items-center gap-2">
+        <>
           <select aria-label={t("route")} className={cn(field, "min-w-40 max-w-full")} value={filters.routeId} onChange={(e) => onChange({ routeId: e.target.value })}>
             <option value="">{t("allRoutes")}</option>
             {options.routes.map((r) => (
@@ -124,7 +149,7 @@ export function CostFilterBar({
               {t("clear")}
             </button>
           )}
-        </div>
+        </>
       )}
     </div>
   );
