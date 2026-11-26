@@ -1400,6 +1400,8 @@
         "allVehicles": "All vehicles",
         "vendor": "Vendor",
         "allVendors": "All vendors",
+        "apply": "Apply",
+        "cancel": "Cancel",
         "clear": "Clear filters",
         "rangeInvalid": "Enter a valid date.",
         "rangeOrder": "The start date must be on or before the end date.",
