@@ -15,6 +15,19 @@ const STATUS_TONE: Record<FuelStatus, "success" | "warning" | "neutral" | "dange
   NO_CONTRACT_FIGURE: "neutral",
 };
 
+type FuelComparison = FuelVehicleReport["comparison"];
+
+/** Only a vendor figure above the estimate (beyond tolerance) is a saving to claim. */
+const isOverClaim = (c: FuelComparison) => c.status === "POTENTIAL_DISCREPANCY" && c.direction === "OVER";
+const isUnderClaim = (c: FuelComparison) => c.status === "POTENTIAL_DISCREPANCY" && c.direction === "UNDER";
+
+function FuelStatusTag({ c }: { c: FuelComparison }) {
+  const t = useTranslations("company.costOptimization.fuel");
+  if (isOverClaim(c)) return <Tag tone="warning">{t("overClaim")}</Tag>;
+  if (isUnderClaim(c)) return <Tag>{t("underClaim")}</Tag>;
+  return <Tag tone={STATUS_TONE[c.status]}>{t(`status.${c.status}` as never)}</Tag>;
+}
+
 export function FuelPanel({ filters, recommendations, onOpenRecommendation }: { filters: CostFilters; recommendations: Recommendation[]; onOpenRecommendation: (id: number) => void }) {
   const t = useTranslations("company.costOptimization.fuel");
   const tc = useTranslations("company.costOptimization");
@@ -35,7 +48,7 @@ export function FuelPanel({ filters, recommendations, onOpenRecommendation }: { 
         <StatBlock label={t("contracted")} figure={r.totals.contracted_litres} />
         <StatBlock label={t("estimated")} figure={r.totals.estimated_litres} />
         <StatBlock label={t("difference")} figure={r.totals.litres_difference} hint={t("flaggedOf", { flagged: r.totals.flagged, total: r.totals.vehicles })} />
-        <StatBlock label={t("costDifference")} figure={r.totals.cost_difference} hint={t("claimHint")} />
+        <StatBlock label={t("savingToClaim")} figure={r.totals.cost_difference} hint={t("claimHint")} />
       </div>
 
       {r.vehicles.length === 0 ? (
@@ -80,9 +93,17 @@ export function FuelPanel({ filters, recommendations, onOpenRecommendation }: { 
                     <td className="px-3 py-3 text-end tabular-nums">{fmt.fig(c.contracted_litres)}</td>
                     <td className="px-3 py-3 text-end tabular-nums">{fmt.fig(c.litres_difference)}</td>
                     <td className="px-3 py-3 text-end tabular-nums">{fmt.fig(c.variance_pct)}</td>
-                    <td className="px-3 py-3 text-end">{c.cost_difference.locked ? <span className="text-xs text-fg-muted">{fmt.locked}</span> : <span className="tabular-nums">{fmt.fig(c.cost_difference)}</span>}</td>
+                    <td className="px-3 py-3 text-end">
+                      {c.cost_difference.locked ? (
+                        <span className="text-xs text-fg-muted">{fmt.locked}</span>
+                      ) : isOverClaim(c) ? (
+                        <span className="tabular-nums">{fmt.fig(c.cost_difference)}</span>
+                      ) : (
+                        <span className="text-fg-muted">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
-                      <Tag tone={STATUS_TONE[c.status]}>{t(`status.${c.status}` as never)}</Tag>
+                      <FuelStatusTag c={c} />
                     </td>
                   </tr>
                 );
@@ -121,12 +142,12 @@ function FuelVehicleDrawer({
   const rows: Array<[string, typeof c.estimated_litres]> = [
     [t("estimated"), c.estimated_litres],
     [t("contracted"), c.contracted_litres],
-    [t("difference"), c.litres_difference],
+    [t("litresDifference"), c.litres_difference],
     [t("variance"), c.variance_pct],
     [t("fuelPrice"), c.fuel_price],
     [t("estimatedCost"), c.estimated_fuel_cost],
     [t("contractedCost"), c.contracted_fuel_cost],
-    [t("costDifference"), c.cost_difference],
+    [isOverClaim(c) ? t("savingToClaim") : t("costDifference"), c.cost_difference],
   ];
   return (
     <Drawer
@@ -145,11 +166,12 @@ function FuelVehicleDrawer({
     >
       <div className="flex flex-col gap-5">
         <div className="flex flex-wrap items-center gap-2">
-          <Tag tone={STATUS_TONE[c.status]}>{t(`status.${c.status}` as never)}</Tag>
+          <FuelStatusTag c={c} />
           {vehicle.fuel_inclusive && <Tag>{t("fuelInclusive")}</Tag>}
           <span className="text-xs text-fg-muted">{t("coverage", { pct: c.km_coverage_pct, trips: vehicle.trips, days: vehicle.operating_days })}</span>
         </div>
-        {c.status === "POTENTIAL_DISCREPANCY" && <p className="rounded-xl bg-warning-soft p-3 text-sm text-warning-ink">{t("discrepancyNote")}</p>}
+        {isOverClaim(c) && <p className="rounded-xl bg-warning-soft p-3 text-sm text-warning-ink">{t("discrepancyNote")}</p>}
+        {isUnderClaim(c) && <p className="rounded-xl bg-subtle p-3 text-sm text-fg-muted">{t("underClaimNote")}</p>}
         {c.reasons.length > 0 && (
           <ul className="list-disc space-y-1 ps-5 text-sm text-fg-muted" dir="auto">
             {c.reasons.map((x) => (

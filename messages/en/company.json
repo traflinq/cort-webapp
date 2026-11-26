@@ -1438,8 +1438,8 @@
         "fuelTitle": "Fuel vs vendor claims",
         "fuelDescription": "Contracted fuel compared with what the vehicles should have used.",
         "open": "Open",
-        "fuelLitresDiff": "Litres difference",
-        "flaggedVehicles": "{flagged} of {total} vehicles flagged",
+        "fuelLitresDiff": "Litres over-claimed",
+        "flaggedVehicles": "{flagged} of {total} vehicles over-claimed",
         "fuelCostDiff": "Fuel saving to claim",
         "fuelClaimHint": "Vendor claim above the fuel the distance driven needs",
         "utilisationTitle": "Utilisation",
@@ -1489,8 +1489,8 @@
         "description": "For each vehicle: the fuel your vendor benchmark claims versus what the vehicle needs for the distance it drove. A claim more than {tolerance}% above the estimate is a saving to claim from the vendor.",
         "contracted": "Vendor-claimed fuel",
         "estimated": "Estimated consumption",
-        "difference": "Litres difference",
-        "flaggedOf": "{flagged} of {total} vehicles flagged",
+        "difference": "Litres over-claimed",
+        "flaggedOf": "{flagged} of {total} vehicles over-claimed",
         "costDifference": "Cost difference",
         "claimHint": "Saving to claim from the vendor",
         "empty": "No completed shuttle trips in this period.",
@@ -1502,7 +1502,7 @@
         "colContracted": "Claimed litres",
         "colDiff": "Difference",
         "colVariance": "Variance",
-        "colCostDiff": "Cost diff.",
+        "colCostDiff": "Saving to claim",
         "colStatus": "Status",
         "status": {
           "WITHIN_TOLERANCE": "Within tolerance",
@@ -1529,7 +1529,12 @@
           "MORNING": "Morning",
           "EVENING": "Evening"
         },
-        "noGps": "No GPS"
+        "noGps": "No GPS",
+        "litresDifference": "Litres difference",
+        "savingToClaim": "Fuel saving to claim",
+        "overClaim": "Over-claimed",
+        "underClaim": "Vendor below estimate",
+        "underClaimNote": "The vendor claims less fuel than this vehicle needs for the distance it drove. There is nothing to claim. If this looks wrong, check the vehicle's km/L and the claimed fuel in your vendor rates."
       },
       "occupancy": {
         "title": "Vehicle occupancy",
