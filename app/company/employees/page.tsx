@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { UserPlus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -12,6 +12,7 @@ import { apiClient } from "../../lib/services/api-client";
 import { Card } from "../components/DashboardComponents";
 import { AccountCredentialsReveal, SaveCredentialsNote } from "../components/AccountCredentialsReveal";
 import { PageHeader, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
+import Pagination from "../../components/ui/Pagination";
 import TablePageSkeleton from "../components/TablePageSkeleton";
 import TableSkeleton from "@/app/components/ui/TableSkeleton";
 import {
@@ -35,6 +36,24 @@ function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
         props.className,
       )}
     />
+  );
+}
+
+const PAGE_SIZE = 20;
+
+function StatTile({ label, value, tone }: { label: string; value: number; tone?: "good" | "bad" }) {
+  return (
+    <div className="rounded-xl border border-[var(--border-light)] bg-[var(--bg-card)] px-5 py-4 shadow-sm">
+      <div className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">{label}</div>
+      <div
+        className={cx(
+          "mt-1 text-2xl font-extrabold tabular-nums",
+          tone === "good" ? "text-emerald-500" : tone === "bad" ? "text-rose-500" : "text-[var(--text-primary)]",
+        )}
+      >
+        {value.toLocaleString()}
+      </div>
+    </div>
   );
 }
 
@@ -80,6 +99,17 @@ export default function EmployeesPage() {
   });
 
   const atEmployeeLimit = isTrialUser && employees.length >= maxEmployees;
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalEmployees = employees.length;
+  const activeEmployees = useMemo(
+    () => employees.filter((e) => e.status?.toLowerCase() === "active").length,
+    [employees],
+  );
+  const totalPages = Math.max(1, Math.ceil(totalEmployees / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pagedEmployees = employees.slice(pageStart, pageStart + PAGE_SIZE);
 
   function closeAddEmployeeModal() {
     setShowAddEmployee(false);
@@ -201,6 +231,12 @@ export default function EmployeesPage() {
     <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
       <PageHeader label={t("label")} title={t("title")} />
 
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatTile label={t("totalEmployees")} value={totalEmployees} />
+        <StatTile label={t("activeEmployees")} value={activeEmployees} tone="good" />
+        <StatTile label={t("inactiveEmployees")} value={totalEmployees - activeEmployees} tone="bad" />
+      </div>
+
       {isTrialUser && (
         <div className="alert-banner-warning">
           {t("trialBanner", { used: employees.length, max: maxEmployees })}
@@ -259,7 +295,7 @@ export default function EmployeesPage() {
                   </td>
                 </tr>
               ) : (
-                employees.map((e) => {
+                pagedEmployees.map((e) => {
                   const isEditing = editingId === e.id;
                   return (
                     <tr key={e.id} className={`group transition-colors ${isEditing ? 'bg-[var(--cort-orange)]/5' : 'hover:bg-[var(--surface-subtle)]/80'}`}>
@@ -351,6 +387,18 @@ export default function EmployeesPage() {
             </tbody>
           </table>
         </div>
+        {totalEmployees > 0 && (
+          <div className="flex flex-col items-center justify-between gap-3 border-t border-[var(--border-light)] p-6 sm:flex-row">
+            <div className="text-sm text-[var(--text-muted)]">
+              {t("showingRange", {
+                from: pageStart + 1,
+                to: Math.min(pageStart + PAGE_SIZE, totalEmployees),
+                total: totalEmployees,
+              })}
+            </div>
+            <Pagination currentPage={safePage} totalPages={totalPages} onPageChange={setCurrentPage} />
+          </div>
+        )}
       </Card>
 
       {showAddEmployee && createPortal(
