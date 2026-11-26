@@ -1,12 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { AlertTriangle, ArrowRight, CircleAlert, Info } from "lucide-react";
+import { AlertTriangle, ArrowRight, CircleAlert, Info, PiggyBank, TrendingDown } from "lucide-react";
 import { SectionHeading } from "../components/ui";
 import { useCostFetch, useFmt, filterQuery, type CostFilters } from "./hooks";
-import { SpendHistoryChart } from "./charts";
-import { ErrorNote, MethodNote, Skeleton, StatBlock, Tag } from "./ui";
-import type { DataHealth, Overview, SpendHistory } from "./types";
+import { ErrorNote, FigureValue, HowCalculated, Skeleton, StatBlock, Tag } from "./ui";
+import type { DataHealth, Overview } from "./types";
 
 export type CostTab = "fuel" | "occupancy" | "routes" | "recommendations";
 
@@ -15,7 +14,6 @@ export function OverviewPanel({ filters, onOpenTab, onManageBenchmarks }: { filt
   const tc = useTranslations("company.costOptimization");
   const fmt = useFmt();
   const ov = useCostFetch<Overview>(`/company/cost-optimization/overview?${filterQuery(filters)}`);
-  const hist = useCostFetch<SpendHistory>(`/company/cost-optimization/overview/history?months=6&to=${filters.to}`);
 
   if (ov.error) return <ErrorNote message={tc("loadFailed")} detail={ov.error} onRetry={ov.reload} />;
   if (!ov.data) return <Skeleton className="h-72" />;
@@ -70,10 +68,42 @@ export function OverviewPanel({ filters, onOpenTab, onManageBenchmarks }: { filt
             {t("noRunYet")}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <StatBlock label={t("potentialMonthly")} figure={o.potential_monthly} hint={t("openCount", { count: o.recommendations })} />
-            <StatBlock label={t("potentialAnnual")} figure={o.potential_annual} />
-          </div>
+          <>
+            {/* Headline: the total and its share of the monthly spend. */}
+            <div className="relative overflow-hidden rounded-3xl border border-success-line bg-gradient-to-br from-success-soft via-card to-card p-6 sm:p-8">
+              <PiggyBank aria-hidden className="pointer-events-none absolute -end-8 -top-8 size-48 rotate-12 text-success-ink opacity-[0.06]" />
+              <div className="relative flex flex-col gap-3">
+                <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-success-ink">
+                  <PiggyBank className="size-4" aria-hidden />
+                  {t("potentialMonthly")}
+                </p>
+                {o.potential_monthly.locked ? (
+                  <FigureValue figure={o.potential_monthly} size="lg" />
+                ) : (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <span className="text-4xl font-semibold tracking-tight text-fg tabular-nums sm:text-5xl">{fmt.fig(o.potential_monthly)}</span>
+                    {o.saving_pct && o.saving_pct.value !== null && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-success-ink px-3 py-1.5 text-sm font-semibold text-card">
+                        <TrendingDown className="size-4" aria-hidden />
+                        {t("savingPct", { pct: fmt.n(o.saving_pct.value, 1) })}
+                      </span>
+                    )}
+                    <HowCalculated figure={o.saving_pct && o.saving_pct.value !== null ? o.saving_pct : o.potential_monthly} />
+                  </div>
+                )}
+                <p className="text-sm text-fg-muted">
+                  {!o.potential_annual.locked && <span className="font-medium text-fg">{t("perYear", { amount: fmt.fig(o.potential_annual) })} · </span>}
+                  {t("openCount", { count: o.recommendations })}
+                </p>
+              </div>
+            </div>
+            {o.fixed_monthly && o.fuel_monthly && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <StatBlock label={t("fixedMonthly")} figure={o.fixed_monthly} hint={t("fixedMonthlyHint")} showBasis={false} />
+                <StatBlock label={t("fuelMonthly")} figure={o.fuel_monthly} hint={t("fuelMonthlyHint")} showBasis={false} />
+              </div>
+            )}
+          </>
         )}
       </section>
 
@@ -112,19 +142,6 @@ export function OverviewPanel({ filters, onOpenTab, onManageBenchmarks }: { filt
           </div>
         </section>
       </div>
-
-      {/* Spend history */}
-      {hist.error && <ErrorNote message={tc("loadFailed")} detail={hist.error} onRetry={hist.reload} />}
-      {hist.loading && <Skeleton className="h-56" />}
-      {hist.data && hist.data.months.some((m) => m.contracted_fixed !== null || m.estimated_fuel !== null) && (
-        <section className="flex flex-col gap-3">
-          <SectionHeading title={t("historyTitle")} description={t("historyDescription")} />
-          <div className="rounded-2xl border border-line bg-card p-4">
-            <SpendHistoryChart data={hist.data} />
-          </div>
-          <MethodNote lines={hist.data.method} />
-        </section>
-      )}
 
       <DataHealthCard health={d.data_health} onManageBenchmarks={onManageBenchmarks} />
     </div>
