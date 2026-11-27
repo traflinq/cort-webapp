@@ -4,23 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  Users,
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-  Menu,
-  Sun,
-  Moon,
-  Languages,
-} from "lucide-react";
+import { Languages, LogOut, Menu, Moon, PanelLeft, Sun } from "lucide-react";
+import { Toaster } from "sonner";
+import { cn } from "@/lib/utils";
+import { Button, IconButton, Tooltip, focusRing } from "@/app/admin/ui";
 import { useAuth } from "../../lib/contexts/auth-context";
 import { useCompanyTheme } from "../lib/theme-context";
 import { useCompanyLocale } from "../lib/locale-context";
 import { useCompanyAccessState } from "../lib/access-context";
 import { companyNav } from "../lib/pages";
 import { getSaudiBasePath, stripSaudiPrefix, withSaudiBase } from "../../lib/i18n/saudi-route";
-import { Toaster } from "sonner";
 import { TrialOnboardingWalkthrough } from "../components/TrialOnboardingWalkthrough";
 import { CompanyAccessGate } from "./CompanyAccessGate";
 
@@ -29,10 +22,6 @@ type NavItem = {
   labelKey: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 };
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
 
 export function CompanyShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -84,212 +73,207 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
     normalizedPath === "/login";
   if (isLogin) return <>{children}</>;
 
-  const SidebarContent = ({ isMobile = false }) => (
-    <>
-      <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-        <div className={cx("flex flex-col gap-6 transition-all duration-300", (collapsed && !isMobile) ? "items-center py-8 px-2" : "items-center px-6 py-10")}>
-          <div className="relative h-14 w-full flex items-center justify-center transition-all duration-300">
-            <img
-              src={
-                collapsed && !isMobile
-                  ? "/app_icon.png"
-                  : theme === "light"
-                    ? "/traflinq_light_no_tagline-Photoroom.png"
-                    : "/traflinq_dark_no_tagline-Photoroom.png"
-              }
-              alt="TrafLinq"
-              className={cx(
-                "object-contain transition-all duration-300",
-                collapsed && !isMobile ? "h-9 w-9 rounded-lg" : "h-14 w-auto",
-              )}
-            />
-          </div>
+  const toggleLocale = () => setLocale(locale === "en" ? "ar" : "en");
+  const localeTitle = locale === "en" ? t("locale.switchToArabic") : t("locale.switchToEnglish");
+  const localeLabel = locale === "en" ? t("locale.arabic") : t("locale.english");
+  const themeLabel = theme === "dark" ? t("shell.switchToLight") : t("shell.switchToDark");
+  const wordmark = theme === "light" ? "/traflinq_light_no_tagline-Photoroom.png" : "/traflinq_dark_no_tagline-Photoroom.png";
+
+  // Plain render function (not a component) so the sidebar isn't remounted on every render.
+  const renderSidebar = (isMobile = false) => {
+    const compact = collapsed && !isMobile;
+    return (
+      <>
+        <div className={cn("flex h-16 shrink-0 items-center", compact ? "justify-center px-2" : "justify-between gap-2 ps-5 pe-3")}>
+          {compact ? (
+            // Collapsed: the app icon doubles as the expand control (panel icon shows on hover/focus).
+            <Tooltip content={t("shell.expandSidebar")} side={isRtl ? "left" : "right"}>
+              <button
+                type="button"
+                onClick={() => setCollapsed(false)}
+                aria-label={t("shell.expandSidebar")}
+                aria-expanded={false}
+                className={cn("group relative flex size-9 items-center justify-center rounded-lg text-fg-muted transition-colors hover:bg-subtle hover:text-fg", focusRing)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/app_icon.png" alt="" className="size-8 rounded-lg object-contain transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0" />
+                <PanelLeft size={18} strokeWidth={1.75} className="absolute opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 rtl:-scale-x-100" aria-hidden="true" />
+              </button>
+            </Tooltip>
+          ) : (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={wordmark} alt="TrafLinq" className="h-9 w-auto min-w-0 object-contain" />
+              <IconButton
+                label={isMobile ? tCommon("actions.close") : t("shell.collapseSidebar")}
+                tooltip={false}
+                size="icon-sm"
+                aria-expanded={true}
+                onClick={() => (isMobile ? setIsMobileMenuOpen(false) : setCollapsed(true))}
+                className="shrink-0 text-fg-muted hover:text-fg"
+              >
+                <PanelLeft strokeWidth={1.75} className="rtl:-scale-x-100" />
+              </IconButton>
+            </>
+          )}
         </div>
 
-        <nav className="px-3 mt-2 space-y-6" aria-busy={accessState.status === "loading"}>
+        <nav
+          className={cn("flex-1 overflow-y-auto overflow-x-hidden pb-4", compact ? "px-2" : "px-3")}
+          aria-busy={accessState.status === "loading"}
+        >
           {accessState.status === "loading" && (
-            <div className="space-y-2 px-1">
+            <div className="space-y-1.5 pt-2">
               {[0, 1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-10 animate-pulse rounded-lg bg-[var(--nav-hover-bg)]" />
+                <div key={i} className="h-9 animate-pulse rounded-lg bg-subtle" />
               ))}
             </div>
           )}
           {navGroups.map((group, groupIndex) => (
-            <div key={groupIndex}>
-              {group.titleKey && (
-                <div className={cx(
-                  "px-3 mb-2 text-[11px] font-bold text-[var(--nav-group-label)] uppercase tracking-wider transition-all duration-300 overflow-hidden whitespace-nowrap text-start",
-                  (collapsed && !isMobile) ? "opacity-0 max-h-0 mb-0" : "opacity-100 max-h-5"
-                )}>
+            <div key={groupIndex} className={cn(groupIndex > 0 && (compact ? "mt-3 border-t border-line pt-3" : "mt-5"))}>
+              {group.titleKey && !compact && (
+                <div className="mb-1 truncate px-2.5 text-start text-xs font-medium text-fg-muted">
                   {t(group.titleKey)}
                 </div>
               )}
-              <div className="space-y-1.5">
-                {group.items.map((item, itemIndex) => {
+              <ul className="space-y-0.5">
+                {group.items.map((item) => {
                   const active = item.href === activeHref;
                   const Icon = item.icon;
                   const label = t(item.labelKey);
-
-                  return (
+                  const link = (
                     <Link
-                      key={item.href}
                       href={item.href}
-                      title={(collapsed && !isMobile) ? label : undefined}
+                      aria-current={active ? "page" : undefined}
+                      aria-label={compact ? label : undefined}
                       onClick={() => isMobile && setIsMobileMenuOpen(false)}
-                      style={isMobile ? { animationDelay: `${(itemIndex + 1 + groupIndex * 3) * 50}ms` } : undefined}
-                      className={cx(
-                        "group flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-all duration-200 relative overflow-hidden",
-                        isMobile && "animate-fade-slide-up opacity-0",
-                        active
-                          ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-text)]"
-                          : "text-[var(--nav-inactive-text)] hover:text-[var(--text-primary)] hover:bg-[var(--nav-hover-bg)]"
+                      className={cn(
+                        "flex h-9 items-center gap-2.5 rounded-lg text-sm font-medium transition-colors",
+                        compact ? "justify-center px-0" : "px-2.5",
+                        active ? "bg-nav-active text-nav-active-fg shadow-[var(--nav-active-shadow)]" : "text-fg-secondary hover:bg-subtle hover:text-fg",
+                        focusRing,
                       )}
                     >
-                      {active && <div className="absolute start-0 top-1/2 -translate-y-1/2 h-8 w-1 rounded-e-full bg-[var(--cort-orange)]" />}
-
-                      <Icon size={20} strokeWidth={active ? 2 : 1.5} className={cx("shrink-0 transition-transform duration-200", active ? "text-[var(--nav-active-text)]" : "group-hover:text-[var(--text-primary)]")} />
-
-                      <span className={cx(
-                        "whitespace-nowrap transition-all duration-300 ease-in-out overflow-hidden",
-                        (collapsed && !isMobile) ? "opacity-0 max-w-0" : "opacity-100 max-w-[200px]"
-                      )}>
-                        {label}
-                      </span>
+                      <Icon size={18} strokeWidth={1.75} className="shrink-0" />
+                      {!compact && <span className="truncate">{label}</span>}
                     </Link>
                   );
+                  return (
+                    <li key={item.href}>
+                      {compact ? (
+                        <Tooltip content={label} side={isRtl ? "left" : "right"}>
+                          {link}
+                        </Tooltip>
+                      ) : (
+                        link
+                      )}
+                    </li>
+                  );
                 })}
-              </div>
+              </ul>
             </div>
           ))}
         </nav>
-      </div>
 
-      <div className="border-t border-[var(--nav-border)] p-3 mt-auto bg-[var(--nav-footer-bg)]">
-        <div className={cx("flex items-center gap-3 rounded-lg p-2 transition-all duration-300", (collapsed && !isMobile) ? "justify-center" : "justify-between hover:bg-[var(--nav-hover-bg)]")}>
-          <div className="flex items-center gap-3 overflow-hidden">
-            {company?.logo_url ? (
-              <img
-                src={company.logo_url}
-                alt={company.name || "Company"}
-                className="h-8 w-8 rounded-full object-cover shrink-0 ring-1 ring-white/10"
-              />
-            ) : (
-              <div className="h-8 w-8 rounded-full bg-[#fe8503]/20 border border-[#fe8503]/30 flex items-center justify-center text-xs text-[#fe8503] ring-1 ring-[var(--border-default)] shrink-0">
-                {company?.name?.[0]?.toUpperCase() || <Users size={14} />}
+        <div className="shrink-0 border-t border-line p-3">
+          <div className={cn("flex items-center gap-2", compact ? "flex-col" : "justify-between")}>
+            <div className="flex min-w-0 items-center gap-2.5">
+              {company?.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={company.logo_url}
+                  alt={company.name || "Company"}
+                  className="size-8 shrink-0 rounded-full border border-line object-cover"
+                />
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full border border-line bg-subtle text-xs font-semibold text-fg-secondary"
+                >
+                  {company?.name?.[0]?.toUpperCase() || "·"}
+                </div>
+              )}
+              {!compact && (
+                <div className="flex min-w-0 flex-col text-start">
+                  <span className="ltr-content truncate text-xs font-medium text-fg">{user?.email}</span>
+                  <span className="truncate text-xs text-fg-muted">{t("shell.companyAccount")}</span>
+                </div>
+              )}
+            </div>
+
+            {!compact && (
+              <div className="flex shrink-0 items-center">
+                {onSaudiRoute && (
+                  <Tooltip content={localeTitle}>
+                    <Button variant="ghost" size="sm" onClick={toggleLocale} leftIcon={<Languages />}>
+                      {localeLabel}
+                    </Button>
+                  </Tooltip>
+                )}
+                <IconButton label={themeLabel} size="icon-sm" onClick={toggle}>
+                  {theme === "dark" ? <Sun /> : <Moon />}
+                </IconButton>
+                <IconButton
+                  label={tCommon("actions.signOut")}
+                  size="icon-sm"
+                  onClick={() => logout()}
+                  className="hover:bg-danger-soft hover:text-danger-ink"
+                >
+                  <LogOut className="rtl:rotate-180" />
+                </IconButton>
               </div>
             )}
-
-            <div className={cx(
-              "flex flex-col overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap text-start",
-              (collapsed && !isMobile) ? "max-w-0 opacity-0" : "max-w-[150px] opacity-100"
-            )}>
-              <span className="truncate text-xs font-semibold text-[var(--text-secondary)] ltr-content">
-                {user?.email}
-              </span>
-              <span className="text-[10px] text-[var(--text-muted)]">{t("shell.companyAccount")}</span>
-            </div>
-          </div>
-
-          <div className={cx("flex items-center gap-1", (collapsed && !isMobile) ? "hidden" : "flex")}>
-            {onSaudiRoute && (
-              <button
-                type="button"
-                onClick={() => setLocale(locale === "en" ? "ar" : "en")}
-                className="shrink-0 rounded-md px-2 py-1.5 text-[10px] font-bold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors flex items-center gap-1"
-                title={locale === "en" ? t("locale.switchToArabic") : t("locale.switchToEnglish")}
-              >
-                <Languages size={14} />
-                <span>{locale === "en" ? t("locale.arabic") : t("locale.english")}</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={toggle}
-              className="shrink-0 rounded-md p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
-              title={theme === "dark" ? t("shell.switchToLight") : t("shell.switchToDark")}
-            >
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-            <button
-              type="button"
-              onClick={() => logout()}
-              className="shrink-0 rounded-md p-1.5 text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors"
-              title={tCommon("actions.signOut")}
-            >
-              <LogOut size={16} />
-            </button>
           </div>
         </div>
-      </div>
-    </>
-  );
+      </>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text-primary)] font-sans">
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-[var(--nav-border)] bg-[var(--bg-header)] px-6 md:hidden">
-        <button
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="rounded-xl p-2.5 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] active:scale-95 transition-all"
-        >
-          <Menu size={24} />
-        </button>
-        <div className="absolute start-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <img src="/traflinq_dark_no_tagline-Photoroom.png" alt="TrafLinq" className="h-10 w-auto" />
-        </div>
+    <div className="company-portal min-h-screen bg-[var(--bg-sidebar)] font-sans text-fg">
+      <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-line bg-[var(--bg-header)] px-4 md:hidden">
+        <IconButton label={t("shell.openMenu")} tooltip={false} onClick={() => setIsMobileMenuOpen(true)}>
+          <Menu />
+        </IconButton>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={wordmark}
+          alt="TrafLinq"
+          className="pointer-events-none absolute inset-x-0 mx-auto h-8 w-auto"
+        />
         {onSaudiRoute ? (
-          <button
-            type="button"
-            onClick={() => setLocale(locale === "en" ? "ar" : "en")}
-            className="rounded-lg px-2 py-1 text-[10px] font-bold text-[var(--text-muted)]"
-          >
-            {locale === "en" ? t("locale.arabic") : t("locale.english")}
-          </button>
+          <Button variant="ghost" size="sm" onClick={toggleLocale} title={localeTitle}>
+            {localeLabel}
+          </Button>
         ) : (
-          <div className="w-10" />
+          <div className="size-9" />
         )}
       </header>
 
       <div className="flex min-h-screen">
         <aside
-          className={cx(
-            "sticky top-4 h-[calc(100vh-2rem)] hidden shrink-0 border border-[var(--border-default)] bg-[var(--bg-sidebar)] text-[var(--text-primary)] md:flex md:flex-col transition-all duration-300 ease-in-out relative z-20 ms-4 my-4 rounded-[2rem] shadow-xl",
-            collapsed ? "w-20" : "w-72"
+          className={cn(
+            "sticky top-0 z-20 hidden h-screen shrink-0 flex-col bg-[var(--bg-sidebar)] transition-[width] duration-200 ease-out md:flex",
+            collapsed ? "w-16" : "w-60",
           )}
         >
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="absolute -end-3 top-9 z-50 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--bg-sidebar)] border border-[var(--border-input)] text-[var(--text-muted)] shadow-sm hover:text-[var(--text-primary)] hover:scale-105 transition-all focus:outline-none"
-          >
-            {collapsed ? (
-              <ChevronRight size={14} className={isRtl ? "rtl-flip" : ""} />
-            ) : (
-              <ChevronLeft size={14} className={isRtl ? "rtl-flip" : ""} />
-            )}
-          </button>
-          <SidebarContent />
+          {renderSidebar()}
         </aside>
 
         {isMobileMenuOpen && (
           <div className="fixed inset-0 z-50 flex md:hidden">
             <div
-              className="fixed inset-0 bg-black/70 backdrop-blur-sm animate-fade-in"
+              className="fixed inset-0 bg-overlay animate-fade-in"
               onClick={() => setIsMobileMenuOpen(false)}
             />
-            <div className="relative flex w-full max-w-xs flex-1 flex-col bg-[var(--bg-sidebar)] animate-slide-in-left">
-              <div className="absolute end-2 top-2">
-                <button
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] active:scale-95 transition-all"
-                >
-                  <ChevronLeft size={24} className={isRtl ? "" : "rtl-flip"} />
-                </button>
-              </div>
-              <SidebarContent isMobile />
+            <div className="relative flex w-full max-w-xs flex-1 flex-col border-e border-line bg-[var(--bg-sidebar)] shadow-[var(--shadow-modal)] animate-slide-in-left">
+              {renderSidebar(true)}
             </div>
           </div>
         )}
 
-        <div className="relative flex min-w-0 flex-1 flex-col">
+        {/* Inset layout: the content is a rounded panel on the sidebar-coloured frame (desktop only). */}
+        <div className="relative flex min-w-0 flex-1 flex-col md:py-2 md:pe-2">
           <Suspense fallback={null}>
             <TrialOnboardingWalkthrough
               forceOpen={guideOpen}
@@ -299,38 +283,33 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
           </Suspense>
           <main
             data-company-main
-            className="mx-auto w-full max-w-full flex-1 px-4 py-4 md:px-8 bg-[var(--bg-page)] min-h-screen"
+            className="mx-auto min-h-screen w-full max-w-full flex-1 bg-page px-4 py-5 md:min-h-[calc(100vh-1rem)] md:rounded-2xl md:border md:border-line md:px-8 md:py-6"
           >
             {trialInfo && (
-              <div className="mb-4 alert-banner-brand flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex flex-col">
-                  <div className="font-semibold">{t("trial.banner.title")}</div>
-                  <div className="text-xs text-[var(--text-secondary)]">
+              <div className="mb-5 flex flex-col gap-3 rounded-xl border border-line bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <div className="text-sm font-semibold text-fg">{t("trial.banner.title")}</div>
+                  <div className="text-xs text-fg-muted">
                     {t.rich("trial.banner.expires", {
-                      hours: () => <span className="text-[var(--cort-orange)] font-semibold">{trialInfo.remainingHours}h</span>,
+                      hours: () => <span className="font-semibold tabular-nums text-fg">{trialInfo.remainingHours}h</span>,
                     })}
                   </div>
-                  {!user?.trial_onboarding_completed && (
-                    <button
-                      type="button"
-                      onClick={() => setGuideOpen(true)}
-                      className="mt-1 text-start text-xs font-semibold text-[#f47f00] hover:underline w-fit"
-                    >
-                      {t("trial.banner.viewGuide")}
-                    </button>
-                  )}
                 </div>
-                <a
-                  href="https://calendar.app.google/qeHQgMANfWNr77yz6"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center rounded-lg bg-[#f47f00] px-4 py-2 text-xs font-bold text-white hover:bg-[#f47f00]/90 transition-colors"
-                >
-                  {t("trial.banner.bookDemo")}
-                </a>
+                <div className="flex shrink-0 items-center gap-2">
+                  {!user?.trial_onboarding_completed && (
+                    <Button variant="ghost" size="sm" onClick={() => setGuideOpen(true)}>
+                      {t("trial.banner.viewGuide")}
+                    </Button>
+                  )}
+                  <Button asChild size="sm">
+                    <a href="https://calendar.app.google/qeHQgMANfWNr77yz6" target="_blank" rel="noopener noreferrer">
+                      {t("trial.banner.bookDemo")}
+                    </a>
+                  </Button>
+                </div>
               </div>
             )}
-            <div key={pathname} className="page-transition-enter min-h-full">
+            <div key={pathname} className="min-h-full">
               <CompanyAccessGate>{children}</CompanyAccessGate>
             </div>
           </main>

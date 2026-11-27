@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Bus, Car, Calendar, Map, Smartphone, UserPlus, Users, Sparkles, Play } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/app/admin/ui";
 import type { LucideIcon } from "lucide-react";
 import { apiClient } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";
@@ -20,12 +22,6 @@ type WalkthroughStep = {
   cta: string;
   href: string | null;
   showNext?: boolean;
-};
-
-type StepCopy = {
-  title: string;
-  body: string;
-  cta: string;
 };
 
 function poolSteps(
@@ -146,10 +142,6 @@ function getPlayStoreUrl(): string | null {
   return process.env.NEXT_PUBLIC_PLAY_STORE_URL || null;
 }
 
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
 type TrialOnboardingWalkthroughProps = {
   forceOpen?: boolean;
   onClose?: () => void;
@@ -253,108 +245,86 @@ export function TrialOnboardingWalkthrough({
 
   return (
     <div
-      className={cx(
-        "fixed top-0 end-0 bottom-0 z-[100] flex items-center justify-center bg-black/70 px-4 py-8 backdrop-blur-sm",
-        "start-0",
-        sidebarCollapsed ? "md:start-[6rem]" : "md:start-[19rem]",
+      className={cn(
+        "fixed inset-y-0 start-0 end-0 z-[100] flex items-center justify-center bg-overlay px-4 py-8",
+        sidebarCollapsed ? "md:start-16" : "md:start-60",
       )}
     >
-      <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-[#0f172a] p-8 shadow-2xl text-white">
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <div className="text-xs font-bold uppercase tracking-widest text-[#f47f00]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="trial-walkthrough-title"
+        className="w-full max-w-lg rounded-xl border border-line bg-card p-6 text-fg shadow-[var(--shadow-modal)]"
+      >
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <div className="text-xs font-medium tabular-nums text-fg-muted">
             {t("setupProgress", { current: stepIndex + 1, total: STEPS.length })}
           </div>
           {manuallyOpened ? (
-            <button
-              type="button"
-              onClick={dismiss}
-              className="text-xs text-white/40 hover:text-white/70 transition-colors"
-            >
+            <Button variant="ghost" size="sm" onClick={dismiss}>
               {t("close")}
-            </button>
+            </Button>
           ) : (
             !forceOpen &&
             stepIndex > 0 && (
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="text-xs text-white/40 hover:text-white/70 transition-colors"
-              >
+              <Button variant="ghost" size="sm" onClick={handleSkip}>
                 {t("skipForNow")}
-              </button>
+              </Button>
             )
           )}
         </div>
 
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f47f00]/15 text-[#f47f00] mb-5">
-          <StepIcon size={24} />
+        <div className="mb-4 flex size-10 items-center justify-center rounded-lg border border-line bg-subtle text-fg-secondary">
+          <StepIcon size={20} strokeWidth={1.75} />
         </div>
 
-        <h2 className="text-2xl font-bold tracking-tight">{step.title}</h2>
-        <p className="mt-3 text-sm leading-relaxed text-white/60">{step.body}</p>
+        <h2 id="trial-walkthrough-title" className="text-lg font-semibold tracking-tight text-fg">
+          {step.title}
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-fg-muted">{step.body}</p>
 
         {step.id === "app" && (appStoreUrl || playStoreUrl) && (
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-5 flex flex-wrap gap-2">
             {appStoreUrl && (
-              <Link
-                href={appStoreUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/5"
-              >
-                {t("appStore")}
-              </Link>
+              <Button asChild variant="outline" size="sm">
+                <Link href={appStoreUrl} target="_blank" rel="noopener noreferrer">
+                  {t("appStore")}
+                </Link>
+              </Button>
             )}
             {playStoreUrl && (
-              <Link
-                href={playStoreUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/5"
-              >
-                {t("googlePlay")}
-              </Link>
+              <Button asChild variant="outline" size="sm">
+                <Link href={playStoreUrl} target="_blank" rel="noopener noreferrer">
+                  {t("googlePlay")}
+                </Link>
+              </Button>
             )}
           </div>
         )}
 
-        <div className="mt-8 flex items-center gap-3">
+        <div className="mt-6 flex items-center gap-2">
           {stepIndex > 0 && (
-            <button
-              type="button"
-              onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
-              className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-white/70 hover:bg-white/5"
-            >
+            <Button variant="outline" onClick={() => setStepIndex((i) => Math.max(0, i - 1))}>
               {t("back")}
-            </button>
+            </Button>
           )}
-          <div className="ms-auto flex items-center gap-3">
+          <div className="ms-auto flex items-center gap-2">
             {step.showNext && (
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={completing}
-                className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/5 disabled:opacity-60"
-              >
+              <Button variant="outline" onClick={handleNext} disabled={completing}>
                 {t("next")}
-              </button>
+              </Button>
             )}
-            <button
-              type="button"
-              onClick={handlePrimary}
-              disabled={completing}
-              className="rounded-xl bg-[#f47f00] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#f47f00]/90 disabled:opacity-60"
-            >
+            <Button onClick={handlePrimary} disabled={completing}>
               {completing ? t("saving") : step.cta}
-            </button>
+            </Button>
           </div>
         </div>
 
-        <div className="mt-6 flex gap-2">
+        <div className="mt-6 flex gap-1.5" aria-hidden="true">
           {STEPS.map((s, i) => (
             <div
               key={s.id}
-              className={`h-1.5 flex-1 rounded-full transition-colors ${i <= stepIndex ? "bg-[#f47f00]" : "bg-white/10"}`}
+              className={cn("h-1 flex-1 rounded-full transition-colors", i <= stepIndex ? "bg-brand" : "bg-line")}
             />
           ))}
         </div>

@@ -307,6 +307,196 @@ html:not([data-theme="light"]):has(.admin-portal) {
     --glass-border: rgba(255,255,255,0.08);
 }
 
+/* ── Company portal palette ──────────────────────────────────────────────────
+   Neutral (zinc) surfaces with a coral-orange accent, after the HorizonHub reference.
+   Applied on <html> while the company shell is mounted, so portalled dialogs pick it up too.
+   Contrast (WCAG): text ≥ 4.5:1 on its surface; chart series validated with the dataviz
+   validator (CVD ΔE ≥ 13.8, all ≥ 3:1). White on the brand fill is 3.5:1 (light) / 3.2:1 (dark):
+   button labels are ≥ 14px medium. Keep app/company/analytics/cost/charts.tsx in sync. */
+html:not([data-theme="light"]):has(.company-portal) {
+    --cort-orange: #e8692e;
+    --cort-orange-hover: #f07a43;
+    --ring: #e8692e;
+    --text-on-brand: #ffffff;
+
+    --bg-page: #0b0b0b;
+    --bg-card: #141414;
+    --bg-card-hover: #191919;
+    --bg-subtle: rgba(255,255,255,0.045);
+    --bg-input: #101010;
+    --bg-input-focus: #141414;
+    --bg-sidebar: #161616; /* frame: the sidebar and the gutter around the content panel */
+    --bg-header: #0b0b0b;
+    --bg-elevated: #1c1c1c;
+    --bg-overlay: rgba(0,0,0,0.62);
+
+    --border-default: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.14);
+    --border-input: rgba(255,255,255,0.12);
+
+    --text-primary: #ededed;
+    --text-secondary: rgba(237,237,237,0.72);
+    --text-muted: rgba(237,237,237,0.55);
+    --text-light: rgba(237,237,237,0.14);
+    --text-placeholder: rgba(237,237,237,0.42);
+
+    --shadow-card: none;
+    --shadow-card-hover: 0 4px 16px rgba(0,0,0,0.4);
+    --shadow-modal: 0 24px 64px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05);
+
+    --nav-active-bg: rgba(232,105,46,0.16);
+    --nav-active-text: #f2905f;
+    --nav-active-shadow: none;
+    --row-hover: rgba(255,255,255,0.035);
+    --divider: rgba(255,255,255,0.08);
+
+    --tone-neutral-ink: rgba(237,237,237,0.76);
+    --tone-neutral-soft: rgba(255,255,255,0.06);
+    --tone-neutral-line: rgba(255,255,255,0.14);
+    --tone-brand-ink: #f2905f;
+    --tone-brand-soft: rgba(232,105,46,0.16);
+    --tone-brand-line: rgba(232,105,46,0.40);
+    --tone-success-ink: #5ccf88;
+    --tone-success-soft: rgba(56,181,106,0.14);
+    --tone-success-line: rgba(56,181,106,0.36);
+    --tone-warning-ink: #f0c158;
+    --tone-warning-soft: rgba(192,142,18,0.16);
+    --tone-warning-line: rgba(192,142,18,0.40);
+    --tone-danger-ink: #f2777b;
+    --tone-danger-soft: rgba(229,72,77,0.14);
+    --tone-danger-line: rgba(229,72,77,0.38);
+    --tone-info-ink: #a3adfa;
+    --tone-info-soft: rgba(125,140,245,0.14);
+    --tone-info-line: rgba(125,140,245,0.38);
+    --tone-purple-ink: #cfa6f2;
+    --tone-purple-soft: rgba(176,114,224,0.14);
+    --tone-purple-line: rgba(176,114,224,0.38);
+    --tone-purple-solid: #b072e0;
+
+    --accent-success: #38b56a;
+    --accent-warning: #c08e12;
+    --accent-danger: #e5484d;
+    --accent-info: #7d8cf5;
+    --cort-green: #38b56a;
+    --cort-red: #e5484d;
+
+    --chart-1: #e8692e;
+    --chart-2: #7d8cf5;
+    --chart-3: #38b56a;
+    --chart-4: #b072e0;
+    --chart-5: #c08e12;
+    --chart-6: #e26a9f;
+    --chart-grid: rgba(255,255,255,0.06);
+    --chart-axis: rgba(237,237,237,0.50);
+
+    /* Legacy aliases */
+    --surface-white: #141414;
+    --surface-subtle: rgba(255,255,255,0.025);
+    --surface-muted: rgba(255,255,255,0.045);
+    --surface-card: rgba(255,255,255,0.03);
+    --border-light: rgba(255,255,255,0.08);
+    --border-dark: rgba(255,255,255,0.14);
+    --background: #161616;
+    --foreground: #ededed;
+    --surface: #0b0b0b;
+    --border: rgba(255,255,255,0.08);
+    --muted: rgba(237,237,237,0.55);
+    --text-main: #ededed;
+    --glass-border: rgba(255,255,255,0.08);
+}
+
+html[data-theme="light"]:has(.company-portal) {
+    --cort-orange: #e2622a;
+    --cort-orange-hover: #cc5520;
+    --ring: #e2622a;
+    --text-on-brand: #ffffff;
+
+    --bg-page: #f7f7f8;
+    --bg-card: #ffffff;
+    --bg-card-hover: #fafafa;
+    --bg-subtle: rgba(24,24,27,0.045);
+    --bg-input: #ffffff;
+    --bg-input-focus: #ffffff;
+    --bg-sidebar: #ebebed; /* frame: sidebar + gutter around the content panel */
+    --bg-header: #f7f7f8;
+    --bg-elevated: #ffffff;
+    --bg-overlay: rgba(24,24,27,0.45);
+
+    --border-default: rgba(24,24,27,0.09);
+    --border-strong: rgba(24,24,27,0.15);
+    --border-input: rgba(24,24,27,0.14);
+
+    --text-primary: #18181b;
+    --text-secondary: rgba(24,24,27,0.74);
+    --text-muted: #63636b;
+    --text-light: rgba(24,24,27,0.14);
+    --text-placeholder: rgba(24,24,27,0.42);
+
+    --shadow-card: 0 1px 2px rgba(24,24,27,0.04);
+    --shadow-card-hover: 0 4px 12px rgba(24,24,27,0.08);
+    --shadow-modal: 0 24px 48px rgba(24,24,27,0.16);
+
+    --nav-active-bg: #ffffff;
+    --nav-active-text: #b34a17;
+    --nav-active-shadow: 0 1px 2px rgba(24,24,27,0.06), 0 0 0 1px rgba(24,24,27,0.06);
+    --row-hover: rgba(24,24,27,0.03);
+    --divider: rgba(24,24,27,0.08);
+
+    --tone-neutral-ink: rgba(24,24,27,0.72);
+    --tone-neutral-soft: rgba(24,24,27,0.05);
+    --tone-neutral-line: rgba(24,24,27,0.12);
+    --tone-brand-ink: #b34a17;
+    --tone-brand-soft: #fdeee5;
+    --tone-brand-line: #f7c7ab;
+    --tone-success-ink: #15803d;
+    --tone-success-soft: #edf9f1;
+    --tone-success-line: #b7e7c8;
+    --tone-warning-ink: #a75a00;
+    --tone-warning-soft: #fdf6e3;
+    --tone-warning-line: #f2dc9c;
+    --tone-danger-ink: #c8333a;
+    --tone-danger-soft: #fdeeee;
+    --tone-danger-line: #f6c4c6;
+    --tone-info-ink: #4453c9;
+    --tone-info-soft: #eff1fe;
+    --tone-info-line: #c9cffb;
+    --tone-purple-ink: #7a35a8;
+    --tone-purple-soft: #f6effc;
+    --tone-purple-line: #e1cdf2;
+    --tone-purple-solid: #9b4fc4;
+
+    --accent-success: #2a9f59;
+    --accent-warning: #c08400;
+    --accent-danger: #e5484d;
+    --accent-info: #6e7ff0;
+    --cort-green: #2a9f59;
+    --cort-red: #e5484d;
+
+    --chart-1: #e2622a;
+    --chart-2: #6e7ff0;
+    --chart-3: #2a9f59;
+    --chart-4: #9b4fc4;
+    --chart-5: #c08400;
+    --chart-6: #de5c97;
+    --chart-grid: rgba(24,24,27,0.07);
+    --chart-axis: rgba(24,24,27,0.50);
+
+    /* Legacy aliases */
+    --surface-white: #ffffff;
+    --surface-subtle: rgba(24,24,27,0.025);
+    --surface-muted: rgba(24,24,27,0.045);
+    --surface-card: rgba(24,24,27,0.02);
+    --border-light: rgba(24,24,27,0.09);
+    --border-dark: rgba(24,24,27,0.15);
+    --background: #ebebed;
+    --foreground: #18181b;
+    --surface: #f7f7f8;
+    --border: rgba(24,24,27,0.09);
+    --muted: #63636b;
+    --text-main: #18181b;
+    --glass-border: rgba(24,24,27,0.09);
+}
+
 /* Theme-aware tinted alert banners (readable in light + dark mode) */
 .alert-banner-warning {
     border-radius: 0.75rem;
@@ -399,6 +589,8 @@ html:not([data-theme="light"]):has(.admin-portal) {
     --color-chart-4: var(--chart-4);
     --color-chart-5: var(--chart-5);
     --color-chart-6: var(--chart-6);
+    --color-nav-active: var(--nav-active-bg);
+    --color-nav-active-fg: var(--nav-active-text);
 
     /* Admin micro-interactions (all ≤ 200ms) */
     @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
@@ -572,6 +764,15 @@ html[dir="rtl"] .rtl-flip {
     transform: scaleX(-1);
 }
 
+/* Start-anchored drawers sit on the right in RTL, so they must slide in from the right. */
+@keyframes slide-in-from-right-rtl {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+html[dir="rtl"] .animate-slide-in-left {
+    animation-name: slide-in-from-right-rtl;
+}
+
 html[dir="rtl"] .slideover-panel {
     animation-name: slide-in-left;
 }
@@ -699,10 +900,13 @@ html[dir="rtl"] .slideover-panel {
     }
 }
 
-/* A few sensible defaults for form controls in Tailwind v4 */
-input,
-select,
-textarea,
-button {
-    font: inherit;
+/* A few sensible defaults for form controls in Tailwind v4.
+   In the base layer so text-* / font-* utilities on a control still apply (unlayered CSS beats every layer). */
+@layer base {
+    input,
+    select,
+    textarea,
+    button {
+        font: inherit;
+    }
 }

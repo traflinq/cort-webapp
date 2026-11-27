@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowLeftRight, CheckCircle2, CircleDashed, CircleX, ExternalLink, Fuel, GitMerge, Info, Route, Shrink, Split, TriangleAlert, Waypoints } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button, focusRing } from "@/app/admin/ui";
 import { getSaudiBasePath, withSaudiBase } from "@/app/lib/i18n/saudi-route";
 import { SectionHeading } from "../components/ui";
 import { useCostFetch, useFmt } from "./hooks";
@@ -75,14 +76,17 @@ export function RecommendationCard({ rec, onOpen, locked }: { rec: Recommendatio
       type="button"
       onClick={onOpen}
       className={cn(
-        "flex flex-col gap-3 rounded-2xl border bg-card p-4 text-start transition-colors hover:bg-subtle/40",
-        rec.feasibility === "FEASIBLE" ? "border-line hover:border-brand-line" : "border-dashed border-line opacity-90",
+        "flex flex-col gap-3 rounded-xl border bg-card p-4 text-start transition-colors hover:bg-row-hover",
+        focusRing,
+        rec.feasibility === "FEASIBLE" ? "border-line hover:border-line-strong" : "border-dashed border-line",
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="flex items-center gap-2">
-          <span className="flex size-8 items-center justify-center rounded-xl bg-brand-soft text-brand-ink [&_svg]:size-4">{TYPE_ICON[rec.type]}</span>
-          <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">{t(`type.${rec.type}` as never)}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-subtle text-fg-muted [&_svg]:size-3.5" aria-hidden="true">
+            {TYPE_ICON[rec.type]}
+          </span>
+          <span className="truncate text-xs font-medium text-fg-muted">{t(`type.${rec.type}` as never)}</span>
         </span>
         <span className="flex flex-wrap justify-end gap-1">
           <FeasibilityTag rec={rec} />
@@ -96,11 +100,11 @@ export function RecommendationCard({ rec, onOpen, locked }: { rec: Recommendatio
       </p>
       <div className="mt-auto flex flex-wrap items-end justify-between gap-2 pt-1">
         <div>
-          <p className="text-[11px] text-fg-muted">{rec.type === "FUEL_DISCREPANCY" ? t("potentialDifference") : t("netMonthly")}</p>
-          <p className={cn("text-lg font-semibold tabular-nums", net !== null && net > 0 ? "text-success-ink" : "text-fg")}>{locked ? fmt.locked : net === null ? "—" : fmt.pkr(net)}</p>
+          <p className="text-xs text-fg-muted">{rec.type === "FUEL_DISCREPANCY" ? t("potentialDifference") : t("netMonthly")}</p>
+          <p className={cn("mt-0.5 text-lg font-semibold tracking-tight tabular-nums", net !== null && net > 0 ? "text-success-ink" : "text-fg")}>{locked ? fmt.locked : net === null ? "—" : fmt.pkr(net)}</p>
         </div>
         <span className="text-xs text-fg-muted">
-          {t("confidence")}: <span className="font-semibold text-fg">{t(`level.${rec.confidence.level}` as never)}</span>
+          {t("confidence")}: <span className="font-medium text-fg">{t(`level.${rec.confidence.level}` as never)}</span>
         </span>
       </div>
     </button>
@@ -220,7 +224,7 @@ export function RecommendationDrawer({ id, onClose }: { id: number | null; onClo
               <span className="font-semibold">{t(`level.${rec.confidence.level}` as never)}</span>
               <span className="text-fg-muted"> · {t("confidenceBasis")}</span>
             </p>
-            <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
+            <ul className="mt-2 divide-y divide-line rounded-lg border border-line">
               {rec.confidence.factors.map((f) => (
                 <li key={f.key} className="flex items-start gap-3 px-3 py-2 text-sm">
                   {f.state === "OK" ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success-ink" /> : f.state === "PARTIAL" ? <CircleDashed className="mt-0.5 size-4 shrink-0 text-warning-ink" /> : <CircleX className="mt-0.5 size-4 shrink-0 text-danger-ink" />}
@@ -234,8 +238,8 @@ export function RecommendationDrawer({ id, onClose }: { id: number | null; onClo
           </Part>
 
           {rec.assumptions.length > 0 && (
-            <details className="rounded-2xl border border-line bg-card px-4 py-3 text-sm">
-              <summary className="cursor-pointer font-medium">{t("assumptions")}</summary>
+            <details className="rounded-xl border border-line bg-card px-4 py-3 text-sm">
+              <summary className={cn("cursor-pointer rounded-sm font-medium", focusRing)}>{t("assumptions")}</summary>
               <ul className="mt-2 list-disc space-y-1 ps-5 text-fg-muted" dir="auto">
                 {rec.assumptions.map((a) => (
                   <li key={a}>{a}</li>
@@ -255,7 +259,7 @@ function Part({ n, title, children }: { n: number; title: string; children: Reac
   return (
     <section className="flex flex-col gap-2">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-fg">
-        <span className="flex size-5 items-center justify-center rounded-full bg-brand-soft text-[11px] text-brand-ink">{n}</span>
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-subtle text-xs font-medium text-fg-muted tabular-nums">{n}</span>
         {title}
       </h3>
       <div className="flex flex-col gap-3 text-sm text-fg">{children}</div>
@@ -270,7 +274,7 @@ function FigureTable({ figures, order, label, highlight }: { figures: Record<str
     return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
   });
   return (
-    <div className="divide-y divide-line rounded-xl border border-line bg-card">
+    <div className="divide-y divide-line rounded-lg border border-line bg-card">
       {keys.map((k) => {
         const f = figures[k];
         return (
@@ -307,8 +311,8 @@ function EvidenceData({ data, label, routeId }: { data: Record<string, unknown>;
   const entries = Object.entries(data ?? {});
   if (!entries.length) return null;
   return (
-    <details className="rounded-xl border border-line bg-card px-3 py-2" open={entries.some(([, v]) => isTripList(v))}>
-      <summary className="cursor-pointer text-sm font-medium">{label("source_records")}</summary>
+    <details className="rounded-lg border border-line bg-card px-3 py-2" open={entries.some(([, v]) => isTripList(v))}>
+      <summary className={cn("cursor-pointer rounded-sm text-sm font-medium", focusRing)}>{label("source_records")}</summary>
       <dl className="mt-2 grid gap-2 text-xs">
         {entries.map(([k, v]) => (
           <div key={k} className="grid grid-cols-[8rem_1fr] gap-2">
@@ -318,12 +322,12 @@ function EvidenceData({ data, label, routeId }: { data: Record<string, unknown>;
                 <ul className="flex flex-col gap-1">
                   {v.map((x) => (
                     <li key={x.id}>
-                      <Link href={tripHref(x)} target="_blank" rel="noopener" className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg px-1.5 py-1 hover:bg-subtle">
-                        <span className="inline-flex items-center gap-1 font-semibold text-brand-ink">
+                      <Link href={tripHref(x)} target="_blank" rel="noopener" className={cn("inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md px-1.5 py-1 hover:bg-subtle", focusRing)}>
+                        <span className="inline-flex items-center gap-1 font-medium text-fg underline-offset-2 hover:underline">
                           {t("tripLink", { id: x.id })}
                           <ExternalLink className="size-3" aria-hidden />
                         </span>
-                        <span className="text-fg-muted">
+                        <span className="text-fg-muted tabular-nums">
                           {fmt.date(x.date)}
                           {x.km != null && x.planned_km != null && ` · ${t("tripKm", { km: fmt.n(x.km, 1), planned: fmt.n(x.planned_km, 1) })}`}
                         </span>
@@ -348,8 +352,8 @@ function Checks({ checks }: { checks: Check[] }) {
   const dirOf = (label: string) => (/\(morning\)/.test(label) ? ` (${t("morning")})` : /\(evening\)/.test(label) ? ` (${t("evening")})` : "");
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">{t("checksTitle")}</p>
-      <ul className="divide-y divide-line rounded-xl border border-line">
+      <p className="text-xs font-medium text-fg-muted">{t("checksTitle")}</p>
+      <ul className="divide-y divide-line rounded-lg border border-line">
         {checks.map((c, i) => (
           <li key={i} className="flex items-start gap-3 px-3 py-2">
             {c.status === "PASS" ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success-ink" /> : c.status === "FAIL" ? <CircleX className="mt-0.5 size-4 shrink-0 text-danger-ink" /> : <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning-ink" />}
@@ -405,29 +409,39 @@ export function RecommendationsPanel({
       <SectionHeading title={title} description={description} badge={run ? t("runOn", { date: `${fmt.date(run.generated_at)} ${fmt.time(run.generated_at)}`, from: fmt.date(run.period_start), to: fmt.date(run.period_end) }) : undefined} />
       {!run ? (
         <EmptyNote>
-          <Info className="mx-auto mb-2 size-5" />
+          <Info className="mx-auto mb-2 size-5" aria-hidden="true" />
           {aiEnabled ? t("noRun") : t("noRunNoAi")}
         </EmptyNote>
       ) : (
         <>
-          {run.summary && (run.summary as { routing_available?: boolean }).routing_available === false && <p className="rounded-xl bg-warning-soft p-3 text-sm text-warning-ink">{t("routingUnavailable")}</p>}
+          {run.summary && (run.summary as { routing_available?: boolean }).routing_available === false && <p className="rounded-lg border border-warning-line bg-warning-soft p-3 text-sm text-warning-ink">{t("routingUnavailable")}</p>}
           <div className="flex flex-wrap items-center gap-2">
             {filters.length > 2 &&
               filters.map((f) => (
-                <button key={f} type="button" aria-pressed={type === f} onClick={() => setType(f)} className={cn("rounded-full px-3 py-1 text-xs font-medium", type === f ? "bg-brand text-white" : "bg-subtle text-fg-muted hover:text-fg")}>
+                <button
+                  key={f}
+                  type="button"
+                  aria-pressed={type === f}
+                  onClick={() => setType(f)}
+                  className={cn(
+                    "h-8 rounded-md border px-2.5 text-xs font-medium transition-colors",
+                    focusRing,
+                    type === f ? "border-line-strong bg-subtle text-fg" : "border-line bg-card text-fg-muted hover:bg-subtle hover:text-fg",
+                  )}
+                >
                   {f === "ALL" ? t("all") : t(`type.${f}` as never)}
                 </button>
               ))}
             {hiddenRejected > 0 && (
-              <button type="button" onClick={() => setShowRejected((x) => !x)} className="ms-auto text-xs font-medium text-fg-muted hover:text-fg">
+              <Button variant="ghost" size="sm" onClick={() => setShowRejected((x) => !x)} className="ms-auto">
                 {showRejected ? t("hideRejected") : t("showRejected", { count: hiddenRejected })}
-              </button>
+              </Button>
             )}
           </div>
           {shown.length === 0 ? (
             <EmptyNote>{t("noneFeasible")}</EmptyNote>
           ) : (
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {shown.map((r) => (
                 <RecommendationCard key={r.id} rec={r} onOpen={() => onOpen(r.id)} locked={savings_locked} />
               ))}

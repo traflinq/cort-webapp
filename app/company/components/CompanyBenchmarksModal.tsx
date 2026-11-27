@@ -1,9 +1,20 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { Plus, Lock, Clock, X } from "lucide-react";
+import { Plus, Lock, Clock } from "lucide-react";
 import { apiClient } from "../../lib/services/api-client";
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  Field,
+  InlineError,
+  Input,
+  Select,
+  Spinner,
+  Textarea,
+} from "@/app/admin/ui";
 
 type FuelMode = "LITRES" | "AVERAGE";
 
@@ -75,10 +86,6 @@ const EMPTY_FORM: FormState = {
   notes: "",
 };
 
-const fieldClass =
-  "w-full text-sm border border-[var(--border-input)] rounded-xl px-3 py-2.5 bg-[var(--bg-input)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/40 focus:border-[var(--cort-orange)]";
-const labelClass = "text-xs text-[var(--text-secondary)] mb-1.5 block font-semibold";
-
 function pkr(n: number) {
   return `PKR ${Math.abs(n).toLocaleString("en-PK")}`;
 }
@@ -123,169 +130,148 @@ function rowToForm(row: BenchmarkRow): FormState {
 
 function BenchmarkFields({ form, setForm }: { form: FormState; setForm: (f: FormState) => void }) {
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <div>
-        <label className={labelClass}>Vehicle category *</label>
-        <select
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <Field label="Vehicle category" required>
+        <Select
           value={form.vehicle_category}
           onChange={(e) =>
             setForm({ ...form, vehicle_category: e.target.value, coaster_seater_size: "" })
           }
-          className={fieldClass}
         >
-          <option value="">— Select category —</option>
+          <option value="">Select category</option>
           {VEHICLE_CATEGORIES.map((c) => (
             <option key={c} value={c}>{c}</option>
           ))}
-        </select>
-      </div>
+        </Select>
+      </Field>
 
       {(form.vehicle_category === "COASTER" || form.vehicle_category === "VAN") && (
-        <div>
-          <label className={labelClass}>
-            {form.vehicle_category === "VAN" ? "Van seater size *" : "Coaster seater size *"}
-          </label>
-          <select
+        <Field label={form.vehicle_category === "VAN" ? "Van seater size" : "Coaster seater size"} required>
+          <Select
             value={form.coaster_seater_size}
             onChange={(e) => setForm({ ...form, coaster_seater_size: e.target.value })}
             required
-            className={fieldClass}
           >
-            <option value="">— Select size —</option>
+            <option value="">Select size</option>
             {seaterOptionsFor(form.vehicle_category).map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Field>
       )}
 
-      <div>
-        <label className={labelClass}>Current vendor</label>
-        <input
+      <Field label="Current vendor">
+        <Input
           type="text"
           placeholder="e.g. Careem for Business"
           value={form.vendor_name}
           onChange={(e) => setForm({ ...form, vendor_name: e.target.value })}
-          className={fieldClass}
         />
-      </div>
+      </Field>
 
-      <div>
-        <label className={labelClass}>Cost type *</label>
-        <select
+      <Field label="Cost type" required>
+        <Select
           value={form.cost_type}
           onChange={(e) => setForm({ ...form, cost_type: e.target.value as FormState["cost_type"] })}
-          className={fieldClass}
         >
           <option value="VARIABLE">Variable (monthly rental + fuel)</option>
           <option value="FIXED">Fixed (lump sum)</option>
-        </select>
-      </div>
+        </Select>
+      </Field>
 
-      <div>
-        <label className={labelClass}>
-          {form.cost_type === "FIXED" ? "Monthly lump sum (PKR) *" : "Monthly rental per vehicle (PKR) *"}
-        </label>
-        <input
+      <Field label={form.cost_type === "FIXED" ? "Monthly lump sum (PKR)" : "Monthly rental per vehicle (PKR)"} required>
+        <Input
           type="number"
           min="0"
           required
+          className="tabular-nums"
           value={form.monthly_cost}
           onChange={(e) => setForm({ ...form, monthly_cost: e.target.value })}
-          className={fieldClass}
         />
-      </div>
+      </Field>
 
-      <div>
-        <label className={labelClass}>Number of vehicles *</label>
-        <input
+      <Field label="Number of vehicles" required>
+        <Input
           type="number"
           min="1"
           required
+          className="tabular-nums"
           value={form.quantity}
           onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-          className={fieldClass}
         />
-      </div>
+      </Field>
 
-      <div className="col-span-2 border-t border-[var(--border-default)] pt-3 mt-1">
-        <label className={labelClass}>Fuel type *</label>
-        <select
+      <Field label="Fuel type" required className="border-t border-line pt-4 sm:col-span-2">
+        <Select
           value={form.fuel_type}
           onChange={(e) => setForm({ ...form, fuel_type: e.target.value as FuelType })}
-          className={fieldClass}
         >
           <option value="PETROL">Petrol</option>
           <option value="DIESEL">Diesel</option>
-        </select>
-      </div>
+        </Select>
+      </Field>
 
-      <div className="col-span-2">
-        <label className={labelClass}>Fuel benchmark mode *</label>
-        <select
+      <Field label="Fuel benchmark mode" required className="sm:col-span-2">
+        <Select
           value={form.fuel_mode}
           onChange={(e) => setForm({ ...form, fuel_mode: e.target.value as FuelMode })}
-          className={fieldClass}
         >
-          <option value="LITRES">Litres — claimed litres/month</option>
-          <option value="AVERAGE">Average — claimed daily distance + km/L</option>
-        </select>
-      </div>
+          <option value="LITRES">Litres: claimed litres per month</option>
+          <option value="AVERAGE">Average: claimed daily distance and km/L</option>
+        </Select>
+      </Field>
 
       {form.fuel_mode === "LITRES" ? (
-        <div className="col-span-2">
-          <label className={labelClass}>Claimed litres per vehicle / month *</label>
-          <input
+        <Field label="Claimed litres per vehicle / month" required className="sm:col-span-2">
+          <Input
             type="number"
             min="0"
             step="0.01"
             placeholder="e.g. 350"
+            className="tabular-nums"
             value={form.fuel_litres}
             onChange={(e) => setForm({ ...form, fuel_litres: e.target.value })}
-            className={fieldClass}
           />
-        </div>
+        </Field>
       ) : (
         <>
-          <div>
-            <label className={labelClass}>Claimed avg distance (km/vehicle/day) *</label>
-            <input
+          <Field
+            label="Claimed avg distance (km/vehicle/day)"
+            required
+            hint="Daily km, multiplied by analysed operating days when computing savings."
+          >
+            <Input
               type="number"
               min="0"
               step="0.01"
               placeholder="e.g. 75"
+              className="tabular-nums"
               value={form.claimed_avg_distance_km}
               onChange={(e) => setForm({ ...form, claimed_avg_distance_km: e.target.value })}
-              className={fieldClass}
             />
-            <p className="text-xs text-[var(--text-muted)] mt-1">
-              Daily km — multiplied by analysed operating days when computing savings.
-            </p>
-          </div>
-          <div>
-            <label className={labelClass}>Fuel avg (km/L) *</label>
-            <input
+          </Field>
+          <Field label="Fuel avg (km/L)" required>
+            <Input
               type="number"
               min="0"
               step="0.01"
               placeholder="e.g. 5"
+              className="tabular-nums"
               value={form.fuel_avg_kmpl}
               onChange={(e) => setForm({ ...form, fuel_avg_kmpl: e.target.value })}
-              className={fieldClass}
             />
-          </div>
+          </Field>
         </>
       )}
 
-      <div className="col-span-2">
-        <label className={labelClass}>Notes</label>
-        <textarea
+      <Field label="Notes" className="sm:col-span-2">
+        <Textarea
           rows={2}
           value={form.notes}
           onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          className={`${fieldClass} resize-none`}
+          className="min-h-16 resize-none"
         />
-      </div>
+      </Field>
     </div>
   );
 }
@@ -413,119 +399,95 @@ export function CompanyBenchmarksModal({ isOpen, onClose, onChanged, purpose = "
     changeRequests.filter((r) => r.status === "PENDING" && r.benchmark_id).map((r) => [r.benchmark_id, r]),
   );
 
-  if (!isOpen || typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 modal-overlay overflow-y-auto">
-      <div className="my-auto w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden rounded-[2.5rem] bg-[var(--bg-card)] shadow-2xl ring-1 ring-[var(--border-default)] modal-panel">
-        <div className="flex items-start justify-between border-b border-[var(--border-input)] px-6 py-5 gap-4 shrink-0">
-          <div>
-            <h3 className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em]">
-              {copy.title}
-            </h3>
-            <p className="text-sm text-[var(--text-secondary)] mt-2 max-w-lg font-normal normal-case tracking-normal">
-              {copy.description}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-xl p-2.5 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] flex-shrink-0 transition-all border border-transparent hover:border-[var(--border-input)]"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-4 overflow-y-auto flex-1 bg-[var(--bg-page)]">
-          {error && (
-            <p className="text-sm text-[var(--accent-danger)] bg-[var(--accent-danger)]/10 border border-[var(--accent-danger)]/20 rounded-xl px-3 py-2.5">
-              {error}
-            </p>
-          )}
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        size="lg"
+        title={copy.title}
+        description={copy.description}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <div className="space-y-4">
+          {error && <InlineError>{error}</InlineError>}
 
           {loading ? (
-            <div className="py-10 text-center text-sm text-[var(--text-muted)]">Loading…</div>
+            <div className="flex justify-center py-10">
+              <Spinner />
+            </div>
           ) : (
-            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-card)] overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-default)]">
-                <p className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wide">
-                  {copy.list}
-                </p>
-                <button
+            <div className="overflow-hidden rounded-xl border border-line">
+              <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+                <p className="text-sm font-semibold text-fg">{copy.list}</p>
+                <Button
                   type="button"
+                  size="sm"
+                  leftIcon={<Plus />}
                   onClick={() => {
                     setShowCreateForm((v) => !v);
                     setRequestModalRow(null);
                   }}
-                  className="inline-flex items-center gap-1.5 text-sm font-bold text-white bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] rounded-xl px-3 py-1.5 transition-colors"
                 >
-                  <Plus className="h-3.5 w-3.5" /> Add
-                </button>
+                  Add
+                </Button>
               </div>
 
               {benchmarks.length === 0 ? (
-                <div className="py-10 text-center text-sm text-[var(--text-muted)] px-4">
-                  No benchmarks yet — click Add to create your first one.
+                <div className="px-4 py-10 text-center text-sm text-fg-muted">
+                  No benchmarks yet. Click Add to create your first one.
                 </div>
               ) : (
-                <div className="divide-y divide-[var(--border-default)]">
+                <div className="divide-y divide-line">
                   {benchmarks.map((b) => {
                     const pending = pendingByBenchmarkId.get(b.id);
                     return (
                       <div
                         key={b.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-4 hover:bg-[var(--row-hover)] transition-colors"
+                        className="flex flex-col justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-row-hover sm:flex-row sm:items-center"
                       >
                         <div className="min-w-0 flex-1 space-y-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {b.service_type !== "SHUTTLE" && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]">
-                                {b.service_type} — not applicable
-                              </span>
-                            )}
+                          <div className="flex flex-wrap items-center gap-1.5">
                             {b.vehicle_category && (
-                              <span className="text-xs text-[var(--text-secondary)] font-medium">
+                              <span className="me-1 text-sm font-medium text-fg">
                                 {(b.vehicle_category === "COASTER" || b.vehicle_category === "VAN") &&
                                 b.coaster_seater_size
                                   ? `${b.vehicle_category === "COASTER" ? "Coaster" : "Van"} (${b.coaster_seater_size})`
                                   : b.vehicle_category}
                               </span>
                             )}
-                            <span
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                                b.cost_type === "FIXED"
-                                  ? "bg-orange-500/15 text-orange-400"
-                                  : "bg-sky-500/15 text-sky-400"
-                              }`}
-                            >
-                              {b.cost_type === "FIXED" ? "Fixed" : "Variable"}
-                            </span>
-                            {b.fuel_type && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border-default)]">
-                                {b.fuel_type === "DIESEL" ? "Diesel" : "Petrol"}
-                              </span>
+                            {b.service_type !== "SHUTTLE" && (
+                              <Badge tone="warning" dot size="sm">
+                                {b.service_type}: not applicable
+                              </Badge>
                             )}
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-[var(--bg-subtle)] text-[var(--text-muted)] border border-[var(--border-default)]">
-                              <Lock className="h-3 w-3" /> Locked
-                            </span>
+                            <Badge size="sm" variant="outline">
+                              {b.cost_type === "FIXED" ? "Fixed" : "Variable"}
+                            </Badge>
+                            {b.fuel_type && (
+                              <Badge size="sm" variant="outline">
+                                {b.fuel_type === "DIESEL" ? "Diesel" : "Petrol"}
+                              </Badge>
+                            )}
+                            <Badge size="sm" icon={<Lock />}>
+                              Locked
+                            </Badge>
                             {pending && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]">
-                                <Clock className="h-3 w-3" /> Change pending review
-                              </span>
+                              <Badge tone="warning" size="sm" icon={<Clock />}>
+                                Change pending review
+                              </Badge>
                             )}
                           </div>
-                          <p className="text-sm text-[var(--text-primary)] font-medium">
+                          <p className="text-sm font-medium tabular-nums text-fg">
                             {b.cost_type === "FIXED" ? (
                               <>
                                 {pkr(b.monthly_cost)}
-                                <span className="text-[var(--text-muted)] font-normal">
+                                <span className="font-normal text-fg-muted">
                                   /month lump sum · {b.quantity} vehicle{b.quantity === 1 ? "" : "s"}
                                 </span>
                               </>
                             ) : (
                               <>
                                 {pkr(b.monthly_cost * b.quantity)}
-                                <span className="text-[var(--text-muted)] font-normal">
+                                <span className="font-normal text-fg-muted">
                                   /month ({b.quantity} × {pkr(b.monthly_cost)} rental)
                                 </span>
                               </>
@@ -534,17 +496,19 @@ export function CompanyBenchmarksModal({ isOpen, onClose, onChanged, purpose = "
                         </div>
 
                         {pending ? (
-                          <span className="self-start sm:self-center text-xs font-semibold text-[var(--accent-warning)]/80 px-3 py-2">
+                          <span className="self-start text-xs text-fg-muted sm:self-center">
                             Awaiting review
                           </span>
                         ) : (
-                          <button
+                          <Button
                             type="button"
+                            variant="outline"
+                            size="sm"
+                            className="self-start sm:self-center"
                             onClick={() => openRequestModal(b)}
-                            className="self-start sm:self-center flex-shrink-0 text-sm font-bold text-white bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] rounded-xl px-3.5 py-2 transition-colors"
                           >
-                            Request Change
-                          </button>
+                            Request change
+                          </Button>
                         )}
                       </div>
                     );
@@ -555,74 +519,61 @@ export function CompanyBenchmarksModal({ isOpen, onClose, onChanged, purpose = "
           )}
 
           {showCreateForm && (
-            <form
-              onSubmit={handleCreate}
-              className="rounded-2xl border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/5 p-5 space-y-4"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-bold text-[var(--text-primary)]">{copy.add}</p>
-                <button
+            <form onSubmit={handleCreate} className="space-y-4 rounded-xl border border-line p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-fg">{copy.add}</p>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     setShowCreateForm(false);
                     setCreateForm(EMPTY_FORM);
                   }}
-                  className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
               <BenchmarkFields form={createForm} setForm={setCreateForm} />
-              <button
-                type="submit"
-                disabled={saving}
-                className="text-sm bg-[var(--cort-orange)] text-white px-4 py-2.5 rounded-xl hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 font-bold"
-              >
-                {saving ? "Saving…" : copy.save}
-              </button>
+              <div className="flex justify-end">
+                <Button type="submit" loading={saving}>
+                  {saving ? "Saving…" : copy.save}
+                </Button>
+              </div>
             </form>
           )}
 
           {requestModalRow && (
-            <div className="rounded-2xl border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/5 p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-bold text-[var(--text-primary)]">Request Change</p>
-                <button
-                  type="button"
-                  onClick={() => setRequestModalRow(null)}
-                  className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                >
+            <div className="space-y-4 rounded-xl border border-line p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-fg">Request change</p>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setRequestModalRow(null)}>
                   Cancel
-                </button>
+                </Button>
               </div>
               <form onSubmit={handleSubmitRequest} className="space-y-4">
-                <div>
-                  <label className={labelClass}>Request type</label>
-                  <select
+                <Field label="Request type">
+                  <Select
                     value={requestAction}
                     onChange={(e) => setRequestAction(e.target.value as "UPDATE" | "DELETE")}
-                    className={fieldClass}
                   >
                     <option value="UPDATE">Update this benchmark</option>
                     <option value="DELETE">Delete this benchmark</option>
-                  </select>
-                </div>
+                  </Select>
+                </Field>
                 {requestAction === "UPDATE" && (
                   <BenchmarkFields form={requestForm} setForm={setRequestForm} />
                 )}
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="text-sm bg-[var(--cort-orange)] text-white px-4 py-2.5 rounded-xl hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 font-bold"
-                >
-                  {saving ? "Submitting…" : "Submit Request"}
-                </button>
+                <div className="flex justify-end">
+                  <Button type="submit" variant={requestAction === "DELETE" ? "danger" : "primary"} loading={saving}>
+                    {saving ? "Submitting…" : "Submit request"}
+                  </Button>
+                </div>
               </form>
             </div>
           )}
         </div>
-      </div>
-    </div>,
-    document.body,
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { formatDateTime } from "@/app/lib/utils";
+import { Download, ExternalLink, FileBarChart } from "lucide-react";
+import { Badge, Button, Input, TableSkeletonRows, focusRingInset, focusRing } from "@/app/admin/ui";
+import { cn } from "@/lib/utils";
+import { formatLocaleDate, formatLocaleNumber } from "@/app/lib/i18n/format";
 import { useCompanyAccess } from "../../lib/access-context";
+import { useCompanyLocale } from "../../lib/locale-context";
 import { ChauffeurReport, apiClient } from "../../../lib/services/api-client";
-import { Card } from "../../components/DashboardComponents";
-import { PageHeader, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../../components/PageLayout";
+import { Card } from "../../components/Card";
+import { PageHeader, TableEmptyState, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../../components/PageLayout";
 import Modal from "../../bookings/components/Modal";
-import TablePageSkeleton from "../../components/TablePageSkeleton";
-import TableSkeleton from "@/app/components/ui/TableSkeleton";
 import { VendorAuditBadge, VendorAuditPanel } from "./VendorAuditPanel";
 
 const isVendorTrip = (r: ChauffeurReport) => r.fulfillment_type === "EXTERNAL_VENDOR";
@@ -87,16 +89,66 @@ function exportChauffeurCSV(reports: ChauffeurReport[], companyName: string, sta
   URL.revokeObjectURL(url);
 }
 
+const DETAIL_LABEL = "text-xs font-medium text-fg-muted";
+const SECTION_TITLE = "mb-3 text-sm font-semibold text-fg";
+
+function ReceiptLink({ href, label }: { href: string; label: string }) {
+  return (
+    <div className="space-y-2">
+      <p className={DETAIL_LABEL}>{label}</p>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn("group relative block aspect-[4/3] overflow-hidden rounded-lg border border-line transition-colors hover:border-line-strong", focusRing)}
+      >
+        <img src={href} alt={label} className="h-full w-full object-cover" />
+        <span className="absolute end-2 top-2 flex size-7 items-center justify-center rounded-md border border-line bg-card text-fg-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+          <ExternalLink className="size-3.5" aria-hidden="true" />
+        </span>
+      </a>
+    </div>
+  );
+}
+
+function BreakdownRow({ label, value, sub = false }: { label: ReactNode; value: string; sub?: boolean }) {
+  return (
+    <tr>
+      <td className={cn("px-4 text-start", sub ? "py-2 ps-8 text-xs text-fg-secondary" : "py-3 text-fg")}>{label}</td>
+      <td className={cn("whitespace-nowrap px-4 text-end tabular-nums text-fg", sub ? "py-2 text-xs" : "py-3")}>{value}</td>
+    </tr>
+  );
+}
+
 export default function ChauffeurReportsPage() {
   const t = useTranslations("company.reports");
   const tAudit = useTranslations("company.reports.vendorAudit");
+  const tCommon = useTranslations("common");
   const { company } = useCompanyAccess();
+  const { locale } = useCompanyLocale();
 
   const [reports, setReports] = useState<ChauffeurReport[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ChauffeurReport | null>(null);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+
+  /** Whole numbers in the company locale (table columns carry the PKR unit in the header). */
+  const num = (v: number) => formatLocaleNumber(v, locale, { maximumFractionDigits: 0 });
+  /** Decimal-friendly figures (hours, km). */
+  const dec = (v: number, dp = 1) => formatLocaleNumber(v, locale, { minimumFractionDigits: dp, maximumFractionDigits: dp });
+  /** Full PKR amount, e.g. "PKR 1,240,500". */
+  const money = (v: number) => `${tCommon("currency.pkr")} ${formatLocaleNumber(v, locale, { maximumFractionDigits: 2 })}`;
+  const dateTime = (iso: string) =>
+    formatLocaleDate(iso, locale, {
+      timeZone: "Asia/Karachi",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
 
   const fetchReports = useCallback(async (start: string, end: string) => {
     if (!company?.id) return;
@@ -124,138 +176,149 @@ export default function ChauffeurReportsPage() {
   }, [startDate, endDate, fetchReports]);
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
+    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 pb-12">
       <PageHeader
         label={t("chauffeurLabel")}
         title={t("chauffeurTitle")}
         action={
           <>
-            <div className="flex items-center gap-2 bg-[var(--bg-subtle)] p-1 rounded-xl border border-[var(--border-strong)] backdrop-blur-sm">
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-9 rounded-lg border-0 bg-transparent px-3 text-sm text-[var(--text-primary)] focus:ring-0" placeholder={t("startDate")} />
-              <span className="text-[var(--text-muted)]">/</span>
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-9 rounded-lg border-0 bg-transparent px-3 text-sm text-[var(--text-primary)] focus:ring-0" placeholder={t("endDate")} />
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                aria-label={t("startDate")}
+                className="w-auto tabular-nums"
+              />
+              <span className="text-fg-muted" aria-hidden="true">–</span>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                aria-label={t("endDate")}
+                className="w-auto tabular-nums"
+              />
             </div>
-            <button type="button" className="group relative flex items-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-[var(--text-primary)] transition-all hover:bg-[var(--cort-orange-hover)] hover:-translate-y-0.5 shadow-lg active:translate-y-0 active:shadow-md" onClick={() => exportChauffeurCSV(reports, company?.name ?? "Company", startDate, endDate)}>
-              <svg className="w-4 h-4 text-[var(--text-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <Button
+              type="button"
+              leftIcon={<Download aria-hidden="true" />}
+              onClick={() => exportChauffeurCSV(reports, company?.name ?? "Company", startDate, endDate)}
+            >
               {t("exportCsv")}
-            </button>
+            </Button>
           </>
         }
       />
 
-      <Card className={`min-h-[500px] ${TABLE_CARD_CLASS}`}>
+      <Card className={TABLE_CARD_CLASS}>
         <div className={TABLE_TOP_BAR_CLASS}>
-          <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">{t("chauffeurTableDescription")}</div>
+          <p className="text-sm text-fg-secondary">{t("chauffeurTableDescription")}</p>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm text-start">
+          <table className="min-w-full text-start text-sm">
             <thead>
-              <tr className="border-b border-[var(--border-light)]">
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("date")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("city")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("bookingId")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("passenger")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("vehicle")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("route")}</th>
-                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("durMin")}</th>
-                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("distKm")}</th>
-                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("svcChg")}</th>
-                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("fuel")}</th>
-                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("extras")}</th>
-                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("totalPkr")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{tAudit("column")}</th>
+              <tr className="border-b border-line">
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("date")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("city")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("bookingId")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("passenger")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("vehicle")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("route")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("durMin")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("distKm")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("svcChg")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("fuel")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("extras")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("totalPkr")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{tAudit("column")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border-light)]/50">
+            <tbody className="divide-y divide-line">
               {isLoading && reports.length === 0 ? (
-                <TableSkeleton columns={13} rows={8} />
+                <TableSkeletonRows columns={13} rows={8} />
               ) : reports.length === 0 && !isLoading ? (
-                <tr>
-                  <td colSpan={13} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center text-[var(--text-muted)]">
-                      <span className="bg-[var(--surface-subtle)] p-4 rounded-full mb-3">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </span>
-                      <span>{t("noReports")}</span>
-                    </div>
-                  </td>
-                </tr>
+                <TableEmptyState message={t("noReports")} icon={FileBarChart} />
               ) : (
                 reports.map((report) => (
                   <tr
                     key={report.id}
                     onClick={() => setSelectedReport(report)}
-                    className="group transition-colors border-b border-transparent hover:bg-[var(--surface-subtle)]/80 cursor-pointer"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedReport(report);
+                      }
+                    }}
+                    tabIndex={0}
+                    className={cn("cursor-pointer transition-colors hover:bg-row-hover", focusRingInset)}
                   >
-                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-[var(--text-primary)] font-medium font-mono text-xs`}>
-                      {report.completed_at ? formatDateTime(report.completed_at) : "-"}
+                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-fg`}>
+                      {report.completed_at ? dateTime(report.completed_at) : "—"}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-[var(--text-primary)] font-medium text-xs`}>
+                    <td className={`${TABLE_CELL_CLASS} text-fg-secondary`}>
                       {report.city || "—"}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} font-bold text-[var(--text-primary)]`}>
+                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap font-medium text-fg`}>
                       #{report.id}
                     </td>
                     <td className={TABLE_CELL_CLASS}>
-                      <div className="font-bold text-[var(--text-primary)] text-sm">
+                      <div className="font-medium text-fg">
                         {report.passenger?.full_name || t("guest")}
                       </div>
-                      <div className="text-xs text-[var(--text-muted)]">
-                        {report.passenger?.employee_id || "-"}
+                      <div className="text-xs text-fg-muted">
+                        {report.passenger?.employee_id || "—"}
                       </div>
                     </td>
                     <td className={TABLE_CELL_CLASS}>
-                      <div className="text-[var(--text-primary)] font-medium">{report.vehicle?.make} {report.vehicle?.model}</div>
-                      <div className="text-xs text-[var(--text-muted)] font-mono">
+                      <div className="whitespace-nowrap text-fg">{report.vehicle?.make} {report.vehicle?.model}</div>
+                      <div className="text-xs text-fg-muted">
                         {report.vehicle?.plate_number}
                       </div>
                     </td>
                     <td className={`${TABLE_CELL_CLASS} max-w-xs`}>
-                      <div title={report.route.pickup} className="truncate text-[var(--text-primary)] font-medium text-xs">
-                        <span className="text-emerald-500 font-bold me-1">A</span> {report.route.pickup || "-"}
+                      <div title={report.route.pickup} className="truncate text-xs text-fg">
+                        <span className="me-1 font-medium text-fg-muted">A</span> {report.route.pickup || "—"}
                       </div>
-                      <div title={report.route.dropoff} className="truncate text-[var(--text-muted)] text-xs mt-0.5">
-                        <span className="text-rose-500 font-bold me-1">B</span> {report.route.dropoff || "-"}
+                      <div title={report.route.dropoff} className="mt-0.5 truncate text-xs text-fg-secondary">
+                        <span className="me-1 font-medium text-fg-muted">B</span> {report.route.dropoff || "—"}
                       </div>
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end text-[var(--text-primary)] font-mono text-xs`}>
-                      {report.total_duration_minutes}
+                    <td className={`${TABLE_CELL_CLASS} text-end text-fg-secondary`}>
+                      {report.total_duration_minutes != null ? num(Number(report.total_duration_minutes)) : "—"}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end text-[var(--text-primary)] font-mono text-xs`}>
-                      {report.total_distance_km}
+                    <td className={`${TABLE_CELL_CLASS} text-end text-fg-secondary`}>
+                      {report.total_distance_km != null ? formatLocaleNumber(Number(report.total_distance_km), locale, { maximumFractionDigits: 2 }) : "—"}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end text-[var(--text-muted)] text-xs`}>
-                      {report.breakdown ? Number(report.breakdown.service_charge).toLocaleString() : "—"}
+                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-end text-fg-secondary`}>
+                      {report.breakdown ? num(Number(report.breakdown.service_charge)) : "—"}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end text-[var(--text-muted)] text-xs`}>
-                      {report.breakdown ? Number(report.breakdown.fuel_cost).toLocaleString() : "—"}
+                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-end text-fg-secondary`}>
+                      {report.breakdown ? num(Number(report.breakdown.fuel_cost)) : "—"}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end text-[var(--text-muted)] text-xs`}>
+                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-end text-fg-secondary`}>
                       {report.breakdown
-                        ? (
+                        ? num(
                             Number(report.breakdown.toll) +
                             Number(report.breakdown.parking) +
                             Number(report.breakdown.accommodation) +
-                            Number(report.breakdown.outstation_allowance)
-                          ).toLocaleString()
+                            Number(report.breakdown.outstation_allowance),
+                          )
                         : "—"}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end font-bold text-[var(--text-primary)]`}>
-                      {report.total_cost != null ? Number(report.total_cost).toLocaleString() : "—"}
+                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-end font-semibold text-fg`}>
+                      {report.total_cost != null ? num(Number(report.total_cost)) : "—"}
                     </td>
                     <td className={TABLE_CELL_CLASS}>
                       {isVendorTrip(report) ? (
                         <div className="flex flex-col items-start gap-1">
                           <VendorAuditBadge audit={report.vendor_audit} />
                           {report.vendor_audit?.vendor?.name && (
-                            <span className="text-[10px] text-[var(--text-muted)] truncate max-w-[10rem]">{report.vendor_audit.vendor.name}</span>
+                            <span className="max-w-[10rem] truncate text-xs text-fg-muted">{report.vendor_audit.vendor.name}</span>
                           )}
                         </div>
                       ) : (
-                        <span className="text-[var(--text-muted)] text-xs">—</span>
+                        <span className="text-xs text-fg-muted">—</span>
                       )}
                     </td>
                   </tr>
@@ -273,94 +336,78 @@ export default function ChauffeurReportsPage() {
       >
         {selectedReport && (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[var(--surface-subtle)] p-4 rounded-xl border border-[var(--border-light)]">
-                <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">{t("passenger")}</h4>
-                <div className="font-bold text-[var(--text-primary)]">{selectedReport.passenger?.full_name || t("guest")}</div>
-                <div className="text-sm text-[var(--text-muted)] font-mono mt-1">{selectedReport.passenger?.employee_id || "N/A"}</div>
-
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-lg border border-line p-4">
+                <h4 className={cn(DETAIL_LABEL, "mb-2")}>{t("passenger")}</h4>
+                <div className="text-sm font-semibold text-fg">{selectedReport.passenger?.full_name || t("guest")}</div>
+                <div className="mt-1 text-sm text-fg-muted tabular-nums">{selectedReport.passenger?.employee_id || "N/A"}</div>
               </div>
-              <div className="bg-[var(--surface-subtle)] p-4 rounded-xl border border-[var(--border-light)]">
-                <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">{t("vehicleAndDriver")}</h4>
-                <div className="font-bold text-[var(--text-primary)]">{selectedReport.vehicle?.make} {selectedReport.vehicle?.model}</div>
-                <div className="text-sm text-[var(--text-muted)] font-mono mt-1">{selectedReport.vehicle?.plate_number}</div>
-                <div className="text-sm text-[var(--text-muted)] mt-1">{t("driver")}: {selectedReport.driver?.full_name || t("assignedDriver")}</div>
+              <div className="rounded-lg border border-line p-4">
+                <h4 className={cn(DETAIL_LABEL, "mb-2")}>{t("vehicleAndDriver")}</h4>
+                <div className="text-sm font-semibold text-fg">{selectedReport.vehicle?.make} {selectedReport.vehicle?.model}</div>
+                <div className="mt-1 text-sm text-fg-muted tabular-nums">{selectedReport.vehicle?.plate_number}</div>
+                <div className="mt-1 text-sm text-fg-muted">{t("driver")}: {selectedReport.driver?.full_name || t("assignedDriver")}</div>
               </div>
             </div>
 
-            <div className="bg-[var(--surface-subtle)] p-4 rounded-xl border border-[var(--border-light)]">
-              <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3">{t("routeJourney")}</h4>
-              <div className="flex flex-col gap-3 relative">
-                <div className="absolute start-[11px] top-2 bottom-2 w-0.5 bg-[var(--border-light)]"></div>
-                <div className="flex gap-3 items-start relative z-10">
-                  <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-bold shrink-0 ring-4 ring-white">A</div>
+            <div className="rounded-lg border border-line p-4">
+              <h4 className={cn(DETAIL_LABEL, "mb-3")}>{t("routeJourney")}</h4>
+              <ol className="relative flex flex-col gap-3">
+                <span className="absolute start-[11px] top-2 bottom-2 w-px bg-line" aria-hidden="true" />
+                <li className="relative flex items-start gap-3">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-line bg-card text-xs font-medium text-fg-secondary">A</span>
                   <div>
-                    <div className="text-sm font-medium text-[var(--text-primary)]">{selectedReport.route.pickup}</div>
-                    <div className="text-xs text-[var(--text-muted)] mt-0.5">{t("pickupLocation")}</div>
+                    <div className="text-sm font-medium text-fg">{selectedReport.route.pickup}</div>
+                    <div className="mt-0.5 text-xs text-fg-muted">{t("pickupLocation")}</div>
                   </div>
-                </div>
-                <div className="flex gap-3 items-start relative z-10">
-                  <div className="w-6 h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xs font-bold shrink-0 ring-4 ring-white">B</div>
+                </li>
+                <li className="relative flex items-start gap-3">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-line bg-card text-xs font-medium text-fg-secondary">B</span>
                   <div>
-                    <div className="text-sm font-medium text-[var(--text-primary)]">{selectedReport.route.dropoff}</div>
-                    <div className="text-xs text-[var(--text-muted)] mt-0.5">{t("dropoffLocation")}</div>
+                    <div className="text-sm font-medium text-fg">{selectedReport.route.dropoff}</div>
+                    <div className="mt-0.5 text-xs text-fg-muted">{t("dropoffLocation")}</div>
                   </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-[var(--border-light)]">
+                </li>
+              </ol>
+              <dl className="mt-4 grid grid-cols-2 gap-4 border-t border-line pt-4">
                 <div>
-                  <span className="text-xs text-[var(--text-muted)]">{t("duration")}:</span>
-                  <span className="ms-2 text-sm font-bold text-[var(--text-primary)]">{t("mins", { count: selectedReport.total_duration_minutes })}</span>
+                  <dt className="text-xs text-fg-muted">{t("duration")}</dt>
+                  <dd className="mt-0.5 text-sm font-semibold text-fg tabular-nums">{t("mins", { count: selectedReport.total_duration_minutes })}</dd>
                 </div>
                 <div>
-                  <span className="text-xs text-[var(--text-muted)]">{t("distance")}:</span>
-                  <span className="ms-2 text-sm font-bold text-[var(--text-primary)]">{t("km", { count: selectedReport.total_distance_km })}</span>
+                  <dt className="text-xs text-fg-muted">{t("distance")}</dt>
+                  <dd className="mt-0.5 text-sm font-semibold text-fg tabular-nums">{t("km", { count: selectedReport.total_distance_km })}</dd>
                 </div>
-              </div>
+              </dl>
             </div>
 
             {selectedReport.daily_logs && selectedReport.daily_logs.length > 0 && (
               <div>
-                <h4 className="text-sm font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--cort-orange)]"></span>
-                  {t("tripBreakdown")}
-                </h4>
-                <div className="bg-white border border-[var(--border-light)] rounded-lg overflow-hidden shadow-sm">
-                  <table className="min-w-full text-start text-xs">
-                    <thead className="bg-[var(--surface-subtle)] font-bold text-[var(--text-muted)] uppercase tracking-tight">
-                      <tr>
-                        <th className="px-4 py-2.5 border-b border-[var(--border-light)]">{t("date")}</th>
-                        <th className="px-4 py-2.5 border-b border-[var(--border-light)]">{t("tripType")}</th>
-                        <th className="px-4 py-2.5 border-b border-[var(--border-light)] text-end">{t("hours")}</th>
-                        <th className="px-4 py-2.5 border-b border-[var(--border-light)] text-end">{t("fullDay")}</th>
+                <h4 className={SECTION_TITLE}>{t("tripBreakdown")}</h4>
+                <div className="overflow-hidden rounded-lg border border-line bg-card">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-line">
+                        <th scope="col" className="px-4 py-2.5 text-start text-xs font-medium text-fg-muted">{t("date")}</th>
+                        <th scope="col" className="px-4 py-2.5 text-start text-xs font-medium text-fg-muted">{t("tripType")}</th>
+                        <th scope="col" className="px-4 py-2.5 text-end text-xs font-medium text-fg-muted">{t("hours")}</th>
+                        <th scope="col" className="px-4 py-2.5 text-end text-xs font-medium text-fg-muted">{t("fullDay")}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[var(--border-light)]">
+                    <tbody className="divide-y divide-line">
                       {[...selectedReport.daily_logs].sort((a, b) => new Date(a.log_date).getTime() - new Date(b.log_date).getTime()).map((log, idx) => (
-                        <tr key={idx} className="hover:bg-[var(--surface-subtle)]/50 transition-colors">
-                          <td className="px-4 py-2.5 font-medium text-[var(--text-primary)]">
-                            {new Date(log.log_date).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              weekday: 'short'
-                            })}
+                        <tr key={idx}>
+                          <td className="whitespace-nowrap px-4 py-2.5 text-fg tabular-nums">
+                            {formatLocaleDate(log.log_date, locale, { month: "short", day: "numeric", weekday: "short" })}
                           </td>
                           <td className="px-4 py-2.5">
-                            {log.trip_type === 'OUT_STATION' ? (
-                              <span className="text-orange-600 font-bold bg-orange-50 px-2 py-0.5 rounded text-[10px]">{t("outstation")}</span>
-                            ) : (
-                              <span className="text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded text-[10px]">{t("inCity")}</span>
-                            )}
+                            <Badge tone="neutral">{log.trip_type === "OUT_STATION" ? t("outstation") : t("inCity")}</Badge>
                           </td>
-                          <td className="px-4 py-2.5 text-end font-mono text-[var(--text-primary)]">
-                            {log.hours_used ? parseFloat(log.hours_used.toString()).toFixed(1) : (log.is_full_day ? "24.0" : "0.0")}
+                          <td className="px-4 py-2.5 text-end text-fg tabular-nums">
+                            {dec(log.hours_used ? parseFloat(log.hours_used.toString()) : log.is_full_day ? 24 : 0)}
                           </td>
-                          <td className="px-4 py-2.5 text-end">
-                            {log.is_full_day ? (
-                              <span className="text-emerald-600 text-[10px] font-bold bg-emerald-50 px-2 py-0.5 rounded uppercase">{t("yes")}</span>
-                            ) : (
-                              <span className="text-[var(--text-muted)] text-[10px] font-bold bg-[var(--surface-subtle)] px-2 py-0.5 rounded uppercase">{t("no")}</span>
-                            )}
+                          <td className="px-4 py-2.5 text-end text-fg-secondary">
+                            {log.is_full_day ? t("yes") : t("no")}
                           </td>
                         </tr>
                       ))}
@@ -386,106 +433,44 @@ export default function ChauffeurReportsPage() {
 
             {/* Cost Breakdown (calculated amounts are not shown for vendor trips) */}
             {selectedReport.breakdown && (
-            <div>
-              <h4 className="text-sm font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--cort-orange)]"></span>
-                {t("costBreakdown")}
-              </h4>
-              <div className="bg-white border border-[var(--border-light)] rounded-lg overflow-hidden shadow-sm">
-                <table className="w-full text-sm">
-                  <tbody className="divide-y divide-[var(--border-light)]">
-                    <tr className="hover:bg-[var(--surface-subtle)]/50">
-                      <td className="px-4 py-3 text-[var(--text-primary)]">{t("serviceChargeBase")}</td>
-                      <td className="px-4 py-3 text-end font-medium text-[var(--text-primary)]">PKR {Number(selectedReport.breakdown.service_charge).toLocaleString()}</td>
-                    </tr>
-                    <tr className="hover:bg-[var(--surface-subtle)]/50">
-                      <td className="px-4 py-3 text-[var(--text-primary)]">{t("fuelSurcharge")}</td>
-                      <td className="px-4 py-3 text-end font-medium text-[var(--text-primary)]">PKR {Number(selectedReport.breakdown.fuel_cost).toLocaleString()}</td>
-                    </tr>
-                    {Number(selectedReport.breakdown.toll) > 0 && (
-                      <tr className="bg-[var(--surface-subtle)]/30">
-                        <td className="px-4 py-2 text-[var(--text-muted)] ps-8 text-xs">{t("tollCharges")}</td>
-                        <td className="px-4 py-2 text-end text-[var(--text-primary)] text-xs">PKR {Number(selectedReport.breakdown.toll).toLocaleString()}</td>
+              <div>
+                <h4 className={SECTION_TITLE}>{t("costBreakdown")}</h4>
+                <div className="overflow-hidden rounded-lg border border-line bg-card">
+                  <table className="w-full text-sm">
+                    <tbody className="divide-y divide-line">
+                      <BreakdownRow label={t("serviceChargeBase")} value={money(Number(selectedReport.breakdown.service_charge))} />
+                      <BreakdownRow label={t("fuelSurcharge")} value={money(Number(selectedReport.breakdown.fuel_cost))} />
+                      {Number(selectedReport.breakdown.toll) > 0 && (
+                        <BreakdownRow sub label={t("tollCharges")} value={money(Number(selectedReport.breakdown.toll))} />
+                      )}
+                      {Number(selectedReport.breakdown.parking) > 0 && (
+                        <BreakdownRow sub label={t("parkingFees")} value={money(Number(selectedReport.breakdown.parking))} />
+                      )}
+                      {Number(selectedReport.breakdown.outstation_allowance) > 0 && (
+                        <BreakdownRow sub label={t("outstationAllowance")} value={money(Number(selectedReport.breakdown.outstation_allowance))} />
+                      )}
+                      {Number(selectedReport.breakdown.accommodation) > 0 && (
+                        <BreakdownRow sub label={t("accommodation")} value={money(Number(selectedReport.breakdown.accommodation))} />
+                      )}
+                      <tr className="bg-subtle">
+                        <td className="px-4 py-3 text-start font-semibold text-fg">{t("totalTripCost")}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-end font-semibold text-fg tabular-nums">{money(Number(selectedReport.total_cost))}</td>
                       </tr>
-                    )}
-                    {Number(selectedReport.breakdown.parking) > 0 && (
-                      <tr className="bg-[var(--surface-subtle)]/30">
-                        <td className="px-4 py-2 text-[var(--text-muted)] ps-8 text-xs">{t("parkingFees")}</td>
-                        <td className="px-4 py-2 text-end text-[var(--text-primary)] text-xs">PKR {Number(selectedReport.breakdown.parking).toLocaleString()}</td>
-                      </tr>
-                    )}
-                    {Number(selectedReport.breakdown.outstation_allowance) > 0 && (
-                      <tr className="bg-[var(--surface-subtle)]/30">
-                        <td className="px-4 py-2 text-[var(--text-muted)] ps-8 text-xs">{t("outstationAllowance")}</td>
-                        <td className="px-4 py-2 text-end text-[var(--text-primary)] text-xs">PKR {Number(selectedReport.breakdown.outstation_allowance).toLocaleString()}</td>
-                      </tr>
-                    )}
-                    {Number(selectedReport.breakdown.accommodation) > 0 && (
-                      <tr className="bg-[var(--surface-subtle)]/30">
-                        <td className="px-4 py-2 text-[var(--text-muted)] ps-8 text-xs">{t("accommodation")}</td>
-                        <td className="px-4 py-2 text-end text-[var(--text-primary)] text-xs">PKR {Number(selectedReport.breakdown.accommodation).toLocaleString()}</td>
-                      </tr>
-                    )}
-                    <tr className="bg-[var(--surface-subtle)] font-bold border-t border-[var(--border-light)]">
-                      <td className="px-4 py-3 text-[var(--text-primary)]">{t("totalTripCost")}</td>
-                      <td className="px-4 py-3 text-end text-[var(--cort-orange)]">PKR {Number(selectedReport.total_cost).toLocaleString()}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
             )}
 
             {selectedReport.breakdown && (selectedReport.breakdown.expense_toll_image_url || selectedReport.breakdown.expense_parking_image_url) && (
               <div>
-                <h4 className="text-sm font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--cort-orange)]"></span>
-                  {t("expenseReceipts")}
-                </h4>
+                <h4 className={SECTION_TITLE}>{t("expenseReceipts")}</h4>
                 <div className="grid grid-cols-2 gap-4">
                   {selectedReport.breakdown.expense_toll_image_url && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">{t("tollReceipt")}</p>
-                      <a
-                        href={selectedReport.breakdown.expense_toll_image_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block aspect-[4/3] rounded-lg overflow-hidden border border-[var(--border-light)] hover:border-[var(--cort-orange)] transition-colors group relative"
-                      >
-                        <img
-                          src={selectedReport.breakdown.expense_toll_image_url}
-                          alt="Toll Receipt"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                          <svg className="w-6 h-6 text-[var(--text-primary)] opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                        </div>
-                      </a>
-                    </div>
+                    <ReceiptLink href={selectedReport.breakdown.expense_toll_image_url} label={t("tollReceipt")} />
                   )}
                   {selectedReport.breakdown.expense_parking_image_url && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">{t("parkingReceipt")}</p>
-                      <a
-                        href={selectedReport.breakdown.expense_parking_image_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block aspect-[4/3] rounded-lg overflow-hidden border border-[var(--border-light)] hover:border-[var(--cort-orange)] transition-colors group relative"
-                      >
-                        <img
-                          src={selectedReport.breakdown.expense_parking_image_url}
-                          alt="Parking Receipt"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                          <svg className="w-6 h-6 text-[var(--text-primary)] opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                        </div>
-                      </a>
-                    </div>
+                    <ReceiptLink href={selectedReport.breakdown.expense_parking_image_url} label={t("parkingReceipt")} />
                   )}
                 </div>
               </div>
@@ -496,4 +481,3 @@ export default function ChauffeurReportsPage() {
     </div>
   );
 }
-

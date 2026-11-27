@@ -106,6 +106,39 @@ Design reference for mockups, new features, and marketing surfaces. Sourced from
 
 ---
 
+### Company portal palette (overrides the two tables above)
+
+The company portal (`/company/*`) uses its own neutral palette with a coral-orange accent, modelled on the HorizonHub dashboard reference. It is defined once in `app/globals.css` under `html…:has(.company-portal)` and reaches every page through the tokens (`bg-card`, `text-fg`, `bg-brand`, `text-brand-ink`, `bg-chart-1`…). Never hardcode these hexes in components; the only exceptions are map and chart layers, which need literal colours (`analytics/cost/charts.tsx`, route map pins).
+
+| Token | Light | Dark | Usage |
+|---|---|---|---|
+| Brand (`--cort-orange`) | `#e2622a` | `#e8692e` | Primary buttons, active tab underline, focus ring, chart series 1 |
+| Brand hover | `#cc5520` | `#f07a43` | Primary button hover |
+| Brand ink (`--tone-brand-ink`) | `#b34a17` | `#f2905f` | Orange text: active nav label, brand badges |
+| Brand soft | `#fdeee5` | `rgba(232,105,46,.16)` | Brand badge fill |
+| Frame (`--bg-sidebar`) | `#ebebed` | `#161616` | Sidebar and the gutter around the content panel |
+| Content panel (`--bg-page`) | `#f7f7f8` | `#0b0b0b` | Rounded inset panel (`rounded-2xl`, 1px border, 8px gutter) on desktop; full-bleed on mobile |
+| Card / input | `#ffffff` | `#141414` / `#101010` | Surfaces |
+| Elevated (popovers) | `#ffffff` | `#1c1c1c` | Menus, tooltips, dialogs |
+| Border | `rgba(24,24,27,.09)` | `rgba(255,255,255,.08)` | Hairlines |
+| Text primary | `#18181b` | `#ededed` | Headings, values |
+| Text muted | `#63636b` | `rgba(237,237,237,.55)` | Labels, captions (≥ 4.5:1 on cards, panel and frame) |
+| Nav active | white pill + hairline ring | brand tint `rgba(232,105,46,.16)` | `bg-nav-active text-nav-active-fg` |
+| Success / warning / danger / info ink | `#15803d` / `#a75a00` / `#c8333a` / `#4453c9` | `#5ccf88` / `#f0c158` / `#f2777b` / `#a3adfa` | Status text and badges (always with a label or icon) |
+
+**Chart series** (fixed order, validated with the dataviz validator: colour-blind ΔE ≥ 13.8, every series ≥ 3:1 on its card):
+
+| # | Light | Dark |
+|---|---|---|
+| 1 coral | `#e2622a` | `#e8692e` |
+| 2 periwinkle | `#6e7ff0` | `#7d8cf5` |
+| 3 green | `#2a9f59` | `#38b56a` |
+| 4 purple | `#9b4fc4` | `#b072e0` |
+| 5 amber | `#c08400` | `#c08e12` |
+| 6 pink | `#de5c97` | `#e26a9f` |
+
+Contrast: all text pairs pass WCAG AA (4.5:1). White on the brand fill is 3.5:1 (light) / 3.2:1 (dark), which meets the 3:1 rule for large text and UI components only; keep primary button labels ≥ 14px medium and never put small text on the brand fill.
+
 ## Typography
 
 ### Font families
@@ -153,8 +186,7 @@ Design reference for mockups, new features, and marketing surfaces. Sourced from
 ### Dashboard shell
 
 - **Sidebar width**: `w-72` (expanded) / `w-20` (collapsed)
-- **Sidebar radius**: `rounded-[2rem]` — floating pill-style sidebar with `ms-4 my-4` margin
-- **Main content**: `max-w-full px-4 md:px-8`
+- **Main content**: `max-w-full px-4 md:px-8`; page body `mx-auto max-w-[1400px] flex flex-col gap-6`
 - **Mobile header**: `h-16` sticky top bar
 
 ---
@@ -164,10 +196,9 @@ Design reference for mockups, new features, and marketing surfaces. Sourced from
 | Element | Radius |
 |---|---|
 | Buttons | `rounded-md` (6px) / `rounded-lg` (8px) |
-| Cards (dashboard) | `rounded-[2rem]` (32px) — signature large radius |
+| Cards / panels (dashboard) | `rounded-xl` (12px) |
 | Cards (landing) | `rounded-2xl` (16px) |
-| Sidebar | `rounded-[2rem]` |
-| Badges / pills | `rounded-full` |
+| Badges (dashboard) | `rounded-md` (kit `Badge`) · pills `rounded-full` on landing only |
 | Icon containers | `rounded-xl` (12px) |
 | Alerts | `rounded-xl` / `rounded-2xl` |
 | shadcn base radius | `0.625rem` (10px) |
@@ -178,11 +209,10 @@ Design reference for mockups, new features, and marketing surfaces. Sourced from
 
 | Token | Value | Usage |
 |---|---|---|
-| Card (dark) | `0 2px 12px rgba(0,0,0,0.3)` | Default card elevation |
-| Card hover (dark) | `0 8px 24px rgba(0,0,0,0.4)` | Hover lift |
+| Card (company portal) | `none` (dark) / `0 1px 2px rgba(15,23,42,0.05)` (light) | Flat resting cards — the border carries the edge |
+| Card hover (company portal) | `--shadow-card-hover` | Only on clickable cards; no translate lift |
 | Modal (dark) | `0 24px 48px rgba(0,0,0,0.6)` | Dialogs, modals |
-| CTA button | `shadow-lg shadow-[#fe8503]/20` | Primary action glow |
-| Sidebar | `shadow-xl` | Floating sidebar depth |
+| CTA button (landing only) | `shadow-lg shadow-[#fe8503]/20` | Marketing glow — not in the product UI |
 
 ### Background effects (landing)
 
@@ -211,7 +241,7 @@ text-white/50 hover:text-white hover:bg-white/5
 
 **Sizes**: `h-9` (default), `h-10` (lg), icon `size-9`
 
-### Badges / eyebrows
+### Badges / eyebrows (landing page)
 
 ```
 inline-flex items-center gap-2 rounded-full
@@ -220,19 +250,17 @@ px-4 py-1.5 text-xs text-[#fe8503]/80
 tracking-widest uppercase font-medium
 ```
 
-Include a pulsing dot: `h-1.5 w-1.5 rounded-full bg-[#fe8503] animate-pulse`
+In the product UI use the kit `Badge` (`rounded-md`, sentence case, optional static `dot`) — no pulsing dots.
 
 ### Cards (dashboard)
 
+Use `Card` from `app/company/components/Card.tsx` (or the kit `Card` in `app/admin/ui`):
+
 ```
-bg-[var(--bg-card)]
-border border-[var(--border-default)]
-rounded-[2rem] p-6
-shadow-[0_1px_4px_rgba(0,0,0,0.12)]
-hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)]
+rounded-xl border border-line bg-card p-4 sm:p-5 text-fg shadow-[var(--shadow-card)]
 ```
 
-Optional left accent border: `border-s-4 border-s-[#fe8503]`
+No accent stripes, no faded background icons, no gradients or glass inside the product UI.
 
 ### Cards (landing / glass)
 
@@ -250,7 +278,7 @@ bg-primary/10 border border-primary/20
 
 ### Navigation (sidebar)
 
-- Active item: orange left bar (`w-1 rounded-e-full bg-[#fe8503]`) + `bg-[rgba(254,133,3,0.10)]` + orange text
+- Active item: `bg-[var(--nav-active-bg)]` + `--nav-active-text`; no glow
 - Inactive: muted text, hover brightens to white
 - Icons: Lucide, `size={20}`, `strokeWidth={1.5}` inactive / `2` active
 
@@ -287,7 +315,6 @@ bg-primary/10 border border-primary/20
 |---|---|---|
 | Fade in | 0.2–0.3s | Overlays, modals |
 | Fade slide up | 0.4–0.5s | Page transitions, mobile nav items |
-| Dashboard enter | 0.6s | Staggered section reveals (80ms delays) |
 | Modal from button | 0.38s | Popovers anchored to triggers |
 | Slide in right | 0.35s | Slide-over panels |
 | Hero entrance | 0.7–0.9s | Landing page copy (Framer Motion) |
@@ -377,10 +404,11 @@ Navbar (fixed, blur on scroll)
 
 ### Dashboard UI patterns
 
-- **KPI cards** with sparklines, donut charts, trend indicators
-- **Data tables** with row hover (`--row-hover`), muted header text
-- **Section titles** with orange icon accent
-- **Staggered entrance** — `.dashboard-section` with delay classes
+- **KPI tiles** — label, full-precision value (`tabular-nums`), one line of context; deltas are signed with an arrow, never colour alone
+- **Bullet chart** for spend vs budget (actual, projected month end, budget marker); **ranked table** for savings / cost-leakage opportunities; **stacked bars** instead of donuts
+- **Needs attention** list — every row links to where the item is resolved
+- **Data tables** — `TABLE_*` classes in `app/company/components/PageLayout.tsx` or kit `DataTable`; sentence-case `text-xs` headers, numeric columns end-aligned
+- **Statuses** — kit `Badge` / `StatusBadge` with a dot + text
 - **Theme toggle** — Sun/Moon icon in sidebar footer
 - **RTL support** — Arabic locale with Noto Sans Arabic, mirrored layouts
 
@@ -413,11 +441,12 @@ Navbar (fixed, blur on scroll)
 
 1. **Dark-first** — The brand lives on deep navy-black (`#080b14`). Light mode is supported but secondary.
 2. **Orange is the action color** — One accent. Don't introduce competing primaries.
-3. **Generous radius** — `2rem` cards and floating sidebar are signature elements. Avoid sharp corners.
-4. **Subtle depth** — Low-opacity borders, soft shadows, glass-like surfaces. Not flat, not skeuomorphic.
+3. **Calm surfaces** — 12px card radius, 1px borders, flat resting cards. Depth only for overlays (menus, dialogs).
+4. **Honest numbers** — Never show placeholder, random or default values as data. Missing data shows "—" or an empty state that says why. Full PKR amounts (no "k") outside chart axes.
 5. **Institutional copy** — "Orchestrate," "telemetry," "fiscal leakage," "command center." Avoid casual language.
 6. **Data-forward** — Charts, maps, and live metrics are first-class. Empty states should feel operational, not decorative.
-7. **Motion with purpose** — Staggered reveals and smooth easing signal premium quality. No gratuitous animation.
+7. **Motion with purpose** — Motion only for state changes (menus, drawers, expanding rows). No staggered page entrances, pulsing decoration or hover lifts.
+8. **Readable type** — Weights 400/500/600, sentence-case labels, nothing under 12px, muted text at ≥4.5:1 contrast (tokens in `globals.css`, scoped by `.company-portal`).
 
 ---
 
@@ -431,20 +460,20 @@ Background:    #080b14
 Surface:       #0d1120
 Border:        rgba(255,255,255,0.07)
 Text:          #ffffff
-Text muted:    rgba(255,255,255,0.45)
+Text muted:    rgba(255,255,255,0.54)
 Success:       #10b981
 Danger:        #ef4444
 Font:          Geist
-Card radius:   32px
+Card radius:   12px
 Button radius: 8px
 ```
 
 ### Sample component specs
 
-**Primary button**: 40px height, 32px horizontal padding, `#fe8503` fill, white text, 8px radius, orange glow shadow
+**Primary button (product)**: 36px height, 14px horizontal padding, `#fe8503` fill, white text, 8px radius, no glow (landing CTA may glow)
 
-**Dashboard card**: `#0d1120` fill, 1px `rgba(255,255,255,0.07)` border, 32px radius, 24px padding
+**Dashboard card**: `#0d1120` fill, 1px `rgba(255,255,255,0.07)` border, 12px radius, 16–20px padding, no shadow
 
-**Sidebar item (active)**: `rgba(254,133,3,0.10)` background, `#fe8503` text, 4px orange left bar
+**Sidebar item (active)**: `rgba(254,133,3,0.10)` background, `#fe8503` text
 
-**Section eyebrow**: 12px, uppercase, wide tracking, `#fe8503` at 60% opacity
+**Section eyebrow (landing only)**: 12px, uppercase, wide tracking, `#fe8503` at 60% opacity. The product UI uses sentence-case `text-xs` labels instead.

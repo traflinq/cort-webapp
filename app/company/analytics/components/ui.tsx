@@ -2,11 +2,12 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { focusRing } from "@/app/admin/ui";
 
-/** Shared building blocks for the Analytics page (same look as the savings dashboard). */
+/** Shared building blocks for the Analytics page (same surfaces as the company Overview). */
 
 export function Panel({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("overflow-hidden rounded-2xl border border-line bg-card", className)}>{children}</div>;
+  return <div className={cn("overflow-hidden rounded-xl border border-line bg-card", className)}>{children}</div>;
 }
 
 export function SectionHeading({
@@ -23,10 +24,10 @@ export function SectionHeading({
 }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
+      <div className="min-w-0">
         <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold text-fg">
           {title}
-          {badge && <span className="rounded-full bg-subtle px-2 py-0.5 text-[11px] font-medium text-fg-muted">{badge}</span>}
+          {badge && <span className="rounded-md bg-subtle px-2 py-0.5 text-xs font-medium text-fg-muted tabular-nums">{badge}</span>}
         </h3>
         {description && <p className="mt-0.5 text-sm text-fg-muted">{description}</p>}
       </div>
@@ -35,27 +36,15 @@ export function SectionHeading({
   );
 }
 
-export function KpiTile({
-  label,
-  value,
-  icon,
-  tone,
-}: {
-  label: string;
-  value: string;
-  icon: ReactNode;
-  tone?: "warning" | "success";
-}) {
+/** One headline figure: label and value. `tone` marks a value that needs attention. */
+export function KpiTile({ label, value, tone }: { label: string; value: string; tone?: "warning" | "success" }) {
   return (
-    <div className="flex flex-col rounded-2xl border border-line bg-card p-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-[13px] font-medium text-fg-muted">{label}</p>
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-subtle text-fg-muted [&_svg]:size-[18px]">{icon}</span>
-      </div>
+    <div className="flex min-w-0 flex-col rounded-xl border border-line bg-card p-4">
+      <p className="truncate text-xs font-medium text-fg-muted">{label}</p>
       <p
         className={cn(
-          "mt-1 text-2xl font-semibold tracking-tight tabular-nums",
-          tone === "warning" ? "text-[var(--cort-orange)]" : tone === "success" ? "text-success-ink" : "text-fg",
+          "mt-2 text-2xl font-semibold tracking-tight tabular-nums",
+          tone === "warning" ? "text-warning-ink" : tone === "success" ? "text-success-ink" : "text-fg",
         )}
       >
         {value}
@@ -64,14 +53,15 @@ export function KpiTile({
   );
 }
 
+/** Horizontal share bar; the percentage is always printed next to it, so colour is not the only cue. */
 export function UtilizationBar({ pct, lowBelow = 60 }: { pct: number; lowBelow?: number }) {
-  const color = pct >= 80 ? "bg-emerald-500" : pct >= lowBelow ? "bg-yellow-400" : "bg-rose-500";
+  const color = pct >= 80 ? "bg-success" : pct >= lowBelow ? "bg-warning" : "bg-danger";
   return (
     <div className="flex items-center gap-2">
-      <div className="h-2 flex-1 overflow-hidden rounded-full bg-subtle">
-        <div className={cn("h-full rounded-full", color)} style={{ width: `${Math.min(100, pct)}%` }} />
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-subtle">
+        <div className={cn("h-full rounded-full", color)} style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
       </div>
-      <span className={cn("w-10 text-end text-xs font-semibold", pct < lowBelow ? "text-rose-400" : "text-fg-muted")}>{pct}%</span>
+      <span className={cn("w-10 text-end text-xs font-medium tabular-nums", pct < lowBelow ? "text-danger-ink" : "text-fg-muted")}>{pct}%</span>
     </div>
   );
 }
@@ -88,7 +78,7 @@ export function Tabs<T extends string>({
   label: string;
 }) {
   return (
-    <div role="tablist" aria-label={label} className="flex w-full gap-1 overflow-x-auto rounded-2xl border border-line bg-card p-1 sm:w-fit">
+    <div role="tablist" aria-label={label} className="flex w-full items-center gap-1 overflow-x-auto border-b border-line">
       {tabs.map((x) => (
         <button
           key={x.id}
@@ -99,8 +89,9 @@ export function Tabs<T extends string>({
           aria-controls={`panel-${x.id}`}
           onClick={() => onChange(x.id)}
           className={cn(
-            "flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium transition-colors sm:flex-none [&_svg]:size-4",
-            active === x.id ? "bg-brand text-white" : "text-fg-muted hover:bg-subtle hover:text-fg",
+            "-mb-px inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-t-md border-b-2 px-3 py-2.5 text-sm font-medium transition-colors [&_svg]:size-4",
+            focusRing,
+            active === x.id ? "border-brand text-fg" : "border-transparent text-fg-muted hover:text-fg",
           )}
         >
           {x.icon}

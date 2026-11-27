@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Car, Edit, Save, User, X } from "lucide-react";
+import { Car, Edit, Save, User } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/app/admin/ui/Button";
-import { Card } from "../../components/DashboardComponents";
+import { Badge, Button, Field, Input, Select } from "@/app/admin/ui";
+import { Card } from "../../components/Card";
 import { apiClient, canServeShuttle } from "../../../lib/services/api-client";
 import { PoolDriver, PoolVehicle } from "../../../lib/services/types/multi-mode";
 
@@ -19,10 +19,6 @@ type RouteDetailsEditorProps = {
   assignedDriverId?: string | null;
   onUpdated: () => void;
 };
-
-const selectCls =
-  "w-full h-10 rounded-lg border border-[var(--border-input)] bg-[var(--bg-input)] px-3 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none transition-all";
-const inputCls = selectCls;
 
 export function RouteDetailsEditor({
   routeId,
@@ -93,24 +89,19 @@ export function RouteDetailsEditor({
   }
 
   return (
-    <Card className="!p-5">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-          {t("vehicleAndDriver")}
-        </div>
+    <Card className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-fg">{t("vehicleAndDriver")}</h3>
         {!editing ? (
-          <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={() => setEditing(true)}>
-            <Edit className="w-3.5 h-3.5" />
+          <Button variant="outline" size="sm" leftIcon={<Edit />} onClick={() => setEditing(true)}>
             {tCommon("actions.edit")}
           </Button>
         ) : (
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={() => setEditing(false)} disabled={saving}>
-              <X className="w-3.5 h-3.5" />
+            <Button variant="ghost" size="sm" onClick={() => setEditing(false)} disabled={saving}>
               {tCommon("actions.cancel")}
             </Button>
-            <Button size="sm" className="gap-1.5 h-8 bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white" onClick={handleSave} disabled={saving}>
-              <Save className="w-3.5 h-3.5" />
+            <Button size="sm" leftIcon={<Save />} onClick={handleSave} loading={saving}>
               {saving ? t("savingRouteDetails") : tCommon("actions.save")}
             </Button>
           </div>
@@ -118,21 +109,17 @@ export function RouteDetailsEditor({
       </div>
 
       {editing ? (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">{t("routeName")}</label>
-            <input
+        <div className="flex flex-col gap-4">
+          <Field label={t("routeName")}>
+            <Input
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className={inputCls}
             />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">{t("vehicle")}</label>
-            <select
+          </Field>
+          <Field label={t("vehicle")}>
+            <Select
               value={form.assigned_vehicle_id}
               onChange={(e) => setForm((f) => ({ ...f, assigned_vehicle_id: e.target.value }))}
-              className={selectCls}
             >
               <option value="">{t("noneUnassigned")}</option>
               {vehicles.map((v) => (
@@ -140,14 +127,12 @@ export function RouteDetailsEditor({
                   {v.plate_number}{v.model ? ` · ${v.model}` : ""}
                 </option>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-[var(--text-muted)] mb-1">{t("driver")}</label>
-            <select
+            </Select>
+          </Field>
+          <Field label={t("driver")}>
+            <Select
               value={form.assigned_driver_id}
               onChange={(e) => setForm((f) => ({ ...f, assigned_driver_id: e.target.value }))}
-              className={selectCls}
             >
               <option value="">{t("noneUnassigned")}</option>
               {drivers.map((d) => (
@@ -155,33 +140,36 @@ export function RouteDetailsEditor({
                   {d.users?.full_name}{d.users?.phone ? ` · ${d.users.phone}` : ""}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
         </div>
       ) : (
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[var(--bg-subtle)] text-blue-400">
-              <Car className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-xs text-[var(--text-muted)]">{t("vehicle")}</div>
-              <div className="text-sm font-semibold text-[var(--text-primary)]">
-                {vehicle ? `${vehicle.plate_number}${vehicle.model ? ` · ${vehicle.model}` : ""}` : t("notAssigned")}
+        <div className="divide-y divide-line border-t border-line">
+          <div className="flex items-start gap-3 py-3">
+            <Car className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-fg-muted">{t("vehicle")}</p>
+              <div className="mt-0.5 text-sm font-medium text-fg">
+                {vehicle ? (
+                  <>
+                    <span className="font-mono">{vehicle.plate_number}</span>
+                    {vehicle.model ? <span className="text-fg-secondary"> · {vehicle.model}</span> : null}
+                  </>
+                ) : (
+                  <Badge tone="warning" dot>{t("notAssigned")}</Badge>
+                )}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[var(--bg-subtle)] text-purple-400">
-              <User className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-xs text-[var(--text-muted)]">{t("driver")}</div>
-              <div className="text-sm font-semibold text-[var(--text-primary)]">
-                {driver?.full_name ?? t("notAssigned")}
+          <div className="flex items-start gap-3 pt-3">
+            <User className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-fg-muted">{t("driver")}</p>
+              <div className="mt-0.5 text-sm font-medium text-fg">
+                {driver?.full_name ?? <Badge tone="warning" dot>{t("notAssigned")}</Badge>}
               </div>
               {driver?.phone && (
-                <div className="text-xs text-[var(--text-muted)]">{driver.phone}</div>
+                <div className="text-xs text-fg-muted tabular-nums">{driver.phone}</div>
               )}
             </div>
           </div>

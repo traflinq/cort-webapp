@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button, focusRing } from "@/app/admin/ui";
 import { SectionHeading } from "../components/ui";
 import { useCostFetch, useFmt, filterQuery, type CostFilters } from "./hooks";
 import { BasisBadge, Drawer, EmptyNote, ErrorNote, FigureValue, MethodNote, Skeleton, StatBlock, Tag } from "./ui";
@@ -44,7 +46,7 @@ export function FuelPanel({ filters, recommendations, onOpenRecommendation }: { 
     <div className="flex flex-col gap-6">
       <SectionHeading title={t("title")} description={t("description", { tolerance: r.tolerance_pct })} badge={`${fmt.date(r.window.from)} – ${fmt.date(r.window.to)}`} />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatBlock label={t("contracted")} figure={r.totals.contracted_litres} />
         <StatBlock label={t("estimated")} figure={r.totals.estimated_litres} />
         <StatBlock label={t("difference")} figure={r.totals.litres_difference} hint={t("flaggedOf", { flagged: r.totals.flagged, total: r.totals.vehicles })} />
@@ -54,29 +56,29 @@ export function FuelPanel({ filters, recommendations, onOpenRecommendation }: { 
       {r.vehicles.length === 0 ? (
         <EmptyNote>{t("empty")}</EmptyNote>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-line bg-card">
+        <div className="overflow-x-auto rounded-xl border border-line bg-card">
           <table className="w-full min-w-[960px] text-sm">
             <thead>
               <tr className="border-b border-line text-start text-xs text-fg-muted">
-                <th className="px-4 py-3 text-start font-medium">{t("colVehicle")}</th>
-                <th className="px-3 py-3 text-start font-medium">{t("colRoutes")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colKm")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colKmpl")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colEstimated")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colContracted")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colDiff")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colVariance")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colCostDiff")}</th>
-                <th className="px-4 py-3 text-start font-medium">{t("colStatus")}</th>
+                <th scope="col" className="px-4 py-3 text-start font-medium">{t("colVehicle")}</th>
+                <th scope="col" className="px-3 py-3 text-start font-medium">{t("colRoutes")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colKm")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colKmpl")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colEstimated")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colContracted")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colDiff")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colVariance")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colCostDiff")}</th>
+                <th scope="col" className="px-4 py-3 text-start font-medium">{t("colStatus")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {r.vehicles.map((v) => {
                 const c = v.comparison;
                 return (
-                  <tr key={v.vehicle.id} className="cursor-pointer hover:bg-subtle/50" onClick={() => setSelected(v)}>
+                  <tr key={v.vehicle.id} className="cursor-pointer hover:bg-row-hover" onClick={() => setSelected(v)}>
                     <td className="px-4 py-3">
-                      <button type="button" className="text-start font-semibold text-fg hover:underline" onClick={() => setSelected(v)}>
+                      <button type="button" className={cn("rounded-sm text-start font-medium text-fg hover:underline", focusRing)} onClick={() => setSelected(v)}>
                         {v.vehicle.plate}
                       </button>
                       <p className="text-xs text-fg-muted">
@@ -93,7 +95,7 @@ export function FuelPanel({ filters, recommendations, onOpenRecommendation }: { 
                     <td className="px-3 py-3 text-end tabular-nums">{fmt.fig(c.contracted_litres)}</td>
                     <td className="px-3 py-3 text-end tabular-nums">{fmt.fig(c.litres_difference)}</td>
                     <td className="px-3 py-3 text-end tabular-nums">{fmt.fig(c.variance_pct)}</td>
-                    <td className="px-3 py-3 text-end">
+                    <td className="px-3 py-3 text-end tabular-nums">
                       {c.cost_difference.locked ? (
                         <span className="text-xs text-fg-muted">{fmt.locked}</span>
                       ) : isOverClaim(c) ? (
@@ -157,10 +159,9 @@ function FuelVehicleDrawer({
       subtitle={`${vehicle.vehicle.label} · ${vehicle.vehicle.fuel_type}${vehicle.vehicle.fuel_type_explicit ? "" : ` (${t("fuelTypeInferred")})`}${vehicle.vehicle.vendor ? ` · ${vehicle.vehicle.vendor}` : ""}`}
       footer={
         recommendation ? (
-          <button type="button" onClick={() => onOpenRecommendation(recommendation.id)} className="flex items-center gap-1 text-sm font-semibold text-brand-ink hover:underline">
+          <Button variant="outline" size="sm" onClick={() => onOpenRecommendation(recommendation.id)} rightIcon={<ArrowRight className="rtl-flip" aria-hidden="true" />}>
             {t("openRecommendation")}
-            <ArrowRight className="size-4 rtl-flip" />
-          </button>
+          </Button>
         ) : undefined
       }
     >
@@ -168,10 +169,10 @@ function FuelVehicleDrawer({
         <div className="flex flex-wrap items-center gap-2">
           <FuelStatusTag c={c} />
           {vehicle.fuel_inclusive && <Tag>{t("fuelInclusive")}</Tag>}
-          <span className="text-xs text-fg-muted">{t("coverage", { pct: c.km_coverage_pct, trips: vehicle.trips, days: vehicle.operating_days })}</span>
+          <span className="text-xs text-fg-muted tabular-nums">{t("coverage", { pct: c.km_coverage_pct, trips: vehicle.trips, days: vehicle.operating_days })}</span>
         </div>
-        {isOverClaim(c) && <p className="rounded-xl bg-warning-soft p-3 text-sm text-warning-ink">{t("discrepancyNote")}</p>}
-        {isUnderClaim(c) && <p className="rounded-xl bg-subtle p-3 text-sm text-fg-muted">{t("underClaimNote")}</p>}
+        {isOverClaim(c) && <p className="rounded-lg border border-warning-line bg-warning-soft p-3 text-sm text-warning-ink">{t("discrepancyNote")}</p>}
+        {isUnderClaim(c) && <p className="rounded-lg border border-line bg-subtle p-3 text-sm text-fg-muted">{t("underClaimNote")}</p>}
         {c.reasons.length > 0 && (
           <ul className="list-disc space-y-1 ps-5 text-sm text-fg-muted" dir="auto">
             {c.reasons.map((x) => (
@@ -179,7 +180,7 @@ function FuelVehicleDrawer({
             ))}
           </ul>
         )}
-        <div className="divide-y divide-line rounded-2xl border border-line bg-card">
+        <div className="divide-y divide-line rounded-lg border border-line bg-card">
           {rows.map(([label, f]) => (
             <div key={label} className="flex items-center justify-between gap-3 px-4 py-2.5">
               <span className="flex items-center gap-2 text-sm text-fg-muted">
@@ -200,21 +201,21 @@ function FuelVehicleDrawer({
           ) : trips.data.trips.length === 0 ? (
             <EmptyNote>{t("noTrips")}</EmptyNote>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-line bg-card">
+            <div className="overflow-x-auto rounded-lg border border-line bg-card">
               <table className="w-full min-w-[560px] text-sm">
                 <thead>
                   <tr className="border-b border-line text-xs text-fg-muted">
-                    <th className="px-3 py-2 text-start font-medium">{t("colDate")}</th>
-                    <th className="px-3 py-2 text-start font-medium">{t("colRoute")}</th>
-                    <th className="px-3 py-2 text-end font-medium">{t("colKm")}</th>
-                    <th className="px-3 py-2 text-end font-medium">{t("colPlannedKm")}</th>
-                    <th className="px-3 py-2 text-end font-medium">{t("colEstimated")}</th>
+                    <th scope="col" className="px-3 py-2 text-start font-medium">{t("colDate")}</th>
+                    <th scope="col" className="px-3 py-2 text-start font-medium">{t("colRoute")}</th>
+                    <th scope="col" className="px-3 py-2 text-end font-medium">{t("colKm")}</th>
+                    <th scope="col" className="px-3 py-2 text-end font-medium">{t("colPlannedKm")}</th>
+                    <th scope="col" className="px-3 py-2 text-end font-medium">{t("colEstimated")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
                   {trips.data.trips.map((x) => (
-                    <tr key={x.trip_id}>
-                      <td className="px-3 py-2">
+                    <tr key={x.trip_id} className="hover:bg-row-hover">
+                      <td className="px-3 py-2 tabular-nums">
                         {fmt.date(x.date)} <span className="text-xs text-fg-muted">· {t(`dir.${x.direction}` as never)} {x.started_at ? fmt.time(x.started_at) : ""}</span>
                       </td>
                       <td className="px-3 py-2 text-fg-muted">{x.route.name}</td>

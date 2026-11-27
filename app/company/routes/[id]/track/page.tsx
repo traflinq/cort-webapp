@@ -4,10 +4,22 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Bus, MapPin, Navigation, RefreshCw, Radio, ChevronLeft, X } from 'lucide-react';
-import { Button } from '@/app/admin/ui/Button';
-import { PageHeader, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS } from '@/app/company/components/PageLayout';
-import { Card } from '@/app/company/components/DashboardComponents';
+import { ArrowLeft, Bus, MapPin, RefreshCw, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+    Badge,
+    Button,
+    CardTitle,
+    EmptyState,
+    IconButton,
+    InlineError,
+    LoadingBlock,
+    PageHeader,
+    StatusBadge,
+    focusRing,
+} from '@/app/admin/ui';
+import { Card } from '@/app/company/components/Card';
+import { useOverviewFormat } from '@/app/company/components/overview/format';
 import { apiClient } from '@/app/lib/services/api-client';
 import { useShuttleTracking } from '@/app/lib/hooks/useShuttleTracking';
 import type { MapMarker, MapPolyline } from '@/app/admin/ui/Map';
@@ -61,6 +73,8 @@ export default function CompanyRouteTrackingPage() {
     const t = useTranslations('company.routes.tracking');
     const tRoutes = useTranslations('company.routes');
     const tCommon = useTranslations('common');
+    const tMobility = useTranslations('company.mobility');
+    const f = useOverviewFormat();
     const routeId = params.id ? +params.id : null;
 
     const [trips, setTrips] = useState<ShuttleTrip[]>([]);
@@ -136,7 +150,7 @@ export default function CompanyRouteTrackingPage() {
                 id: `stop-${s.id}`,
                 position: [s.lat!, s.lng!] as [number, number],
                 label: `${s.name}${selectedTrip?.direction === 'MORNING' ? (s.morning_eta ? ` · ${s.morning_eta}` : '') : (s.evening_eta ? ` · ${s.evening_eta}` : '')}`,
-                color: s.id === selectedTrip?.current_stop_id ? '#f47f00' : '#6366f1',
+                color: s.id === selectedTrip?.current_stop_id ? '#e2622a' : '#6e7ff0',
             }));
     }, [selectedTrip]);
 
@@ -190,7 +204,7 @@ export default function CompanyRouteTrackingPage() {
             if (remainingPoints.length >= 2) {
                 lines.push({
                     positions: remainingPoints,
-                    color: '#f47f00',
+                    color: '#e2622a',
                     weight: 6,
                     opacity: 1,
                 });
@@ -199,7 +213,7 @@ export default function CompanyRouteTrackingPage() {
             // If no driver yet, show the full line as solid orange or navy
             lines.push({
                 positions: allPoints,
-                color: '#f47f00',
+                color: '#e2622a',
                 weight: 5,
                 opacity: 0.8,
                 dashArray: '10, 5'
@@ -218,169 +232,173 @@ export default function CompanyRouteTrackingPage() {
 
     // ---- Render ----------------------------------------------------------------
 
+    const directionLabel = (direction: ShuttleTrip['direction']) =>
+        direction === 'MORNING' ? tRoutes('morning') : tRoutes('evening');
+
+    // The one animated element on the page: it only appears while the tracking socket is connected.
+    const liveIndicator = isConnected ? (
+        <Badge tone="success">
+            <span className="relative flex size-1.5 shrink-0" aria-hidden="true">
+                <span className="absolute inline-flex size-full rounded-full bg-success opacity-60 motion-safe:animate-ping" />
+                <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+            </span>
+            {tMobility('live')}
+        </Badge>
+    ) : (
+        <Badge tone="neutral" dot>
+            {t('awaitingSignals')}
+        </Badge>
+    );
+
+    const connectionBadge = isConnected ? (
+        <Badge tone="success" dot>
+            {tMobility('live')}
+        </Badge>
+    ) : (
+        <Badge tone="neutral" dot>
+            {t('awaitingSignals')}
+        </Badge>
+    );
+
     return (
-        <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12 px-4 md:px-6">
+        <div className="mx-auto flex w-full min-w-0 max-w-[1600px] flex-col gap-6 pb-12">
+            <Button
+                variant="ghost"
+                size="sm"
+                className="-ms-2 self-start"
+                leftIcon={<ArrowLeft className="rtl:rotate-180" aria-hidden="true" />}
+                onClick={() => router.back()}
+            >
+                {tCommon('actions.back')}
+            </Button>
+
             <PageHeader
-                label={tRoutes('shuttleOperations')}
                 title={selectedTrip?.routes?.name || t('liveRouteStatus')}
                 description={t('description')}
-                action={
-                    <div className="flex items-center gap-3">
-                        <Button
-                            variant="ghost"
-                            onClick={() => router.back()}
-                            className="text-muted hover:text-navy font-semibold text-xs flex items-center gap-1"
-                        >
-                            <ChevronLeft className="w-4 h-4" />
-                            {tCommon('actions.back')}
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={loadTrips}
-                            disabled={loading}
-                            className="bg-white border-border shadow-sm hover:border-navy/20 h-10 px-4 rounded-lg text-xs font-semibold"
-                        >
-                            <RefreshCw
-                                className={`w-3.5 h-3.5 me-2 ${loading ? 'animate-spin' : ''}`}
-                            />
-                            {t('refreshData')}
-                        </Button>
-                    </div>
+                meta={selectedTrip ? liveIndicator : undefined}
+                actions={
+                    <Button
+                        variant="outline"
+                        onClick={loadTrips}
+                        disabled={loading}
+                        leftIcon={<RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" />}
+                    >
+                        {t('refreshData')}
+                    </Button>
                 }
             />
 
-            <div className="flex flex-col lg:flex-row gap-6 min-h-[700px]">
-                {/* Left Sidebar - Structured Selection & Info */}
-                <aside className="w-full lg:w-96 shrink-0 flex flex-col gap-6 dashboard-section">
-                    <Card className={`overflow-hidden shadow-sm !p-0 ${TABLE_CARD_CLASS}`}>
-                        <div className={TABLE_TOP_BAR_CLASS}>
-                            <h2 className="text-xs font-bold text-muted uppercase tracking-widest mb-4">{t('todaysSchedule')}</h2>
-                            <div className="space-y-3 overflow-y-auto max-h-[40vh] pe-1 custom-scrollbar">
-                                {trips.length === 0 && !loading && (
-                                    <div className="p-8 text-center border-2 border-dashed border-border rounded-2xl">
-                                        <Bus className="w-8 h-8 mx-auto mb-2 text-muted/30" />
-                                        <p className="text-xs text-muted">{t('noTripsToday')}</p>
-                                    </div>
-                                )}
+            {error && (
+                <InlineError>
+                    <div className="flex items-start justify-between gap-3">
+                        <span className="min-w-0 break-words">{error}</span>
+                        <IconButton
+                            label={tCommon('actions.close')}
+                            size="icon-xs"
+                            tooltip={false}
+                            className="-my-1 -me-1 text-danger-ink hover:bg-transparent hover:text-danger-ink"
+                            onClick={() => setError(null)}
+                        >
+                            <X />
+                        </IconButton>
+                    </div>
+                </InlineError>
+            )}
 
-                                {trips.map((trip, idx) => (
-                                    <button
-                                        key={trip.id}
-                                        type="button"
-                                        onClick={() => setSelectedTripId(trip.id)}
-                                        className={`
-                                            w-full text-start rounded-xl border-2 transition-all duration-300
-                                            p-4
-                                            ${selectedTripId === trip.id
-                                                ? 'bg-navy text-white border-navy shadow-md ring-1 ring-navy/20'
-                                                : 'bg-white border-border text-gray-900 hover:border-navy/20 hover:shadow-sm'
-                                            }
-                                        `}
-                                        style={{ animationDelay: `${(idx + 1) * 80}ms` }}
-                                    >
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div
-                                                    className={`
-                                                        w-9 h-9 rounded-lg flex items-center justify-center transition-colors
-                                                        ${selectedTripId === trip.id ? 'bg-white/10' : 'bg-orange/5'}
-                                                    `}
-                                                >
-                                                    <Bus
-                                                        className={`w-4 h-4 ${selectedTripId === trip.id ? 'text-white' : 'text-orange'}`}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-sm tracking-tight">
-                                                        {t('directionTrip', { direction: trip.direction })}
-                                                    </p>
-                                                    <p className={`text-[10px] mt-0.5 ${selectedTripId === trip.id ? 'text-white/60' : 'text-muted'}`}>
-                                                        {trip.routes?.vehicles?.plate_number ?? t('noVehicle')}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <span
-                                                className={`
-                                                    text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-tighter
-                                                    ${selectedTripId === trip.id ? 'bg-white/20 text-white' : 'bg-surface-muted text-navy'}
-                                                `}
-                                            >
-                                                {trip.status}
-                                            </span>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+                {/* Side panel: today's trips and the selected trip */}
+                <aside className="flex min-w-0 flex-col gap-4">
+                    <Card className="h-auto overflow-hidden !p-0">
+                        <div className="border-b border-line px-4 py-3">
+                            <CardTitle>{t('todaysSchedule')}</CardTitle>
                         </div>
-
-                        {/* Active Trip Details - Sidebar Section */}
-                        <div className="p-5 space-y-6">
-                            {selectedTrip ? (
-                                <>
-                                    <div>
-                                        <h2 className="text-xs font-bold text-muted uppercase tracking-widest mb-4">{t('liveTelemetry')}</h2>
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between p-3 rounded-xl bg-surface-subtle border border-border">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-orange/10 flex items-center justify-center">
-                                                        <Navigation className="w-4 h-4 text-orange" />
-                                                    </div>
-                                                    <span className="text-sm font-semibold text-navy">{t('tripStatus')}</span>
-                                                </div>
-                                                <span className="text-sm font-bold text-orange">{selectedTrip.status}</span>
-                                            </div>
-
-                                            <div className="flex items-center justify-between p-3 rounded-xl bg-surface-subtle border border-border">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-blue/10 flex items-center justify-center">
-                                                        <Radio className={`w-4 h-4 ${isConnected ? 'text-green-500' : 'text-blue'}`} />
-                                                    </div>
-                                                    <span className="text-sm font-semibold text-navy">{t('connection')}</span>
-                                                </div>
-                                                <span className={`text-[10px] font-bold uppercase ${isConnected ? 'text-green-600' : 'text-muted'}`}>
-                                                    {isConnected ? t('highPrecision') : t('awaitingSignals')}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <h2 className="text-xs font-bold text-muted uppercase tracking-widest mb-4">{t('routeInfo')}</h2>
-                                        <div className="p-4 rounded-xl bg-navy text-white shadow-xl shadow-navy/10">
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                                                    <MapPin className="w-5 h-5 text-orange" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-white/50 uppercase">{t('totalStops')}</p>
-                                                    <p className="text-lg font-bold">{t('scheduled', { count: selectedTrip.routes?.route_stops?.length || 0 })}</p>
-                                                </div>
-                                            </div>
-                                            <div className="h-px bg-white/10 w-full mb-4" />
-                                            <div className="flex items-center justify-between text-[11px] font-medium text-white/70">
-                                                <span>{t('platformStatus')}</span>
-                                                <span className="flex items-center gap-1.5">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                                                    {t('cloudIntegrated')}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </>
+                        <div className="max-h-[40vh] overflow-y-auto p-2 custom-scrollbar">
+                            {loading && trips.length === 0 ? (
+                                <LoadingBlock label={tCommon('status.loading')} className="py-10" />
+                            ) : trips.length === 0 ? (
+                                <EmptyState compact icon={<Bus aria-hidden="true" />} title={t('noTripsToday')} />
                             ) : (
-                                <div className="py-8 flex flex-col items-center justify-center text-center grayscale opacity-50">
-                                    <MapPin className="w-10 h-10 mb-3 text-muted" />
-                                    <p className="text-xs font-medium text-muted">{t('selectTripTelemetry')}</p>
-                                </div>
+                                <ul className="flex flex-col gap-1">
+                                    {trips.map((trip) => {
+                                        const selected = selectedTripId === trip.id;
+                                        return (
+                                            <li key={trip.id}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedTripId(trip.id)}
+                                                    aria-pressed={selected}
+                                                    className={cn(
+                                                        'flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-start transition-colors',
+                                                        focusRing,
+                                                        selected
+                                                            ? 'border-brand-line bg-brand-soft'
+                                                            : 'border-transparent hover:bg-row-hover',
+                                                    )}
+                                                >
+                                                    <span
+                                                        aria-hidden="true"
+                                                        className={cn(
+                                                            'flex size-8 shrink-0 items-center justify-center rounded-lg',
+                                                            selected ? 'bg-card text-brand-ink' : 'bg-subtle text-fg-muted',
+                                                        )}
+                                                    >
+                                                        <Bus className="size-4" />
+                                                    </span>
+                                                    <span className="min-w-0 flex-1">
+                                                        <span className="block truncate text-sm font-medium text-fg">
+                                                            {t('directionTrip', { direction: directionLabel(trip.direction) })}
+                                                        </span>
+                                                        <span className="mt-0.5 block truncate text-xs text-fg-muted tabular-nums">
+                                                            {trip.routes?.vehicles?.plate_number ?? t('noVehicle')}
+                                                        </span>
+                                                    </span>
+                                                    <StatusBadge status={trip.status} className="shrink-0" />
+                                                </button>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
                             )}
                         </div>
                     </Card>
+
+                    <Card className="h-auto">
+                        {selectedTrip ? (
+                            <>
+                                <CardTitle>{t('liveTelemetry')}</CardTitle>
+                                <dl className="mt-3 divide-y divide-line border-t border-line">
+                                    <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                                        <dt className="text-fg-muted">{t('tripStatus')}</dt>
+                                        <dd><StatusBadge status={selectedTrip.status} /></dd>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                                        <dt className="text-fg-muted">{t('connection')}</dt>
+                                        <dd>{connectionBadge}</dd>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                                        <dt className="text-fg-muted">{tRoutes('vehicle')}</dt>
+                                        <dd className="min-w-0 truncate text-end font-medium text-fg tabular-nums">
+                                            {selectedTrip.routes?.vehicles?.plate_number ?? t('noVehicle')}
+                                        </dd>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                                        <dt className="text-fg-muted">{t('totalStops')}</dt>
+                                        <dd className="text-end font-medium text-fg tabular-nums">
+                                            {f.num(selectedTrip.routes?.route_stops?.length || 0)}
+                                        </dd>
+                                    </div>
+                                </dl>
+                            </>
+                        ) : (
+                            <EmptyState compact icon={<MapPin aria-hidden="true" />} title={t('selectTripTelemetry')} />
+                        )}
+                    </Card>
                 </aside>
 
-                {/* Main Content Area - Map Framed in Card */}
-                <main className="flex-1 min-h-[500px] lg:min-h-[700px] dashboard-section dashboard-section-delay-1">
-                    <Card className={`w-full h-full overflow-hidden border border-border shadow-sm flex flex-col relative !p-0 ${TABLE_CARD_CLASS}`}>
-                        <div className="flex-1 relative">
+                {/* Map */}
+                <main className="min-h-[500px] min-w-0 lg:min-h-[700px]">
+                    <Card className="relative flex h-full min-h-[500px] w-full flex-col overflow-hidden !p-0 lg:min-h-[700px]">
+                        <div className="relative flex-1">
                             <Map
                                 center={mapCenter}
                                 zoom={13}
@@ -390,48 +408,23 @@ export default function CompanyRouteTrackingPage() {
                                 className="w-full h-full border-none shadow-none rounded-none"
                             />
 
-                            {/* Map Floating Legend */}
                             {selectedTrip && (
-                                <div className="absolute top-4 start-4 z-10">
-                                    <div className="bg-white/95 border border-border shadow-md p-2 rounded-lg flex items-center gap-3">
-                                        <div className="flex items-center gap-1.5 pe-3 border-e border-border font-bold text-[10px] text-navy">
-                                            <div className="w-2.5 h-2.5 rounded-full bg-orange animate-pulse" />
-                                            {t('liveDriver')}
-                                        </div>
-                                        <div className="flex items-center gap-1.5 font-bold text-[10px] text-navy/60">
-                                            <div className="w-2.5 h-0.5 bg-navy/20" />
-                                            {t('plannedRoute')}
-                                        </div>
-                                    </div>
+                                <div className="absolute top-3 start-3 z-10 flex items-center gap-3 rounded-lg border border-line bg-card px-3 py-2 text-xs font-medium text-fg-secondary">
+                                    <span className="flex items-center gap-1.5">
+                                        <span aria-hidden="true" className="size-2.5 rounded-full bg-brand" />
+                                        {t('liveDriver')}
+                                    </span>
+                                    <span aria-hidden="true" className="h-3 w-px bg-line" />
+                                    <span className="flex items-center gap-1.5">
+                                        <span aria-hidden="true" className="h-0.5 w-3 rounded-full bg-fg-muted" />
+                                        {t('plannedRoute')}
+                                    </span>
                                 </div>
                             )}
                         </div>
                     </Card>
                 </main>
             </div>
-
-            {/* Error Overlay */}
-            {error && (
-                <div className="fixed top-20 start-1/2 -translate-x-1/2 z-50">
-                    <div className="bg-white border-2 border-danger text-danger px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-slide-up font-bold text-sm">
-                        <X className="w-4 h-4" />
-                        {error}
-                        <button onClick={() => setError(null)} className="ms-4 text-muted hover:text-danger">
-                            <X className="w-4 h-4 font-bold" />
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Global Loading Overlay */}
-            {loading && trips.length === 0 && (
-                <div className="fixed inset-0 z-[100] bg-navy/5 backdrop-blur-[2px] flex items-center justify-center">
-                    <div className="bg-white p-8 rounded-3xl shadow-2xl border border-border flex flex-col items-center gap-4">
-                        <div className="w-10 h-10 border-4 border-navy border-t-transparent rounded-full animate-spin" />
-                        <p className="text-navy font-bold text-sm uppercase tracking-widest">{t('inSync')}</p>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

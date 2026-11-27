@@ -2,36 +2,45 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Download, FileSpreadsheet, FileText, CalendarDays, Moon, Sun } from "lucide-react";
+import { Badge, Button, Input, Select, StatusBadge, TableSkeletonRows, focusRing, focusRingInset, type StatusEntry } from "@/app/admin/ui";
+import { cn } from "@/lib/utils";
+import { formatLocaleDate, formatLocaleTime } from "@/app/lib/i18n/format";
+import type { Locale } from "@/i18n/config";
 import { useCompanyAccess } from "../../lib/access-context";
+import { useCompanyLocale } from "../../lib/locale-context";
 import { ShuttleReport, apiClient } from "../../../lib/services/api-client";
-import { Card } from "../../components/DashboardComponents";
+import { Card } from "../../components/Card";
 import {
   PageHeader,
+  TableEmptyState,
   TABLE_CARD_CLASS,
   TABLE_TOP_BAR_CLASS,
   TABLE_HEADER_CELL_CLASS,
   TABLE_CELL_CLASS,
 } from "../../components/PageLayout";
 import Modal from "../../bookings/components/Modal";
-import TableSkeleton from "@/app/components/ui/TableSkeleton";
 
 type ExportFormat = "csv" | "pdf";
 
+/** Direction is a category, not a status: neutral badge, icon plus translated text. */
 function DirectionBadge({ direction }: { direction: string }) {
+  const tRoutes = useTranslations("company.routes");
   const isEvening = direction === "EVENING";
+  const isMorning = direction === "MORNING";
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
-        isEvening
-          ? "bg-indigo-500/20 text-indigo-400"
-          : "bg-amber-500/20 text-amber-400"
-      }`}
-    >
-      {isEvening ? "🌙" : "☀️"} {direction}
-    </span>
+    <Badge tone="neutral" icon={isEvening ? <Moon aria-hidden="true" /> : isMorning ? <Sun aria-hidden="true" /> : undefined}>
+      {isEvening ? tRoutes("evening") : isMorning ? tRoutes("morning") : direction}
+    </Badge>
   );
 }
+
+/** Boarding-log statuses. Absent is flagged calmly (warning), not as a failure. */
+const BOARDING_STATUS_TONES: Record<string, StatusEntry> = {
+  BOARDED: { tone: "success" },
+  DROPPED_OFF: { tone: "info" },
+  ABSENT: { tone: "warning" },
+};
 
 interface PaginationMeta {
   page: number;
@@ -39,9 +48,9 @@ interface PaginationMeta {
   total: number;
 }
 
-function formatDateTime(value: string | null | undefined) {
+function formatDateTime(value: string | null | undefined, locale: Locale) {
   if (!value) return "—";
-  return new Date(value).toLocaleString("en-PK", {
+  return formatLocaleDate(value, locale, {
     timeZone: "Asia/Karachi",
     month: "short",
     day: "numeric",
@@ -51,9 +60,9 @@ function formatDateTime(value: string | null | undefined) {
   });
 }
 
-function formatTimeOnly(value: string | null | undefined) {
+function formatTimeOnly(value: string | null | undefined, locale: Locale) {
   if (!value) return "—";
-  return new Date(value).toLocaleTimeString("en-PK", {
+  return formatLocaleTime(value, locale, {
     timeZone: "Asia/Karachi",
     hour: "2-digit",
     minute: "2-digit",
@@ -293,6 +302,7 @@ export default function ShuttleReportsPage() {
   const t = useTranslations("company.reports");
   const tCommon = useTranslations("common");
   const { company } = useCompanyAccess();
+  const { locale } = useCompanyLocale();
 
   const [reports, setReports] = useState<ShuttleReport[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -455,17 +465,26 @@ export default function ShuttleReportsPage() {
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [exportMenuOpen]);
 
+
+  const tripDate = (value: string | null | undefined, month: "short" | "long") =>
+    value ? formatLocaleDate(value, locale, { year: "numeric", month, day: "numeric" }) : "—";
+  const menuItem = cn(
+    "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm text-fg transition-colors hover:bg-subtle [&_svg]:size-4 [&_svg]:text-fg-muted",
+    focusRingInset,
+  );
+
   return (
-    <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
+    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 pb-12">
       <PageHeader
         label={t("shuttleLabel")}
         title={t("shuttleTitle")}
         action={
           <>
-            <select
+            <Select
               value={routeId}
               onChange={(e) => setRouteId(e.target.value)}
-              className="h-[46px] max-w-[220px] rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] px-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-0"
+              width="auto"
+              className="max-w-[220px]"
               aria-label={t("route")}
             >
               <option value="">{t("allRoutes")}</option>
@@ -474,68 +493,47 @@ export default function ShuttleReportsPage() {
                   {route.name}
                 </option>
               ))}
-            </select>
-            <div className="flex items-center gap-2 bg-[var(--bg-subtle)] p-1 rounded-xl border border-[var(--border-strong)] backdrop-blur-sm">
-              <input
+            </Select>
+            <div className="flex items-center gap-2">
+              <Input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="h-9 rounded-lg border-0 bg-transparent px-3 text-sm text-[var(--text-primary)] focus:ring-0"
-                placeholder={t("startDate")}
+                aria-label={t("startDate")}
+                className="w-auto tabular-nums"
               />
-              <span className="text-[var(--text-muted)]">/</span>
-              <input
+              <span className="text-fg-muted" aria-hidden="true">–</span>
+              <Input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="h-9 rounded-lg border-0 bg-transparent px-3 text-sm text-[var(--text-primary)] focus:ring-0"
-                placeholder={t("endDate")}
+                aria-label={t("endDate")}
+                className="w-auto tabular-nums"
               />
             </div>
             <div className="relative" ref={exportMenuRef}>
-              <button
+              <Button
                 type="button"
-                disabled={isExporting}
+                loading={isExporting}
                 aria-haspopup="menu"
                 aria-expanded={exportMenuOpen}
-                className="group relative flex items-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-[var(--text-primary)] transition-all hover:bg-[var(--cort-orange-hover)] hover:-translate-y-0.5 shadow-lg active:translate-y-0 active:shadow-md disabled:opacity-60 disabled:pointer-events-none"
+                leftIcon={<Download aria-hidden="true" />}
+                rightIcon={<ChevronDown aria-hidden="true" className={cn("transition-transform", exportMenuOpen && "rotate-180")} />}
                 onClick={() => setExportMenuOpen((open) => !open)}
               >
-                <svg
-                  className="w-4 h-4 text-[var(--text-primary)]"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
                 {isExporting ? t("exporting") : t("export")}
-                <ChevronDown className={`w-4 h-4 transition-transform ${exportMenuOpen ? "rotate-180" : ""}`} />
-              </button>
+              </Button>
               {exportMenuOpen && !isExporting && (
                 <div
                   role="menu"
-                  className="absolute end-0 z-20 mt-2 w-44 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-card)] shadow-xl"
+                  className="absolute end-0 z-20 mt-1 w-48 overflow-hidden rounded-lg border border-line bg-popover p-1 shadow-[var(--shadow-modal)]"
                 >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="w-full px-4 py-2.5 text-start text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)]"
-                    onClick={() => handleExport("csv")}
-                  >
+                  <button type="button" role="menuitem" className={menuItem} onClick={() => handleExport("csv")}>
+                    <FileSpreadsheet aria-hidden="true" />
                     {t("exportAsCsv")}
                   </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="w-full px-4 py-2.5 text-start text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)]"
-                    onClick={() => handleExport("pdf")}
-                  >
+                  <button type="button" role="menuitem" className={menuItem} onClick={() => handleExport("pdf")}>
+                    <FileText aria-hidden="true" />
                     {t("exportAsPdf")}
                   </button>
                 </div>
@@ -545,116 +543,94 @@ export default function ShuttleReportsPage() {
         }
       />
 
-      <Card className={`min-h-[500px] ${TABLE_CARD_CLASS}`}>
+      <Card className={TABLE_CARD_CLASS}>
         <div className={TABLE_TOP_BAR_CLASS}>
-          <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">
-            {t("shuttleTableDescription")}
-          </div>
+          <p className="text-sm text-fg-secondary">{t("shuttleTableDescription")}</p>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm text-start">
+          <table className="min-w-full text-start text-sm">
             <thead>
-              <tr className="border-b border-[var(--border-light)]">
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("tripDate")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("direction")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("tripId")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("route")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("vehicle")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("driver")}</th>
-                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("boarded")}</th>
-                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("absent")}</th>
-                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("assigned")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("startedAt")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("completedAt")}</th>
+              <tr className="border-b border-line">
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("tripDate")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("direction")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("tripId")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("route")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("vehicle")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("driver")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("boarded")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("absent")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("assigned")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("startedAt")}</th>
+                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("completedAt")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border-light)]/50">
+            <tbody className="divide-y divide-line">
               {isLoading && reports.length === 0 ? (
-                <TableSkeleton columns={11} rows={8} />
+                <TableSkeletonRows columns={11} rows={8} />
               ) : reports.length === 0 && !isLoading ? (
-                <tr>
-                  <td colSpan={11} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center text-[var(--text-muted)]">
-                      <span className="bg-[var(--surface-subtle)] p-4 rounded-full mb-3">
-                        <svg
-                          className="w-6 h-6"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={1.5}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                      </span>
-                      <span>{t("noShuttleReports")}</span>
-                    </div>
-                  </td>
-                </tr>
+                <TableEmptyState message={t("noShuttleReports")} icon={CalendarDays} />
               ) : (
                 reports.map((report) => (
                   <tr
                     key={report.id}
                     onClick={() => setSelectedReport(report)}
-                    className="group transition-colors border-b border-transparent hover:bg-[var(--surface-subtle)]/80 cursor-pointer"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedReport(report);
+                      }
+                    }}
+                    tabIndex={0}
+                    className={cn("cursor-pointer transition-colors hover:bg-row-hover", focusRingInset)}
                   >
-                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-[var(--text-primary)] font-medium font-mono text-xs`}>
-                      {report.trip_date
-                        ? new Date(report.trip_date).toLocaleDateString("en-PK", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : "—"}
+                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-fg`}>
+                      {tripDate(report.trip_date, "short")}
                     </td>
                     <td className={TABLE_CELL_CLASS}>
                       <DirectionBadge direction={report.direction} />
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} font-bold text-[var(--text-primary)]`}>
+                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap font-medium text-fg`}>
                       #{report.id}
                     </td>
                     <td className={TABLE_CELL_CLASS}>
-                      <div className="font-semibold text-[var(--text-primary)] text-sm">
+                      <div className="font-medium text-fg">
                         {report.route?.name || "—"}
                       </div>
                     </td>
                     <td className={TABLE_CELL_CLASS}>
                       {report.vehicle ? (
                         <>
-                          <div className="text-[var(--text-primary)] font-medium">
+                          <div className="whitespace-nowrap text-fg">
                             {report.vehicle.make} {report.vehicle.model}
                           </div>
-                          <div className="text-xs text-[var(--text-muted)] font-mono">
+                          <div className="text-xs text-fg-muted">
                             {report.vehicle.plate_number}
                           </div>
                         </>
                       ) : (
-                        <span className="text-[var(--text-muted)]">—</span>
+                        <span className="text-fg-muted">—</span>
                       )}
                     </td>
                     <td className={TABLE_CELL_CLASS}>
-                      <div className="text-[var(--text-primary)] font-medium text-sm">
+                      <div className="text-fg">
                         {report.driver?.full_name || "—"}
                       </div>
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end font-mono text-emerald-600 font-semibold`}>
+                    <td className={`${TABLE_CELL_CLASS} text-end font-medium text-fg`}>
                       {report.passengers.boarded}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end font-mono text-rose-500 font-semibold`}>
+                    <td className={`${TABLE_CELL_CLASS} text-end ${report.passengers.absent > 0 ? "text-fg" : "text-fg-muted"}`}>
                       {report.passengers.absent}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} text-end font-mono text-[var(--text-primary)]`}>
+                    <td className={`${TABLE_CELL_CLASS} text-end text-fg-secondary`}>
                       {report.passengers.total}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-xs text-[var(--text-muted)] font-mono`}>
-                      {formatDateTime(report.started_at)}
+                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-xs text-fg-muted`}>
+                      {formatDateTime(report.started_at, locale)}
                     </td>
-                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-xs text-[var(--text-muted)] font-mono`}>
-                      {formatDateTime(report.completed_at)}
+                    <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-xs text-fg-muted`}>
+                      {formatDateTime(report.completed_at, locale)}
                     </td>
                   </tr>
                 ))
@@ -665,28 +641,31 @@ export default function ShuttleReportsPage() {
 
         {/* Pagination */}
         {pagination.pages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border-light)]">
-            <div className="text-xs text-[var(--text-muted)]">
+          <nav aria-label="Pagination" className="flex flex-col gap-3 border-t border-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <p className="text-xs text-fg-muted tabular-nums">
               {t("showingTrips", { shown: reports.length, total: pagination.total })}
-            </div>
-            <div className="flex gap-1">
+            </p>
+            <ul className="flex flex-wrap gap-1">
               {Array.from({ length: pagination.pages }, (_, i) => i + 1).map(
                 (page) => (
-                  <button
-                    key={page}
-                    onClick={() => handlePageChange(page)}
-                    className={`h-7 w-7 rounded text-xs font-medium transition-colors ${
-                      page === pagination.page
-                        ? "bg-[#fe8503] text-[var(--text-primary)]"
-                        : "text-[var(--text-muted)] hover:bg-[var(--surface-subtle)]"
-                    }`}
-                  >
-                    {page}
-                  </button>
+                  <li key={page}>
+                    <button
+                      type="button"
+                      onClick={() => handlePageChange(page)}
+                      aria-current={page === pagination.page ? "page" : undefined}
+                      className={cn(
+                        "flex h-8 min-w-8 cursor-pointer items-center justify-center rounded-lg px-2 text-xs font-medium tabular-nums transition-colors",
+                        page === pagination.page ? "bg-fg text-page" : "text-fg-secondary hover:bg-subtle hover:text-fg",
+                        focusRing,
+                      )}
+                    >
+                      {page}
+                    </button>
+                  </li>
                 )
               )}
-            </div>
-          </div>
+            </ul>
+          </nav>
         )}
       </Card>
 
@@ -698,143 +677,103 @@ export default function ShuttleReportsPage() {
       >
         {selectedReport && (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
+            <dl className="grid grid-cols-2 gap-4">
               <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">{t("date")}</div>
-                <div className="font-semibold text-[var(--text-primary)]">
-                  {selectedReport.trip_date
-                    ? new Date(selectedReport.trip_date).toLocaleDateString("en-PK", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })
-                    : "—"}
-                </div>
+                <dt className="mb-1 text-xs text-fg-muted">{t("date")}</dt>
+                <dd className="text-sm font-medium text-fg">{tripDate(selectedReport.trip_date, "long")}</dd>
               </div>
               <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">{t("direction")}</div>
-                <DirectionBadge direction={selectedReport.direction} />
+                <dt className="mb-1 text-xs text-fg-muted">{t("direction")}</dt>
+                <dd><DirectionBadge direction={selectedReport.direction} /></dd>
               </div>
               <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">{t("route")}</div>
-                <div className="font-semibold text-[var(--text-primary)]">
-                  {selectedReport.route?.name || "—"}
-                </div>
+                <dt className="mb-1 text-xs text-fg-muted">{t("route")}</dt>
+                <dd className="text-sm font-medium text-fg">{selectedReport.route?.name || "—"}</dd>
               </div>
               <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">{t("driver")}</div>
-                <div className="font-semibold text-[var(--text-primary)]">
-                  {selectedReport.driver?.full_name || "—"}
-                </div>
+                <dt className="mb-1 text-xs text-fg-muted">{t("driver")}</dt>
+                <dd className="text-sm font-medium text-fg">{selectedReport.driver?.full_name || "—"}</dd>
               </div>
               {selectedReport.vehicle && (
                 <div className="col-span-2">
-                  <div className="text-xs text-[var(--text-muted)] mb-1">{t("vehicle")}</div>
-                  <div className="font-semibold text-[var(--text-primary)]">
+                  <dt className="mb-1 text-xs text-fg-muted">{t("vehicle")}</dt>
+                  <dd className="text-sm font-medium text-fg">
                     {selectedReport.vehicle.make} {selectedReport.vehicle.model}{" "}
-                    <span className="font-mono text-xs text-[var(--text-muted)]">
+                    <span className="text-xs font-normal text-fg-muted">
                       ({selectedReport.vehicle.plate_number})
                     </span>
-                  </div>
+                  </dd>
                 </div>
               )}
               <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">{t("startedAt")}</div>
-                <div className="font-semibold text-[var(--text-primary)] font-mono text-sm">
-                  {formatDateTime(selectedReport.started_at)}
-                </div>
+                <dt className="mb-1 text-xs text-fg-muted">{t("startedAt")}</dt>
+                <dd className="text-sm font-medium text-fg tabular-nums">{formatDateTime(selectedReport.started_at, locale)}</dd>
               </div>
               <div>
-                <div className="text-xs text-[var(--text-muted)] mb-1">{t("completedAt")}</div>
-                <div className="font-semibold text-[var(--text-primary)] font-mono text-sm">
-                  {formatDateTime(selectedReport.completed_at)}
-                </div>
+                <dt className="mb-1 text-xs text-fg-muted">{t("completedAt")}</dt>
+                <dd className="text-sm font-medium text-fg tabular-nums">{formatDateTime(selectedReport.completed_at, locale)}</dd>
               </div>
-            </div>
+            </dl>
 
             {/* Boarding Summary */}
             <div>
-              <div className="text-xs font-semibold tracking-wider text-[var(--text-muted)] uppercase mb-3">
-                {t("boardingSummary")}
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-xl bg-[var(--surface-subtle)] px-4 py-3 text-center">
-                  <div className="text-2xl font-bold text-[var(--text-primary)]">
-                    {selectedReport.passengers.total}
+              <h4 className="mb-3 text-sm font-semibold text-fg">{t("boardingSummary")}</h4>
+              <dl className="grid grid-cols-3 gap-3">
+                {[
+                  { key: "assigned", label: t("assigned"), value: selectedReport.passengers.total },
+                  { key: "boarded", label: t("boarded"), value: selectedReport.passengers.boarded },
+                  { key: "absent", label: t("absent"), value: selectedReport.passengers.absent },
+                ].map((s) => (
+                  <div key={s.key} className="rounded-lg border border-line px-4 py-3">
+                    <dt className="text-xs text-fg-muted">{s.label}</dt>
+                    <dd className="mt-1 text-2xl font-semibold tracking-tight text-fg tabular-nums">{s.value}</dd>
                   </div>
-                  <div className="text-xs text-[var(--text-muted)] mt-1">{t("assigned")}</div>
-                </div>
-                <div className="rounded-xl bg-emerald-50 px-4 py-3 text-center">
-                  <div className="text-2xl font-bold text-emerald-600">
-                    {selectedReport.passengers.boarded}
-                  </div>
-                  <div className="text-xs text-emerald-600/70 mt-1">{t("boarded")}</div>
-                </div>
-                <div className="rounded-xl bg-rose-50 px-4 py-3 text-center">
-                  <div className="text-2xl font-bold text-rose-500">
-                    {selectedReport.passengers.absent}
-                  </div>
-                  <div className="text-xs text-rose-500/70 mt-1">{t("absent")}</div>
-                </div>
-              </div>
+                ))}
+              </dl>
             </div>
 
             {selectedReport.passengers.details.length > 0 && (
               <div>
-                <div className="text-xs font-semibold tracking-wider text-[var(--text-muted)] uppercase mb-2">
-                  {t("passengerDetails")}
-                </div>
-                <div className="max-h-72 overflow-y-auto rounded-xl border border-[var(--border-light)] divide-y divide-[var(--border-light)]">
+                <h4 className="mb-2 text-sm font-semibold text-fg">{t("passengerDetails")}</h4>
+                <ul className="max-h-72 divide-y divide-line overflow-y-auto rounded-lg border border-line">
                   {selectedReport.passengers.details.map((log, idx) => (
-                    <div
+                    <li
                       key={idx}
                       className="flex items-center justify-between gap-3 px-4 py-2.5"
                     >
                       <div className="min-w-0">
-                        <div className="font-medium text-sm text-[var(--text-primary)]">
+                        <div className="text-sm font-medium text-fg">
                           {log.employee?.full_name || tCommon("status.unknown")}
                         </div>
-                        <div className="text-xs text-[var(--text-muted)]">
+                        <div className="text-xs text-fg-muted">
                           {log.employee?.department || ""}{" "}
                           {log.employee?.employee_id
                             ? `· ID: ${log.employee.employee_id}`
                             : ""}
                         </div>
                         {(log.status === "BOARDED" || log.status === "DROPPED_OFF") && log.scanned_at && (
-                          <div className="text-xs text-emerald-600/80 mt-0.5 font-mono">
-                            {t("boardedAt")} {formatTimeOnly(log.scanned_at)}
+                          <div className="mt-0.5 text-xs text-fg-secondary tabular-nums">
+                            {t("boardedAt")} {formatTimeOnly(log.scanned_at, locale)}
                           </div>
                         )}
                         {log.drop_off_at && (
-                          <div className="text-xs text-sky-600/90 mt-0.5 font-mono">
-                            {t("dropoffTime")} {formatTimeOnly(log.drop_off_at)}
+                          <div className="mt-0.5 text-xs text-fg-secondary tabular-nums">
+                            {t("dropoffTime")} {formatTimeOnly(log.drop_off_at, locale)}
                           </div>
                         )}
                       </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          log.status === "BOARDED"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : log.status === "DROPPED_OFF"
-                              ? "bg-sky-100 text-sky-700"
-                              : "bg-rose-100 text-rose-600"
-                        }`}
-                      >
-                        {log.status}
-                      </span>
-                    </div>
+                      <StatusBadge status={log.status} overrides={BOARDING_STATUS_TONES} className="shrink-0" />
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
             )}
 
             <div>
-              <div className="text-xs font-semibold tracking-wider text-[var(--text-muted)] uppercase mb-2">
-                {t("stopLogs")}
-              </div>
-              <div className="rounded-xl border border-[var(--border-light)] overflow-hidden">
+              <h4 className="mb-2 text-sm font-semibold text-fg">{t("stopLogs")}</h4>
+              <div className="overflow-hidden rounded-lg border border-line">
                 {selectedReport.route?.stops && selectedReport.route.stops.length > 0 ? (
-                  <div className="divide-y divide-[var(--border-light)]">
+                  <ol className="divide-y divide-line">
                     {selectedReport.route.stops.map((stop, index) => {
                       const log = selectedReport.stop_logs?.find((item) => item.stop_id === stop.id);
                       const isEvening = selectedReport.direction === "EVENING";
@@ -844,27 +783,28 @@ export default function ShuttleReportsPage() {
                       const arrivedAt = isFinalMorningStop
                         ? formatDateTime(
                             selectedReport.completed_at ?? log?.arrived_at ?? null,
+                            locale,
                           )
-                        : formatDateTime(log?.arrived_at ?? null);
-                      const boardedAt = formatDateTime(log?.boarded_at ?? null);
+                        : formatDateTime(log?.arrived_at ?? null, locale);
+                      const boardedAt = formatDateTime(log?.boarded_at ?? null, locale);
                       const isFirstEveningStop = isEvening && index === 0;
                       const dropOffAt = isFirstEveningStop
-                        ? formatDateTime(selectedReport.started_at)
-                        : formatDateTime(log?.drop_off_at ?? null);
+                        ? formatDateTime(selectedReport.started_at, locale)
+                        : formatDateTime(log?.drop_off_at ?? null, locale);
 
                       return (
-                        <div
+                        <li
                           key={stop.id}
-                          className="grid grid-cols-[auto,1fr,auto] items-start gap-3 px-4 py-3"
+                          className="grid grid-cols-[auto_1fr_auto] items-start gap-3 px-4 py-3"
                         >
-                          <div className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[var(--surface-subtle)] px-2 text-xs font-semibold text-[var(--text-primary)]">
+                          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-subtle px-2 text-xs font-medium text-fg-secondary tabular-nums">
                             {stop.sequence ?? "—"}
-                          </div>
+                          </span>
                           <div>
-                            <div className="text-sm font-medium text-[var(--text-primary)]">
+                            <div className="text-sm font-medium text-fg">
                               {stop.name}
                             </div>
-                            <div className="text-xs text-[var(--text-muted)]">
+                            <div className="text-xs text-fg-muted">
                               {isEvening
                                 ? t("dropoffFromLogs")
                                 : isFinalMorningStop
@@ -872,40 +812,40 @@ export default function ShuttleReportsPage() {
                                   : t("arrivalFromLogs")}
                             </div>
                           </div>
-                          <div className="text-end text-sm font-mono text-[var(--text-primary)]">
+                          <div className="text-end text-sm text-fg tabular-nums">
                             {isEvening ? (
                               <div>
-                                <div className="text-xs text-[var(--text-muted)]">
+                                <div className="text-xs text-fg-muted">
                                   {isFirstEveningStop ? t("tripStartedAt") : t("dropoffTime")}
                                 </div>
                                 <div>{dropOffAt}</div>
                               </div>
                             ) : isFinalMorningStop ? (
                               <div>
-                                <div className="text-xs text-[var(--text-muted)]">{t("arrivedAt")}</div>
+                                <div className="text-xs text-fg-muted">{t("arrivedAt")}</div>
                                 <div>{arrivedAt}</div>
                               </div>
                             ) : (
                               <div className="space-y-1">
                                 <div>
-                                  <div className="text-xs text-[var(--text-muted)]">{t("arrivedAt")}</div>
+                                  <div className="text-xs text-fg-muted">{t("arrivedAt")}</div>
                                   <div>{arrivedAt}</div>
                                 </div>
                                 <div>
-                                  <div className="text-xs text-[var(--text-muted)]">{t("boardedAt")}</div>
+                                  <div className="text-xs text-fg-muted">{t("boardedAt")}</div>
                                   <div>{boardedAt}</div>
                                 </div>
                               </div>
                             )}
                           </div>
-                        </div>
+                        </li>
                       );
                     })}
-                  </div>
+                  </ol>
                 ) : (
-                  <div className="px-4 py-6 text-sm text-[var(--text-muted)]">
+                  <p className="px-4 py-6 text-sm text-fg-muted">
                     {t("noStopLogs")}
-                  </div>
+                  </p>
                 )}
               </div>
             </div>

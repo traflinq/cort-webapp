@@ -26,7 +26,10 @@
       "signOut": "تسجيل الخروج",
       "switchToLight": "التبديل إلى الوضع الفاتح",
       "switchToDark": "التبديل إلى الوضع الداكن",
-      "companyAccount": "حساب الشركة"
+      "companyAccount": "حساب الشركة",
+      "openMenu": "فتح القائمة",
+      "collapseSidebar": "طي الشريط الجانبي",
+      "expandSidebar": "توسيع الشريط الجانبي"
     },
     "access": {
       "failedTitle": "تعذّر تحميل إعدادات شركتك",
@@ -565,7 +568,17 @@
         "inSync": "متزامن",
         "driverLabel": "السائق · {speed}",
         "driverLive": "السائق · مباشر"
-      }
+      },
+      "officeStop": "المكتب",
+      "amLast": "آخر محطة صباحًا",
+      "pmFirst": "أول محطة مساءً",
+      "arrival": "الوصول",
+      "departure": "المغادرة",
+      "officeNotAssignable": "لا يمكن تعيين الموظفين هنا",
+      "selectOfficeRequired": "يرجى اختيار المكتب الذي يتبع له هذا الموظف",
+      "officeStopExcluded": "محطة المكتب مستثناة — يصعد الموظفون من محطات الالتقاط فقط.",
+      "selectOffice": "اختر المكتب",
+      "multipleOfficesHint": "يضم هذا المسار عدة مكاتب — اختر المكتب الذي يتبع له هذا الموظف."
     },
     "fleet": {
       "label": "إدارة الأسطول",
@@ -1173,9 +1186,9 @@
       }
     },
     "mobility": {
-      "title": "مركز التنقل المباشر",
+      "title": "العمليات المباشرة",
       "commandCenter": "مركز قيادة التنقل المباشر",
-      "operationalOverview": "نظرة تشغيلية في الوقت الفعلي",
+      "operationalOverview": "المركبات والرحلات الجارية الآن",
       "activeRides": "الرحلات النشطة",
       "activeRidesLabel": "الرحلات النشطة",
       "employeesTraveling": "الموظفون المسافرون",
@@ -1188,7 +1201,7 @@
       "upcomingRidesLabel": "الرحلات القادمة",
       "liveMap": "الخريطة المباشرة",
       "noActiveTrips": "لا توجد رحلات نشطة حالياً",
-      "initializingMap": "جاري تهيئة الخريطة المباشرة...",
+      "initializingMap": "جاري تحميل الخريطة…",
       "live": "مباشر",
       "connecting": "جاري الاتصال…",
       "opsTime": "وقت العمليات",
@@ -1197,8 +1210,8 @@
       "vehiclesLive": "{count} مركبة(ات) مباشرة",
       "tripsTracked": "{count} رحلة(رحلات) متتبعة",
       "synced": "تمت المزامنة {time}",
-      "morning": "↑ صباحاً",
-      "evening": "↓ مساءً",
+      "morning": "صباحاً",
+      "evening": "مساءً",
       "currentStop": "المحطة الحالية",
       "passengers": "الركاب",
       "assignedEmployees": "الموظفون المعينون",
@@ -1221,8 +1234,8 @@
       "onMapLive": "· {count} مباشر 🔴",
       "allClear": "✓ كل شيء على ما يرام",
       "noActiveAlerts": "لا توجد تنبيهات نشطة في الوقت الحالي.",
-      "trackRoutesLive": "تتبع المسارات مباشرة ←",
-      "viewBookings": "عرض الحجوزات ←",
+      "trackRoutesLive": "تتبع المسارات",
+      "viewBookings": "عرض الحجوزات",
       "servicePerformance": "أداء الخدمة",
       "onTimeRate": "معدل الالتزام بالمواعيد",
       "shuttleUtilization": "استخدام النقل الجماعي",
@@ -1233,7 +1246,8 @@
       "droppedOffAt": "نزل الساعة {time}",
       "notYetBoarded": "لم يصعد بعد",
       "absent": "غائب",
-      "startedAt": "بدأت الساعة {time}"
+      "startedAt": "بدأت الساعة {time}",
+      "unknownEmployee": "موظف غير معروف"
     },
     "costLeakage": {
       "title": "كاشف تسرب التكاليف",
@@ -1920,6 +1934,132 @@
         },
         "factorsTitle": "معاملات الانبعاث",
         "factor": "{fuel}: {value} كغ CO₂e لكل لتر"
+      }
+    },
+    "overview": {
+      "title": "نظرة عامة",
+      "retry": "حاول مرة أخرى",
+      "vsLastMonth": "مقارنة بالشهر الماضي",
+      "createBooking": "حجز جديد",
+      "editBudget": "الميزانية الشهرية",
+      "kpi": {
+        "sectionLabel": "الأرقام الرئيسية",
+        "spend": "إنفاق السائق الخاص هذا الشهر",
+        "spendSub": "منذ بداية الشهر",
+        "budgetUsed": "المستخدم من الميزانية",
+        "notSet": "غير محددة",
+        "budgetUsedSub": "من {budget}",
+        "setBudget": "حدد ميزانية شهرية",
+        "vendorSavings": "التوفير مقارنة بالمورد السابق",
+        "vendorSavingsSub": "هذا الشهر",
+        "vendorOver": "أعلى من المورد السابق هذا الشهر",
+        "identified": "التوفير المحتمل",
+        "identifiedSub": "{count} فرص · {high} ذات أولوية عالية",
+        "identifiedEmpty": "لا توجد بيانات رحلات كافية بعد",
+        "shuttleTrips": "رحلات الحافلات هذا الشهر",
+        "lifetime": "{count} منذ البداية",
+        "routes": "المسارات النشطة",
+        "rosterSub": "أضيف {added} · أزيل {removed} هذا الشهر",
+        "activeEmployees": "الموظفون النشطون",
+        "ofRegistered": "من أصل {total} مسجل"
+      },
+      "attention": {
+        "title": "يحتاج إلى متابعة",
+        "countNeedAction": "عناصر تحتاج إلى إجراء: {count}",
+        "nothingUrgent": "لا يوجد شيء عاجل الآن",
+        "allClearTitle": "لا توجد مهام معلقة",
+        "allClearBody": "لا توجد حجوزات بدون سائق أو فواتير غير مدفوعة أو فرص توفير عالية الأولوية.",
+        "unassigned": "حجوزات بحاجة إلى سائق: {count}",
+        "unassignedDetail": "عيّن سائقاً قبل موعد الاستلام لتجنب التأخير",
+        "outstanding": "مبلغ مستحق {amount}",
+        "outstandingDetail": "{overdue} متأخرة · {pending} قيد الانتظار",
+        "leakage": "فرص توفير عالية الأولوية للمراجعة: {count}",
+        "leakageDetail": "حتى {amount} شهرياً إجمالاً",
+        "upcoming": "حجوزات قادمة: {count}"
+      },
+      "delta": {
+        "up": "ارتفاع",
+        "down": "انخفاض",
+        "flat": "دون تغيير"
+      },
+      "spend": {
+        "title": "الإنفاق مقابل الميزانية",
+        "description": "إنفاق السائق الخاص هذا الشهر مع توقع نهاية الشهر بالوتيرة الحالية",
+        "editBudget": "تعديل الميزانية",
+        "setBudget": "تحديد الميزانية",
+        "spent": "المنفق حتى الآن",
+        "projected": "المتوقع لنهاية الشهر",
+        "budget": "الميزانية الشهرية",
+        "chartLabel": "المنفق {spent}، المتوقع {projected}، الميزانية {budget}",
+        "legendSpent": "المنفق",
+        "legendProjected": "المتوقع",
+        "legendBudget": "الميزانية",
+        "noBudget": "لم يتم تحديد ميزانية شهرية. حدد ميزانية لمتابعة أداء هذا الشهر.",
+        "usedSoFar": "تم استخدام {percent} من الميزانية حتى الآن. يظهر التوقع ابتداءً من اليوم الثالث من الشهر.",
+        "projectedOver": "بهذه الوتيرة سيتجاوز الإنفاق الميزانية بمقدار {amount} ({percent}).",
+        "projectedUnder": "بهذه الوتيرة سينتهي الإنفاق أقل من الميزانية بمقدار {amount}.",
+        "ridesCompleted": "الرحلات المكتملة",
+        "vsLastMonth": "مقارنة بالشهر الماضي",
+        "avgTripCost": "متوسط تكلفة الرحلة",
+        "perCompletedRide": "لكل رحلة مكتملة",
+        "costPerEmployee": "التكلفة لكل موظف",
+        "perActiveEmployee": "لكل موظف نشط"
+      },
+      "savings": {
+        "title": "فرص التوفير",
+        "preview": "معاينة",
+        "description": "تسرب التكاليف المكتشف في بيانات رحلاتك، مرتباً حسب التوفير الشهري المقدر",
+        "totalLabel": "التوفير المحتمل",
+        "perMonth": "/ شهرياً",
+        "emptyTitle": "لا توجد فرص بعد",
+        "emptyBody": "تظهر الفرص عند توفر نشاط رحلات كافٍ للتحليل.",
+        "colOpportunity": "الفرصة",
+        "colSeverity": "الأولوية",
+        "colSaving": "التوفير المقدر / شهرياً",
+        "colAction": "التفاصيل",
+        "lockedHow": "التوصية متاحة مع ميزة توفير التكاليف",
+        "severity": {
+          "LOW": "منخفضة",
+          "MEDIUM": "متوسطة",
+          "HIGH": "عالية",
+          "CRITICAL": "حرجة"
+        },
+        "hide": "إخفاء",
+        "howToSave": "كيفية التوفير",
+        "recommendation": "التوصية",
+        "footerEnabled": "التقديرات محسوبة من بيانات رحلاتك والوقود والإشغال الخاصة بك.",
+        "footerLocked": "المبالغ محسوبة من بيانات رحلاتك. فعّل ميزة توفير التكاليف لمعرفة كيفية تحقيقها.",
+        "seeAll": "عرض الكل في التحليلات"
+      },
+      "adoption": {
+        "title": "استخدام الموظفين",
+        "description": "الموظفون المسجلون الذين سافروا معنا هذا الشهر",
+        "ofTotal": "من أصل {total}",
+        "activeShare": "نسبة الموظفين النشطين",
+        "activeHint": "الموظفون النشطون",
+        "avgRides": "الرحلات لكل موظف نشط",
+        "topPassenger": "الأكثر رحلات",
+        "topPassengerValue": "{name} · {count}",
+        "peakDay": "أكثر الأيام ازدحاماً",
+        "quietDay": "أهدأ الأيام",
+        "serviceMix": "رحلات هذا الشهر حسب الخدمة",
+        "chauffeurTrips": "السائق الخاص {count}",
+        "shuttleTrips": "الحافلات {count}"
+      },
+      "departments": {
+        "title": "الاستخدام حسب القسم",
+        "description": "حصة الرحلات هذا الشهر",
+        "empty": "لا يوجد استخدام للأقسام بعد"
+      },
+      "shuttle": {
+        "title": "خدمة الحافلات",
+        "description": "الرحلات وقائمة المسارات هذا الشهر",
+        "tripsMtd": "رحلات هذا الشهر",
+        "routes": "المسارات النشطة",
+        "added": "أشخاص أضيفوا إلى المسارات",
+        "removed": "أشخاص أزيلوا من المسارات",
+        "tripsLifetime": "الرحلات منذ البداية",
+        "topRoute": "أكثر الإضافات: {name} ({count})"
       }
     }
   }

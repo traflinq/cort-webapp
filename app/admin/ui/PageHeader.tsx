@@ -32,7 +32,7 @@ export function Breadcrumbs({ items, className }: { items: Crumb[]; className?: 
               ) : (
                 <span>{c.label}</span>
               )}
-              {!last && <ChevronRight className="size-3 opacity-60" aria-hidden="true" />}
+              {!last && <ChevronRight className="size-3 opacity-60 rtl:rotate-180" aria-hidden="true" />}
             </li>
           );
         })}
@@ -65,7 +65,7 @@ export function PageHeader({ title, description, breadcrumbs, back, actions, met
         <div className="flex min-w-0 items-start gap-3">
           {back && (
             <Link href={back.href} aria-label={back.label ?? "Back"} className={cn(buttonVariants({ variant: "outline", size: "icon-sm" }), "mt-0.5 shrink-0")}>
-              <ArrowLeft />
+              <ArrowLeft className="rtl:rotate-180" />
             </Link>
           )}
           <div className="min-w-0">

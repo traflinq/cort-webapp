@@ -26,7 +26,10 @@
       "signOut": "Sign out",
       "switchToLight": "Switch to light mode",
       "switchToDark": "Switch to dark mode",
-      "companyAccount": "Company Account"
+      "companyAccount": "Company Account",
+      "openMenu": "Open menu",
+      "collapseSidebar": "Collapse sidebar",
+      "expandSidebar": "Expand sidebar"
     },
     "access": {
       "failedTitle": "Couldn't load your company's settings",
@@ -565,7 +568,17 @@
         "inSync": "In Sync",
         "driverLabel": "Driver · {speed}",
         "driverLive": "Driver · live"
-      }
+      },
+      "officeStop": "Office",
+      "amLast": "AM last",
+      "pmFirst": "PM first",
+      "arrival": "Arrival",
+      "departure": "Departure",
+      "officeNotAssignable": "Employees cannot be assigned here",
+      "selectOfficeRequired": "Please select which office this employee is assigned to",
+      "officeStopExcluded": "Office stop is excluded — employees board at pickups only.",
+      "selectOffice": "Select office",
+      "multipleOfficesHint": "This route has multiple offices — choose which one this employee is assigned to."
     },
     "fleet": {
       "label": "Fleet Management",
@@ -1173,9 +1186,9 @@
       }
     },
     "mobility": {
-      "title": "Live Mobility Center",
+      "title": "Live operations",
       "commandCenter": "Live Mobility Command Center",
-      "operationalOverview": "Real-time Operational Overview",
+      "operationalOverview": "Vehicles and trips in progress right now",
       "activeRides": "Active Rides",
       "activeRidesLabel": "Active rides",
       "employeesTraveling": "Employees Traveling",
@@ -1188,7 +1201,7 @@
       "upcomingRidesLabel": "Upcoming rides",
       "liveMap": "Live Map",
       "noActiveTrips": "No active trips right now",
-      "initializingMap": "Initializing Real-time Map...",
+      "initializingMap": "Loading map…",
       "live": "Live",
       "connecting": "Connecting…",
       "opsTime": "Ops Time",
@@ -1197,8 +1210,8 @@
       "vehiclesLive": "{count} vehicle(s) live",
       "tripsTracked": "{count} trip(s) tracked",
       "synced": "Synced {time}",
-      "morning": "↑ Morning",
-      "evening": "↓ Evening",
+      "morning": "Morning",
+      "evening": "Evening",
       "currentStop": "Current Stop",
       "passengers": "Passengers",
       "assignedEmployees": "Assigned Employees",
@@ -1221,8 +1234,8 @@
       "onMapLive": "· {count} live 🔴",
       "allClear": "✓ All Clear",
       "noActiveAlerts": "No active alerts at this time.",
-      "trackRoutesLive": "Track Routes Live →",
-      "viewBookings": "View Bookings →",
+      "trackRoutesLive": "Track routes",
+      "viewBookings": "View bookings",
       "servicePerformance": "Service Performance",
       "onTimeRate": "On-Time Rate",
       "shuttleUtilization": "Shuttle Utilization",
@@ -1233,7 +1246,8 @@
       "droppedOffAt": "Dropped off {time}",
       "notYetBoarded": "Not yet boarded",
       "absent": "Absent",
-      "startedAt": "Started at {time}"
+      "startedAt": "Started at {time}",
+      "unknownEmployee": "Unknown employee"
     },
     "costLeakage": {
       "title": "Cost Leakage Detector",
@@ -1920,6 +1934,132 @@
         },
         "factorsTitle": "Emission factors",
         "factor": "{fuel}: {value} kg CO₂e per litre"
+      }
+    },
+    "overview": {
+      "title": "Overview",
+      "retry": "Try again",
+      "vsLastMonth": "vs last month",
+      "createBooking": "New booking",
+      "editBudget": "Monthly budget",
+      "kpi": {
+        "sectionLabel": "Headline figures",
+        "spend": "Chauffeur spend this month",
+        "spendSub": "Month to date",
+        "budgetUsed": "Budget used",
+        "notSet": "Not set",
+        "budgetUsedSub": "of {budget}",
+        "setBudget": "Set a monthly budget",
+        "vendorSavings": "Saved vs previous vendor",
+        "vendorSavingsSub": "This month",
+        "vendorOver": "Above previous vendor this month",
+        "identified": "Savings identified",
+        "identifiedSub": "{count, plural, one {# opportunity} other {# opportunities}} · {high} high priority",
+        "identifiedEmpty": "Not enough trip data yet",
+        "shuttleTrips": "Shuttle trips this month",
+        "lifetime": "{count} all time",
+        "routes": "Active routes",
+        "rosterSub": "{added} added · {removed} removed this month",
+        "activeEmployees": "Active employees",
+        "ofRegistered": "of {total} registered"
+      },
+      "attention": {
+        "title": "Needs attention",
+        "countNeedAction": "{count, plural, one {# item needs action} other {# items need action}}",
+        "nothingUrgent": "Nothing urgent right now",
+        "allClearTitle": "All clear",
+        "allClearBody": "No unassigned bookings, unpaid invoices or high-priority savings to review.",
+        "unassigned": "{count, plural, one {# booking needs a driver} other {# bookings need a driver}}",
+        "unassignedDetail": "Assign before pickup to avoid delays",
+        "outstanding": "{amount} outstanding",
+        "outstandingDetail": "{overdue} overdue · {pending} pending",
+        "leakage": "{count, plural, one {# high-priority saving to review} other {# high-priority savings to review}}",
+        "leakageDetail": "Up to {amount} a month in total",
+        "upcoming": "{count, plural, one {# upcoming booking} other {# upcoming bookings}}"
+      },
+      "delta": {
+        "up": "Up",
+        "down": "Down",
+        "flat": "Unchanged"
+      },
+      "spend": {
+        "title": "Spend against budget",
+        "description": "Chauffeur spend this month, projected to month end at the current pace",
+        "editBudget": "Edit budget",
+        "setBudget": "Set budget",
+        "spent": "Spent so far",
+        "projected": "Projected month end",
+        "budget": "Monthly budget",
+        "chartLabel": "Spent {spent}, projected {projected}, budget {budget}",
+        "legendSpent": "Spent",
+        "legendProjected": "Projected",
+        "legendBudget": "Budget",
+        "noBudget": "No monthly budget is set. Set one to see how this month is tracking.",
+        "usedSoFar": "{percent} of the budget used so far. A projection appears from the 3rd of the month.",
+        "projectedOver": "At this pace, spend will exceed the budget by {amount} ({percent}).",
+        "projectedUnder": "At this pace, spend will finish {amount} under budget.",
+        "ridesCompleted": "Rides completed",
+        "vsLastMonth": "vs last month",
+        "avgTripCost": "Average trip cost",
+        "perCompletedRide": "Per completed ride",
+        "costPerEmployee": "Cost per employee",
+        "perActiveEmployee": "Per active employee"
+      },
+      "savings": {
+        "title": "Savings opportunities",
+        "preview": "Preview",
+        "description": "Cost leakage found in your trip data, ranked by estimated monthly saving",
+        "totalLabel": "Potential saving",
+        "perMonth": "/ month",
+        "emptyTitle": "No opportunities yet",
+        "emptyBody": "Opportunities appear once there is enough trip activity to analyse.",
+        "colOpportunity": "Opportunity",
+        "colSeverity": "Priority",
+        "colSaving": "Est. saving / month",
+        "colAction": "Details",
+        "lockedHow": "Recommendation available with Cost Saving",
+        "severity": {
+          "LOW": "Low",
+          "MEDIUM": "Medium",
+          "HIGH": "High",
+          "CRITICAL": "Critical"
+        },
+        "hide": "Hide",
+        "howToSave": "How to save",
+        "recommendation": "Recommendation",
+        "footerEnabled": "Estimates are calculated from your own trip, fuel and occupancy data.",
+        "footerLocked": "Amounts are calculated from your own trip data. Enable Cost Saving to see how to achieve them.",
+        "seeAll": "See all in Analytics"
+      },
+      "adoption": {
+        "title": "Employee adoption",
+        "description": "Registered employees who travelled with us this month",
+        "ofTotal": "of {total}",
+        "activeShare": "Share of employees who are active",
+        "activeHint": "Active employees",
+        "avgRides": "Rides per active employee",
+        "topPassenger": "Most rides",
+        "topPassengerValue": "{name} · {count}",
+        "peakDay": "Busiest day",
+        "quietDay": "Quietest day",
+        "serviceMix": "Trips this month by service",
+        "chauffeurTrips": "Chauffeur {count}",
+        "shuttleTrips": "Shuttle {count}"
+      },
+      "departments": {
+        "title": "Usage by department",
+        "description": "Share of rides this month",
+        "empty": "No department usage yet"
+      },
+      "shuttle": {
+        "title": "Shuttle service",
+        "description": "Trips and route roster this month",
+        "tripsMtd": "Trips this month",
+        "routes": "Active routes",
+        "added": "People added to routes",
+        "removed": "People removed from routes",
+        "tripsLifetime": "Trips all time",
+        "topRoute": "Most additions: {name} ({count})"
       }
     }
   }

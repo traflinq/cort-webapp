@@ -3,16 +3,18 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Info } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { focusRing } from "@/app/admin/ui";
 import { SectionHeading, UtilizationBar } from "../components/ui";
 import { useCostFetch, useFmt, filterQuery, type CostFilters } from "./hooks";
 import { OccupancyBandsChart, OccupancyTrendChart } from "./charts";
 import { BasisBadge, Drawer, EmptyNote, ErrorNote, FigureValue, MethodNote, Skeleton, StatBlock, Tag } from "./ui";
 import type { OccupancyReport, OccupancyRow, OccupancyStatus } from "./types";
 
-const STATUS_TONE: Record<OccupancyStatus, "success" | "warning" | "neutral" | "danger" | "brand"> = {
+const STATUS_TONE: Record<OccupancyStatus, "success" | "warning" | "neutral" | "danger" | "info"> = {
   UNDERUTILISED: "warning",
   OK: "success",
-  FULL: "brand",
+  FULL: "info",
   OVER_CAPACITY: "danger",
   CAPACITY_UNKNOWN: "neutral",
   NO_ROSTER: "neutral",
@@ -34,7 +36,7 @@ export function OccupancyPanel({ filters }: { filters: CostFilters }) {
     <div className="flex flex-col gap-6">
       <SectionHeading title={t("title")} description={t("description")} />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatBlock label={t("average")} figure={s.average_occupancy} hint={t("assignedSeats", { assigned: s.assigned, seats: s.seats })} />
         <CountBlock
           label={t("underutilisedVehicles")}
@@ -47,13 +49,13 @@ export function OccupancyPanel({ filters }: { filters: CostFilters }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-        <div className="rounded-2xl border border-line bg-card p-4 xl:col-span-2">
-          <p className="mb-3 text-sm font-semibold text-fg">{t("bandsTitle")}</p>
+        <div className="rounded-xl border border-line bg-card p-5 xl:col-span-2">
+          <h3 className="mb-3 text-sm font-semibold text-fg">{t("bandsTitle")}</h3>
           <OccupancyBandsChart bands={s.bands} />
         </div>
-        <div className="rounded-2xl border border-line bg-card p-4 xl:col-span-3">
-          <p className="text-sm font-semibold text-fg">{t("trendTitle")}</p>
-          <p className="mb-2 text-xs text-fg-muted">{t("trendDescription")}</p>
+        <div className="rounded-xl border border-line bg-card p-5 xl:col-span-3">
+          <h3 className="text-sm font-semibold text-fg">{t("trendTitle")}</h3>
+          <p className="mb-3 mt-0.5 text-xs text-fg-muted">{t("trendDescription")}</p>
           {r.trend.some((p) => p.occupancy_pct !== null) ? <OccupancyTrendChart trend={r.trend} /> : <EmptyNote>{t("noTrend")}</EmptyNote>}
         </div>
       </div>
@@ -61,26 +63,26 @@ export function OccupancyPanel({ filters }: { filters: CostFilters }) {
       {r.rows.length === 0 ? (
         <EmptyNote>{t("empty")}</EmptyNote>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-line bg-card">
+        <div className="overflow-x-auto rounded-xl border border-line bg-card">
           <table className="w-full min-w-[900px] text-sm">
             <thead>
               <tr className="border-b border-line text-xs text-fg-muted">
-                <th className="px-4 py-3 text-start font-medium">{t("colRoute")}</th>
-                <th className="px-3 py-3 text-start font-medium">{t("colVehicle")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colSeats")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colAssigned")}</th>
-                <th className="w-44 px-3 py-3 text-start font-medium">{t("colOccupancy")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colEmpty")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colTripCost")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colPerEmployee")}</th>
-                <th className="px-4 py-3 text-start font-medium">{t("colStatus")}</th>
+                <th scope="col" className="px-4 py-3 text-start font-medium">{t("colRoute")}</th>
+                <th scope="col" className="px-3 py-3 text-start font-medium">{t("colVehicle")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colSeats")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colAssigned")}</th>
+                <th scope="col" className="w-44 px-3 py-3 text-start font-medium">{t("colOccupancy")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colEmpty")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colTripCost")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colPerEmployee")}</th>
+                <th scope="col" className="px-4 py-3 text-start font-medium">{t("colStatus")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {r.rows.map((row) => (
-                <tr key={`${row.route.id}-${row.direction}`} className="cursor-pointer hover:bg-subtle/50" onClick={() => setSelected(row)}>
+                <tr key={`${row.route.id}-${row.direction}`} className="cursor-pointer hover:bg-row-hover" onClick={() => setSelected(row)}>
                   <td className="px-4 py-3">
-                    <button type="button" className="text-start font-semibold text-fg hover:underline" onClick={() => setSelected(row)}>
+                    <button type="button" className={cn("rounded-sm text-start font-medium text-fg hover:underline", focusRing)} onClick={() => setSelected(row)}>
                       {row.route.name}
                     </button>
                     <p className="text-xs text-fg-muted">{t(`dir.${row.direction}` as never)}</p>
@@ -109,10 +111,11 @@ export function OccupancyPanel({ filters }: { filters: CostFilters }) {
 }
 
 function CountBlock({ label, value, hint, tone }: { label: string; value: number; hint: string; tone?: "warning" | "danger" }) {
+  const fmt = useFmt();
   return (
-    <div className="flex flex-col gap-1 rounded-2xl border border-line bg-card p-4">
-      <p className="text-[13px] font-medium text-fg-muted">{label}</p>
-      <p className={`text-2xl font-semibold tabular-nums ${value > 0 && tone === "warning" ? "text-warning-ink" : value > 0 && tone === "danger" ? "text-danger-ink" : "text-fg"}`}>{value}</p>
+    <div className="flex min-w-0 flex-col gap-1 rounded-xl border border-line bg-card p-4">
+      <p className="text-xs font-medium text-fg-muted">{label}</p>
+      <p className={`mt-1 text-2xl font-semibold tracking-tight tabular-nums ${value > 0 && tone === "warning" ? "text-warning-ink" : value > 0 && tone === "danger" ? "text-danger-ink" : "text-fg"}`}>{fmt.n(value)}</p>
       <p className="text-xs text-fg-muted">{hint}</p>
     </div>
   );
@@ -137,9 +140,9 @@ function OccupancyDrawer({ row, onClose }: { row: OccupancyRow | null; onClose: 
       <div className="flex flex-col gap-5">
         <div className="flex flex-wrap items-center gap-2">
           <Tag tone={STATUS_TONE[row.occupancy.status]}>{t(`status.${row.occupancy.status}` as never)}</Tag>
-          <span className="text-sm text-fg-muted">{t("assignedOf", { assigned: row.occupancy.assigned, seats: row.occupancy.capacity ?? "—" })}</span>
+          <span className="text-sm text-fg-muted tabular-nums">{t("assignedOf", { assigned: row.occupancy.assigned, seats: row.occupancy.capacity ?? "—" })}</span>
         </div>
-        <div className="divide-y divide-line rounded-2xl border border-line bg-card">
+        <div className="divide-y divide-line rounded-lg border border-line bg-card">
           {figs.map(([label, f]) => (
             <div key={label} className="flex items-center justify-between gap-3 px-4 py-2.5">
               <span className="flex items-center gap-2 text-sm text-fg-muted">
@@ -159,9 +162,9 @@ function OccupancyDrawer({ row, onClose }: { row: OccupancyRow | null; onClose: 
           </div>
         </div>
 
-        <div className="rounded-2xl border border-line bg-card p-4">
+        <div className="rounded-lg border border-line bg-card p-4">
           <p className="flex items-center gap-2 text-sm font-semibold text-fg">
-            <Info className="size-4 text-fg-muted" />
+            <Info className="size-4 text-fg-muted" aria-hidden="true" />
             {t("attendanceTitle")}
           </p>
           <p className="mt-1 text-xs text-fg-muted">{t("attendanceNote")}</p>
