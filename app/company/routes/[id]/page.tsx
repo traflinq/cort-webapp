@@ -6,9 +6,8 @@ import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
-import { selectCompany, fetchCompanyFeatures, selectCompanyFeatures } from "../../../lib/store/slices/companySlice";
 import { fetchEmployees, selectEmployees, selectEmployeesStatus } from "../../../lib/store/slices/employeeSlice";
-import { useAuth } from "../../../lib/contexts/auth-context";
+import { useCompanyAccess } from "../../lib/access-context";
 import { apiClient } from "../../../lib/services/api-client";
 import { toast } from "sonner";
 import { Card } from "../../components/DashboardComponents";
@@ -189,20 +188,12 @@ export default function RouteDetailPage() {
   const t = useTranslations("company.routes");
   const tCommon = useTranslations("common");
   const dispatch = useAppDispatch();
-  const company = useAppSelector(selectCompany);
-  const features = useAppSelector(selectCompanyFeatures);
+  const { company, access } = useCompanyAccess();
   const allEmployees = useAppSelector(selectEmployees);
   const employeeStatus = useAppSelector(selectEmployeesStatus);
-  const { user } = useAuth();
-  const isTrialUser = !!user?.is_trial;
   const routeId = params.id ? +params.id : null;
 
-  const canManageShuttle = isTrialUser
-    || (features.find((f) => f.feature_key === "shuttle_self_managed")?.is_enabled ?? false);
-
-  useEffect(() => {
-    if (company?.id) dispatch(fetchCompanyFeatures(Number(company.id)));
-  }, [company?.id, dispatch]);
+  const canManageShuttle = access.can.selfManageShuttle;
 
   const [route, setRoute] = useState<RouteDetail | null>(null);
   const [loading, setLoading] = useState(true);

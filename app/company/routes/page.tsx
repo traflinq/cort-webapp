@@ -5,10 +5,8 @@ import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAppSelector, useAppDispatch } from "../../lib/store/hooks";
-import { selectCompany, fetchCompanyFeatures, selectCompanyFeatures } from "../../lib/store/slices/companySlice";
+import { useCompanyAccess } from "../lib/access-context";
 import { apiClient } from "../../lib/services/api-client";
-import { useAuth } from "../../lib/contexts/auth-context";
 import { Card } from "../components/DashboardComponents";
 import { AccountCredentialsReveal, SaveCredentialsNote } from "../components/AccountCredentialsReveal";
 import { PageHeader } from "../components/PageLayout";
@@ -840,23 +838,13 @@ function RouteCard({ route }: { route: CompanyRoute }) {
 
 export default function RoutesPage() {
   const t = useTranslations("company.routes");
-  const tCommon = useTranslations("common");
-  const company = useAppSelector(selectCompany);
-  const features = useAppSelector(selectCompanyFeatures);
-  const dispatch = useAppDispatch();
-  const { user } = useAuth();
-  const isTrialUser = !!user?.is_trial;
+  const { company, access } = useCompanyAccess();
   const [routes, setRoutes] = useState<CompanyRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddEmployee, setShowAddEmployee] = useState(false);
 
-  const canManageShuttle = isTrialUser
-    || (features.find((f) => f.feature_key === "shuttle_self_managed")?.is_enabled ?? false);
-
-  useEffect(() => {
-    if (company?.id) dispatch(fetchCompanyFeatures(Number(company.id)));
-  }, [company?.id, dispatch]);
+  const canManageShuttle = access.can.selfManageShuttle;
 
   function loadRoutes() {
     if (!company?.id) { setLoading(false); return; }
@@ -873,25 +861,6 @@ export default function RoutesPage() {
     loadRoutes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company?.id]);
-
-  if (!company) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-sm text-[var(--text-muted)]">{tCommon("errors.noCompanySelected")}</div>
-      </div>
-    );
-  }
-
-  if (!company.services_enabled.shuttle_enabled) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Card className="max-w-md text-center">
-          <div className="text-lg font-bold text-[var(--text-primary)]">{t("shuttleDisabled")}</div>
-          <div className="mt-2 text-sm text-[var(--text-muted)]">{t("shuttleDisabledDescription")}</div>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">

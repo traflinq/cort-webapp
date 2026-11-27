@@ -2,16 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/app/lib/services/api-client";
-import { useAppSelector } from "@/app/lib/store/hooks";
-import { selectCompany } from "@/app/lib/store/slices/companySlice";
+import { useCompanyAccess } from "../lib/access-context";
 import { useSavingsFetch } from "@/app/components/savings/useSavingsFetch";
 import type { SavingsDashboardResponse } from "@/app/components/savings/types";
 import type { FleetInsight } from "./components/insights";
 import type { FuelVarianceFlag, ShuttleMetric, ShuttleMetricsSummary } from "./components/ShuttleTripQuality";
 import type { ChauffeurUtilization } from "./components/ChauffeurPackageUse";
 import type { PoolUtilization } from "./components/PoolCarUtilization";
-
-type Features = { ai: boolean; pool: boolean };
 
 export interface DetailData {
   shuttleSummary: ShuttleMetricsSummary | null;
@@ -30,48 +27,28 @@ const EMPTY_DETAIL: DetailData = { shuttleSummary: null, shuttleMetrics: [], fue
  *    only once Traflinq has unlocked them)
  *  - last-30-days detail per service (trip quality, package use, car utilization)
  *  - AI insights (only when the ai_insights feature is on)
+ * Which services and features apply comes from the company's access (known before the page renders).
  * State is only set from settled requests; loading is derived from request keys.
  */
 export function useAnalyticsData(month: string) {
-  const company = useAppSelector(selectCompany);
-  const companyId = Number(company?.id) || 0;
-  const shuttleOn = !!company?.services_enabled?.shuttle_enabled;
-  const chauffeurOn = !!company?.services_enabled?.chauffeur_enabled;
+  const { company, access } = useCompanyAccess();
+  const companyId = company.id;
+  const shuttleOn = access.services.shuttle;
+  const chauffeurOn = access.services.chauffeur;
+  const ai = access.can.aiInsights;
 
   const savings = useSavingsFetch<SavingsDashboardResponse>(`/company/savings-dashboard?month=${month}`);
 
-  // Features: AI insights + pool (self-managed) fleet.
-  const [features, setFeatures] = useState<{ key: number; value: Features } | null>(null);
-  useEffect(() => {
-    if (!companyId) return;
-    let cancelled = false;
-    apiClient
-      .getCompanyFeatures(companyId)
-      .then((res) => res.data ?? [])
-      .catch(() => [] as { feature_key: string; is_enabled: boolean }[])
-      .then((list) => {
-        if (cancelled) return;
-        const on = (k: string) => list.find((f) => f.feature_key === k)?.is_enabled ?? false;
-        setFeatures({ key: companyId, value: { ai: on("ai_insights"), pool: on("chauffeur_self_managed") || on("shuttle_self_managed") } });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [companyId]);
-  const featuresReady = features?.key === companyId;
-  const ai = featuresReady ? features!.value.ai : false;
-
-  // Pool: feature flag, or the legacy own-pool flag the savings payload reports.
+  // Pool: the company runs its own cars, or the savings payload reports the legacy own-pool flag.
   const savingsServices = savings.data && "services" in savings.data ? savings.data.services : undefined;
-  const poolOn = (featuresReady && features!.value.pool) || !!savingsServices?.pool;
+  const poolOn = access.can.poolFleet || !!savingsServices?.pool;
 
   // Last-30-days detail + insights.
   const [nonce, setNonce] = useState(0);
-  const detailKey = featuresReady ? `${companyId}|${shuttleOn}|${chauffeurOn}|${poolOn}|${ai}|${nonce}` : "";
+  const detailKey = `${companyId}|${shuttleOn}|${chauffeurOn}|${poolOn}|${ai}|${nonce}`;
   const [detail, setDetail] = useState<{ key: string; data: DetailData } | null>(null);
 
   useEffect(() => {
-    if (!detailKey) return;
     let cancelled = false;
     const get = <T,>(on: boolean, url: string) => (on ? apiClient.request<T>(url).catch(() => null) : Promise.resolve(null));
     Promise.all([
@@ -107,13 +84,11 @@ export function useAnalyticsData(month: string) {
   );
 
   return {
-    companyReady: !!companyId,
     services,
     ai,
-    featuresReady,
     savings,
     detail: detail?.key === detailKey ? detail.data : detail?.data ?? EMPTY_DETAIL,
-    detailLoading: !detailKey || detail?.key !== detailKey,
+    detailLoading: detail?.key !== detailKey,
     reloadDetail,
   };
 }

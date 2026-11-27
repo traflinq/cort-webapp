@@ -25,10 +25,10 @@ import { bySaving, insightsFor, InsightsSection, potentialSaving } from "./compo
 import { ShuttleTripQuality } from "./components/ShuttleTripQuality";
 import { ChauffeurPackageUse } from "./components/ChauffeurPackageUse";
 import { PoolCarUtilization } from "./components/PoolCarUtilization";
-import { Panel, SectionHeading, Tabs } from "./components/ui";
+import { SectionHeading, Tabs } from "./components/ui";
 import { useCostFetch, useCostFilters } from "./cost/hooks";
 import { CostFilterBar } from "./cost/CostFilterBar";
-import { ErrorNote } from "./cost/ui";
+import { ErrorNote, Skeleton } from "./cost/ui";
 import { OverviewPanel } from "./cost/OverviewPanel";
 import { FuelPanel } from "./cost/FuelPanel";
 import { OccupancyPanel } from "./cost/OccupancyPanel";
@@ -63,7 +63,7 @@ function AnalyticsContent() {
   // One date range for the whole page; the monthly savings sections follow the month of its end date.
   const { filters, set: setFilters } = useCostFilters();
   const month = filters.to.slice(0, 7);
-  const { services, ai, savings, detail, detailLoading, reloadDetail, companyReady } = useAnalyticsData(month);
+  const { services, ai, savings, detail, detailLoading, reloadDetail } = useAnalyticsData(month);
   const tCost = useTranslations("company.costOptimization");
   const [benchmarksOpen, setBenchmarksOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -76,6 +76,9 @@ function AnalyticsContent() {
   const scope = filterOptions.data?.scope;
   const ownOps = services.shuttle && (scope?.company_managed_vehicles ?? 0) > 0;
   const cortOps = services.shuttle && (scope?.cort_managed_vehicles ?? 0) > 0;
+  // Which tabs and overview a shuttle company gets depends on whose vehicles run its shuttles, so
+  // nothing is drawn until that is known; a failure is shown as such, never as the other layout.
+  const scopeState: "ready" | "loading" | "error" = !services.shuttle || scope ? "ready" : filterOptions.error ? "error" : "loading";
   const recs = useCostFetch<RecommendationList>(ownOps ? "/company/cost-optimization/recommendations" : null);
 
   // Don't show last month's figures under the new month's heading.
@@ -134,7 +137,6 @@ function AnalyticsContent() {
     setGenerating(false);
   };
 
-  const anyService = services.shuttle || services.chauffeur || services.pool;
   // Shuttle insights now come from the optimization engine (Recommendations); keep chauffeur / pool ones.
   const allInsights = [...insightsFor(detail.insights, "chauffeur"), ...insightsFor(detail.insights, "pool")].sort(bySaving);
 
@@ -146,7 +148,7 @@ function AnalyticsContent() {
         description={t("description")}
         action={
           <>
-            {ai && anyService && (
+            {ai && scopeState === "ready" && (
               <button
                 type="button"
                 onClick={runAnalysis}
@@ -161,13 +163,17 @@ function AnalyticsContent() {
         }
       />
 
-      {companyReady && !anyService ? (
-        <Panel className="p-6 text-sm text-fg-muted">{t("noServices")}</Panel>
+      {scopeState === "error" ? (
+        <ErrorNote message={tCost("filtersFailed")} detail={filterOptions.error} onRetry={filterOptions.reload} />
+      ) : scopeState === "loading" ? (
+        <div className="flex flex-col gap-6" aria-busy="true">
+          <Skeleton className="h-12" />
+          <Skeleton className="h-16" />
+          <Skeleton className="h-72" />
+        </div>
       ) : (
         <>
           <Tabs tabs={tabs} active={active} onChange={setTab} label={t("tabsLabel")} />
-
-          {filterOptions.error && <ErrorNote message={tCost("filtersFailed")} detail={filterOptions.error} onRetry={filterOptions.reload} />}
 
           <CostFilterBar
             filters={filters}

@@ -5,9 +5,8 @@ import { createPortal } from "react-dom";
 import { UserPlus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
-import { selectCompany } from "../../lib/store/slices/companySlice";
+import { useCompanyAccess } from "../lib/access-context";
 import { fetchEmployees, selectEmployees, selectEmployeesStatus, updateEmployee, deactivateEmployee } from "../../lib/store/slices/employeeSlice";
-import { useAuth } from "../../lib/contexts/auth-context";
 import { apiClient } from "../../lib/services/api-client";
 import { Card } from "../components/DashboardComponents";
 import { AccountCredentialsReveal, SaveCredentialsNote } from "../components/AccountCredentialsReveal";
@@ -62,10 +61,9 @@ export default function EmployeesPage() {
   const tCredentials = useTranslations("company.credentials");
   const tCommon = useTranslations("common");
   const dispatch = useAppDispatch();
-  const { user } = useAuth();
-  const isTrialUser = !!user?.is_trial;
-  const maxEmployees = user?.trial_modules === "both" ? 6 : 3;
-  const company = useAppSelector(selectCompany);
+  const { company, access } = useCompanyAccess();
+  const isTrialUser = !!access.trial;
+  const maxEmployees = access.trial?.pool && access.trial.shuttle ? 6 : 3;
   const employees = useAppSelector(selectEmployees);
   const status = useAppSelector(selectEmployeesStatus);
   const loading = status === 'loading';
@@ -159,14 +157,6 @@ export default function EmployeesPage() {
     } finally {
       setEmployeeSaving(false);
     }
-  }
-
-  if (!company) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-sm text-[var(--text-muted)]">{tCommon("errors.noCompanySelected")}</div>
-      </div>
-    );
   }
 
   function startEdit(employee: typeof employees[0]) {

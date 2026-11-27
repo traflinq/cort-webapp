@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
-import { useAppSelector } from "../../../lib/store/hooks";
-import { selectCompany } from "../../../lib/store/slices/companySlice";
+import { useCompanyAccess } from "../../lib/access-context";
 import { ShuttleReport, apiClient } from "../../../lib/services/api-client";
 import { Card } from "../../components/DashboardComponents";
 import {
@@ -293,7 +292,7 @@ async function exportShuttlePDF(
 export default function ShuttleReportsPage() {
   const t = useTranslations("company.reports");
   const tCommon = useTranslations("common");
-  const company = useAppSelector(selectCompany);
+  const { company } = useCompanyAccess();
 
   const [reports, setReports] = useState<ShuttleReport[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -455,29 +454,6 @@ export default function ShuttleReportsPage() {
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [exportMenuOpen]);
-
-  if (!company) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-sm text-[var(--text-muted)]">{tCommon("errors.noCompanySelected")}</div>
-      </div>
-    );
-  }
-
-  if (!company.services_enabled?.shuttle_enabled) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Card className="max-w-md text-center flex flex-col items-center justify-center py-12">
-          <div className="text-lg font-bold text-[var(--text-primary)]">
-            {t("shuttleDisabled")}
-          </div>
-          <div className="mt-2 text-sm text-[var(--text-muted)]">
-            {t("shuttleDisabledDescription")}
-          </div>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">

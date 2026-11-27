@@ -19,7 +19,7 @@ import { Card } from './DashboardComponents';
 import { apiClient } from '../../lib/services/api-client';
 import { useAppSelector } from '../../lib/store/hooks';
 import { selectDashboardStats } from '../../lib/store/slices/dashboardSlice';
-import { selectCompany } from '../../lib/store/slices/companySlice';
+import { useCompanyAccess } from '../lib/access-context';
 import { useLiveMobilityTracking } from '../../lib/hooks/useLiveMobilityTracking';
 import type { MapMarker } from '../../admin/ui/Map';
 
@@ -67,7 +67,7 @@ const LiveMobilityCenter = ({ data }: LiveMobilityCenterProps) => {
     const t = useTranslations('company.mobility');
     const tDashboard = useTranslations('company.dashboard');
     const router = useRouter();
-    const company = useAppSelector(selectCompany);
+    const { company, access } = useCompanyAccess();
     const dashboardStats = useAppSelector(selectDashboardStats);
 
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -86,8 +86,8 @@ const LiveMobilityCenter = ({ data }: LiveMobilityCenterProps) => {
     }, []);
 
     // ── Service gates ──────────────────────────────────────────────────────────
-    const hasShuttle = company?.services_enabled?.shuttle_enabled ?? false;
-    const hasChauffeur = company?.services_enabled?.chauffeur_enabled ?? false;
+    const hasShuttle = access.services.shuttle;
+    const hasChauffeur = access.services.chauffeur;
     const showShuttle = hasShuttle;
     const showChauffeur = hasChauffeur;
 

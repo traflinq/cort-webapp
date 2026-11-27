@@ -1,41 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Suspense, useMemo, useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
-import { fetchCompanyProfile, fetchCompanyFeatures, selectCompany, selectCompanyFeatures } from "../../lib/store/slices/companySlice";
-import { apiClient } from "../../lib/services/api-client";
 import {
-  LayoutDashboard,
   Users,
-  Map,
-  Calendar,
-  FileBarChart,
-  FileSpreadsheet,
-  Receipt,
   ChevronLeft,
   ChevronRight,
   LogOut,
   Menu,
-  Car,
-  BarChart2,
-  Building2,
   Sun,
   Moon,
   Languages,
 } from "lucide-react";
 import { useAuth } from "../../lib/contexts/auth-context";
-import type { TrialModules } from "../../lib/types/auth-types";
 import { useCompanyTheme } from "../lib/theme-context";
 import { useCompanyLocale } from "../lib/locale-context";
+import { useCompanyAccessState } from "../lib/access-context";
+import { companyNav } from "../lib/pages";
 import { getSaudiBasePath, stripSaudiPrefix, withSaudiBase } from "../../lib/i18n/saudi-route";
 import { Toaster } from "sonner";
 import { TrialOnboardingWalkthrough } from "../components/TrialOnboardingWalkthrough";
-
-type ServicesEnabled = { shuttle_enabled: boolean; chauffeur_enabled: boolean };
-type FeatureLike = { feature_key: string; is_enabled: boolean };
+import { CompanyAccessGate } from "./CompanyAccessGate";
 
 type NavItem = {
   href: string;
@@ -43,41 +30,12 @@ type NavItem = {
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 };
 
-const TRIAL_FLEET_PREFIXES = ["/company/fleet"];
-const TRIAL_POOL_PREFIXES = ["/company/bookings"];
-const TRIAL_SHUTTLE_PREFIXES = ["/company/routes", "/company/employees"];
-
-/** Company IDs for which the Invoices nav tab is temporarily hidden. */
-const HIDE_INVOICING_COMPANY_IDS = new Set<number>([
-  2,
-]);
-
-function trialHasPool(modules?: TrialModules): boolean {
-  return modules === "pool" || modules === "both" || !modules;
-}
-
-function trialHasShuttle(modules?: TrialModules): boolean {
-  return modules === "shuttle" || modules === "both";
-}
-
-function isTrialAllowedPath(pathname: string, modules?: TrialModules): boolean {
-  const normalized = stripSaudiPrefix(pathname);
-  if (normalized === "/company") return true;
-  const prefixes: string[] = [...TRIAL_FLEET_PREFIXES];
-  if (trialHasPool(modules)) prefixes.push(...TRIAL_POOL_PREFIXES);
-  if (trialHasShuttle(modules)) prefixes.push(...TRIAL_SHUTTLE_PREFIXES);
-  return prefixes.some((prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`));
-}
-
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
 export function CompanyShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const dispatch = useAppDispatch();
-  const company = useAppSelector(selectCompany);
   const { logout, user } = useAuth();
   const { theme, toggle } = useCompanyTheme();
   const { locale, setLocale, isRtl, isSaudiRoute: onSaudiRoute } = useCompanyLocale();
@@ -85,132 +43,23 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
   const tCommon = useTranslations("common");
   const [collapsed, setCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [hasVendors, setHasVendors] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
-  const features = useAppSelector(selectCompanyFeatures);
-  const companyId = user?.company_id?.toString();
+  const { state: accessState } = useCompanyAccessState();
+  const company = accessState.status === "ready" ? accessState.company : null;
   const basePath = getSaudiBasePath(pathname);
   const normalizedPath = pathname ? stripSaudiPrefix(pathname) : "/company";
 
-  const buildNavGroups = useMemo(() => {
-    return (
-      servicesEnabled: ServicesEnabled,
-      featureList: FeatureLike[],
-      vendors = false,
-      isTrial = false,
-      trialModules?: TrialModules,
-      currentCompanyId?: number | null,
-    ) => {
-      if (isTrial) {
-        const items: NavItem[] = [
-          { href: withSaudiBase("/company", basePath), labelKey: "nav.dashboard", icon: LayoutDashboard },
-        ];
-        if (trialHasPool(trialModules) || trialHasShuttle(trialModules)) {
-          items.push({ href: withSaudiBase("/company/fleet", basePath), labelKey: "nav.poolFleet", icon: Car });
-        }
-        if (trialHasPool(trialModules)) {
-          items.push({ href: withSaudiBase("/company/bookings", basePath), labelKey: "nav.bookings", icon: Calendar });
-        }
-        if (trialHasShuttle(trialModules)) {
-          items.push({ href: withSaudiBase("/company/routes", basePath), labelKey: "nav.routeRoster", icon: Map });
-          items.push({ href: withSaudiBase("/company/employees", basePath), labelKey: "nav.employees", icon: Users });
-        }
-        return [{ titleKey: "", items }];
-      }
-
-      const hasFeature = (key: string) => featureList.find((f) => f.feature_key === key)?.is_enabled ?? false;
-      const hideInvoicing = currentCompanyId != null && HIDE_INVOICING_COMPANY_IDS.has(currentCompanyId);
-
-      const adminItems: NavItem[] = [
-        { href: withSaudiBase("/company/employees", basePath), labelKey: "nav.employees", icon: Users },
-      ];
-      if (vendors) {
-        adminItems.push({ href: withSaudiBase("/company/vendors", basePath), labelKey: "nav.vendors", icon: Building2 });
-      }
-
-      const groups: { titleKey: string; items: NavItem[] }[] = [
-        {
-          titleKey: "",
-          items: [{ href: withSaudiBase("/company", basePath), labelKey: "nav.dashboard", icon: LayoutDashboard }],
-        },
-        { titleKey: "nav.operations", items: [] },
-        { titleKey: "nav.administration", items: adminItems },
-      ];
-
-      if (servicesEnabled.shuttle_enabled) {
-        groups[1].items.push({ href: withSaudiBase("/company/routes", basePath), labelKey: "nav.routeRoster", icon: Map });
-      }
-      if (servicesEnabled.chauffeur_enabled) {
-        groups[1].items.push({ href: withSaudiBase("/company/bookings", basePath), labelKey: "nav.bookings", icon: Calendar });
-      }
-      if (servicesEnabled.shuttle_enabled) {
-        groups[1].items.push({ href: withSaudiBase("/company/reports/shuttle", basePath), labelKey: "nav.shuttleReports", icon: FileBarChart });
-      }
-      if (servicesEnabled.chauffeur_enabled) {
-        groups[1].items.push({ href: withSaudiBase("/company/reports/chauffeur", basePath), labelKey: "nav.chauffeurReports", icon: FileSpreadsheet });
-      }
-      if ((servicesEnabled.chauffeur_enabled && hasFeature("chauffeur_self_managed"))
-        || (servicesEnabled.shuttle_enabled && hasFeature("shuttle_self_managed"))) {
-        groups[1].items.push({ href: withSaudiBase("/company/fleet", basePath), labelKey: "nav.poolFleet", icon: Car });
-      }
-      // One analytics area: savings, per-service performance and AI recommendations.
-      if (servicesEnabled.shuttle_enabled || servicesEnabled.chauffeur_enabled) {
-        groups[1].items.push({ href: withSaudiBase("/company/analytics", basePath), labelKey: "nav.analytics", icon: BarChart2 });
-      }
-      if (
-        !hideInvoicing
-        && (hasFeature("chauffeur_cort_managed") || hasFeature("shuttle_cort_managed"))
-      ) {
-        groups[2].items.push({ href: withSaudiBase("/company/invoicing", basePath), labelKey: "nav.invoices", icon: Receipt });
-      }
-
-      return groups.filter((g) => g.items.length > 0);
-    };
-  }, [basePath]);
-
-  useEffect(() => {
-    if (companyId && !company) {
-      dispatch(fetchCompanyProfile(companyId));
-    }
-    if (companyId) {
-      dispatch(fetchCompanyFeatures(Number(companyId)));
-    }
-  }, [companyId, company, dispatch]);
-
-  useEffect(() => {
-    if (!user?.company_id) return;
-    apiClient.getCompanyExternalVendors(user.company_id)
-      .then((res: { data?: unknown }) => {
-        const data = (res as { data?: unknown })?.data ?? res;
-        setHasVendors(Array.isArray(data) && data.some((l: { is_active?: boolean; external_vendors?: { is_active?: boolean } }) => l.is_active && l.external_vendors?.is_active));
-      })
-      .catch(() => setHasVendors(false));
-  }, [user?.company_id]);
-
-  const isTrialUser = !!user?.is_trial;
-  const trialModules = user?.trial_modules;
-
-  useEffect(() => {
-    if (!isTrialUser || !pathname) return;
-    if (!isTrialAllowedPath(pathname, trialModules)) {
-      router.replace(withSaudiBase("/company", basePath));
-    }
-  }, [isTrialUser, pathname, router, trialModules, basePath]);
-
-  const servicesEnabled = useMemo(() => {
-    if (company?.services_enabled) {
-      return company.services_enabled;
-    }
-    return {
-      shuttle_enabled: user?.enabled_services?.shuttle ?? false,
-      chauffeur_enabled: user?.enabled_services?.chauffeur ?? false,
-    };
-  }, [company, user]);
-
-  const isLogin =
-    normalizedPath === "/company/login" ||
-    normalizedPath === "/login";
-  const navGroups = buildNavGroups(servicesEnabled, features, hasVendors, isTrialUser, trialModules, user?.company_id);
+  // Sidebar entries come from the page table, so they match what the page guard lets through.
+  const navGroups = useMemo<{ titleKey: string; items: NavItem[] }[]>(
+    () =>
+      accessState.status === "ready"
+        ? companyNav(accessState.access).map((g) => ({
+            titleKey: g.titleKey,
+            items: g.pages.map((p) => ({ href: withSaudiBase(p.path, basePath), labelKey: p.nav!.labelKey, icon: p.nav!.icon })),
+          }))
+        : [],
+    [accessState, basePath],
+  );
 
   const activeHref = useMemo(() => {
     const allItems = navGroups.flatMap((g) => g.items);
@@ -222,8 +71,6 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
     return prefix?.href ?? withSaudiBase("/company", basePath);
   }, [normalizedPath, navGroups, basePath]);
 
-  if (isLogin) return <>{children}</>;
-
   const trialInfo = useMemo(() => {
     if (!user?.is_trial || !user.trial_expires_at) return null;
     const expiresAtMs = new Date(user.trial_expires_at).getTime();
@@ -231,6 +78,11 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
     const remainingHours = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60)));
     return { expiresAtMs, remainingHours };
   }, [user?.is_trial, user?.trial_expires_at]);
+
+  const isLogin =
+    normalizedPath === "/company/login" ||
+    normalizedPath === "/login";
+  if (isLogin) return <>{children}</>;
 
   const SidebarContent = ({ isMobile = false }) => (
     <>
@@ -254,7 +106,14 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <nav className="px-3 mt-2 space-y-6">
+        <nav className="px-3 mt-2 space-y-6" aria-busy={accessState.status === "loading"}>
+          {accessState.status === "loading" && (
+            <div className="space-y-2 px-1">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-10 animate-pulse rounded-lg bg-[var(--nav-hover-bg)]" />
+              ))}
+            </div>
+          )}
           {navGroups.map((group, groupIndex) => (
             <div key={groupIndex}>
               {group.titleKey && (
@@ -472,7 +331,7 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
               </div>
             )}
             <div key={pathname} className="page-transition-enter min-h-full">
-              {children}
+              <CompanyAccessGate>{children}</CompanyAccessGate>
             </div>
           </main>
         </div>

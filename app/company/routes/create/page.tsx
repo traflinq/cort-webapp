@@ -5,9 +5,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Building2, MapPin, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
-import { selectCompany, fetchCompanyFeatures, selectCompanyFeatures, selectCompanyFeaturesStatus } from "../../../lib/store/slices/companySlice";
-import { useAuth } from "../../../lib/contexts/auth-context";
+import { useCompanyAccess } from "../../lib/access-context";
 import { apiClient, canServeShuttle } from "../../../lib/services/api-client";
 import { PoolDriver, PoolVehicle } from "../../../lib/services/types/multi-mode";
 import StopAddressSearch from "@/app/admin/ui/StopAddressSearch";
@@ -43,25 +41,9 @@ function makeStop(
 
 export default function CompanyCreateRoutePage() {
     const router = useRouter();
-    const dispatch = useAppDispatch();
-    const company = useAppSelector(selectCompany);
-    const features = useAppSelector(selectCompanyFeatures);
-    const featuresStatus = useAppSelector(selectCompanyFeaturesStatus);
-    const { user } = useAuth();
-    const isTrialUser = !!user?.is_trial;
-    const companyId = Number(company?.id);
-
-    const canManageShuttle = isTrialUser
-        || (features.find((f) => f.feature_key === "shuttle_self_managed")?.is_enabled ?? false);
-
-    useEffect(() => {
-        if (companyId) dispatch(fetchCompanyFeatures(companyId));
-    }, [companyId, dispatch]);
-
-    useEffect(() => {
-        if (!companyId || isTrialUser || featuresStatus !== "succeeded" || canManageShuttle) return;
-        router.replace("/company/routes");
-    }, [companyId, isTrialUser, featuresStatus, canManageShuttle, router]);
+    // The page guard opens this page only for companies that run their own shuttles.
+    const { company } = useCompanyAccess();
+    const companyId = company.id;
 
     const [name, setName] = useState("");
     const [assignedVehicleId, setAssignedVehicleId] = useState("");
@@ -251,29 +233,6 @@ export default function CompanyCreateRoutePage() {
         : pickupStops[0]
         ? [pickupStops[0].lat, pickupStops[0].lng]
         : undefined;
-
-    if (!company?.services_enabled?.shuttle_enabled) {
-        return (
-            <div className="p-6 text-center text-sm text-gray-500">
-                Shuttle service is not enabled for your company.
-            </div>
-        );
-    }
-
-    if (!canManageShuttle) {
-        if (featuresStatus === "loading" || featuresStatus === "idle") {
-            return (
-                <div className="p-6 text-center text-sm text-gray-500">
-                    Loading…
-                </div>
-            );
-        }
-        return (
-            <div className="p-6 text-center text-sm text-gray-500">
-                Route creation is not available for your account. Contact Traflinq to enable self-managed shuttle.
-            </div>
-        );
-    }
 
     return (
         <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col p-6 max-w-[1600px] mx-auto">

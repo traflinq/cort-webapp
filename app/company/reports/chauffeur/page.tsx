@@ -3,8 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { formatDateTime } from "@/app/lib/utils";
-import { useAppSelector } from "../../../lib/store/hooks";
-import { selectCompany } from "../../../lib/store/slices/companySlice";
+import { useCompanyAccess } from "../../lib/access-context";
 import { ChauffeurReport, apiClient } from "../../../lib/services/api-client";
 import { Card } from "../../components/DashboardComponents";
 import { PageHeader, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../../components/PageLayout";
@@ -90,9 +89,8 @@ function exportChauffeurCSV(reports: ChauffeurReport[], companyName: string, sta
 
 export default function ChauffeurReportsPage() {
   const t = useTranslations("company.reports");
-  const tCommon = useTranslations("common");
   const tAudit = useTranslations("company.reports.vendorAudit");
-  const company = useAppSelector(selectCompany);
+  const { company } = useCompanyAccess();
 
   const [reports, setReports] = useState<ChauffeurReport[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -124,26 +122,6 @@ export default function ChauffeurReportsPage() {
     }, 400);
     return () => clearTimeout(timer);
   }, [startDate, endDate, fetchReports]);
-
-  if (!company) {
-    // If company is loading, shell might cover it, or we can show skeleton.
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-sm text-[var(--text-muted)]">{tCommon("errors.noCompanySelected")}</div>
-      </div>
-    );
-  }
-
-  if (!company.services_enabled?.chauffeur_enabled) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Card className="max-w-md text-center flex flex-col items-center justify-center py-12">
-          <div className="text-lg font-bold text-[var(--text-primary)]">{t("chauffeurDisabled")}</div>
-          <div className="mt-2 text-sm text-[var(--text-muted)]">{t("chauffeurDisabledDescription")}</div>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">

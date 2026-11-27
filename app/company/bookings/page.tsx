@@ -2,7 +2,7 @@
 
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import { fetchBookings, setPage, setFilters, selectBookings, selectPagination, selectBookingsStatus, selectFilters } from "../../lib/store/slices/bookingsSlice";
-import { selectCompany } from "../../lib/store/slices/companySlice";
+import { useCompanyAccess } from "../lib/access-context";
 import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { formatLocaleDate, formatLocaleTime } from "@/app/lib/i18n/format";
@@ -33,7 +33,7 @@ export default function BookingsPage() {
   const tCommon = useTranslations("common");
   const locale = useLocale() as Locale;
   const dispatch = useAppDispatch();
-  const company = useAppSelector(selectCompany);
+  const { company, access } = useCompanyAccess();
   const bookings = useAppSelector(selectBookings);
   const { page: reduxPage, limit, pages: totalPages } = useAppSelector(selectPagination);
   const { search, status, fulfillmentType } = useAppSelector(selectFilters);
@@ -136,21 +136,13 @@ export default function BookingsPage() {
   const formatScheduledDateTime = (iso: string) =>
     `${formatScheduledDate(iso)} ${formatScheduledTime(iso)}`;
 
-  if (!company) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-sm text-[var(--text-muted)]">{tCommon("errors.noCompanySelected")}</div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
       <PageHeader
         label={t("label")}
         title={t("title")}
         action={
-          company.services_enabled.chauffeur_enabled ? (
+          access.services.chauffeur ? (
             <button
               onClick={() => setIsModalOpen(true)}
               className="group relative flex items-center gap-2.5 rounded-xl bg-[var(--cort-orange)] px-6 py-3 text-sm font-bold text-[var(--text-primary)] transition-all hover:bg-[var(--cort-orange-hover)] hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(244,127,0,0.25)] hover:shadow-[0_8px_20px_rgba(244,127,0,0.35)] active:translate-y-0 active:shadow-md overflow-hidden"

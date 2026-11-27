@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useAppDispatch, useAppSelector } from "../lib/store/hooks";
 import { fetchDashboardStats, selectDashboardStats, selectDashboardStatus } from "../lib/store/slices/dashboardSlice";
-import { selectCompany } from "../lib/store/slices/companySlice";
+import { useCompanyAccess } from "./lib/access-context";
 import { useAuth } from "../lib/contexts/auth-context";
 import { useState, useEffect } from "react";
 import { apiClient } from "../lib/services/api-client";
@@ -38,7 +38,7 @@ type RosterChanges = {
 
 export default function CompanyDashboardPage() {
   const dispatch = useAppDispatch();
-  const company = useAppSelector(selectCompany);
+  const { access } = useCompanyAccess();
   const dashboardStats = useAppSelector(selectDashboardStats);
   const status = useAppSelector(selectDashboardStatus);
   const t = useTranslations('company.dashboard');
@@ -64,16 +64,8 @@ export default function CompanyDashboardPage() {
   }, [dispatch, companyId]);
 
   // Calculate services breakdown (percentages)
-  // Prefer servicesEnabled from dashboard stats (authoritative, always fresh),
-  // fall back to company profile while stats are loading.
-  const isChauffeurEnabled =
-    dashboardStats?.servicesEnabled?.chauffeur_enabled ??
-    company?.services_enabled?.chauffeur_enabled ??
-    false;
-  const isShuttleEnabled =
-    dashboardStats?.servicesEnabled?.shuttle_enabled ??
-    company?.services_enabled?.shuttle_enabled ??
-    false;
+  const isChauffeurEnabled = access.services.chauffeur;
+  const isShuttleEnabled = access.services.shuttle;
 
   useEffect(() => {
     if (!isShuttleEnabled) {
@@ -226,7 +218,7 @@ export default function CompanyDashboardPage() {
     );
   }
 
-  if (!company || !data) {
+  if (!data) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-sm text-[var(--text-muted)]">{tErrors('noCompanyData')}</div>

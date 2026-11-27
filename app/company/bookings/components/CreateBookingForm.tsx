@@ -3,10 +3,10 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
-import { selectCompany } from "../../../lib/store/slices/companySlice";
+import { useCompanyAccess } from "../../lib/access-context";
+import { chauffeurFulfilments, type ChauffeurFulfilment } from "../../lib/access";
 import { fetchEmployees, selectEmployees } from "../../../lib/store/slices/employeeSlice";
 import { fetchContract, selectAllowedVehicleModels } from "../../../lib/store/slices/contractSlice";
-import { fetchCompanyFeatures, selectCompanyFeatures, selectCompanyFeaturesStatus } from "../../../lib/store/slices/companySlice";
 import Map from "../../../admin/ui/Map";
 import { useGooglePlacesAutocomplete } from "../../../hooks/useGooglePlacesAutocomplete";
 import { AutocompleteInput } from "../../../components/AutocompleteInput";
@@ -111,18 +111,16 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
     const tFulfillment = useTranslations("common.fulfillment");
     const tCommon = useTranslations("common");
     const dispatch = useAppDispatch();
-    const company = useAppSelector(selectCompany);
+    const { company, access } = useCompanyAccess();
     const employees = useAppSelector(selectEmployees);
     const allowedVehicleModels = useAppSelector(selectAllowedVehicleModels);
     const contract = useAppSelector(selectContract);
-    const features = useAppSelector(selectCompanyFeatures);
-    const featuresStatus = useAppSelector(selectCompanyFeaturesStatus);
-    const featuresLoading = featuresStatus === 'idle' || featuresStatus === 'loading';
+    const fulfilments = chauffeurFulfilments(access);
 
     // Legacy store for createBooking action (to be refactored or kept if just an action)
 
     // Fulfillment type (multi-mode feature) — declared before useEffects to avoid TDZ errors
-    const [fulfillmentType, setFulfillmentType] = useState<"CORT_MANAGED" | "EXTERNAL_VENDOR" | "SELF_MANAGED">("CORT_MANAGED");
+    const [fulfillmentType, setFulfillmentType] = useState<ChauffeurFulfilment>(fulfilments[0] ?? "CORT_MANAGED");
     const [poolVehicles, setPoolVehicles] = useState<PoolVehicle[]>([]);
     const [poolDrivers, setPoolDrivers] = useState<PoolDriver[]>([]);
     const [poolVehicleId, setPoolVehicleId] = useState<number | null>(null);
@@ -150,7 +148,6 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
 
         dispatch(fetchEmployees(company.id.toString()));
         dispatch(fetchContract());
-        dispatch(fetchCompanyFeatures(companyId));
 
         // Prefetch all mode data in parallel so it is ready before the user clicks any option.
         // This also prevents duplicate fetches when switching between fulfillment types.
@@ -183,18 +180,13 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
     }, [dispatch, company?.id]);
 
     const availableFulfillmentTypes = useMemo(() => {
-        const opts: { value: "CORT_MANAGED" | "EXTERNAL_VENDOR" | "SELF_MANAGED"; label: string }[] = [];
-        if (features.find((f) => f.feature_key === "chauffeur_cort_managed")?.is_enabled) {
-            opts.push({ value: "CORT_MANAGED", label: tFulfillment("cortManaged") });
-        }
-        if (features.find((f) => f.feature_key === "chauffeur_external_vendor")?.is_enabled) {
-            opts.push({ value: "EXTERNAL_VENDOR", label: tFulfillment("externalVendor") });
-        }
-        if (features.find((f) => f.feature_key === "chauffeur_self_managed")?.is_enabled) {
-            opts.push({ value: "SELF_MANAGED", label: tFulfillment("selfManaged") });
-        }
-        return opts;
-    }, [features, tFulfillment]);
+        const labels: Record<ChauffeurFulfilment, string> = {
+            CORT_MANAGED: tFulfillment("cortManaged"),
+            EXTERNAL_VENDOR: tFulfillment("externalVendor"),
+            SELF_MANAGED: tFulfillment("selfManaged"),
+        };
+        return chauffeurFulfilments(access).map((value) => ({ value, label: labels[value] }));
+    }, [access, tFulfillment]);
 
     const showBroadcastOption = useMemo(() => {
         return (
@@ -202,16 +194,6 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
             availableFulfillmentTypes.some((o) => o.value === "EXTERNAL_VENDOR")
         );
     }, [availableFulfillmentTypes]);
-
-    // Auto-select first available fulfillment type after features load
-    useEffect(() => {
-        if (!featuresLoading && availableFulfillmentTypes.length > 0) {
-            if (!availableFulfillmentTypes.find((o) => o.value === fulfillmentType)) {
-                setFulfillmentType(availableFulfillmentTypes[0].value);
-            }
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [featuresLoading, availableFulfillmentTypes]);
 
     const [serviceCategory, setServiceCategory] = useState<string>("Chauffeur Ride");
     const [passengerId, setPassengerId] = useState<string>("");
@@ -437,15 +419,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
         }
     };
 
-    if (!company) {
-        return (
-            <div className="flex items-center justify-center py-12">
-                <div className="text-sm text-[var(--text-muted)]">{tCommon("errors.noCompanySelected")}</div>
-            </div>
-        );
-    }
-
-    if (!company.services_enabled.chauffeur_enabled) {
+    if (!access.services.chauffeur) {
         return (
             <div className="flex items-center justify-center py-12">
                 <div className="rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] p-6 text-center">
@@ -462,12 +436,6 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
         e.preventDefault();
         setError(null);
         setIsSubmitting(true);
-
-        if (!company) {
-            setError(t("companyNotFound"));
-            setIsSubmitting(false);
-            return;
-        }
 
         if (!canSubmit) {
             if (!pickupLat || !pickupLng) {
@@ -556,15 +524,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
             <div className="flex flex-col gap-6">
                 {/* Fulfillment Type Selector — always show when SELF_MANAGED (pool driver picker);
                     hide type buttons when only one fulfillment mode is enabled. */}
-                {featuresLoading ? (
-                    <div className="bg-[var(--cort-orange)]/10 border border-[var(--cort-orange)]/20 rounded-2xl p-5 animate-pulse">
-                        <div className="h-2.5 w-28 bg-[var(--cort-orange)]/30 rounded mb-4"></div>
-                        <div className="flex gap-2">
-                            <div className="h-9 w-28 bg-[var(--cort-orange)]/30 rounded-xl"></div>
-                            <div className="h-9 w-28 bg-[var(--cort-orange)]/30 rounded-xl opacity-60"></div>
-                        </div>
-                    </div>
-                ) : availableFulfillmentTypes.length > 0 && (
+                {availableFulfillmentTypes.length > 0 && (
                     <div className="bg-[var(--cort-orange)]/10 border border-[var(--cort-orange)]/20 rounded-2xl p-5">
                         {availableFulfillmentTypes.length > 1 && (
                             <>

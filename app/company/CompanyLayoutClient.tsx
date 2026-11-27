@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Provider } from "react-redux";
 import { CompanyShell } from "./ui/CompanyShell";
+import { CompanyAccessProvider } from "./lib/access-context";
 import { CompanyThemeProvider } from "./lib/theme-context";
 import { CompanyLocaleProvider } from "./lib/locale-context";
 import { companyStore } from "../lib/store/company-store";
@@ -26,7 +27,9 @@ function CompanyAppWrapper({ children }: { children: ReactNode }) {
       <Provider store={companyStore}>
         <CompanyLocaleProvider>
           <CompanyThemeProvider>
-            <CompanyShell>{children}</CompanyShell>
+            <CompanyAccessProvider>
+              <CompanyShell>{children}</CompanyShell>
+            </CompanyAccessProvider>
           </CompanyThemeProvider>
         </CompanyLocaleProvider>
       </Provider>

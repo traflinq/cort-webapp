@@ -5,12 +5,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { getSaudiBasePath, withSaudiBase } from "@/app/lib/i18n/saudi-route";
 import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
-import { useAppSelector } from "../../lib/store/hooks";
-import { selectCompany } from "../../lib/store/slices/companySlice";
-import { useAuth } from "../../lib/contexts/auth-context";
-import type { TrialModules } from "../../lib/types/auth-types";
+import { useCompanyAccess } from "../lib/access-context";
 import { apiClient, canServeChauffeur, canServeShuttle } from "../../lib/services/api-client";
-import { CompanyFeature, PoolVehicle, PoolDriver } from "../../lib/services/types/multi-mode";
+import { PoolVehicle, PoolDriver } from "../../lib/services/types/multi-mode";
 import { VehicleCategory } from "../../lib/services/types/vehicles";
 import { toast } from "sonner";
 import { Card } from "../components/DashboardComponents";
@@ -48,14 +45,6 @@ const getDefaultVehicleForm = () => ({
     ac_on: "" as "" | "on" | "off",
 });
 
-function trialHasPool(modules?: TrialModules): boolean {
-    return modules === "pool" || modules === "both" || !modules;
-}
-
-function trialHasShuttle(modules?: TrialModules): boolean {
-    return modules === "shuttle" || modules === "both";
-}
-
 function generateDriverPassword(length = 12): string {
     const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
     let password = "";
@@ -70,16 +59,15 @@ export default function CompanyFleetPage() {
     const tCredentials = useTranslations("company.credentials");
     const tCommon = useTranslations("common");
     const searchParams = useSearchParams();
-    const { user } = useAuth();
-    const isTrialUser = !!user?.is_trial;
-    const trialModules = user?.trial_modules;
-    const company = useAppSelector(selectCompany);
-    const companyId = Number(company?.id);
+    // The page guard opens this page only when the company runs its own cars or shuttles (or is a trial).
+    const { company, access } = useCompanyAccess();
+    const companyId = company.id;
+    const isTrialUser = !!access.trial;
+    const trialPool = !!access.trial?.pool;
+    const trialShuttle = !!access.trial?.shuttle;
 
     const fleetTabs = ["vehicles", "drivers"] as const;
 
-    const [features, setFeatures] = useState<CompanyFeature[]>([]);
-    const [featureLoaded, setFeatureLoaded] = useState(false);
     const initialTab = searchParams.get("tab");
     const [activeTab, setActiveTab] = useState<"vehicles" | "drivers">(initialTab === "drivers" ? "drivers" : "vehicles");
 
@@ -117,32 +105,21 @@ export default function CompanyFleetPage() {
     const [driverSaving, setDriverSaving] = useState(false);
 
 
-    const atVehicleLimit = isTrialUser && vehicles.length >= (trialHasPool(trialModules) && trialHasShuttle(trialModules) ? 2 : 1);
+    const atVehicleLimit = isTrialUser && vehicles.length >= (trialPool && trialShuttle ? 2 : 1);
     const chauffeurDriverCount = drivers.filter((d) => canServeChauffeur(d.driver_type)).length;
     const shuttleDriverCount = drivers.filter((d) => canServeShuttle(d.driver_type)).length;
-    const atChauffeurDriverLimit = isTrialUser && trialHasPool(trialModules) && chauffeurDriverCount >= 1;
-    const atShuttleDriverLimit = isTrialUser && trialHasShuttle(trialModules) && shuttleDriverCount >= 1;
+    const atChauffeurDriverLimit = isTrialUser && trialPool && chauffeurDriverCount >= 1;
+    const atShuttleDriverLimit = isTrialUser && trialShuttle && shuttleDriverCount >= 1;
 
-    const isChauffeurFleetEnabled = features.find((f) => f.feature_key === "chauffeur_self_managed")?.is_enabled ?? false;
-    const isShuttleFleetEnabled = features.find((f) => f.feature_key === "shuttle_self_managed")?.is_enabled ?? false;
-    const showFleet = isChauffeurFleetEnabled || isShuttleFleetEnabled || isTrialUser;
-    const showShuttleSeatCapacity = isShuttleFleetEnabled || (isTrialUser && trialHasShuttle(trialModules));
+    const showShuttleSeatCapacity = access.can.selfManageShuttle;
 
     const defaultDriverType = (): "CHAUFFEUR" | "SHUTTLE" | "BOTH" => {
-        if (isShuttleFleetEnabled && !isChauffeurFleetEnabled) return "SHUTTLE";
-        if (trialHasShuttle(trialModules) && !trialHasPool(trialModules)) return "SHUTTLE";
+        if (access.can.selfManageShuttle && !access.can.selfManageChauffeur) return "SHUTTLE";
         return "CHAUFFEUR";
     };
 
-    const canAddChauffeurDriver = isTrialUser ? trialHasPool(trialModules) : isChauffeurFleetEnabled;
-    const canAddShuttleDriver = isTrialUser ? trialHasShuttle(trialModules) : isShuttleFleetEnabled;
-
-    useEffect(() => {
-        if (!companyId) return;
-        apiClient.getCompanyFeatures(companyId)
-            .then((r) => { setFeatures(r.data); setFeatureLoaded(true); })
-            .catch(() => setFeatureLoaded(true));
-    }, [companyId]);
+    const canAddChauffeurDriver = access.can.selfManageChauffeur;
+    const canAddShuttleDriver = access.can.selfManageShuttle;
 
     const openAddDriver = () => {
         const generated = generateDriverPassword();
@@ -181,10 +158,9 @@ export default function CompanyFleetPage() {
     }, [companyId, t]);
 
     useEffect(() => {
-        if (!showFleet) return;
         if (activeTab === "vehicles") fetchVehicles();
         if (activeTab === "drivers") fetchDrivers();
-    }, [activeTab, showFleet, fetchVehicles, fetchDrivers]);
+    }, [activeTab, fetchVehicles, fetchDrivers]);
 
     const handleAddVehicle = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -283,37 +259,10 @@ export default function CompanyFleetPage() {
     };
 
     const trialLimitsText = useMemo(() => {
-        if (trialHasPool(trialModules) && trialHasShuttle(trialModules)) return t("trialLimitsBoth");
-        if (trialHasShuttle(trialModules)) return t("trialLimitsShuttle");
+        if (trialPool && trialShuttle) return t("trialLimitsBoth");
+        if (trialShuttle) return t("trialLimitsShuttle");
         return t("trialLimitsPool");
-    }, [trialModules, t]);
-
-    if (!featureLoaded) {
-        return (
-            <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
-                <div className="flex items-center justify-center py-24">
-                    <div className="text-sm text-[var(--text-muted)]">{t("loadingFleet")}</div>
-                </div>
-            </div>
-        );
-    }
-
-    if (!showFleet) {
-        return (
-            <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
-                <PageHeader label={t("fleetLabel")} title={t("fleetTitle")} description={t("fleetDescription")} />
-                <Card className="flex items-center justify-center min-h-[400px]">
-                    <div className="text-center max-w-sm">
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[var(--surface-subtle)] mb-4">
-                            <svg className="w-8 h-8 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" /></svg>
-                        </div>
-                        <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">{t("notEnabled")}</h2>
-                        <p className="text-sm text-[var(--text-muted)]">{t("notEnabledDescription")}</p>
-                    </div>
-                </Card>
-            </div>
-        );
-    }
+    }, [trialPool, trialShuttle, t]);
 
     return (
         <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
@@ -334,10 +283,10 @@ export default function CompanyFleetPage() {
                         <button
                             onClick={openAddDriver}
                             disabled={
-                                isTrialUser && trialHasPool(trialModules) && trialHasShuttle(trialModules)
+                                isTrialUser && trialPool && trialShuttle
                                     ? atChauffeurDriverLimit && atShuttleDriverLimit
                                     : isTrialUser
-                                        ? (trialHasShuttle(trialModules) ? atShuttleDriverLimit : atChauffeurDriverLimit)
+                                        ? (trialShuttle ? atShuttleDriverLimit : atChauffeurDriverLimit)
                                         : false
                             }
                             className="group relative flex items-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-[var(--text-primary)] transition-all hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 disabled:hover:translate-y-0"
