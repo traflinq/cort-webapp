@@ -1268,7 +1268,20 @@
       "notYetBoarded": "Not yet boarded",
       "absent": "Absent",
       "startedAt": "Started at {time}",
-      "unknownEmployee": "Unknown employee"
+      "unknownEmployee": "Unknown employee",
+      "tripStatus": {
+        "STARTED": "Started",
+        "IN_PROGRESS": "In progress",
+        "OTW": "On the way",
+        "ARRIVED": "Arrived"
+      },
+      "passengerCount": "{count, plural, one {# passenger} other {# passengers}}",
+      "positionLive": "Live position",
+      "positionLastKnown": "Last known position",
+      "positionWaiting": "Waiting for location",
+      "awaitingLocation": "{count, plural, one {# trip} other {# trips}} waiting for location",
+      "activeTrips": "Active trips ({count})",
+      "tripDetails": "Details"
     },
     "costLeakage": {
       "title": "Cost Leakage Detector",
@@ -1960,7 +1973,7 @@
     "overview": {
       "title": "Overview",
       "retry": "Try again",
-      "vsLastMonth": "vs last month",
+      "vsLastMonth": "vs same time last month",
       "createBooking": "New booking",
       "editBudget": "Monthly budget",
       "kpi": {
@@ -1982,7 +1995,13 @@
         "routes": "Active routes",
         "rosterSub": "{added} added · {removed} removed this month",
         "activeEmployees": "Active employees",
-        "ofRegistered": "of {total} registered"
+        "ofRegistered": "of {total} registered",
+        "rides": "Rides completed",
+        "upcoming": "Upcoming rides",
+        "upcomingSub": "Next 7 days",
+        "shuttleCost": "Shuttle cost this month",
+        "shuttleCostSub": "Estimate: contract + fuel",
+        "shuttleCostEmpty": "No cost data for this month yet"
       },
       "attention": {
         "title": "Needs attention",
@@ -2020,7 +2039,7 @@
         "projectedOver": "At this pace, spend will exceed the budget by {amount} ({percent}).",
         "projectedUnder": "At this pace, spend will finish {amount} under budget.",
         "ridesCompleted": "Rides completed",
-        "vsLastMonth": "vs last month",
+        "vsLastMonth": "vs same time last month",
         "avgTripCost": "Average trip cost",
         "perCompletedRide": "Per completed ride",
         "costPerEmployee": "Cost per employee",
@@ -2080,7 +2099,21 @@
         "added": "People added to routes",
         "removed": "People removed from routes",
         "tripsLifetime": "Trips all time",
-        "topRoute": "Most additions: {name} ({count})"
+        "topRoute": "Most additions: {name} ({count})",
+        "costMtd": "Estimated cost this month",
+        "costHint": "Cost is an estimate: contracted vehicle rate plus fuel from GPS distance."
+      },
+      "activity": {
+        "title": "Chauffeur rides",
+        "description": "Rides run by your own drivers and vendors this month",
+        "completed": "Completed this month",
+        "monthToDate": "Month to date",
+        "upcoming": "Upcoming",
+        "next7Days": "Next 7 days",
+        "unassigned": "Waiting for a driver",
+        "unassignedSub": "Bookings to assign",
+        "allTime": "Rides all time",
+        "allTimeSub": "Since you started"
       }
     },
     "detail": {

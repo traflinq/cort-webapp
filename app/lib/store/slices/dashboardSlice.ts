@@ -14,9 +14,10 @@ export type DashboardStats = {
         totalSpend: number;
         completedAllTime: number;
         totalSpendAllTime: number;
-        spendTrend: string;
+        /** vs the same period last month, e.g. "+5%"; null when last month had none. */
+        spendTrend: string | null;
         totalSavings: number;
-        completedTrend: string;
+        completedTrend: string | null;
         unassignedBookings: number;
         activeRides: number;
         outstandingAmount: number;
@@ -39,6 +40,9 @@ export type DashboardStats = {
     seasonality: {
         highDemandDay: string;
         lowDemandDay: string;
+        /** 0 = Sunday; null until there is booking history. Absent on older API versions. */
+        highDemandDayOfWeek?: number | null;
+        lowDemandDayOfWeek?: number | null;
     };
     mobility: {
         activeRides: number;

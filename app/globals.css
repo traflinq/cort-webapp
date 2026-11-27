@@ -316,6 +316,9 @@ html:not([data-theme="light"]):has(.admin-portal) {
 html:not([data-theme="light"]):has(.company-portal) {
     --cort-orange: #e8692e;
     --cort-orange-hover: #f07a43;
+    /* Solid fill behind white text (primary buttons). The brand orange is only 3.2:1 with white. */
+    --action-fill: #c44d18;        /* 4.75:1 with white */
+    --action-fill-hover: #b04515;  /* 5.66:1 with white */
     --ring: #e8692e;
     --text-on-brand: #ffffff;
 
@@ -408,6 +411,9 @@ html:not([data-theme="light"]):has(.company-portal) {
 html[data-theme="light"]:has(.company-portal) {
     --cort-orange: #e2622a;
     --cort-orange-hover: #cc5520;
+    /* Solid fill behind white text (primary buttons). The brand orange is only 3.5:1 with white. */
+    --action-fill: #c24b17;        /* 4.87:1 with white */
+    --action-fill-hover: #ad4314;  /* 5.85:1 with white */
     --ring: #e2622a;
     --text-on-brand: #ffffff;
 
@@ -525,8 +531,8 @@ html[data-theme="light"]:has(.company-portal) {
     --font-mono: var(--font-geist-mono);
 
     /* ── Admin design-system aliases (utilities: bg-card, text-fg, border-line…) ── */
-    --color-primary: var(--cort-orange);
-    --color-primary-hover: var(--cort-orange-hover);
+    --color-primary: var(--action-fill, var(--cort-orange));
+    --color-primary-hover: var(--action-fill-hover, var(--cort-orange-hover));
     --color-primary-foreground: var(--text-on-brand);
     --color-secondary: var(--bg-subtle);
     --color-secondary-foreground: var(--text-primary);

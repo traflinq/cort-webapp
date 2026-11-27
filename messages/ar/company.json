@@ -1268,7 +1268,20 @@
       "notYetBoarded": "لم يصعد بعد",
       "absent": "غائب",
       "startedAt": "بدأت الساعة {time}",
-      "unknownEmployee": "موظف غير معروف"
+      "unknownEmployee": "موظف غير معروف",
+      "tripStatus": {
+        "STARTED": "بدأت",
+        "IN_PROGRESS": "قيد التنفيذ",
+        "OTW": "في الطريق",
+        "ARRIVED": "وصل"
+      },
+      "passengerCount": "{count, plural, zero {لا ركاب} one {راكب واحد} two {راكبان} few {# ركاب} many {# راكبًا} other {# راكب}}",
+      "positionLive": "موقع مباشر",
+      "positionLastKnown": "آخر موقع معروف",
+      "positionWaiting": "بانتظار تحديد الموقع",
+      "awaitingLocation": "{count, plural, zero {لا رحلات بانتظار الموقع} one {رحلة واحدة بانتظار الموقع} two {رحلتان بانتظار الموقع} few {# رحلات بانتظار الموقع} many {# رحلة بانتظار الموقع} other {# رحلة بانتظار الموقع}}",
+      "activeTrips": "الرحلات النشطة ({count})",
+      "tripDetails": "التفاصيل"
     },
     "costLeakage": {
       "title": "كاشف تسرب التكاليف",
@@ -1960,7 +1973,7 @@
     "overview": {
       "title": "نظرة عامة",
       "retry": "حاول مرة أخرى",
-      "vsLastMonth": "مقارنة بالشهر الماضي",
+      "vsLastMonth": "مقارنة بالفترة نفسها من الشهر الماضي",
       "createBooking": "حجز جديد",
       "editBudget": "الميزانية الشهرية",
       "kpi": {
@@ -1982,7 +1995,13 @@
         "routes": "المسارات النشطة",
         "rosterSub": "أضيف {added} · أزيل {removed} هذا الشهر",
         "activeEmployees": "الموظفون النشطون",
-        "ofRegistered": "من أصل {total} مسجل"
+        "ofRegistered": "من أصل {total} مسجل",
+        "rides": "الرحلات المكتملة",
+        "upcoming": "الرحلات القادمة",
+        "upcomingSub": "خلال الأيام السبعة القادمة",
+        "shuttleCost": "تكلفة النقل الجماعي هذا الشهر",
+        "shuttleCostSub": "تقديرية: العقد + الوقود",
+        "shuttleCostEmpty": "لا توجد بيانات تكلفة لهذا الشهر بعد"
       },
       "attention": {
         "title": "يحتاج إلى متابعة",
@@ -2020,7 +2039,7 @@
         "projectedOver": "بهذه الوتيرة سيتجاوز الإنفاق الميزانية بمقدار {amount} ({percent}).",
         "projectedUnder": "بهذه الوتيرة سينتهي الإنفاق أقل من الميزانية بمقدار {amount}.",
         "ridesCompleted": "الرحلات المكتملة",
-        "vsLastMonth": "مقارنة بالشهر الماضي",
+        "vsLastMonth": "مقارنة بالفترة نفسها من الشهر الماضي",
         "avgTripCost": "متوسط تكلفة الرحلة",
         "perCompletedRide": "لكل رحلة مكتملة",
         "costPerEmployee": "التكلفة لكل موظف",
@@ -2080,7 +2099,21 @@
         "added": "أشخاص أضيفوا إلى المسارات",
         "removed": "أشخاص أزيلوا من المسارات",
         "tripsLifetime": "الرحلات منذ البداية",
-        "topRoute": "أكثر الإضافات: {name} ({count})"
+        "topRoute": "أكثر الإضافات: {name} ({count})",
+        "costMtd": "التكلفة التقديرية هذا الشهر",
+        "costHint": "التكلفة تقديرية: سعر المركبة المتعاقد عليه مع الوقود حسب مسافة GPS."
+      },
+      "activity": {
+        "title": "رحلات السائق الخاص",
+        "description": "الرحلات التي نفذها سائقوك والموردون هذا الشهر",
+        "completed": "المكتملة هذا الشهر",
+        "monthToDate": "منذ بداية الشهر",
+        "upcoming": "القادمة",
+        "next7Days": "خلال الأيام السبعة القادمة",
+        "unassigned": "بانتظار سائق",
+        "unassignedSub": "حجوزات تحتاج إلى تعيين",
+        "allTime": "إجمالي الرحلات",
+        "allTimeSub": "منذ البداية"
       }
     },
     "detail": {
