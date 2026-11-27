@@ -14,6 +14,7 @@ import { useCompanyLocale } from "../lib/locale-context";
 import { useCompanyAccessState } from "../lib/access-context";
 import { companyNav } from "../lib/pages";
 import { getSaudiBasePath, stripSaudiPrefix, withSaudiBase } from "../../lib/i18n/saudi-route";
+import { centerOf } from "../../lib/theme-transition";
 import { TrialOnboardingWalkthrough } from "../components/TrialOnboardingWalkthrough";
 import { CompanyAccessGate } from "./CompanyAccessGate";
 
@@ -210,7 +211,7 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
                     </Button>
                   </Tooltip>
                 )}
-                <IconButton label={themeLabel} size="icon-sm" onClick={toggle}>
+                <IconButton label={themeLabel} size="icon-sm" onClick={(e) => toggle(centerOf(e.currentTarget))}>
                   {theme === "dark" ? <Sun /> : <Moon />}
                 </IconButton>
                 <IconButton

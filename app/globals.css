@@ -218,12 +218,21 @@
     --chart-axis: rgba(15,23,42,0.45);
 }
 
-/* Super Admin theme switch: the new theme is revealed as a growing circle (clip-path animated
-   from JS in setAdminThemeAnimated), so turn off the default cross-fade. */
+/* Theme switch (Super Admin and company portals): the new theme is revealed as a growing circle
+   (clip-path animated from JS in app/lib/theme-transition.ts), so turn off the default cross-fade. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
     animation: none;
     mix-blend-mode: normal;
+}
+
+/* While the theme switches (both portals, see app/lib/theme-transition.ts), colours change at once
+   everywhere: without this, elements with `transition-colors` (linked KPI tiles, buttons, rows)
+   fade on their own timeline and lag behind the rest of the page. */
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+    transition: none !important;
 }
 
 /* Super Admin portal (and its auth pages): plain white page in light theme. Scoped so company/vendor keep their tint. */

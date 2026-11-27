@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
+import { switchThemeAnimated, type ThemeOrigin } from "@/app/lib/theme-transition";
 
 export type Theme = "dark" | "light";
 
@@ -52,40 +53,15 @@ export function setAdminTheme(next: Theme) {
   listeners.forEach((l) => l());
 }
 
-export type ThemeOrigin = { x: number; y: number };
+export type { ThemeOrigin };
 
 /**
- * Switches theme with a circular reveal growing from `origin` (View Transitions API).
+ * Switches theme with a circular reveal growing from `origin` (shared with the company portal).
  * Falls back to an instant switch when unsupported or the user prefers reduced motion.
  */
 export function setAdminThemeAnimated(next: Theme, origin?: ThemeOrigin) {
-  // Typed locally: the project's DOM lib predates the View Transitions API.
-  const doc = document as Document & {
-    startViewTransition?: (cb: () => void) => { ready: Promise<void> };
-  };
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!doc.startViewTransition || reduceMotion) {
-    setAdminTheme(next);
-    return;
-  }
-
-  const x = origin?.x ?? window.innerWidth - 40;
-  const y = origin?.y ?? 32;
-  // Radius that reaches the farthest viewport corner from the origin.
-  const r = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
-
   // flushSync so React-driven bits (logo, icons) are in the "new" snapshot too.
-  const transition = doc.startViewTransition(() => flushSync(() => setAdminTheme(next)));
-  transition.ready
-    .then(() => {
-      document.documentElement.animate(
-        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
-        { duration: 550, easing: "cubic-bezier(0.4, 0, 0.2, 1)", pseudoElement: "::view-transition-new(root)" },
-      );
-    })
-    .catch(() => {
-      /* transition skipped; theme is already applied */
-    });
+  switchThemeAnimated(() => flushSync(() => setAdminTheme(next)), origin);
 }
 
 /**
