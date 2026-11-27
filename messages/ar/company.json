@@ -27,9 +27,7 @@
       "switchToLight": "التبديل إلى الوضع الفاتح",
       "switchToDark": "التبديل إلى الوضع الداكن",
       "companyAccount": "حساب الشركة",
-      "openMenu": "فتح القائمة",
-      "collapseSidebar": "طي الشريط الجانبي",
-      "expandSidebar": "توسيع الشريط الجانبي"
+      "openMenu": "فتح القائمة"
     },
     "access": {
       "failedTitle": "تعذّر تحميل إعدادات شركتك",

@@ -235,94 +235,15 @@ html.theme-switching *::after {
     transition: none !important;
 }
 
-/* Super Admin portal (and its auth pages): plain white page in light theme. Scoped so company/vendor keep their tint. */
-/* Applied on <html> while an admin page is mounted (:has), so the body, overscroll area and portalled dialogs are white too. */
-html[data-theme="light"]:has(.admin-portal) {
-    --bg-page: #ffffff;
-    --bg-header: #ffffff;
-}
-
-/* Super Admin portal, dark mode: neutral graphite palette with clear elevation steps.
-   Scoped so the company/vendor portals keep the shared dark tokens above. */
-html:not([data-theme="light"]):has(.admin-portal) {
-    --bg-page: #0a0a0b;
-    --bg-card: #121214;
-    --bg-card-hover: #17171a;
-    --bg-subtle: rgba(255,255,255,0.04);
-    --bg-input: #0e0e10;
-    --bg-input-focus: #121214;
-    --bg-sidebar: #0e0e10;
-    --bg-header: #0a0a0b;
-    --bg-elevated: #1a1a1e;
-    --bg-overlay: rgba(0, 0, 0, 0.60);
-
-    --border-default: rgba(255,255,255,0.08);
-    --border-strong: rgba(255,255,255,0.14);
-    --border-input: rgba(255,255,255,0.12);
-
-    --text-primary: #ededef;
-    --text-secondary: rgba(237,237,239,0.68);
-    --text-muted: rgba(237,237,239,0.50);
-    --text-light: rgba(237,237,239,0.14);
-    --text-placeholder: rgba(237,237,239,0.44);
-
-    --shadow-card: 0 1px 2px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
-    --shadow-card-hover: 0 8px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05);
-    --shadow-modal: 0 24px 64px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05);
-
-    --nav-active-bg: rgba(254,133,3,0.12);
-    --nav-active-text: #ff9a2e;
-    --nav-inactive-text: rgba(237,237,239,0.52);
-    --nav-hover-bg: rgba(255,255,255,0.05);
-    --nav-group-label: rgba(237,237,239,0.34);
-    --nav-border: rgba(255,255,255,0.07);
-    --nav-footer-bg: rgba(255,255,255,0.02);
-
-    --row-hover: rgba(255,255,255,0.035);
-    --divider: rgba(255,255,255,0.07);
-
-    --tone-neutral-ink: rgba(237,237,239,0.74);
-    --tone-neutral-soft: rgba(255,255,255,0.06);
-    --tone-neutral-line: rgba(255,255,255,0.14);
-    --tone-brand-ink: #ffb066;
-    --tone-brand-soft: rgba(254,133,3,0.12);
-    --tone-success-ink: #5fdca8;
-    --tone-success-soft: rgba(16,185,129,0.12);
-    --tone-warning-ink: #f5c451;
-    --tone-warning-soft: rgba(245,158,11,0.12);
-    --tone-danger-ink: #f98e8e;
-    --tone-danger-soft: rgba(239,68,68,0.12);
-    --tone-info-ink: #8ab8f5;
-    --tone-info-soft: rgba(59,130,246,0.12);
-    --tone-purple-ink: #cdb0f7;
-    --tone-purple-soft: rgba(168,85,247,0.12);
-
-    --chart-grid: rgba(255,255,255,0.06);
-    --chart-axis: rgba(237,237,239,0.42);
-
-    /* Legacy aliases */
-    --surface-white: #121214;
-    --surface-subtle: rgba(255,255,255,0.025);
-    --surface-muted: rgba(255,255,255,0.04);
-    --surface-card: rgba(255,255,255,0.03);
-    --border-light: rgba(255,255,255,0.08);
-    --border-dark: rgba(255,255,255,0.14);
-    --background: #0a0a0b;
-    --foreground: #ededef;
-    --surface: #0a0a0b;
-    --border: rgba(255,255,255,0.08);
-    --muted: rgba(237,237,239,0.50);
-    --text-main: #ededef;
-    --glass-border: rgba(255,255,255,0.08);
-}
-
-/* ── Company portal palette ──────────────────────────────────────────────────
+/* ── Company + Super Admin portal palette ─────────────────────────────────────
    Neutral (zinc) surfaces with a coral-orange accent, after the HorizonHub reference.
-   Applied on <html> while the company shell is mounted, so portalled dialogs pick it up too.
+   Shared by the company portal and .admin-portal (Super Admin, its auth pages and the Cort vendor
+   portal). Applied on <html> while a portal is mounted (:has), so portalled dialogs pick it up too.
    Contrast (WCAG): text ≥ 4.5:1 on its surface; chart series validated with the dataviz
    validator (CVD ΔE ≥ 13.8, all ≥ 3:1). White on the brand fill is 3.5:1 (light) / 3.2:1 (dark):
-   button labels are ≥ 14px medium. Keep app/company/analytics/cost/charts.tsx in sync. */
-html:not([data-theme="light"]):has(.company-portal) {
+   button labels are ≥ 14px medium. Keep app/company/analytics/cost/charts.tsx and
+   app/admin/ui/chart-theme.ts in sync. */
+html:not([data-theme="light"]):has(:is(.company-portal, .admin-portal)) {
     --cort-orange: #e8692e;
     --cort-orange-hover: #f07a43;
     /* Solid fill behind white text (primary buttons). The brand orange is only 3.2:1 with white. */
@@ -359,6 +280,11 @@ html:not([data-theme="light"]):has(.company-portal) {
     --nav-active-bg: rgba(232,105,46,0.16);
     --nav-active-text: #f2905f;
     --nav-active-shadow: none;
+    --nav-inactive-text: rgba(237,237,237,0.55);
+    --nav-hover-bg: rgba(255,255,255,0.05);
+    --nav-group-label: rgba(237,237,237,0.36);
+    --nav-border: rgba(255,255,255,0.07);
+    --nav-footer-bg: rgba(255,255,255,0.02);
     --row-hover: rgba(255,255,255,0.035);
     --divider: rgba(255,255,255,0.08);
 
@@ -417,7 +343,7 @@ html:not([data-theme="light"]):has(.company-portal) {
     --glass-border: rgba(255,255,255,0.08);
 }
 
-html[data-theme="light"]:has(.company-portal) {
+html[data-theme="light"]:has(:is(.company-portal, .admin-portal)) {
     --cort-orange: #e2622a;
     --cort-orange-hover: #cc5520;
     /* Solid fill behind white text (primary buttons). The brand orange is only 3.5:1 with white. */
