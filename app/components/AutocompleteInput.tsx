@@ -1,5 +1,7 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useId } from "react";
 import Fuse from "fuse.js";
+import { inputBase } from "@/app/admin/ui";
+import { cn } from "@/lib/utils";
 
 interface AutocompleteInputProps {
     value: string;
@@ -10,6 +12,7 @@ interface AutocompleteInputProps {
     required?: boolean;
 }
 
+/** Free-text input with fuzzy suggestions (ARIA combobox). Styled with the shared kit input. */
 export function AutocompleteInput({
     value,
     onChange,
@@ -21,6 +24,7 @@ export function AutocompleteInput({
     const [isOpen, setIsOpen] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const wrapperRef = useRef<HTMLDivElement>(null);
+    const listId = useId();
 
     const fuse = useMemo(() => {
         return new Fuse(options, {
@@ -78,10 +82,18 @@ export function AutocompleteInput({
         }
     };
 
+    const open = isOpen && suggestions.length > 0;
+
     return (
         <div ref={wrapperRef} className="relative w-full">
             <input
                 type="text"
+                role="combobox"
+                aria-expanded={open}
+                aria-controls={listId}
+                aria-autocomplete="list"
+                aria-activedescendant={open && highlightedIndex >= 0 ? `${listId}-${highlightedIndex}` : undefined}
+                autoComplete="off"
                 value={value}
                 onChange={(e) => {
                     onChange(e.target.value);
@@ -93,30 +105,36 @@ export function AutocompleteInput({
                 }}
                 placeholder={placeholder}
                 required={required}
-                className={`h-11 w-full rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] px-4 text-sm outline-none transition-all placeholder:text-[var(--text-placeholder)] focus:border-[var(--cort-orange)] focus:ring-4 focus:ring-[var(--cort-orange)]/10 text-[var(--text-primary)] ${className || ''}`}
+                className={cn(inputBase, className)}
             />
 
-            {isOpen && suggestions.length > 0 && (
-                <div className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] shadow-2xl">
-                    <ul className="max-h-60 overflow-y-auto py-1">
-                        {suggestions.map((suggestion, index) => (
-                            <li
-                                key={suggestion}
-                                onClick={() => {
-                                    onChange(suggestion);
-                                    setIsOpen(false);
-                                }}
-                                onMouseEnter={() => setHighlightedIndex(index)}
-                                className={`cursor-pointer px-4 py-2.5 text-sm transition-colors ${index === highlightedIndex
-                                        ? "bg-[var(--cort-orange)]/10 text-[var(--cort-orange)]"
-                                        : "text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
-                                    }`}
-                            >
-                                {suggestion}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
+            {open && (
+                <ul
+                    id={listId}
+                    role="listbox"
+                    className="absolute inset-x-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-line bg-popover p-1 text-fg shadow-[var(--shadow-modal)] animate-menu-in"
+                >
+                    {suggestions.map((suggestion, index) => (
+                        <li
+                            key={suggestion}
+                            id={`${listId}-${index}`}
+                            role="option"
+                            aria-selected={index === highlightedIndex}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                                onChange(suggestion);
+                                setIsOpen(false);
+                            }}
+                            onMouseEnter={() => setHighlightedIndex(index)}
+                            className={cn(
+                                "cursor-pointer rounded-md px-2.5 py-2 text-sm transition-colors",
+                                index === highlightedIndex ? "bg-subtle text-fg" : "text-fg-secondary",
+                            )}
+                        >
+                            {suggestion}
+                        </li>
+                    ))}
+                </ul>
             )}
         </div>
     );

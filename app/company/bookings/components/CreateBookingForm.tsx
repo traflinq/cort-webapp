@@ -130,8 +130,6 @@ function InlineNotice({ children }: { children: React.ReactNode }) {
     );
 }
 
-/** Wrapper-level overrides so the shared AutocompleteInput matches kit input sizing. */
-const AUTOCOMPLETE_INPUT_CLASS = "!h-9 !rounded-lg !px-3 !bg-[var(--bg-input)]";
 
 // ... existing interface ...
 interface CreateBookingFormProps {
@@ -708,7 +706,6 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                             onChange={setBookingCity}
                             options={pakistaniCities}
                             placeholder={t("cityPlaceholder")}
-                            className={AUTOCOMPLETE_INPUT_CLASS}
                             required
                         />
                     </Field>
@@ -843,7 +840,6 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                 onChange={setCustomVehicleModel}
                                 options={pakistaniCars}
                                 placeholder={t("vehiclePlaceholder")}
-                                className={AUTOCOMPLETE_INPUT_CLASS}
                                 required
                             />
                         </Field>
@@ -898,7 +894,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                         onChange={(val) => setCityInput(val)}
                                         options={pakistaniCities}
                                         placeholder={t("searchAddCity")}
-                                        className={cn("flex-1", AUTOCOMPLETE_INPUT_CLASS)}
+                                        className="flex-1"
                                     />
                                     <Button
                                         type="button"

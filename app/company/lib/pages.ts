@@ -98,7 +98,7 @@ export function findCompanyPage(path: string): CompanyPage | undefined {
 }
 
 /**
- * Whether the company may open a path. Paths outside the table (legacy redirects, demo pages) are
+ * Whether the company may open a path. Paths outside the table (legacy redirects) are
  * open to regular companies; a trial account may only open the pages listed for it.
  */
 export function canOpenCompanyPath(path: string, access: CompanyAccess): boolean {
