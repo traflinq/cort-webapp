@@ -64,14 +64,14 @@
       "good": "Good"
     },
     "fulfillment": {
-      "cortManaged": "CORT Managed",
-      "externalVendor": "External Vendor",
-      "selfManaged": "Self-Managed Pool",
+      "cortManaged": "CORT managed",
+      "externalVendor": "External vendor",
+      "selfManaged": "Self-managed pool",
       "cort": "CORT",
       "vendor": "Vendor",
       "pool": "Pool",
-      "vendorManaged": "Vendor Managed",
-      "ownPoolCars": "Own Pool Cars"
+      "vendorManaged": "Vendor managed",
+      "ownPoolCars": "Own pool cars"
     },
     "currency": {
       "pkr": "PKR"

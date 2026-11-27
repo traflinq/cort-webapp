@@ -13,6 +13,7 @@ import { Card } from "../../components/Card";
 import { PageHeader, TableEmptyState, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../../components/PageLayout";
 import Modal from "../../bookings/components/Modal";
 import { VendorAuditBadge, VendorAuditPanel } from "./VendorAuditPanel";
+import { DetailRow, DetailRows, DetailSection, DetailSections, FactRow, Ledger, NotRecorded, RouteSteps, useDurationFormat } from "../../components/DetailView";
 
 const isVendorTrip = (r: ChauffeurReport) => r.fulfillment_type === "EXTERNAL_VENDOR";
 
@@ -89,41 +90,35 @@ function exportChauffeurCSV(reports: ChauffeurReport[], companyName: string, sta
   URL.revokeObjectURL(url);
 }
 
-const DETAIL_LABEL = "text-xs font-medium text-fg-muted";
-const SECTION_TITLE = "mb-3 text-sm font-semibold text-fg";
 
 function ReceiptLink({ href, label }: { href: string; label: string }) {
   return (
-    <div className="space-y-2">
-      <p className={DETAIL_LABEL}>{label}</p>
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={cn("group relative block aspect-[4/3] overflow-hidden rounded-lg border border-line transition-colors hover:border-line-strong", focusRing)}
-      >
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn("group flex flex-col gap-1.5 rounded-lg", focusRing)}
+    >
+      <span className="relative block aspect-[4/3] overflow-hidden rounded-lg border border-line transition-colors group-hover:border-line-strong">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={href} alt={label} className="h-full w-full object-cover" />
-        <span className="absolute end-2 top-2 flex size-7 items-center justify-center rounded-md border border-line bg-card text-fg-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-          <ExternalLink className="size-3.5" aria-hidden="true" />
-        </span>
-      </a>
-    </div>
+      </span>
+      <span className="flex items-center gap-1 text-xs text-fg-secondary group-hover:text-fg">
+        {label}
+        <ExternalLink className="size-3 shrink-0 rtl:-scale-x-100" aria-hidden="true" />
+      </span>
+    </a>
   );
 }
 
-function BreakdownRow({ label, value, sub = false }: { label: ReactNode; value: string; sub?: boolean }) {
-  return (
-    <tr>
-      <td className={cn("px-4 text-start", sub ? "py-2 ps-8 text-xs text-fg-secondary" : "py-3 text-fg")}>{label}</td>
-      <td className={cn("whitespace-nowrap px-4 text-end tabular-nums text-fg", sub ? "py-2 text-xs" : "py-3")}>{value}</td>
-    </tr>
-  );
-}
 
 export default function ChauffeurReportsPage() {
   const t = useTranslations("company.reports");
   const tAudit = useTranslations("company.reports.vendorAudit");
   const tCommon = useTranslations("common");
+  const tDetail = useTranslations("company.detail");
+  const tFulfillment = useTranslations("common.fulfillment");
+  const duration = useDurationFormat();
   const { company } = useCompanyAccess();
   const { locale } = useCompanyLocale();
 
@@ -139,6 +134,8 @@ export default function ChauffeurReportsPage() {
   const dec = (v: number, dp = 1) => formatLocaleNumber(v, locale, { minimumFractionDigits: dp, maximumFractionDigits: dp });
   /** Full PKR amount, e.g. "PKR 1,240,500". */
   const money = (v: number) => `${tCommon("currency.pkr")} ${formatLocaleNumber(v, locale, { maximumFractionDigits: 2 })}`;
+  const fulfillmentLabel = (type: ChauffeurReport["fulfillment_type"]) =>
+    type === "EXTERNAL_VENDOR" ? tFulfillment("vendorManaged") : type === "SELF_MANAGED" ? tFulfillment("ownPoolCars") : tFulfillment("cortManaged");
   const dateTime = (iso: string) =>
     formatLocaleDate(iso, locale, {
       timeZone: "Asia/Karachi",
@@ -332,151 +329,176 @@ export default function ChauffeurReportsPage() {
       <Modal
         isOpen={!!selectedReport}
         onClose={() => setSelectedReport(null)}
-        title={selectedReport ? t("tripDetails") + ` #${selectedReport.id}` : t("tripDetails")}
+        title={selectedReport ? t("tripTitle", { id: selectedReport.id }) : t("tripDetails")}
+        titleAside={selectedReport ? <Badge tone="neutral">{fulfillmentLabel(selectedReport.fulfillment_type)}</Badge> : undefined}
+        description={
+          selectedReport
+            ? [selectedReport.completed_at ? dateTime(selectedReport.completed_at) : null, selectedReport.city].filter(Boolean).join(" · ")
+            : undefined
+        }
       >
-        {selectedReport && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded-lg border border-line p-4">
-                <h4 className={cn(DETAIL_LABEL, "mb-2")}>{t("passenger")}</h4>
-                <div className="text-sm font-semibold text-fg">{selectedReport.passenger?.full_name || t("guest")}</div>
-                <div className="mt-1 text-sm text-fg-muted tabular-nums">{selectedReport.passenger?.employee_id || "N/A"}</div>
-              </div>
-              <div className="rounded-lg border border-line p-4">
-                <h4 className={cn(DETAIL_LABEL, "mb-2")}>{t("vehicleAndDriver")}</h4>
-                <div className="text-sm font-semibold text-fg">{selectedReport.vehicle?.make} {selectedReport.vehicle?.model}</div>
-                <div className="mt-1 text-sm text-fg-muted tabular-nums">{selectedReport.vehicle?.plate_number}</div>
-                <div className="mt-1 text-sm text-fg-muted">{t("driver")}: {selectedReport.driver?.full_name || t("assignedDriver")}</div>
-              </div>
-            </div>
+        {selectedReport && (() => {
+          const r = selectedReport;
+          const b = r.breakdown;
+          const n = (v: unknown) => Number(v ?? 0) || 0;
+          const isSelfManaged = r.fulfillment_type === "SELF_MANAGED";
+          const distance = n(r.total_distance_km);
+          const toll = n(b?.toll);
+          const parking = n(b?.parking);
+          const total = r.total_cost == null ? null : n(r.total_cost);
 
-            <div className="rounded-lg border border-line p-4">
-              <h4 className={cn(DETAIL_LABEL, "mb-3")}>{t("routeJourney")}</h4>
-              <ol className="relative flex flex-col gap-3">
-                <span className="absolute start-[11px] top-2 bottom-2 w-px bg-line" aria-hidden="true" />
-                <li className="relative flex items-start gap-3">
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-line bg-card text-xs font-medium text-fg-secondary">A</span>
-                  <div>
-                    <div className="text-sm font-medium text-fg">{selectedReport.route.pickup}</div>
-                    <div className="mt-0.5 text-xs text-fg-muted">{t("pickupLocation")}</div>
-                  </div>
-                </li>
-                <li className="relative flex items-start gap-3">
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-line bg-card text-xs font-medium text-fg-secondary">B</span>
-                  <div>
-                    <div className="text-sm font-medium text-fg">{selectedReport.route.dropoff}</div>
-                    <div className="mt-0.5 text-xs text-fg-muted">{t("dropoffLocation")}</div>
-                  </div>
-                </li>
-              </ol>
-              <dl className="mt-4 grid grid-cols-2 gap-4 border-t border-line pt-4">
-                <div>
-                  <dt className="text-xs text-fg-muted">{t("duration")}</dt>
-                  <dd className="mt-0.5 text-sm font-semibold text-fg tabular-nums">{t("mins", { count: selectedReport.total_duration_minutes })}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-fg-muted">{t("distance")}</dt>
-                  <dd className="mt-0.5 text-sm font-semibold text-fg tabular-nums">{t("km", { count: selectedReport.total_distance_km })}</dd>
-                </div>
-              </dl>
-            </div>
+          // Billed trips: list the lines the total is made of, then whatever is left (sales tax / adjustments).
+          const billedLines: { label: ReactNode; value: string; sub?: boolean }[] = [];
+          if (b && !isSelfManaged) {
+            billedLines.push({ label: t("serviceChargeBase"), value: money(n(b.service_charge)) });
+            if (n(b.overtime) > 0) billedLines.push({ sub: true, label: t("includesOvertime"), value: money(n(b.overtime)) });
+            if (n(b.outstation_allowance) > 0) billedLines.push({ sub: true, label: t("includesOutstationAllowance"), value: money(n(b.outstation_allowance)) });
+            if (n(b.accommodation) > 0) billedLines.push({ sub: true, label: t("includesAccommodation"), value: money(n(b.accommodation)) });
+            billedLines.push({ label: t("fuelSurcharge"), value: money(n(b.fuel_cost)) });
+            if (toll > 0) billedLines.push({ label: t("tollCharges"), value: money(toll) });
+            if (parking > 0) billedLines.push({ label: t("parkingFees"), value: money(parking) });
+            const listed = n(b.service_charge) + n(b.fuel_cost) + toll + parking;
+            if (total != null && Math.abs(total - listed) >= 1) {
+              billedLines.push({ label: t("taxAndAdjustments"), value: money(total - listed) });
+            }
+          }
+          const receipts = [
+            b?.expense_toll_image_url ? { href: b.expense_toll_image_url, label: t("tollReceipt") } : null,
+            b?.expense_parking_image_url ? { href: b.expense_parking_image_url, label: t("parkingReceipt") } : null,
+          ].filter((x): x is { href: string; label: string } => !!x);
+          const logs = [...(r.daily_logs ?? [])].sort((a, c) => new Date(a.log_date).getTime() - new Date(c.log_date).getTime());
 
-            {selectedReport.daily_logs && selectedReport.daily_logs.length > 0 && (
-              <div>
-                <h4 className={SECTION_TITLE}>{t("tripBreakdown")}</h4>
-                <div className="overflow-hidden rounded-lg border border-line bg-card">
-                  <table className="min-w-full text-sm">
+          return (
+            <DetailSections>
+              <DetailSection>
+                <FactRow
+                  items={[
+                    {
+                      label: t("tripCost"),
+                      value: isSelfManaged ? t("notBilled") : total != null ? money(total) : "—",
+                    },
+                    { label: t("duration"), value: duration(r.total_duration_minutes) ?? tDetail("notRecorded"), muted: r.total_duration_minutes == null },
+                    {
+                      label: t("distance"),
+                      value: distance > 0 ? t("km", { count: dec(distance) }) : tDetail("notRecorded"),
+                      muted: distance <= 0,
+                    },
+                  ]}
+                />
+              </DetailSection>
+
+              <DetailSection title={t("route")}>
+                <RouteSteps
+                  steps={[
+                    { label: tDetail("pickup"), place: r.route?.pickup || <NotRecorded /> },
+                    { label: tDetail("dropoff"), place: r.route?.dropoff || <NotRecorded /> },
+                  ]}
+                />
+              </DetailSection>
+
+              <DetailSection>
+                <DetailRows>
+                  <DetailRow label={t("passenger")} hint={r.passenger?.employee_id || undefined}>
+                    {r.passenger?.full_name || t("guest")}
+                  </DetailRow>
+                  <DetailRow label={t("driver")}>{r.driver?.full_name || <NotRecorded />}</DetailRow>
+                  <DetailRow label={t("vehicle")} hint={r.vehicle?.plate_number ? <span className="ltr-content tabular-nums">{r.vehicle.plate_number}</span> : undefined}>
+                    {[r.vehicle?.make, r.vehicle?.model].filter(Boolean).join(" ") || <NotRecorded />}
+                  </DetailRow>
+                </DetailRows>
+              </DetailSection>
+
+              {logs.length > 0 && (
+                <DetailSection title={t("dailyLog")}>
+                  <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-line">
-                        <th scope="col" className="px-4 py-2.5 text-start text-xs font-medium text-fg-muted">{t("date")}</th>
-                        <th scope="col" className="px-4 py-2.5 text-start text-xs font-medium text-fg-muted">{t("tripType")}</th>
-                        <th scope="col" className="px-4 py-2.5 text-end text-xs font-medium text-fg-muted">{t("hours")}</th>
-                        <th scope="col" className="px-4 py-2.5 text-end text-xs font-medium text-fg-muted">{t("fullDay")}</th>
+                        <th scope="col" className="pb-2 text-start text-xs font-medium text-fg-muted">{t("date")}</th>
+                        <th scope="col" className="pb-2 text-start text-xs font-medium text-fg-muted">{t("tripType")}</th>
+                        <th scope="col" className="pb-2 text-end text-xs font-medium text-fg-muted">{t("timeUsed")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line">
-                      {[...selectedReport.daily_logs].sort((a, b) => new Date(a.log_date).getTime() - new Date(b.log_date).getTime()).map((log, idx) => (
-                        <tr key={idx}>
-                          <td className="whitespace-nowrap px-4 py-2.5 text-fg tabular-nums">
-                            {formatLocaleDate(log.log_date, locale, { month: "short", day: "numeric", weekday: "short" })}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <Badge tone="neutral">{log.trip_type === "OUT_STATION" ? t("outstation") : t("inCity")}</Badge>
-                          </td>
-                          <td className="px-4 py-2.5 text-end text-fg tabular-nums">
-                            {dec(log.hours_used ? parseFloat(log.hours_used.toString()) : log.is_full_day ? 24 : 0)}
-                          </td>
-                          <td className="px-4 py-2.5 text-end text-fg-secondary">
-                            {log.is_full_day ? t("yes") : t("no")}
-                          </td>
-                        </tr>
-                      ))}
+                      {logs.map((log, idx) => {
+                        const hours = log.hours_used != null ? parseFloat(log.hours_used.toString()) : null;
+                        return (
+                          <tr key={idx}>
+                            <td className="whitespace-nowrap py-2.5 pe-3 text-fg tabular-nums">
+                              {formatLocaleDate(log.log_date, locale, { month: "short", day: "numeric", weekday: "short" })}
+                            </td>
+                            <td className="py-2.5 pe-3 text-fg-secondary">
+                              {log.trip_type === "OUT_STATION" ? t("outstation") : t("inCity")}
+                            </td>
+                            <td className="whitespace-nowrap py-2.5 text-end text-fg tabular-nums">
+                              {log.is_full_day ? (
+                                <Badge tone="neutral">{t("fullDay")}</Badge>
+                              ) : hours != null ? (
+                                duration(hours * 60)
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
-                </div>
-              </div>
-            )}
+                </DetailSection>
+              )}
 
-            {isVendorTrip(selectedReport) && company?.id && (
-              <VendorAuditPanel
-                key={selectedReport.id}
-                companyId={company.id}
-                report={selectedReport}
-                onAudited={(audit) => {
-                  const charged = audit.status === "DONE" ? audit.vendor_charged_amount : null;
-                  const patch = (r: ChauffeurReport) => (r.id === selectedReport.id ? { ...r, vendor_audit: audit, total_cost: charged } : r);
-                  setReports((rows) => rows.map(patch));
-                  setSelectedReport((r) => (r ? patch(r) : r));
-                }}
-              />
-            )}
+              {isVendorTrip(r) && company?.id && (
+                <DetailSection>
+                  <VendorAuditPanel
+                    key={r.id}
+                    companyId={company.id}
+                    report={r}
+                    onAudited={(audit) => {
+                      const charged = audit.status === "DONE" ? audit.vendor_charged_amount : null;
+                      const patch = (x: ChauffeurReport) => (x.id === r.id ? { ...x, vendor_audit: audit, total_cost: charged } : x);
+                      setReports((rows) => rows.map(patch));
+                      setSelectedReport((x) => (x ? patch(x) : x));
+                    }}
+                  />
+                </DetailSection>
+              )}
 
-            {/* Cost Breakdown (calculated amounts are not shown for vendor trips) */}
-            {selectedReport.breakdown && (
-              <div>
-                <h4 className={SECTION_TITLE}>{t("costBreakdown")}</h4>
-                <div className="overflow-hidden rounded-lg border border-line bg-card">
-                  <table className="w-full text-sm">
-                    <tbody className="divide-y divide-line">
-                      <BreakdownRow label={t("serviceChargeBase")} value={money(Number(selectedReport.breakdown.service_charge))} />
-                      <BreakdownRow label={t("fuelSurcharge")} value={money(Number(selectedReport.breakdown.fuel_cost))} />
-                      {Number(selectedReport.breakdown.toll) > 0 && (
-                        <BreakdownRow sub label={t("tollCharges")} value={money(Number(selectedReport.breakdown.toll))} />
-                      )}
-                      {Number(selectedReport.breakdown.parking) > 0 && (
-                        <BreakdownRow sub label={t("parkingFees")} value={money(Number(selectedReport.breakdown.parking))} />
-                      )}
-                      {Number(selectedReport.breakdown.outstation_allowance) > 0 && (
-                        <BreakdownRow sub label={t("outstationAllowance")} value={money(Number(selectedReport.breakdown.outstation_allowance))} />
-                      )}
-                      {Number(selectedReport.breakdown.accommodation) > 0 && (
-                        <BreakdownRow sub label={t("accommodation")} value={money(Number(selectedReport.breakdown.accommodation))} />
-                      )}
-                      <tr className="bg-subtle">
-                        <td className="px-4 py-3 text-start font-semibold text-fg">{t("totalTripCost")}</td>
-                        <td className="whitespace-nowrap px-4 py-3 text-end font-semibold text-fg tabular-nums">{money(Number(selectedReport.total_cost))}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+              {/* Cost: billed trips (calculated amounts are not shown for vendor trips) */}
+              {b && !isSelfManaged && (
+                <DetailSection title={t("costBreakdown")}>
+                  <Ledger lines={billedLines} total={total != null ? { label: t("totalTripCost"), value: money(total) } : undefined} />
+                </DetailSection>
+              )}
 
-            {selectedReport.breakdown && (selectedReport.breakdown.expense_toll_image_url || selectedReport.breakdown.expense_parking_image_url) && (
-              <div>
-                <h4 className={SECTION_TITLE}>{t("expenseReceipts")}</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  {selectedReport.breakdown.expense_toll_image_url && (
-                    <ReceiptLink href={selectedReport.breakdown.expense_toll_image_url} label={t("tollReceipt")} />
+              {/* Pool-car trips are never billed: show only what the driver spent. */}
+              {isSelfManaged && (
+                <DetailSection title={t("driverExpenses")}>
+                  <p className="text-sm text-fg-muted">{t("selfManagedNote")}</p>
+                  {(toll > 0 || parking > 0) && (
+                    <div className="mt-3">
+                      <Ledger
+                        lines={[
+                          ...(toll > 0 ? [{ label: t("tollCharges"), value: money(toll) }] : []),
+                          ...(parking > 0 ? [{ label: t("parkingFees"), value: money(parking) }] : []),
+                        ]}
+                        total={{ label: t("totalExpenses"), value: money(toll + parking) }}
+                      />
+                    </div>
                   )}
-                  {selectedReport.breakdown.expense_parking_image_url && (
-                    <ReceiptLink href={selectedReport.breakdown.expense_parking_image_url} label={t("parkingReceipt")} />
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+                </DetailSection>
+              )}
+
+              {receipts.length > 0 && (
+                <DetailSection title={t("expenseReceipts")}>
+                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                    {receipts.map((rc) => (
+                      <ReceiptLink key={rc.href} href={rc.href} label={rc.label} />
+                    ))}
+                  </div>
+                </DetailSection>
+              )}
+            </DetailSections>
+          );
+        })()}
       </Modal>
     </div>
   );

@@ -20,6 +20,7 @@ import {
   TABLE_CELL_CLASS,
 } from "../../components/PageLayout";
 import Modal from "../../bookings/components/Modal";
+import { DetailRow, DetailRows, DetailSection, DetailSections, FactRow, NotRecorded, RouteSteps } from "../../components/DetailView";
 
 type ExportFormat = "csv" | "pdf";
 
@@ -674,183 +675,104 @@ export default function ShuttleReportsPage() {
         isOpen={!!selectedReport}
         onClose={() => setSelectedReport(null)}
         title={selectedReport ? t("shuttleTrip", { id: selectedReport.id }) : t("tripDetails")}
+        titleAside={selectedReport ? <DirectionBadge direction={selectedReport.direction} /> : undefined}
+        description={
+          selectedReport ? [tripDate(selectedReport.trip_date, "long"), selectedReport.route?.name].filter(Boolean).join(" · ") : undefined
+        }
       >
-        {selectedReport && (
-          <div className="space-y-6">
-            <dl className="grid grid-cols-2 gap-4">
-              <div>
-                <dt className="mb-1 text-xs text-fg-muted">{t("date")}</dt>
-                <dd className="text-sm font-medium text-fg">{tripDate(selectedReport.trip_date, "long")}</dd>
+        {selectedReport && (() => {
+          const r = selectedReport;
+          const isEvening = r.direction === "EVENING";
+          const stops = r.route?.stops ?? [];
+          const stopMeta = (stopId: number, index: number) => {
+            const log = r.stop_logs?.find((item) => item.stop_id === stopId);
+            const isLast = index === stops.length - 1;
+            const line = (label: string, value: string | null | undefined) => (
+              <div key={label}>
+                <span className="text-fg-muted">{label}</span> {formatTimeOnly(value ?? null, locale)}
               </div>
-              <div>
-                <dt className="mb-1 text-xs text-fg-muted">{t("direction")}</dt>
-                <dd><DirectionBadge direction={selectedReport.direction} /></dd>
-              </div>
-              <div>
-                <dt className="mb-1 text-xs text-fg-muted">{t("route")}</dt>
-                <dd className="text-sm font-medium text-fg">{selectedReport.route?.name || "—"}</dd>
-              </div>
-              <div>
-                <dt className="mb-1 text-xs text-fg-muted">{t("driver")}</dt>
-                <dd className="text-sm font-medium text-fg">{selectedReport.driver?.full_name || "—"}</dd>
-              </div>
-              {selectedReport.vehicle && (
-                <div className="col-span-2">
-                  <dt className="mb-1 text-xs text-fg-muted">{t("vehicle")}</dt>
-                  <dd className="text-sm font-medium text-fg">
-                    {selectedReport.vehicle.make} {selectedReport.vehicle.model}{" "}
-                    <span className="text-xs font-normal text-fg-muted">
-                      ({selectedReport.vehicle.plate_number})
-                    </span>
-                  </dd>
-                </div>
-              )}
-              <div>
-                <dt className="mb-1 text-xs text-fg-muted">{t("startedAt")}</dt>
-                <dd className="text-sm font-medium text-fg tabular-nums">{formatDateTime(selectedReport.started_at, locale)}</dd>
-              </div>
-              <div>
-                <dt className="mb-1 text-xs text-fg-muted">{t("completedAt")}</dt>
-                <dd className="text-sm font-medium text-fg tabular-nums">{formatDateTime(selectedReport.completed_at, locale)}</dd>
-              </div>
-            </dl>
+            );
+            if (isEvening) {
+              return index === 0 ? line(t("tripStartedAt"), r.started_at) : line(t("dropoffTime"), log?.drop_off_at);
+            }
+            if (isLast) return line(t("arrivedAt"), r.completed_at ?? log?.arrived_at);
+            return (
+              <>
+                {line(t("arrivedAt"), log?.arrived_at)}
+                {line(t("boardedAt"), log?.boarded_at)}
+              </>
+            );
+          };
 
-            {/* Boarding Summary */}
-            <div>
-              <h4 className="mb-3 text-sm font-semibold text-fg">{t("boardingSummary")}</h4>
-              <dl className="grid grid-cols-3 gap-3">
-                {[
-                  { key: "assigned", label: t("assigned"), value: selectedReport.passengers.total },
-                  { key: "boarded", label: t("boarded"), value: selectedReport.passengers.boarded },
-                  { key: "absent", label: t("absent"), value: selectedReport.passengers.absent },
-                ].map((s) => (
-                  <div key={s.key} className="rounded-lg border border-line px-4 py-3">
-                    <dt className="text-xs text-fg-muted">{s.label}</dt>
-                    <dd className="mt-1 text-2xl font-semibold tracking-tight text-fg tabular-nums">{s.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
+          return (
+            <DetailSections>
+              <DetailSection>
+                <FactRow
+                  items={[
+                    { label: t("boarded"), value: t("countOfTotal", { count: r.passengers.boarded, total: r.passengers.total }) },
+                    { label: t("absent"), value: r.passengers.absent },
+                    { label: t("startedAt"), value: formatTimeOnly(r.started_at, locale) },
+                    { label: t("completedAt"), value: formatTimeOnly(r.completed_at, locale) },
+                  ]}
+                />
+              </DetailSection>
 
-            {selectedReport.passengers.details.length > 0 && (
-              <div>
-                <h4 className="mb-2 text-sm font-semibold text-fg">{t("passengerDetails")}</h4>
-                <ul className="max-h-72 divide-y divide-line overflow-y-auto rounded-lg border border-line">
-                  {selectedReport.passengers.details.map((log, idx) => (
-                    <li
-                      key={idx}
-                      className="flex items-center justify-between gap-3 px-4 py-2.5"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-fg">
-                          {log.employee?.full_name || tCommon("status.unknown")}
-                        </div>
-                        <div className="text-xs text-fg-muted">
-                          {log.employee?.department || ""}{" "}
-                          {log.employee?.employee_id
-                            ? `· ID: ${log.employee.employee_id}`
-                            : ""}
-                        </div>
-                        {(log.status === "BOARDED" || log.status === "DROPPED_OFF") && log.scanned_at && (
-                          <div className="mt-0.5 text-xs text-fg-secondary tabular-nums">
-                            {t("boardedAt")} {formatTimeOnly(log.scanned_at, locale)}
-                          </div>
-                        )}
-                        {log.drop_off_at && (
-                          <div className="mt-0.5 text-xs text-fg-secondary tabular-nums">
-                            {t("dropoffTime")} {formatTimeOnly(log.drop_off_at, locale)}
-                          </div>
-                        )}
-                      </div>
-                      <StatusBadge status={log.status} overrides={BOARDING_STATUS_TONES} className="shrink-0" />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+              <DetailSection>
+                <DetailRows>
+                  <DetailRow label={t("driver")}>{r.driver?.full_name || <NotRecorded />}</DetailRow>
+                  <DetailRow
+                    label={t("vehicle")}
+                    hint={r.vehicle?.plate_number ? <span className="ltr-content tabular-nums">{r.vehicle.plate_number}</span> : undefined}
+                  >
+                    {[r.vehicle?.make, r.vehicle?.model].filter(Boolean).join(" ") || <NotRecorded />}
+                  </DetailRow>
+                </DetailRows>
+              </DetailSection>
 
-            <div>
-              <h4 className="mb-2 text-sm font-semibold text-fg">{t("stopLogs")}</h4>
-              <div className="overflow-hidden rounded-lg border border-line">
-                {selectedReport.route?.stops && selectedReport.route.stops.length > 0 ? (
-                  <ol className="divide-y divide-line">
-                    {selectedReport.route.stops.map((stop, index) => {
-                      const log = selectedReport.stop_logs?.find((item) => item.stop_id === stop.id);
-                      const isEvening = selectedReport.direction === "EVENING";
-                      const isLastStop =
-                        index === (selectedReport.route?.stops?.length ?? 0) - 1;
-                      const isFinalMorningStop = !isEvening && isLastStop;
-                      const arrivedAt = isFinalMorningStop
-                        ? formatDateTime(
-                            selectedReport.completed_at ?? log?.arrived_at ?? null,
-                            locale,
-                          )
-                        : formatDateTime(log?.arrived_at ?? null, locale);
-                      const boardedAt = formatDateTime(log?.boarded_at ?? null, locale);
-                      const isFirstEveningStop = isEvening && index === 0;
-                      const dropOffAt = isFirstEveningStop
-                        ? formatDateTime(selectedReport.started_at, locale)
-                        : formatDateTime(log?.drop_off_at ?? null, locale);
-
+              {r.passengers.details.length > 0 && (
+                <DetailSection title={t("passengerDetails")} aside={<span className="text-xs text-fg-muted tabular-nums">{r.passengers.details.length}</span>}>
+                  <ul className="-my-2.5 divide-y divide-line">
+                    {r.passengers.details.map((log, idx) => {
+                      const times = [
+                        (log.status === "BOARDED" || log.status === "DROPPED_OFF") && log.scanned_at
+                          ? `${t("boardedAt")} ${formatTimeOnly(log.scanned_at, locale)}`
+                          : null,
+                        log.drop_off_at ? `${t("dropoffTime")} ${formatTimeOnly(log.drop_off_at, locale)}` : null,
+                      ].filter(Boolean);
                       return (
-                        <li
-                          key={stop.id}
-                          className="grid grid-cols-[auto_1fr_auto] items-start gap-3 px-4 py-3"
-                        >
-                          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-subtle px-2 text-xs font-medium text-fg-secondary tabular-nums">
-                            {stop.sequence ?? "—"}
-                          </span>
-                          <div>
-                            <div className="text-sm font-medium text-fg">
-                              {stop.name}
-                            </div>
-                            <div className="text-xs text-fg-muted">
-                              {isEvening
-                                ? t("dropoffFromLogs")
-                                : isFinalMorningStop
-                                  ? t("tripCompletionTime")
-                                  : t("arrivalFromLogs")}
+                        <li key={idx} className="flex items-center justify-between gap-3 py-2.5">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm text-fg">{log.employee?.full_name || tCommon("status.unknown")}</div>
+                            <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-fg-muted">
+                              {log.employee?.department && <span>{log.employee.department}</span>}
+                              {log.employee?.employee_id && <span className="ltr-content tabular-nums">{log.employee.employee_id}</span>}
+                              {times.length > 0 && <span className="tabular-nums">{times.join(" · ")}</span>}
                             </div>
                           </div>
-                          <div className="text-end text-sm text-fg tabular-nums">
-                            {isEvening ? (
-                              <div>
-                                <div className="text-xs text-fg-muted">
-                                  {isFirstEveningStop ? t("tripStartedAt") : t("dropoffTime")}
-                                </div>
-                                <div>{dropOffAt}</div>
-                              </div>
-                            ) : isFinalMorningStop ? (
-                              <div>
-                                <div className="text-xs text-fg-muted">{t("arrivedAt")}</div>
-                                <div>{arrivedAt}</div>
-                              </div>
-                            ) : (
-                              <div className="space-y-1">
-                                <div>
-                                  <div className="text-xs text-fg-muted">{t("arrivedAt")}</div>
-                                  <div>{arrivedAt}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-fg-muted">{t("boardedAt")}</div>
-                                  <div>{boardedAt}</div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                          <StatusBadge status={log.status} overrides={BOARDING_STATUS_TONES} className="shrink-0" />
                         </li>
                       );
                     })}
-                  </ol>
+                  </ul>
+                </DetailSection>
+              )}
+
+              <DetailSection title={t("stopLogs")}>
+                {stops.length > 0 ? (
+                  <RouteSteps
+                    steps={stops.map((stop, index) => ({
+                      label: t("stopNumber", { n: stop.sequence ?? index + 1 }),
+                      place: stop.name,
+                      meta: stopMeta(stop.id, index),
+                    }))}
+                  />
                 ) : (
-                  <p className="px-4 py-6 text-sm text-fg-muted">
-                    {t("noStopLogs")}
-                  </p>
+                  <p className="text-sm text-fg-muted">{t("noStopLogs")}</p>
                 )}
-              </div>
-            </div>
-          </div>
-        )}
+              </DetailSection>
+            </DetailSections>
+          );
+        })()}
       </Modal>
     </div>
   );
