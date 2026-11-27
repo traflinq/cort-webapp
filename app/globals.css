@@ -753,6 +753,11 @@ body {
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
+    /* A spinner is essential feedback, not decoration: keep it turning, slowly, so loading never looks frozen. */
+    .animate-spin {
+        animation-duration: 1.6s !important;
+        animation-iteration-count: infinite !important;
+    }
 }
 
 /* RTL typography and layout */

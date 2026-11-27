@@ -78,7 +78,24 @@ export function Tabs<T extends string>({
   label: string;
 }) {
   return (
-    <div role="tablist" aria-label={label} className="flex w-full items-center gap-1 overflow-x-auto border-b border-line">
+    <div
+      role="tablist"
+      aria-label={label}
+      className="flex w-full items-center gap-1 overflow-x-auto border-b border-line"
+      onKeyDown={(e) => {
+        const i = tabs.findIndex((x) => x.id === active);
+        const rtl = getComputedStyle(e.currentTarget).direction === "rtl";
+        const step = { ArrowRight: rtl ? -1 : 1, ArrowLeft: rtl ? 1 : -1 } as Record<string, number>;
+        let next = -1;
+        if (e.key in step) next = (i + step[e.key] + tabs.length) % tabs.length;
+        else if (e.key === "Home") next = 0;
+        else if (e.key === "End") next = tabs.length - 1;
+        if (next < 0) return;
+        e.preventDefault();
+        onChange(tabs[next].id);
+        e.currentTarget.querySelector<HTMLButtonElement>(`#tab-${tabs[next].id}`)?.focus();
+      }}
+    >
       {tabs.map((x) => (
         <button
           key={x.id}
@@ -87,6 +104,7 @@ export function Tabs<T extends string>({
           id={`tab-${x.id}`}
           aria-selected={active === x.id}
           aria-controls={`panel-${x.id}`}
+          tabIndex={active === x.id ? 0 : -1}
           onClick={() => onChange(x.id)}
           className={cn(
             "-mb-px inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-t-md border-b-2 px-3 py-2.5 text-sm font-medium transition-colors [&_svg]:size-4",

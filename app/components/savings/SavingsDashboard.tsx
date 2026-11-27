@@ -429,7 +429,7 @@ export function ShuttleTab({ s, onManageBenchmarks }: { s: ShuttleSection | Lock
       ) : (
         <>
           {!sv.analysis_ready && (
-            <p className="alert-banner-warning text-xs">{t("analysisProgress", { days: sv.analysed_days, required: 20 })}</p>
+            <p className="alert-banner-warning text-xs">{t("analysisProgress", { days: f.n(sv.analysed_days), required: f.n(20) })}</p>
           )}
           <SplitPanel
             items={[
@@ -520,7 +520,7 @@ export function PoolTab({ p }: { p: PoolSection }) {
           label={t("tripsPerCar")}
           cmp={k.trips_per_vehicle}
           format={(v) => f.n(v, 1)}
-          hint={t("tripsOnCars", { trips: f.n(k.trips.current), cars: k.pool_vehicles })}
+          hint={t("tripsOnCars", { trips: f.n(k.trips.current), cars: f.n(k.pool_vehicles) })}
         />
         <Kpi label={t("totalKm")} cmp={k.total_km} format={f.km} invert />
         <Kpi label={t("avgTripDuration")} cmp={k.avg_trip_duration_min} format={f.min} invert />
@@ -810,7 +810,7 @@ export function ChauffeurTab({ c, auditHref }: { c: ChauffeurSection; auditHref?
             <>
               <dl className="flex flex-col text-sm">
                 {[
-                  { k: "audited", label: t("auditedTrips"), value: t("auditedOf", { audited: a.audited_trips, total: a.external_vendor_trips }) },
+                  { k: "audited", label: t("auditedTrips"), value: t("auditedOf", { audited: f.n(a.audited_trips), total: f.n(a.external_vendor_trips) }) },
                   {
                     k: "caught",
                     label: t("overchargeCaught"),

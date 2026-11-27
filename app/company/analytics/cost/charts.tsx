@@ -31,6 +31,32 @@ function useTooltipStyle() {
   };
 }
 
+/**
+ * The chart's numbers as a table for screen readers (the visual chart only reveals values on hover).
+ * Recharts' accessibilityLayer keeps the chart itself keyboard-navigable.
+ */
+function ChartDataTable({ caption, columns, rows }: { caption: string; columns: string[]; rows: (string | number)[][] }) {
+  return (
+    <table className="sr-only">
+      <caption>{caption}</caption>
+      <thead>
+        <tr>
+          {columns.map((col) => (
+            <th key={col} scope="col">{col}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={i}>
+            {r.map((cell, j) => (j === 0 ? <th key={j} scope="row">{cell}</th> : <td key={j}>{cell}</td>))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 /** Recessive axes: muted 12px ticks, no axis or tick lines. */
 const axis = (color: string) => ({ tick: { fill: color, fontSize: 12 }, axisLine: false, tickLine: false });
 
@@ -50,11 +76,16 @@ export function SpendHistoryChart({ data }: { data: SpendHistory }) {
           <XAxis dataKey="month" {...axis(c.axis)} />
           <YAxis {...axis(c.axis)} width={64} tickFormatter={(v: number) => fmt.n(v / 1000) + "k"} />
           <Tooltip {...tip} formatter={(v) => fmt.pkr(Number(v))} cursor={{ fill: c.grid }} />
-          <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12, color: c.axis }} />
+          <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12 }} formatter={(value) => <span style={{ color: c.text }}>{value}</span>} />
           <Bar dataKey="fixed" name={t("fixedSeries")} stackId="s" fill={c.series[1]} radius={[0, 0, 0, 0]} />
           <Bar dataKey="fuel" name={t("fuelSeries")} stackId="s" fill={c.series[0]} radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
+      <ChartDataTable
+        caption={`${t("fixedSeries")} / ${t("fuelSeries")}`}
+        columns={["", t("fixedSeries"), t("fuelSeries")]}
+        rows={rows.map((r) => [r.month, r.fixed == null ? "—" : fmt.pkr(r.fixed), r.fuel == null ? "—" : fmt.pkr(r.fuel)])}
+      />
     </div>
   );
 }
@@ -83,6 +114,11 @@ export function OccupancyTrendChart({ trend }: { trend: OccupancyReport["trend"]
           <Line type="monotone" dataKey="occupancy_pct" name={t("trendSeries")} stroke={c.series[1]} strokeWidth={2} dot={{ r: 2.5 }} connectNulls />
         </LineChart>
       </ResponsiveContainer>
+      <ChartDataTable
+        caption={t("trendSeries")}
+        columns={["", t("trendSeries")]}
+        rows={trend.map((p) => [p.date, p.occupancy_pct == null ? "—" : `${fmt.n(p.occupancy_pct, 1)}% (${fmt.n(p.assigned)} / ${fmt.n(p.seats)})`])}
+      />
     </div>
   );
 }
@@ -99,10 +135,10 @@ export function OccupancyBandsChart({ bands }: { bands: OccupancyReport["summary
   if (!data.length) return null;
   return (
     <div className="flex flex-col items-center gap-3 sm:flex-row">
-      <div className="h-44 w-44 shrink-0" dir="ltr">
+      <div className="h-44 w-44 shrink-0" dir="ltr" aria-hidden="true">
         <ResponsiveContainer>
-          <PieChart>
-            <Pie data={data} dataKey="value" nameKey="name" innerRadius={48} outerRadius={78} paddingAngle={2} stroke="none">
+          <PieChart accessibilityLayer={false}>
+            <Pie rootTabIndex={-1} data={data} dataKey="value" nameKey="name" innerRadius={48} outerRadius={78} paddingAngle={2} stroke="none">
               {data.map((d) => (
                 <Cell key={d.key} fill={d.color} />
               ))}
@@ -149,6 +185,18 @@ export function CompareBarChart({ rows }: { rows: Array<{ label: string; current
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="size-2 rounded-sm" style={{ background: c.series[1] }} aria-hidden="true" />
+              <dt className="text-fg-muted">{t("current")}</dt>
+              <dd className="font-medium text-fg tabular-nums">{r.format(r.current as number)}</dd>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="size-2 rounded-sm" style={{ background: c.series[2] }} aria-hidden="true" />
+              <dt className="text-fg-muted">{t("proposed")}</dt>
+              <dd className="font-medium text-fg tabular-nums">{r.format(r.proposed as number)}</dd>
+            </div>
+          </dl>
         </div>
       ))}
     </div>

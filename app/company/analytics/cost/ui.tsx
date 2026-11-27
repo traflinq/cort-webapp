@@ -78,7 +78,7 @@ export function HowCalculated({ figure }: { figure: Figure }) {
         <button
           type="button"
           aria-label={t("howCalculated")}
-          className={cn("inline-flex rounded-md p-0.5 text-fg-muted transition-colors hover:bg-subtle hover:text-fg", focusRing)}
+          className={cn("-my-1 inline-flex size-6 shrink-0 items-center justify-center rounded-md text-fg-muted transition-colors hover:bg-subtle hover:text-fg", focusRing)}
         >
           <Info className="size-3.5" />
         </button>
