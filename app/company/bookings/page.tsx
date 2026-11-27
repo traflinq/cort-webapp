@@ -3,15 +3,15 @@
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import { fetchBookings, setPage, setFilters, selectBookings, selectPagination, selectBookingsStatus, selectFilters } from "../../lib/store/slices/bookingsSlice";
 import { useCompanyAccess } from "../lib/access-context";
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { formatLocaleDate, formatLocaleTime } from "@/app/lib/i18n/format";
+import { formatLocaleDate, formatLocaleNumber, formatLocaleTime } from "@/app/lib/i18n/format";
 import type { Locale } from "@/i18n/config";
 import Modal from "./components/Modal";
 import CreateBookingForm from "./components/CreateBookingForm";
 import { ChauffeurBooking } from "../../lib/services/api-client";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Check, ChevronRight, MapPin, Plus } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import {
   Badge,
   Button,
@@ -31,6 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Card } from "../components/Card";
 import { TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
+import { DetailRow, DetailRows, DetailSection, DetailSections, FactRow, NotRecorded, RouteSteps, useDurationFormat } from "../components/DetailView";
 
 const BOOKING_STATUS_KEYS: Record<string, "pending" | "assigned" | "arrived" | "inProgress" | "completed" | "cancelled"> = {
   PENDING: "pending",
@@ -52,25 +53,6 @@ const BOOKING_STATUS_TONES: Record<string, StatusEntry> = {
 const TH = cn(TABLE_HEADER_CELL_CLASS, "text-start");
 const TD = TABLE_CELL_CLASS;
 
-/** Small label / value pair used in the booking detail modal. */
-function DetailItem({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
-  return (
-    <div className={cn("min-w-0", className)}>
-      <dt className="text-xs font-medium text-fg-muted">{label}</dt>
-      <dd className="mt-1 text-sm text-fg">{children}</dd>
-    </div>
-  );
-}
-
-function DetailSection({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="flex flex-col gap-3">
-      <h3 className="text-sm font-semibold text-fg">{title}</h3>
-      {children}
-    </section>
-  );
-}
-
 /** "HOURS_10" → "hours 10" (rendered with CSS capitalize). */
 const humanizeEnum = (value: string | null | undefined) => (value ?? "").replace(/_/g, " ").toLowerCase();
 
@@ -80,6 +62,8 @@ export default function BookingsPage() {
   const tFulfillment = useTranslations("common.fulfillment");
   const tCommon = useTranslations("common");
   const locale = useLocale() as Locale;
+  const tDetail = useTranslations("company.detail");
+  const duration = useDurationFormat();
   const dispatch = useAppDispatch();
   const { company, access } = useCompanyAccess();
   const bookings = useAppSelector(selectBookings);
@@ -183,6 +167,13 @@ export default function BookingsPage() {
 
   const formatScheduledDateTime = (iso: string) =>
     `${formatScheduledDate(iso)} ${formatScheduledTime(iso)}`;
+
+  const fulfillmentLabel = (type: string | null | undefined) =>
+    type === "EXTERNAL_VENDOR" ? tFulfillment("vendorManaged") : type === "SELF_MANAGED" ? tFulfillment("ownPoolCars") : tFulfillment("cortManaged");
+  const PACKAGE_KEYS: Record<string, "hours5" | "hours10" | "hours24"> = { HOURS_5: "hours5", HOURS_10: "hours10", HOURS_24: "hours24" };
+  const packageLabel = (pkg: string | null | undefined) => (pkg && PACKAGE_KEYS[pkg] ? t(PACKAGE_KEYS[pkg]) : humanizeEnum(pkg) || "—");
+  const tripTypeLabel = (type: string | null | undefined) =>
+    type === "OUT_STATION" ? t("outStation") : type === "IN_CITY" ? t("inCity") : humanizeEnum(type) || "—";
 
   const selectedPassenger = selectedBooking?.users_chauffeur_bookings_passenger_idTousers;
   const selectedDriver = selectedBooking?.users_chauffeur_bookings_driver_idTousers;
@@ -291,7 +282,7 @@ export default function BookingsPage() {
                           {driver?.phone && <span className="ltr-content text-xs text-fg-muted">{driver.phone}</span>}
                         </div>
                       </td>
-                      <td className={cn(TD, "whitespace-nowrap capitalize text-fg-secondary")}>{humanizeEnum(booking.package_selected)}</td>
+                      <td className={cn(TD, "whitespace-nowrap text-fg-secondary")}>{packageLabel(booking.package_selected)}</td>
                       <td className={TD}>
                         <div className="max-w-[200px] truncate text-fg-secondary" title={booking.pickup_address || tCommon("misc.noAddress")}>
                           {booking.pickup_address || "—"}
@@ -358,148 +349,98 @@ export default function BookingsPage() {
         <Modal
           isOpen={!!selectedBooking}
           onClose={() => setSelectedBooking(null)}
-          title={t("bookingDetails", { id: selectedBooking.id })}
+          title={t("bookingTitle", { id: selectedBooking.id })}
+          titleAside={
+            <StatusBadge
+              status={selectedBooking.status}
+              label={getStatusLabel(selectedBooking.status)}
+              overrides={BOOKING_STATUS_TONES}
+            />
+          }
+          description={[
+            selectedBooking.scheduled_for ? t("scheduledForValue", { date: formatScheduledDateTime(selectedBooking.scheduled_for) }) : null,
+            selectedBooking.city,
+          ].filter(Boolean).join(" · ")}
         >
-          <div className="flex flex-col gap-6">
-            {/* Status + schedule summary */}
-            <dl className="grid grid-cols-1 gap-4 rounded-xl border border-line bg-subtle/40 p-4 sm:grid-cols-2">
-              <DetailItem label={t("currentStatus")}>
-                <StatusBadge
-                  status={selectedBooking.status}
-                  label={getStatusLabel(selectedBooking.status)}
-                  overrides={BOOKING_STATUS_TONES}
-                />
-              </DetailItem>
-              <DetailItem label={t("scheduledFor")} className="sm:text-end">
-                <span className="text-base font-semibold tabular-nums text-fg">
-                  {formatScheduledDateTime(selectedBooking.scheduled_for)}
-                </span>
-              </DetailItem>
-            </dl>
+          <DetailSections>
+            <DetailSection>
+              <FactRow
+                items={[
+                  { label: t("service"), value: fulfillmentLabel(selectedBooking.fulfillment_type) },
+                  { label: t("package"), value: packageLabel(selectedBooking.package_selected) },
+                  { label: t("tripType"), value: tripTypeLabel(selectedBooking.trip_type) },
+                  { label: t("days"), value: formatLocaleNumber(selectedBooking.no_of_days || 1, locale) },
+                ]}
+              />
+            </DetailSection>
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <DetailSection title={t("tripDetails")}>
-                <dl className="grid grid-cols-2 gap-4">
-                  <DetailItem label={t("type")}>
-                    <span className="capitalize">{humanizeEnum(selectedBooking.trip_type)}</span>
-                  </DetailItem>
-                  <DetailItem label={t("category")}>{selectedBooking.service_category || "—"}</DetailItem>
-                  <DetailItem label={t("package")}>
-                    <span className="capitalize">{humanizeEnum(selectedBooking.package_selected)}</span>
-                  </DetailItem>
-                  <DetailItem label={t("duration")}>
-                    <span className="tabular-nums">{t("daysCount", { count: selectedBooking.no_of_days || 1 })}</span>
-                  </DetailItem>
-                  <DetailItem label={t("pickupAddress")} className="col-span-2">
-                    <span className="flex items-start gap-2 text-fg-secondary">
-                      <MapPin className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden="true" />
-                      <span className="leading-relaxed">{selectedBooking.pickup_address || "—"}</span>
-                    </span>
-                  </DetailItem>
-                </dl>
-              </DetailSection>
+            <DetailSection title={t("route")}>
+              <RouteSteps
+                steps={[
+                  { label: tDetail("pickup"), place: selectedBooking.pickup_address || <NotRecorded /> },
+                  ...(selectedBooking.destination_cities ?? []).map((city) => ({ label: t("destination"), place: city })),
+                ]}
+              />
+            </DetailSection>
 
-              <div className="flex flex-col gap-6">
-                <DetailSection title={t("passenger")}>
-                  <div className="flex items-center gap-3">
-                    <span
-                      aria-hidden="true"
-                      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-subtle text-sm font-semibold text-fg-secondary"
-                    >
-                      {selectedPassenger?.full_name?.charAt(0) || "P"}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-fg">
-                        {selectedPassenger?.full_name || t("unknownPassenger")}
-                      </p>
-                      <p className="truncate text-xs text-fg-muted">
-                        {selectedPassenger?.email || tCommon("misc.noEmail")}
-                      </p>
-                    </div>
-                  </div>
-                </DetailSection>
+            <DetailSection>
+              <DetailRows>
+                <DetailRow label={t("passenger")} hint={selectedPassenger?.email || undefined}>
+                  {selectedPassenger?.full_name || t("unknownPassenger")}
+                </DetailRow>
+                <DetailRow
+                  label={t("driver")}
+                  hint={selectedDriver?.phone ? <span className="ltr-content tabular-nums">{selectedDriver.phone}</span> : undefined}
+                >
+                  {selectedDriver?.full_name || <span className="text-fg-muted">{t("notAssignedYet")}</span>}
+                </DetailRow>
+                <DetailRow
+                  label={t("vehicle")}
+                  hint={selectedBooking.vehicles?.plate_number ? <span className="ltr-content tabular-nums">{selectedBooking.vehicles.plate_number}</span> : undefined}
+                >
+                  {selectedBooking.vehicles?.model || <span className="text-fg-muted">{t("notAssignedYet")}</span>}
+                </DetailRow>
+              </DetailRows>
+            </DetailSection>
 
-                {selectedBooking.status !== "PENDING" && (
-                  <DetailSection title={t("fleetAssignment")}>
-                    <dl className="grid grid-cols-2 gap-4">
-                      <DetailItem label={t("chauffeur")}>
-                        <span className="block">{selectedDriver?.full_name || t("assigning")}</span>
-                        {selectedDriver?.phone && (
-                          <span className="ltr-content mt-0.5 block text-xs text-fg-muted">{selectedDriver.phone}</span>
-                        )}
-                      </DetailItem>
-                      <DetailItem label={t("fleetUnit")}>
-                        <span className="block">
-                          {selectedBooking.vehicles ? selectedBooking.vehicles.model : t("vehiclePending")}
-                        </span>
-                        {selectedBooking.vehicles?.plate_number && (
-                          <span className="mt-0.5 block font-mono text-xs text-fg-muted">
-                            {selectedBooking.vehicles.plate_number}
-                          </span>
-                        )}
-                      </DetailItem>
-                    </dl>
-                  </DetailSection>
-                )}
-              </div>
-            </div>
-
-            {/* Trip Breakdown Table */}
             {selectedBooking.chauffeur_trip_daily_logs && selectedBooking.chauffeur_trip_daily_logs.length > 0 && (
-              <DetailSection title={t("tripLogs")}>
-                <div className="overflow-x-auto rounded-xl border border-line">
-                  <table className="min-w-full text-sm">
-                    <thead className="border-b border-line bg-subtle/50">
-                      <tr>
-                        <th scope="col" className={TH}>{t("logDate")}</th>
-                        <th scope="col" className={TH}>{t("logType")}</th>
-                        <th scope="col" className={cn(TABLE_HEADER_CELL_CLASS, "text-end")}>{t("logUsage")}</th>
-                        <th scope="col" className={cn(TABLE_HEADER_CELL_CLASS, "text-center")}>{t("fullDay")}</th>
-                        <th scope="col" className={cn(TABLE_HEADER_CELL_CLASS, "text-center")}>{t("accommodationShort")}</th>
+              <DetailSection title={t("dailyLog")}>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-line">
+                      <th scope="col" className="pb-2 text-start text-xs font-medium text-fg-muted">{t("logDate")}</th>
+                      <th scope="col" className="pb-2 text-start text-xs font-medium text-fg-muted">{t("logType")}</th>
+                      <th scope="col" className="pb-2 text-end text-xs font-medium text-fg-muted">{t("timeUsed")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {selectedBooking.chauffeur_trip_daily_logs.map((log, idx) => (
+                      <tr key={idx}>
+                        <td className="whitespace-nowrap py-2.5 pe-3 text-fg tabular-nums">
+                          {formatLocaleDate(log.log_date, locale, { month: "short", day: "numeric", weekday: "short" })}
+                        </td>
+                        <td className="py-2.5 pe-3 text-fg-secondary">
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            {tripTypeLabel(log.trip_type)}
+                            {log.apply_accommodation && <Badge tone="neutral">{t("accommodation")}</Badge>}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap py-2.5 text-end text-fg tabular-nums">
+                          {log.is_full_day ? (
+                            <Badge tone="neutral">{t("fullDay")}</Badge>
+                          ) : log.hours_used ? (
+                            duration(Number(log.hours_used) * 60)
+                          ) : (
+                            "—"
+                          )}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-line">
-                      {selectedBooking.chauffeur_trip_daily_logs.map((log, idx) => (
-                        <tr key={idx} className="transition-colors hover:bg-row-hover">
-                          <td className={cn(TD, "whitespace-nowrap text-fg")}>
-                            {formatLocaleDate(log.log_date, locale, { month: "short", day: "numeric", weekday: "short" })}
-                          </td>
-                          <td className={TD}>
-                            <Badge tone="neutral" className="capitalize">
-                              {humanizeEnum(log.trip_type)}
-                            </Badge>
-                          </td>
-                          <td className={cn(TD, "whitespace-nowrap text-end text-fg-secondary")}>
-                            {log.hours_used ? t("hoursUsed", { count: Number(log.hours_used).toFixed(1) }) : "—"}
-                          </td>
-                          <td className={cn(TD, "text-center")}>
-                            {log.is_full_day ? (
-                              <Check className="mx-auto size-4 text-success-ink" aria-label={t("fullDay")} />
-                            ) : (
-                              <span className="text-fg-muted">—</span>
-                            )}
-                          </td>
-                          <td className={cn(TD, "text-center")}>
-                            {log.apply_accommodation ? (
-                              <Check className="mx-auto size-4 text-success-ink" aria-label={t("accommodationShort")} />
-                            ) : (
-                              <span className="text-fg-muted">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </DetailSection>
             )}
-
-            <div className="flex justify-end border-t border-line pt-4">
-              <Button variant="outline" onClick={() => setSelectedBooking(null)}>
-                {t("closeView")}
-              </Button>
-            </div>
-          </div>
+          </DetailSections>
         </Modal>
       )}
     </div>

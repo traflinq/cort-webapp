@@ -387,7 +387,14 @@
       "confirmVendor": "تأكيد المورد",
       "vendorConfirmed": "تم تأكيد المورد — انتهت صلاحية الطلبات الأخرى",
       "failedToLoadBooking": "فشل تحميل الحجز",
-      "failedToConfirmVendor": "فشل تأكيد المورد"
+      "failedToConfirmVendor": "فشل تأكيد المورد",
+      "bookingTitle": "الحجز #{id}",
+      "scheduledForValue": "مجدول في {date}",
+      "route": "المسار",
+      "destination": "الوجهة",
+      "notAssignedYet": "لم يُعيَّن بعد",
+      "dailyLog": "السجل اليومي",
+      "timeUsed": "المدة المستخدمة"
     },
     "routes": {
       "label": "العمليات",
@@ -994,7 +1001,22 @@
       "mins": "{count} دقيقة",
       "km": "{count} كم",
       "noShuttleReports": "لم يتم العثور على تقارير نقل جماعي للفترة المحددة.",
-      "assigned": "معين"
+      "assigned": "معين",
+      "tripTitle": "الرحلة #{id}",
+      "tripCost": "تكلفة الرحلة",
+      "notBilled": "غير مفوترة",
+      "selfManagedNote": "رحلة بسيارة وسائق من أسطولكم، لذلك لا تصدر لها فاتورة. المصاريف التي سجلها السائق مدرجة أدناه.",
+      "driverExpenses": "مصاريف السائق",
+      "totalExpenses": "إجمالي المصاريف",
+      "taxAndAdjustments": "ضريبة المبيعات والتعديلات",
+      "overtime": "العمل الإضافي",
+      "dailyLog": "السجل اليومي",
+      "timeUsed": "المدة المستخدمة",
+      "countOfTotal": "{count} من {total}",
+      "stopNumber": "المحطة {n}",
+      "includesOvertime": "يشمل العمل الإضافي",
+      "includesOutstationAllowance": "يشمل بدل السفر",
+      "includesAccommodation": "يشمل الإقامة"
     },
     "savings": {
       "title": "تحقيق التوفير",
@@ -2062,6 +2084,14 @@
         "tripsLifetime": "الرحلات منذ البداية",
         "topRoute": "أكثر الإضافات: {name} ({count})"
       }
+    },
+    "detail": {
+      "notRecorded": "غير مسجل",
+      "minutes": "{count} دقيقة",
+      "hours": "{count} ساعة",
+      "hoursMinutes": "{h} ساعة {m} دقيقة",
+      "pickup": "نقطة الالتقاط",
+      "dropoff": "نقطة النزول"
     }
   }
 }

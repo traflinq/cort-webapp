@@ -302,6 +302,22 @@ bg-primary/10 border border-primary/20
 
 ---
 
+### Detail modals
+
+Read-only detail views (trip, booking, shuttle run) use `app/company/components/DetailView.tsx` inside the shared `Modal` (`bookings/components/Modal.tsx`):
+
+- **Header**: short title ("Trip #2719"), one badge beside it (status, service or direction), one muted line under it (date · city or route). No "Details" in the title.
+- **Body**: flat `DetailSection`s divided by hairlines. Never put bordered boxes or tinted panels inside the modal.
+- **Facts first**: a `FactRow` of 3–4 headline values (cost, duration, distance; boarded, absent…).
+- **Properties**: `DetailRows` / `DetailRow` with the label on the start side; secondary info (employee ID, plate, phone) goes in `hint`, not on extra lines.
+- **Routes and stops**: `RouteSteps` (filled dot = start, ring = end).
+- **Money**: `Ledger`. The visible lines must add up to the total; anything unexplained (sales tax, adjustments) gets its own line. Components of a line (overtime inside the service charge) are `sub` lines and are not added again.
+- **Missing data**: `NotRecorded`, never an empty value, `0 km` or `N/A`. Durations go through `useDurationFormat` ("9 min", "2 h 40 min"), never decimal hours.
+- **Unbilled trips** (own pool cars): say "Not billed" and list only what the driver logged; never show a breakdown of zeros.
+- No footer "Close" button; the header X and Esc close the modal.
+- The shared `Modal` moves keyboard focus into the dialog, keeps Tab inside it, locks page scroll and returns focus to the opener on close. Don't build modals by hand; extend this one.
+- Missing values read as quiet text ("Not recorded"), not a bold "—".
+
 ## Motion & Animation
 
 ### Easing
