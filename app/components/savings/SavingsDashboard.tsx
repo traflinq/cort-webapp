@@ -4,30 +4,21 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import {
-  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
   Bus,
   Car,
   ChevronLeft,
   ChevronRight,
-  Clock,
   CreditCard,
-  Fuel,
-  Navigation,
-  Gauge,
   Lock,
   MapPin,
   Minus,
-  PiggyBank,
-  Route,
   Settings2,
-  ShieldCheck,
   UserRound,
-  Users,
-  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge, Button, focusRing } from "@/app/admin/ui";
 import { formatLocaleNumber } from "@/app/lib/i18n/format";
 import type { Locale } from "@/i18n/config";
 import type {
@@ -48,7 +39,7 @@ const MONTH_KEYS = [
   "july", "august", "september", "october", "november", "december",
 ] as const;
 
-const CARD = "rounded-2xl border border-line bg-card";
+const CARD = "rounded-xl border border-line bg-card";
 
 // ── Formatting ────────────────────────────────────────────────────────────────
 
@@ -88,12 +79,12 @@ export function SavingsMonthPicker({ month, onChange }: { month: string; onChang
   const label = useMonthLabel();
   const isCurrent = month === monthKey();
   return (
-    <div className="flex items-center gap-1 rounded-2xl border border-line bg-card px-2 py-1.5">
+    <div className="flex items-center gap-1 rounded-lg border border-line bg-card px-1.5 py-1">
       <button
         type="button"
         aria-label={t("prevMonth")}
         onClick={() => onChange(shiftMonth(month, -1))}
-        className="rounded-lg p-1.5 text-fg-muted transition-colors hover:bg-subtle hover:text-fg"
+        className={cn("rounded-md p-1.5 text-fg-muted transition-colors hover:bg-subtle hover:text-fg", focusRing)}
       >
         <ChevronLeft className="size-4 rtl-flip" />
       </button>
@@ -103,7 +94,7 @@ export function SavingsMonthPicker({ month, onChange }: { month: string; onChang
         aria-label={t("nextMonth")}
         disabled={isCurrent}
         onClick={() => onChange(shiftMonth(month, 1))}
-        className="rounded-lg p-1.5 text-fg-muted transition-colors hover:bg-subtle hover:text-fg disabled:cursor-not-allowed disabled:opacity-30"
+        className={cn("rounded-md p-1.5 text-fg-muted transition-colors hover:bg-subtle hover:text-fg disabled:cursor-not-allowed disabled:opacity-30", focusRing)}
       >
         <ChevronRight className="size-4 rtl-flip" />
       </button>
@@ -113,18 +104,18 @@ export function SavingsMonthPicker({ month, onChange }: { month: string; onChang
 
 // ── Building blocks ───────────────────────────────────────────────────────────
 
-function IconTile({ children, tone = "brand" }: { children: ReactNode; tone?: "brand" | "success" | "info" | "warning" | "neutral" }) {
-  const cls = {
-    brand: "bg-brand-soft text-brand-ink",
-    success: "bg-success-soft text-success-ink",
-    info: "bg-info-soft text-info-ink",
-    warning: "bg-warning-soft text-warning-ink",
-    neutral: "bg-subtle text-fg-muted",
-  }[tone];
-  return <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl [&_svg]:size-[18px]", cls)}>{children}</span>;
+/** Leading icon for a notice; coloured only when the tone carries meaning (connected, needs action). */
+function IconTile({ children, tone = "neutral" }: { children: ReactNode; tone?: "success" | "info" | "warning" | "neutral" }) {
+  const cls = { success: "text-success-ink", info: "text-info-ink", warning: "text-warning-ink", neutral: "text-fg-muted" }[tone];
+  return (
+    <span aria-hidden="true" className={cn("mt-0.5 shrink-0 [&_svg]:size-4", cls)}>
+      {children}
+    </span>
+  );
 }
 
 function Delta({ delta, invert, label }: { delta: number | null; invert?: boolean; label: string }) {
+  const locale = useLocale() as Locale;
   if (delta == null) return <span className="text-fg-muted">{label}</span>;
   const good = invert ? delta < 0 : delta > 0;
   const bad = invert ? delta > 0 : delta < 0;
@@ -132,7 +123,7 @@ function Delta({ delta, invert, label }: { delta: number | null; invert?: boolea
   return (
     <span className={cn("inline-flex items-center gap-0.5 font-medium tabular-nums", good ? "text-success-ink" : bad ? "text-danger-ink" : "text-fg-muted")}>
       <Icon className="size-3.5" aria-hidden="true" />
-      {Math.abs(delta).toFixed(1)}%
+      {formatLocaleNumber(Math.abs(delta), locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
       <span className="ms-1 font-normal text-fg-muted">{label}</span>
     </span>
   );
@@ -140,7 +131,6 @@ function Delta({ delta, invert, label }: { delta: number | null; invert?: boolea
 
 function Kpi({
   label,
-  icon,
   value,
   cmp,
   format,
@@ -148,7 +138,6 @@ function Kpi({
   hint,
 }: {
   label: string;
-  icon: ReactNode;
   value?: ReactNode;
   cmp?: Comparison;
   format: (v: number | null) => string;
@@ -158,12 +147,9 @@ function Kpi({
 }) {
   const t = useTranslations("company.savings.dashboard");
   return (
-    <div className={cn(CARD, "flex flex-col p-4")}>
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-[13px] font-medium text-fg-muted">{label}</p>
-        <IconTile tone="neutral">{icon}</IconTile>
-      </div>
-      <p className="mt-1 text-2xl font-semibold tracking-tight text-fg tabular-nums">{value ?? format(cmp?.current ?? null)}</p>
+    <div className={cn(CARD, "flex min-w-0 flex-col p-4")}>
+      <p className="truncate text-xs font-medium text-fg-muted">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-fg tabular-nums">{value ?? format(cmp?.current ?? null)}</p>
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
         {cmp && <Delta delta={cmp.delta_pct} invert={invert} label={t("prevValue", { value: format(cmp.previous) })} />}
         {hint && <span className="text-fg-muted">{hint}</span>}
@@ -184,27 +170,17 @@ function SectionTitle({ title, description, action }: { title: string; descripti
   );
 }
 
-function SavingCard({
-  icon,
-  title,
-  amount,
-  detail,
-  tone = "success",
-}: {
-  icon: ReactNode;
-  title: string;
-  amount: string;
-  detail: ReactNode;
-  tone?: "success" | "info" | "warning";
-}) {
+/** Related figures side by side in one panel (stacked on phones), divided by hairlines. */
+function SplitPanel({ items }: { items: { title: string; amount: string; detail: ReactNode; warn?: boolean }[] }) {
   return (
-    <div className={cn(CARD, "flex flex-col gap-3 p-5")}>
-      <div className="flex items-center gap-3">
-        <IconTile tone={tone}>{icon}</IconTile>
-        <p className="text-sm font-semibold text-fg">{title}</p>
-      </div>
-      <p className="text-2xl font-semibold tracking-tight text-fg tabular-nums">{amount}</p>
-      <div className="text-xs leading-relaxed text-fg-muted">{detail}</div>
+    <div className={cn(CARD, "grid grid-cols-1 divide-y divide-line lg:grid-cols-3 lg:divide-x lg:divide-y-0 rtl:lg:divide-x-reverse")}>
+      {items.map((x) => (
+        <div key={x.title} className="flex min-w-0 flex-col gap-1.5 p-5">
+          <p className="text-sm font-medium text-fg-secondary">{x.title}</p>
+          <p className={cn("text-2xl font-semibold tracking-tight tabular-nums", x.warn ? "text-warning-ink" : "text-fg")}>{x.amount}</p>
+          <div className="text-xs leading-relaxed text-fg-muted">{x.detail}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -218,9 +194,9 @@ function Table({ head, rows, empty }: { head: { label: string; numeric?: boolean
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-sm">
             <thead>
-              <tr className="border-b border-line bg-subtle/60">
+              <tr className="border-b border-line">
                 {head.map((h) => (
-                  <th key={h.label} className={cn("px-4 py-3 text-xs font-semibold uppercase tracking-wide text-fg-muted", h.numeric ? "text-end" : "text-start")}>
+                  <th key={h.label} scope="col" className={cn("whitespace-nowrap px-4 py-3 text-xs font-medium text-fg-muted", h.numeric ? "text-end" : "text-start")}>
                     {h.label}
                   </th>
                 ))}
@@ -228,9 +204,9 @@ function Table({ head, rows, empty }: { head: { label: string; numeric?: boolean
             </thead>
             <tbody className="divide-y divide-line">
               {rows.map((cells, i) => (
-                <tr key={i}>
+                <tr key={i} className="transition-colors hover:bg-row-hover">
                   {cells.map((c, j) => (
-                    <td key={j} className={cn("px-4 py-3 text-fg", head[j]?.numeric && "text-end tabular-nums")}>
+                    <td key={j} className={cn("px-4 py-3 text-fg", head[j]?.numeric ? "whitespace-nowrap text-end tabular-nums" : "min-w-36")}>
                       {c}
                     </td>
                   ))}
@@ -263,33 +239,33 @@ export function SavingsHero({
   const f = useFormat();
   const positive = total >= 0;
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-brand-line bg-gradient-to-br from-brand-soft via-card to-card p-6 sm:p-8">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-sm font-medium text-brand-ink">
-            <PiggyBank className="size-4" />
-            {t("totalSavings")}
+    <div className={cn(CARD, "p-5 sm:p-6")}>
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-medium text-fg-secondary">{t("totalSavings")}</p>
+            {!analysisReady && <Badge tone="warning">{t("provisional")}</Badge>}
           </div>
-          <p className={cn("mt-2 text-4xl font-bold tracking-tight tabular-nums sm:text-5xl", positive ? "text-fg" : "text-danger-ink")}>
+          <p className={cn("mt-1 text-3xl font-semibold tracking-tight tabular-nums", positive ? "text-success-ink" : "text-danger-ink")}>
             {f.pkr(Math.abs(total))}
           </p>
-          <p className="mt-2 text-sm text-fg-muted">
+          <p className="mt-1 text-sm text-fg-muted">
             {positive ? t("totalSavingsSub", { period: periodLabel }) : t("totalExtraCostSub", { period: periodLabel })}
           </p>
-          {!analysisReady && <p className="mt-3 inline-flex rounded-full bg-warning-soft px-3 py-1 text-xs font-medium text-warning-ink">{t("provisional")}</p>}
+          {!analysisReady && <p className="mt-1 text-xs text-fg-muted">{t("provisionalHint")}</p>}
         </div>
         {chips && chips.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <dl className="flex flex-wrap gap-x-6 gap-y-3">
             {chips.map((c) => (
-              <div key={c.label} className="flex items-center gap-2 rounded-2xl border border-line bg-card/80 px-3 py-2">
-                <span className="text-fg-muted [&_svg]:size-4">{c.icon}</span>
+              <div key={c.label} className="flex items-start gap-2">
+                <span className="mt-0.5 text-fg-muted [&_svg]:size-4" aria-hidden="true">{c.icon}</span>
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-fg-muted">{c.label}</p>
-                  <p className="text-sm font-semibold text-fg tabular-nums">{c.value}</p>
+                  <dt className="text-xs text-fg-muted">{c.label}</dt>
+                  <dd className="text-sm font-semibold text-fg tabular-nums">{c.value}</dd>
                 </div>
               </div>
             ))}
-          </div>
+          </dl>
         )}
       </div>
     </div>
@@ -310,12 +286,12 @@ export function SavingsLockedView({ data }: { data: SavingsDashboardLocked }) {
   return (
     <div className="flex flex-col gap-5">
       <SavingsHero total={data.total_savings_pkr} periodLabel={periodLabel} analysisReady={data.analysis_ready} />
-      <div className={cn(CARD, "flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center")}>
-        <IconTile tone="brand">
+      <div className={cn(CARD, "flex items-start gap-3 p-5")}>
+        <IconTile>
           <Lock />
         </IconTile>
         <div className="flex-1">
-          <p className="text-base font-semibold text-fg">{t("lockedTitle")}</p>
+          <p className="text-sm font-semibold text-fg">{t("lockedTitle")}</p>
           <p className="mt-1 max-w-2xl text-sm text-fg-muted">{t("lockedDescription")}</p>
         </div>
       </div>
@@ -364,7 +340,7 @@ export function SavingsDashboard({
         <div className={cn(CARD, "p-6 text-sm text-fg-muted")}>{t("noServices")}</div>
       ) : (
         <>
-          <div role="tablist" aria-label={t("servicesLabel")} className="flex w-full gap-1 overflow-x-auto rounded-2xl border border-line bg-card p-1 sm:w-fit">
+          <div role="tablist" aria-label={t("servicesLabel")} className="flex w-full gap-1 overflow-x-auto rounded-lg border border-line bg-card p-1 sm:w-fit">
             {tabs.map((x) => (
               <button
                 key={x.id}
@@ -373,8 +349,9 @@ export function SavingsDashboard({
                 aria-selected={active === x.id}
                 onClick={() => setTab(x.id)}
                 className={cn(
-                  "flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium transition-colors sm:flex-none [&_svg]:size-4",
-                  active === x.id ? "bg-brand text-white" : "text-fg-muted hover:bg-subtle hover:text-fg",
+                  "flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors sm:flex-none [&_svg]:size-4",
+                  focusRing,
+                  active === x.id ? "bg-subtle text-fg" : "text-fg-muted hover:bg-subtle hover:text-fg",
                 )}
               >
                 {x.icon}
@@ -413,14 +390,13 @@ export function ShuttleTab({ s, onManageBenchmarks }: { s: ShuttleSection | Lock
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
           label={t("occupancy")}
-          icon={<Users />}
           cmp={k.occupancy_pct}
           format={f.pct}
           hint={t("seatsUsedOfOffered", { used: f.n(k.seats_used.current), offered: f.n(k.seats_offered.current) })}
         />
-        <Kpi label={t("totalKm")} icon={<Route />} cmp={k.total_km} format={f.km} invert hint={t("tripsCount", { count: k.trips.current ?? 0 })} />
-        <Kpi label={t("avgTripDuration")} icon={<Clock />} cmp={k.avg_trip_duration_min} format={f.min} invert />
-        <Kpi label={t("kmPerVehicle")} icon={<Gauge />} cmp={k.km_per_vehicle} format={f.km} invert />
+        <Kpi label={t("totalKm")} cmp={k.total_km} format={f.km} invert hint={t("tripsCount", { count: k.trips.current ?? 0 })} />
+        <Kpi label={t("avgTripDuration")} cmp={k.avg_trip_duration_min} format={f.min} invert />
+        <Kpi label={t("kmPerVehicle")} cmp={k.km_per_vehicle} format={f.km} invert />
       </div>
 
       <SectionTitle
@@ -428,25 +404,20 @@ export function ShuttleTab({ s, onManageBenchmarks }: { s: ShuttleSection | Lock
         description={t("shuttleSavingsDescription")}
         action={
           onManageBenchmarks && (
-            <button
-              type="button"
-              onClick={onManageBenchmarks}
-              className="flex items-center gap-2 rounded-xl border border-line bg-card px-3 py-2 text-sm font-medium text-fg transition-colors hover:bg-subtle"
-            >
-              <Settings2 className="size-4" />
+            <Button variant="outline" size="sm" onClick={onManageBenchmarks} leftIcon={<Settings2 aria-hidden="true" />}>
               {t("manageVendorCost")}
-            </button>
+            </Button>
           )
         }
       />
 
       {sv === null ? (
-        <div className={cn(CARD, "flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center")}>
-          <IconTile tone="brand">
+        <div className={cn(CARD, "flex items-start gap-3 p-5")}>
+          <IconTile>
             <Lock />
           </IconTile>
           <div className="flex-1">
-            <p className="text-base font-semibold text-fg">{t("lockedTitle")}</p>
+            <p className="text-sm font-semibold text-fg">{t("lockedTitle")}</p>
             <p className="mt-1 max-w-2xl text-sm text-fg-muted">{t("lockedDescription")}</p>
           </div>
         </div>
@@ -458,37 +429,31 @@ export function ShuttleTab({ s, onManageBenchmarks }: { s: ShuttleSection | Lock
       ) : (
         <>
           {!sv.analysis_ready && (
-            <p className="alert-banner-warning text-xs">{t("analysisProgress", { days: sv.analysed_days, required: 20 })}</p>
+            <p className="alert-banner-warning text-xs">{t("analysisProgress", { days: f.n(sv.analysed_days), required: f.n(20) })}</p>
           )}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <SavingCard
-              icon={<Bus />}
-              title={t("vehiclesReduced")}
-              amount={f.pkr(sv.vehicles_reduced_pkr)}
-              detail={t("vehiclesReducedDetail", { count: f.n(sv.vehicles_reduced, 1) })}
-            />
-            <SavingCard
-              icon={<Route />}
-              title={t("kmReduced")}
-              amount={f.pkr(sv.km_reduced_pkr)}
-              detail={t("kmReducedDetail", { km: f.km(sv.km_reduced) })}
-            />
-            <SavingCard
-              icon={<Navigation />}
-              tone={rv?.ratio_pct != null && rv.ratio_pct > 110 ? "warning" : "info"}
-              title={t("routeVariance")}
-              amount={rv?.ratio_pct == null ? "—" : f.pct(rv.ratio_pct)}
-              detail={
-                rv?.ratio_pct == null
-                  ? t("routeVarianceEmpty")
-                  : t("routeVarianceDetail", {
-                      actual: f.km(rv.actual_km),
-                      planned: f.km(rv.planned_km),
-                      flagged: rv.flagged_vehicles,
-                    })
-              }
-            />
-          </div>
+          <SplitPanel
+            items={[
+              {
+                title: t("vehiclesReduced"),
+                amount: f.pkr(sv.vehicles_reduced_pkr),
+                detail: t("vehiclesReducedDetail", { count: f.n(sv.vehicles_reduced, 1) }),
+              },
+              { title: t("kmReduced"), amount: f.pkr(sv.km_reduced_pkr), detail: t("kmReducedDetail", { km: f.km(sv.km_reduced) }) },
+              {
+                title: t("routeVariance"),
+                amount: rv?.ratio_pct == null ? "—" : f.pct(rv.ratio_pct),
+                warn: rv?.ratio_pct != null && rv.ratio_pct > 110,
+                detail:
+                  rv?.ratio_pct == null
+                    ? t("routeVarianceEmpty")
+                    : t("routeVarianceDetail", {
+                        actual: f.km(rv.actual_km),
+                        planned: f.km(rv.planned_km),
+                        flagged: rv.flagged_vehicles,
+                      }),
+              },
+            ]}
+          />
           <Table
             head={[
               { label: t("colCategory") },
@@ -553,36 +518,25 @@ export function PoolTab({ p }: { p: PoolSection }) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
           label={t("tripsPerCar")}
-          icon={<Car />}
           cmp={k.trips_per_vehicle}
           format={(v) => f.n(v, 1)}
-          hint={t("tripsOnCars", { trips: f.n(k.trips.current), cars: k.pool_vehicles })}
+          hint={t("tripsOnCars", { trips: f.n(k.trips.current), cars: f.n(k.pool_vehicles) })}
         />
-        <Kpi label={t("totalKm")} icon={<Route />} cmp={k.total_km} format={f.km} invert />
-        <Kpi label={t("avgTripDuration")} icon={<Clock />} cmp={k.avg_trip_duration_min} format={f.min} invert />
-        <Kpi label={t("idleCars")} icon={<Gauge />} cmp={k.idle_vehicles} format={(v) => f.n(v)} invert />
+        <Kpi label={t("totalKm")} cmp={k.total_km} format={f.km} invert />
+        <Kpi label={t("avgTripDuration")} cmp={k.avg_trip_duration_min} format={f.min} invert />
+        <Kpi label={t("idleCars")} cmp={k.idle_vehicles} format={(v) => f.n(v)} invert />
       </div>
 
       {p.fueling.status === "CONNECTED" ? (
         <PoolFuelingConnected fu={p.fueling} />
       ) : (
-        <div className={cn(CARD, "flex flex-col gap-4 p-5 sm:flex-row sm:items-center")}>
+        <div className={cn(CARD, "flex items-start gap-3 p-5")}>
           <IconTile tone="warning">
             <CreditCard />
           </IconTile>
           <div className="flex-1">
             <p className="text-sm font-semibold text-fg">{t("fuelCardTitle")}</p>
             <p className="mt-1 max-w-3xl text-sm text-fg-muted">{t("fuelCardDescription")}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-center">
-            <div className="rounded-xl bg-subtle px-3 py-2">
-              <p className="text-[11px] text-fg-muted">{t("kmPerLitre")}</p>
-              <p className="text-sm font-semibold text-fg-muted">—</p>
-            </div>
-            <div className="rounded-xl bg-subtle px-3 py-2">
-              <p className="text-[11px] text-fg-muted">{t("fuelingErrors")}</p>
-              <p className="text-sm font-semibold text-fg-muted">—</p>
-            </div>
           </div>
         </div>
       )}
@@ -666,7 +620,7 @@ function PoolFuelingConnected({ fu }: { fu: ConnectedFueling }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className={cn(CARD, "flex flex-col gap-3 p-5 sm:flex-row sm:items-center")}>
+      <div className={cn(CARD, "flex items-start gap-3 p-5")}>
         <IconTile tone="success">
           <CreditCard />
         </IconTile>
@@ -680,10 +634,10 @@ function PoolFuelingConnected({ fu }: { fu: ConnectedFueling }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label={t("fuelLitres")} icon={<Fuel />} cmp={k.litres} format={litres} invert />
-        <Kpi label={t("fuelSpend")} icon={<Wallet />} cmp={k.spend_pkr} format={f.pkr} invert />
-        <Kpi label={t("kmPerLitre")} icon={<Gauge />} cmp={k.km_per_litre} format={kmpl} />
-        <Kpi label={t("fuelingErrors")} icon={<AlertTriangle />} cmp={k.flagged_fuelings} format={(v) => f.n(v)} invert />
+        <Kpi label={t("fuelLitres")} cmp={k.litres} format={litres} invert />
+        <Kpi label={t("fuelSpend")} cmp={k.spend_pkr} format={f.pkr} invert />
+        <Kpi label={t("kmPerLitre")} cmp={k.km_per_litre} format={kmpl} />
+        <Kpi label={t("fuelingErrors")} cmp={k.flagged_fuelings} format={(v) => f.n(v)} invert />
       </div>
 
       <SectionTitle title={t("fuelPerCar")} description={t("fuelPerCarDescription")} />
@@ -734,14 +688,14 @@ function PoolFuelingConnected({ fu }: { fu: ConnectedFueling }) {
           </div>,
           x.plate_number ?? "—",
           <div key="i" className="max-w-sm">
-            <span className="inline-flex rounded-full bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger-ink">{flagLabel[x.type]}</span>
+            <Badge tone="danger">{flagLabel[x.type]}</Badge>
             <p className="mt-1 text-xs text-fg-muted">{flagText(x)}</p>
             {x.pump_location && x.vehicle_location && (
               <a
                 href={`https://www.google.com/maps/dir/?api=1&origin=${x.vehicle_location.lat},${x.vehicle_location.lng}&destination=${x.pump_location.lat},${x.pump_location.lng}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-brand-ink hover:underline"
+                className={cn("mt-1 inline-flex items-center gap-1 rounded-sm text-xs font-medium text-brand-ink underline-offset-2 hover:underline", focusRing)}
               >
                 <MapPin className="size-3.5" aria-hidden="true" />
                 {t("flagLocationMap")}
@@ -809,12 +763,11 @@ export function ChauffeurTab({ c, auditHref }: { c: ChauffeurSection; auditHref?
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label={t("rides")} icon={<UserRound />} cmp={k.rides} format={(v) => f.n(v)} />
-        <Kpi label={t("totalKm")} icon={<Route />} cmp={k.total_km} format={f.km} invert />
-        <Kpi label={t("avgTripDuration")} icon={<Clock />} cmp={k.avg_trip_duration_min} format={f.min} invert />
+        <Kpi label={t("rides")} cmp={k.rides} format={(v) => f.n(v)} />
+        <Kpi label={t("totalKm")} cmp={k.total_km} format={f.km} invert />
+        <Kpi label={t("avgTripDuration")} cmp={k.avg_trip_duration_min} format={f.min} invert />
         <Kpi
           label={t("avgCostPerRide")}
-          icon={<Wallet />}
           cmp={k.avg_cost_per_ride}
           format={f.pkr}
           invert
@@ -824,14 +777,9 @@ export function ChauffeurTab({ c, auditHref }: { c: ChauffeurSection; auditHref?
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className={cn(CARD, "flex flex-col gap-4 p-5")}>
-          <div className="flex items-center gap-3">
-            <IconTile tone="brand">
-              <Wallet />
-            </IconTile>
-            <div>
-              <p className="text-sm font-semibold text-fg">{t("costBreakdown")}</p>
-              <p className="text-xs text-fg-muted">{t("costBreakdownDescription")}</p>
-            </div>
+          <div>
+            <p className="text-sm font-semibold text-fg">{t("costBreakdown")}</p>
+            <p className="mt-0.5 text-xs text-fg-muted">{t("costBreakdownDescription")}</p>
           </div>
           <p className="text-2xl font-semibold tracking-tight text-fg tabular-nums">{f.pkr(partsTotal)}</p>
           <div className="mt-1 flex flex-col gap-2">
@@ -841,7 +789,7 @@ export function ChauffeurTab({ c, auditHref }: { c: ChauffeurSection; auditHref?
               parts.map((x) => (
                 <div key={x.key} className="flex items-center gap-3 text-sm">
                   <span className="w-24 shrink-0 text-fg-muted">{x.label}</span>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-subtle">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-subtle" aria-hidden="true">
                     <div className="h-full rounded-full bg-brand" style={{ width: `${(x.value / partsTotal) * 100}%` }} />
                   </div>
                   <span className="w-32 shrink-0 text-end font-medium text-fg tabular-nums">{f.pkr(x.value)}</span>
@@ -852,58 +800,49 @@ export function ChauffeurTab({ c, auditHref }: { c: ChauffeurSection; auditHref?
         </div>
 
         <div className={cn(CARD, "flex flex-col gap-4 p-5")}>
-          <div className="flex items-center gap-3">
-            <IconTile tone="info">
-              <ShieldCheck />
-            </IconTile>
-            <div>
-              <p className="text-sm font-semibold text-fg">{t("auditTitle")}</p>
-              <p className="text-xs text-fg-muted">{t("auditDescription")}</p>
-            </div>
+          <div>
+            <p className="text-sm font-semibold text-fg">{t("auditTitle")}</p>
+            <p className="mt-0.5 text-xs text-fg-muted">{t("auditDescription")}</p>
           </div>
           {a.external_vendor_trips === 0 ? (
             <p className="text-sm text-fg-muted">{t("auditNone")}</p>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl bg-subtle px-3 py-2.5">
-                  <p className="text-[11px] text-fg-muted">{t("auditedTrips")}</p>
-                  <p className="text-lg font-semibold text-fg tabular-nums">
-                    {t("auditedOf", { audited: a.audited_trips, total: a.external_vendor_trips })}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-subtle px-3 py-2.5">
-                  <p className="text-[11px] text-fg-muted">{t("overchargeCaught")}</p>
-                  <p className={cn("text-lg font-semibold tabular-nums", a.overcharge_caught_pkr > 0 ? "text-danger-ink" : "text-fg")}>
-                    {f.pkr(a.overcharge_caught_pkr)}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-subtle px-3 py-2.5">
-                  <p className="text-[11px] text-fg-muted">{t("vendorCharged")}</p>
-                  <p className="text-sm font-semibold text-fg tabular-nums">{f.pkr(a.vendor_charged_pkr)}</p>
-                </div>
-                <div className="rounded-xl bg-subtle px-3 py-2.5">
-                  <p className="text-[11px] text-fg-muted">{t("systemAmount")}</p>
-                  <p className="text-sm font-semibold text-fg tabular-nums">{f.pkr(a.expected_pkr)}</p>
-                </div>
-              </div>
-              {a.audited_trips > 0 && a.net_difference_pkr != null && (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2.5">
-                  <div>
-                    <p className="text-[11px] text-fg-muted">{t("auditNet")}</p>
-                    <p className="text-xs text-fg-muted">{a.net_difference_pkr >= 0 ? t("auditNetPositive") : t("auditNetNegative")}</p>
+              <dl className="flex flex-col text-sm">
+                {[
+                  { k: "audited", label: t("auditedTrips"), value: t("auditedOf", { audited: f.n(a.audited_trips), total: f.n(a.external_vendor_trips) }) },
+                  {
+                    k: "caught",
+                    label: t("overchargeCaught"),
+                    value: f.pkr(a.overcharge_caught_pkr),
+                    cls: a.overcharge_caught_pkr > 0 ? "text-danger-ink" : undefined,
+                  },
+                  { k: "charged", label: t("vendorCharged"), value: f.pkr(a.vendor_charged_pkr) },
+                  { k: "expected", label: t("systemAmount"), value: f.pkr(a.expected_pkr) },
+                ].map((row) => (
+                  <div key={row.k} className="flex items-baseline justify-between gap-4 py-1.5">
+                    <dt className="text-fg-secondary">{row.label}</dt>
+                    <dd className={cn("whitespace-nowrap font-medium tabular-nums text-fg", row.cls)}>{row.value}</dd>
                   </div>
-                  <p className={cn("text-lg font-semibold tabular-nums", a.net_difference_pkr < 0 ? "text-danger-ink" : "text-success-ink")}>
-                    {a.net_difference_pkr < 0 ? "−" : "+"}
-                    {f.pkr(Math.abs(a.net_difference_pkr))}
-                  </p>
-                </div>
-              )}
+                ))}
+                {a.audited_trips > 0 && a.net_difference_pkr != null && (
+                  <div className="mt-2 flex items-baseline justify-between gap-4 border-t border-line pt-3">
+                    <dt>
+                      <span className="block font-semibold text-fg">{t("auditNet")}</span>
+                      <span className="block text-xs text-fg-muted">{a.net_difference_pkr >= 0 ? t("auditNetPositive") : t("auditNetNegative")}</span>
+                    </dt>
+                    <dd className={cn("whitespace-nowrap font-semibold tabular-nums", a.net_difference_pkr < 0 ? "text-danger-ink" : "text-success-ink")}>
+                      {a.net_difference_pkr < 0 ? "−" : "+"}
+                      {f.pkr(Math.abs(a.net_difference_pkr))}
+                    </dd>
+                  </div>
+                )}
+              </dl>
               {a.unaudited_trips > 0 && (
                 <p className="text-sm text-fg-muted">
                   {t("unaudited", { count: a.unaudited_trips })}{" "}
                   {auditHref && (
-                    <Link href={auditHref} className="font-medium text-brand hover:underline">
+                    <Link href={auditHref} className={cn("rounded-sm font-medium text-brand-ink underline-offset-2 hover:underline", focusRing)}>
                       {t("auditNow")}
                     </Link>
                   )}

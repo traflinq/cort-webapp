@@ -34,7 +34,7 @@ export function AttentionList({ items }: { items: AttentionItem[] }) {
   return (
     <Card className="flex flex-col p-0 sm:p-0">
       <div className="px-4 pt-4 sm:px-5 sm:pt-5">
-        <CardTitle>{t("title")}</CardTitle>
+        <CardTitle as="h2">{t("title")}</CardTitle>
         <CardDescription>{actionable > 0 ? t("countNeedAction", { count: actionable }) : t("nothingUrgent")}</CardDescription>
       </div>
 

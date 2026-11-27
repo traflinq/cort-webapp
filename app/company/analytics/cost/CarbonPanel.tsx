@@ -187,15 +187,17 @@ function FootprintDonut({ driving, idling }: { driving: Figure; idling: Figure }
     <div className="flex flex-col gap-4 rounded-xl border border-line bg-card p-5 sm:flex-row sm:items-center">
       <div className="relative mx-auto size-44 shrink-0" dir="ltr">
         {total > 0 ? (
+          <div className="size-full" aria-hidden="true">
           <ResponsiveContainer>
-            <PieChart>
-              <Pie data={parts} dataKey="value" nameKey="label" innerRadius="68%" outerRadius="100%" paddingAngle={total > 0 && d > 0 && i > 0 ? 3 : 0} stroke="none" isAnimationActive>
+            <PieChart accessibilityLayer={false}>
+              <Pie rootTabIndex={-1} data={parts} dataKey="value" nameKey="label" innerRadius="68%" outerRadius="100%" paddingAngle={total > 0 && d > 0 && i > 0 ? 3 : 0} stroke="none" isAnimationActive>
                 {parts.map((p) => (
                   <Cell key={p.key} fill={p.color} />
                 ))}
               </Pie>
             </PieChart>
           </ResponsiveContainer>
+          </div>
         ) : (
           <div className="size-full rounded-full border-[14px] border-subtle" />
         )}

@@ -1,11 +1,16 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@/app/admin/ui";
 
 /** Mirrors the overview layout so nothing jumps when data arrives. */
 export default function DashboardSkeleton() {
+  const t = useTranslations("common.status");
   const block = "rounded-xl border border-line bg-card";
   return (
-    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 pb-12" aria-busy="true">
-      <div className="flex items-end justify-between gap-4">
+    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 pb-12" role="status" aria-busy="true">
+      <span className="sr-only">{t("loading")}</span>
+      <div className="flex items-end justify-between gap-4" aria-hidden="true">
         <div className="space-y-2">
           <Skeleton className="h-7 w-40" />
           <Skeleton className="h-4 w-64" />
@@ -25,6 +30,8 @@ export default function DashboardSkeleton() {
         <div className={`${block} h-72 lg:col-span-2`} />
         <div className={`${block} h-72`} />
       </div>
+      {/* Live operations: header + counter strip + map (300 / 380 / 440px) */}
+      <div className={`${block} h-[38rem] sm:h-[33rem] lg:h-[36.5rem]`} />
       <div className={`${block} h-64`} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className={`${block} h-64`} />

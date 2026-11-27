@@ -3,13 +3,13 @@
 import React from "react";
 import { Inbox } from "lucide-react";
 
-/** Shared page header: optional section name, title, description and right-aligned actions. */
+/** Shared page header: title, description and right-aligned actions. */
 export function PageHeader({
-  label,
   title,
   description,
   action,
 }: {
+  /** @deprecated No longer rendered: the title carries the page; the sidebar already names the section. */
   label?: string;
   title: string;
   description?: string;
@@ -18,7 +18,6 @@ export function PageHeader({
   return (
     <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        {label && <p className="mb-1 text-xs font-medium text-fg-muted">{label}</p>}
         <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-2xl">{title}</h1>
         {description && <p className="mt-1 max-w-2xl text-sm text-fg-muted">{description}</p>}
       </div>
