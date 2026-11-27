@@ -22,11 +22,12 @@ const MONTH_SHORT_KEYS = [
     "jul", "aug", "sep", "oct", "nov", "dec",
 ] as const;
 
-type InvoiceStatus = "PAID" | "UNPAID" | "PARTIALLY_PAID" | "OVERDUE" | "DRAFT";
+type InvoiceStatus = "PAID" | "UNPAID" | "PARTIALLY_PAID" | "OVERDUE" | "DRAFT" | "CANCELLED";
 
-/** Unpaid is awaiting payment, not a failure: only overdue reads as danger. */
+/** Unpaid is awaiting payment, not a failure: only overdue reads as danger. A cancelled invoice is void, not an error. */
 const INVOICE_STATUS_TONES: Record<string, StatusEntry> = {
     UNPAID: { tone: "warning" },
+    CANCELLED: { tone: "neutral" },
 };
 
 function formatBillingMonth(
@@ -83,14 +84,17 @@ export default function CompanyInvoicingPage() {
     const formatStatus = useCallback(
         (status: string | undefined) => {
             const key = (status || "DRAFT") as InvoiceStatus;
-            return t(`statusLabels.${key}`);
+            // Unknown future statuses fall back to the badge's humanized label instead of a raw key.
+            return t.has(`statusLabels.${key}`) ? t(`statusLabels.${key}`) : undefined;
         },
         [t],
     );
 
-    /** Full PKR amount, e.g. "PKR 1,240,500" (paisa shown only when present). */
-    const money = (value: number) =>
-        `${tCommon("currency.pkr")} ${formatLocaleNumber(value, locale, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    /** Full PKR amount: "PKR 1,240,500", or "PKR 7,528.10" when there are paisa (always 2 decimals then). */
+    const money = (value: number) => {
+        const digits = Number.isInteger(Math.round(value * 100) / 100) ? 0 : 2;
+        return `${tCommon("currency.pkr")} ${formatLocaleNumber(value, locale, { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
+    };
 
     const fetchInvoices = useCallback(async (p: number) => {
         if (!user?.company_id) return;
@@ -183,6 +187,7 @@ export default function CompanyInvoicingPage() {
                                     const paid = Number(inv.amount_paid ?? 0);
                                     const payable = Math.max(0, total - paid);
                                     const isOverdue = inv.status === "OVERDUE";
+                                    const isCancelled = inv.status === "CANCELLED";
                                     return (
                                         <tr key={inv.id} className="transition-colors hover:bg-row-hover">
                                             <td className={`${TABLE_CELL_CLASS} whitespace-nowrap font-medium text-fg`}>#{inv.invoice_number}</td>
@@ -192,7 +197,7 @@ export default function CompanyInvoicingPage() {
                                             <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-fg-muted`}>
                                                 {formatLocaleDate(inv.generated_at, locale)}
                                             </td>
-                                            <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-end font-medium text-fg`}>
+                                            <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-end font-medium ${isCancelled ? "text-fg-muted line-through" : "text-fg"}`}>
                                                 {money(total)}
                                             </td>
                                             <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-end text-fg-secondary`}>
@@ -203,7 +208,9 @@ export default function CompanyInvoicingPage() {
                                                 )}
                                             </td>
                                             <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-end`}>
-                                                {inv.status === "PAID" ? (
+                                                {isCancelled ? (
+                                                    <span className="text-fg-muted">—</span>
+                                                ) : inv.status === "PAID" ? (
                                                     <span className="inline-flex items-center gap-1 text-xs font-medium text-fg-muted">
                                                         <Check className="size-3.5 text-success-ink" aria-hidden="true" />
                                                         {t("fullyPaid")}

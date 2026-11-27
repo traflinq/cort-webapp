@@ -833,11 +833,12 @@
       "failedToDownloadPdf": "Failed to download PDF",
       "failedToViewPdf": "Failed to view PDF",
       "statusLabels": {
-        "PAID": "PAID",
-        "UNPAID": "UNPAID",
-        "PARTIALLY_PAID": "PARTIALLY PAID",
-        "OVERDUE": "OVERDUE",
-        "DRAFT": "DRAFT"
+        "PAID": "Paid",
+        "UNPAID": "Unpaid",
+        "PARTIALLY_PAID": "Partially paid",
+        "OVERDUE": "Overdue",
+        "DRAFT": "Draft",
+        "CANCELLED": "Cancelled"
       },
       "monthsShort": {
         "jan": "Jan",
