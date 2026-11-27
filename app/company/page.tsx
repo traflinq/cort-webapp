@@ -263,6 +263,13 @@ export default function CompanyDashboardPage() {
         <AttentionList items={attention} />
       </div>
 
+      {/* Right now: sits between this month's money and the longer-term savings and usage */}
+      {(hasChauffeur || hasShuttle) && (
+        <LiveMobilityCenter
+          data={stats.mobility ?? { activeRides: 0, employeesTraveling: 0, shuttlesRunning: 0, chauffeurRides: 0, upcomingBookings: 0 }}
+        />
+      )}
+
       {(hasChauffeur || hasShuttle) && (
         <SavingsOpportunities data={leakage} analyticsHref={companyPath("/company/analytics")} />
       )}
@@ -283,12 +290,6 @@ export default function CompanyDashboardPage() {
         <DepartmentsCard departments={stats.employees.departmentUsage ?? []} />
         {hasChauffeur && hasShuttle && <ShuttleSummaryCard data={shuttleSummary} />}
       </div>
-
-      {(hasChauffeur || hasShuttle) && (
-        <LiveMobilityCenter
-          data={stats.mobility ?? { activeRides: 0, employeesTraveling: 0, shuttlesRunning: 0, chauffeurRides: 0, upcomingBookings: 0 }}
-        />
-      )}
 
       <Modal isOpen={isBookingOpen} onClose={() => setIsBookingOpen(false)} title={t("createBooking")}>
         <CreateBookingForm onSuccess={() => setIsBookingOpen(false)} onCancel={() => setIsBookingOpen(false)} />

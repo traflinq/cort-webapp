@@ -30,6 +30,8 @@ export default function DashboardSkeleton() {
         <div className={`${block} h-72 lg:col-span-2`} />
         <div className={`${block} h-72`} />
       </div>
+      {/* Live operations: header + counter strip + map (300 / 380 / 440px) */}
+      <div className={`${block} h-[38rem] sm:h-[33rem] lg:h-[36.5rem]`} />
       <div className={`${block} h-64`} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className={`${block} h-64`} />
