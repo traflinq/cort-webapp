@@ -49,7 +49,7 @@ export function SpendBudgetCard({ data, onEditBudget }: { data: SpendBudgetData;
     <Card className="flex flex-col gap-5 p-0 sm:p-0">
       <div className="flex items-start justify-between gap-4 px-4 pt-4 sm:px-5 sm:pt-5">
         <div className="min-w-0">
-          <CardTitle>{t("title")}</CardTitle>
+          <CardTitle as="h2">{t("title")}</CardTitle>
           <CardDescription>{t("description")}</CardDescription>
         </div>
         {onEditBudget && (
@@ -79,7 +79,7 @@ export function SpendBudgetCard({ data, onEditBudget }: { data: SpendBudgetData;
         <div className="mt-4" role="img" aria-label={t("chartLabel", { spent: f.money(spendMtd), projected: f.money(projected), budget: budget ? f.money(budget) : "—" })}>
           <div className="relative h-3 w-full overflow-hidden rounded-full bg-subtle">
             {projected !== null && (
-              <div className="absolute inset-y-0 start-0 rounded-full bg-brand/25" style={{ width: pos(projected) }} />
+              <div className="absolute inset-y-0 start-0 rounded-full bg-brand/25 ring-1 ring-inset ring-brand" style={{ width: pos(projected) }} />
             )}
             <div className="absolute inset-y-0 start-0 rounded-full bg-brand" style={{ width: pos(spendMtd) }} />
           </div>
@@ -90,7 +90,7 @@ export function SpendBudgetCard({ data, onEditBudget }: { data: SpendBudgetData;
           </div>
           <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-muted">
             <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-brand" aria-hidden="true" />{t("legendSpent")}</li>
-            {projected !== null && <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-brand/25" aria-hidden="true" />{t("legendProjected")}</li>}
+            {projected !== null && <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-brand/25 ring-1 ring-inset ring-brand" aria-hidden="true" />{t("legendProjected")}</li>}
             {budget !== null && <li className="flex items-center gap-1.5"><span className="h-2.5 w-0.5 rounded-full bg-fg" aria-hidden="true" />{t("legendBudget")}</li>}
           </ul>
         </div>

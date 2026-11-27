@@ -2,10 +2,10 @@
 
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { Button, Field, InlineError, Input } from '@/app/admin/ui';
 import { useAppDispatch } from '../../lib/store/hooks';
 import { clearDashboardCache, fetchDashboardStats } from '../../lib/store/slices/dashboardSlice';
 import { apiClient } from '../../lib/services/api-client';
-import { CreditCard, Loader2 } from 'lucide-react';
 
 interface EditBudgetFormProps {
     companyId: string;
@@ -14,23 +14,35 @@ interface EditBudgetFormProps {
     onCancel: () => void;
 }
 
+/** Arabic-Indic (٠-٩) and Persian (۰-۹) digits → ASCII, then drop everything that isn't a digit. */
+function toDigits(raw: string): string {
+    return raw
+        .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+        .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+        .replace(/\D/g, '');
+}
+
+/** Amount entry keeps Western digits (the field is LTR) but groups thousands so large budgets stay readable. */
+const group = (digits: string) => (digits ? Number(digits).toLocaleString('en-US') : '');
+
 export default function EditBudgetForm({ companyId, currentBudget, onSuccess, onCancel }: EditBudgetFormProps) {
     const t = useTranslations('company.dashboard');
     const tEmployees = useTranslations('company.employees');
     const tCommon = useTranslations('common');
     const dispatch = useAppDispatch();
-    const [budget, setBudget] = useState<string>(currentBudget.toString());
+    const [digits, setDigits] = useState<string>(currentBudget > 0 ? String(Math.round(currentBudget)) : '');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [fieldError, setFieldError] = useState<string | null>(null);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
+        setFieldError(null);
+        setSubmitError(null);
 
-        const newBudget = parseInt(budget.replace(/,/g, ''), 10);
-
-        if (isNaN(newBudget) || newBudget < 0) {
-            setError(tCommon('validation.validPositiveNumber'));
+        const newBudget = Number(digits);
+        if (!digits || !Number.isSafeInteger(newBudget) || newBudget < 0) {
+            setFieldError(tCommon('validation.validPositiveNumber'));
             return;
         }
 
@@ -41,71 +53,42 @@ export default function EditBudgetForm({ companyId, currentBudget, onSuccess, on
             dispatch(fetchDashboardStats(companyId));
             onSuccess();
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : tEmployees('failedUpdateBudget'));
+            setSubmitError(err instanceof Error && err.message ? err.message : tEmployees('failedUpdateBudget'));
         } finally {
             setIsSubmitting(false);
         }
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-                <div className="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm border border-red-500/20 flex items-start gap-2">
-                    <div className="w-1 h-1 rounded-full bg-rose-500 mt-2 shrink-0" />
-                    {error}
-                </div>
-            )}
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+            {submitError && <InlineError>{submitError}</InlineError>}
 
-            <div>
-                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
-                    {t('monthlyBudgetLabel')}
-                </label>
-                <div className="relative">
-                    <div className="absolute inset-y-0 start-0 ps-3 flex items-center pointer-events-none text-[var(--text-muted)]">
-                        <CreditCard className="w-4 h-4" />
-                    </div>
-                    <input
-                        type="text"
-                        required
-                        min="0"
-                        value={budget}
-                        onChange={(e) => {
-                            const val = e.target.value.replace(/[^0-9]/g, '');
-                            setBudget(val);
-                        }}
-                        className="w-full ps-10 pe-3 py-2 bg-[var(--bg-card)] border border-[var(--border-input)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-ring/20 focus:border-ring transition-shadow transition-colors ltr-content"
-                        placeholder={t('budgetPlaceholder')}
-                        dir="ltr"
-                    />
-                </div>
-                <p className="text-xs text-[var(--text-muted)] mt-1">
-                    {tEmployees('budgetHint')}
-                </p>
-            </div>
-
-            <div className="flex gap-3 pt-4 border-t border-[var(--border-input)]">
-                <button
-                    type="button"
-                    onClick={onCancel}
+            <Field label={t('monthlyBudgetLabel')} hint={tEmployees('budgetHint')} error={fieldError} required>
+                <Input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    dir="ltr"
+                    aria-required="true"
+                    className="tabular-nums"
+                    autoFocus
+                    value={group(digits)}
+                    onChange={(e) => {
+                        setDigits(toDigits(e.target.value).slice(0, 15));
+                        if (fieldError) setFieldError(null);
+                    }}
+                    placeholder={t('budgetPlaceholder')}
                     disabled={isSubmitting}
-                    className="flex-1 px-4 py-2 border border-[var(--border-input)] text-[var(--text-secondary)] rounded-xl hover:bg-[var(--row-hover)] font-medium transition-colors"
-                >
+                />
+            </Field>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
                     {tCommon('actions.cancel')}
-                </button>
-                <button
-                    type="submit"
-                    disabled={isSubmitting || !budget}
-                    className="flex-1 px-4 py-2 bg-brand text-[var(--text-on-brand)] rounded-xl hover:bg-primary-hover font-medium transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {isSubmitting ? (
-                        <>
-                            <Loader2 className="w-4 h-4 animate-spin me-2" />
-                            {tEmployees('saving')}
-                        </>
-                    ) : (
-                        tEmployees('saveBudget')
-                    )}
-                </button>
+                </Button>
+                <Button type="submit" loading={isSubmitting} disabled={!digits} className="sm:min-w-32">
+                    {isSubmitting ? tEmployees('saving') : tEmployees('saveBudget')}
+                </Button>
             </div>
         </form>
     );

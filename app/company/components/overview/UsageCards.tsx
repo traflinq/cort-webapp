@@ -44,7 +44,7 @@ export function AdoptionCard({ data }: { data: AdoptionData }) {
   return (
     <Card className="flex flex-col gap-4">
       <div>
-        <CardTitle>{t("title")}</CardTitle>
+        <CardTitle as="h2">{t("title")}</CardTitle>
         <CardDescription>{t("description")}</CardDescription>
       </div>
 
@@ -95,7 +95,7 @@ export function DepartmentsCard({ departments }: { departments: { name: string; 
   return (
     <Card className="flex flex-col gap-4">
       <div>
-        <CardTitle>{t("title")}</CardTitle>
+        <CardTitle as="h2">{t("title")}</CardTitle>
         <CardDescription>{t("description")}</CardDescription>
       </div>
       {rows.length === 0 ? (
@@ -137,7 +137,7 @@ export function ShuttleSummaryCard({ data }: { data: ShuttleSummaryData }) {
   return (
     <Card className="flex flex-col gap-4">
       <div>
-        <CardTitle>{t("title")}</CardTitle>
+        <CardTitle as="h2">{t("title")}</CardTitle>
         <CardDescription>{t("description")}</CardDescription>
       </div>
       <div className="grid grid-cols-2 gap-4">

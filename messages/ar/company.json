@@ -1268,7 +1268,20 @@
       "notYetBoarded": "لم يصعد بعد",
       "absent": "غائب",
       "startedAt": "بدأت الساعة {time}",
-      "unknownEmployee": "موظف غير معروف"
+      "unknownEmployee": "موظف غير معروف",
+      "tripStatus": {
+        "STARTED": "بدأت",
+        "IN_PROGRESS": "قيد التنفيذ",
+        "OTW": "في الطريق",
+        "ARRIVED": "وصل"
+      },
+      "passengerCount": "{count, plural, zero {لا ركاب} one {راكب واحد} two {راكبان} few {# ركاب} many {# راكبًا} other {# راكب}}",
+      "positionLive": "موقع مباشر",
+      "positionLastKnown": "آخر موقع معروف",
+      "positionWaiting": "بانتظار تحديد الموقع",
+      "awaitingLocation": "{count, plural, zero {لا رحلات بانتظار الموقع} one {رحلة واحدة بانتظار الموقع} two {رحلتان بانتظار الموقع} few {# رحلات بانتظار الموقع} many {# رحلة بانتظار الموقع} other {# رحلة بانتظار الموقع}}",
+      "activeTrips": "الرحلات النشطة ({count})",
+      "tripDetails": "التفاصيل"
     },
     "costLeakage": {
       "title": "كاشف تسرب التكاليف",

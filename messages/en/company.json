@@ -1268,7 +1268,20 @@
       "notYetBoarded": "Not yet boarded",
       "absent": "Absent",
       "startedAt": "Started at {time}",
-      "unknownEmployee": "Unknown employee"
+      "unknownEmployee": "Unknown employee",
+      "tripStatus": {
+        "STARTED": "Started",
+        "IN_PROGRESS": "In progress",
+        "OTW": "On the way",
+        "ARRIVED": "Arrived"
+      },
+      "passengerCount": "{count, plural, one {# passenger} other {# passengers}}",
+      "positionLive": "Live position",
+      "positionLastKnown": "Last known position",
+      "positionWaiting": "Waiting for location",
+      "awaitingLocation": "{count, plural, one {# trip} other {# trips}} waiting for location",
+      "activeTrips": "Active trips ({count})",
+      "tripDetails": "Details"
     },
     "costLeakage": {
       "title": "Cost Leakage Detector",
