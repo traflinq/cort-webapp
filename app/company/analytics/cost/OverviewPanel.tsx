@@ -8,7 +8,7 @@ import { useCostFetch, useFmt, filterQuery, type CostFilters } from "./hooks";
 import { ErrorNote, FigureValue, HowCalculated, Skeleton, StatBlock, Tag } from "./ui";
 import type { DataHealth, Overview } from "./types";
 
-export type CostTab = "fuel" | "occupancy" | "routes" | "recommendations";
+export type CostTab = "fuel" | "occupancy" | "recommendations";
 
 export function OverviewPanel({ filters, onOpenTab, onManageBenchmarks }: { filters: CostFilters; onOpenTab: (t: CostTab) => void; onManageBenchmarks: () => void }) {
   const t = useTranslations("company.costOptimization.overview");

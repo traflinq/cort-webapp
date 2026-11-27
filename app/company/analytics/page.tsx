@@ -3,11 +3,11 @@
 import { Suspense, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { AlertCircle, ArrowRight, Bus, Car, Fuel, GitMerge, LayoutGrid, Leaf, Lightbulb, RefreshCw, UserRound, Users } from "lucide-react";
+import { Bus, Car, ChevronRight, Fuel, LayoutGrid, Leaf, Lightbulb, RefreshCw, UserRound, Users } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/app/lib/services/api-client";
 import { formatLocaleNumber } from "@/app/lib/i18n/format";
-import { Button, Spinner, focusRing } from "@/app/admin/ui";
+import { Button, Spinner, focusRingInset } from "@/app/admin/ui";
 import { cn } from "@/lib/utils";
 import type { Locale } from "@/i18n/config";
 import { PageHeader } from "../components/PageLayout";
@@ -39,8 +39,10 @@ import { RecommendationDrawer, RecommendationsPanel } from "./cost/Recommendatio
 import { BeforeAfter } from "./cost/BeforeAfter";
 import type { FilterOptions, RecommendationList } from "./cost/types";
 
-type TabId = "overview" | "shuttle" | "fuel" | "occupancy" | "routes" | "recommendations" | "carbon" | "chauffeur" | "pool";
-const TAB_IDS: TabId[] = ["overview", "shuttle", "fuel", "occupancy", "routes", "recommendations", "carbon", "chauffeur", "pool"];
+type TabId = "overview" | "shuttle" | "fuel" | "occupancy" | "recommendations" | "carbon" | "chauffeur" | "pool";
+const TAB_IDS: TabId[] = ["overview", "shuttle", "fuel", "occupancy", "recommendations", "carbon", "chauffeur", "pool"];
+/** Old links: the Routes tab was merged into Recommendations (its type filter covers route recommendations). */
+const TAB_ALIASES: Record<string, TabId> = { routes: "recommendations" };
 
 export default function AnalyticsPage() {
   return (
@@ -82,6 +84,9 @@ function AnalyticsContent() {
   // nothing is drawn until that is known; a failure is shown as such, never as the other layout.
   const scopeState: "ready" | "loading" | "error" = !services.shuttle || scope ? "ready" : filterOptions.error ? "error" : "loading";
   const recs = useCostFetch<RecommendationList>(ownOps ? "/company/cost-optimization/recommendations" : null);
+  // Traflinq-managed shuttle (or scope not known yet) gets its own Shuttle tab; trip quality lives there when it exists,
+  // otherwise on Recommendations, so it is never shown on two tabs.
+  const showShuttleTab = services.shuttle && (cortOps || !ownOps);
 
   // Don't show last month's figures under the new month's heading.
   const data: SavingsDashboardResponse | null = savings.loading || savings.error ? null : savings.data;
@@ -94,10 +99,9 @@ function AnalyticsContent() {
         [
           { id: "overview", label: t("tabOverview"), icon: <LayoutGrid />, show: true },
           // Traflinq-managed shuttle (or scope not known yet): before / after savings, KPIs, vehicles, trip quality.
-          { id: "shuttle", label: t("tabShuttle"), icon: <Bus />, show: services.shuttle && (cortOps || !ownOps) },
+          { id: "shuttle", label: t("tabShuttle"), icon: <Bus />, show: showShuttleTab },
           { id: "fuel", label: t("tabFuel"), icon: <Fuel />, show: ownOps },
           { id: "occupancy", label: t("tabOccupancy"), icon: <Users />, show: ownOps },
-          { id: "routes", label: t("tabRoutes"), icon: <GitMerge />, show: ownOps },
           { id: "recommendations", label: t("tabRecommendations"), icon: <Lightbulb />, show: ownOps },
           { id: "carbon", label: t("tabCarbon"), icon: <Leaf />, show: ownOps },
           { id: "chauffeur", label: t("tabChauffeur"), icon: <UserRound />, show: services.chauffeur },
@@ -106,10 +110,11 @@ function AnalyticsContent() {
       )
         .filter((x) => x.show)
         .map(({ id, label, icon }) => ({ id: id as TabId, label, icon })),
-    [services, ownOps, cortOps, t],
+    [services, ownOps, showShuttleTab, t],
   );
 
-  const requested = searchParams.get("tab") as TabId | null;
+  const rawTab = searchParams.get("tab");
+  const requested = (rawTab && (TAB_ALIASES[rawTab] ?? rawTab)) as TabId | null;
   const active: TabId = requested && TAB_IDS.includes(requested) && tabs.some((x) => x.id === requested) ? requested : "overview";
   const setTab = (id: TabId) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -178,12 +183,7 @@ function AnalyticsContent() {
             showScope={ownOps && ["overview", "fuel", "occupancy", "carbon"].includes(active)}
           />
 
-          {savingsFailed && (
-            <div role="alert" className="flex items-center gap-2 rounded-xl border border-danger-line bg-danger-soft p-4 text-sm text-danger-ink">
-              <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
-              {t("loadFailed")}
-            </div>
-          )}
+          {savingsFailed && <ErrorNote message={t("loadFailed")} detail={savings.error} onRetry={savings.reload} />}
 
           <div role="tabpanel" id={`panel-${active}`} aria-labelledby={`tab-${active}`} className="flex flex-col gap-8">
             {active === "overview" && (
@@ -197,9 +197,9 @@ function AnalyticsContent() {
                 {(!ownOps || cortOps) && <OverviewSavings data={data} loading={savings.loading} />}
 
                 {data && (
-                  <section className="flex flex-col gap-4">
+                  <section className="flex flex-col gap-3">
                     <h3 className="text-base font-semibold text-fg">{t("servicesTitle")}</h3>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-card">
                       {services.shuttle && data.shuttle && (
                         <ServiceCard
                           icon={<Bus />}
@@ -236,7 +236,7 @@ function AnalyticsContent() {
                           onOpen={() => setTab("pool")}
                         />
                       )}
-                    </div>
+                    </ul>
                   </section>
                 )}
 
@@ -284,17 +284,10 @@ function AnalyticsContent() {
 
             {active === "occupancy" && <OccupancyPanel key={refresh} filters={filters} />}
 
-            {active === "routes" && (
+            {active === "recommendations" && (
               <>
-                <RecommendationsPanel
-                  list={recs}
-                  onOpen={setOpenRec}
-                  types={["FLEET_REPLAN", "ROUTE_REDISTRIBUTE", "ROUTE_MERGE", "ROUTE_RESEQUENCE"]}
-                  title={t("routesTitle")}
-                  description={t("routesDescription")}
-                  aiEnabled={ai}
-                />
-                {!detailLoading && (
+                <RecommendationsPanel list={recs} onOpen={setOpenRec} title={t("recsTitle")} description={t("recsDescription")} aiEnabled={ai} />
+                {!showShuttleTab && !detailLoading && (
                   <ShuttleTripQuality
                     summary={detail.shuttleSummary}
                     metrics={detail.shuttleMetrics}
@@ -303,10 +296,6 @@ function AnalyticsContent() {
                   />
                 )}
               </>
-            )}
-
-            {active === "recommendations" && (
-              <RecommendationsPanel list={recs} onOpen={setOpenRec} title={t("recsTitle")} description={t("recsDescription")} aiEnabled={ai} />
             )}
 
             {active === "carbon" && <CarbonPanel key={refresh} filters={filters} onOpenRecommendation={setOpenRec} />}
@@ -327,7 +316,9 @@ function AnalyticsContent() {
               </>
             )}
 
-            {(active === "shuttle" || active === "chauffeur" || active === "pool") && (savings.loading || detailLoading) && (
+            {/* One loading indicator per tab: the shuttle tab already shows a skeleton while savings load. */}
+            {((active === "shuttle" && detailLoading && !savings.loading) ||
+              ((active === "chauffeur" || active === "pool") && (savings.loading || detailLoading))) && (
               <div className="flex items-center justify-center gap-2 py-10 text-sm text-fg-muted" aria-busy="true">
                 <Spinner size="sm" label={t("loading")} />
                 <span aria-hidden="true">{t("loading")}</span>
@@ -366,6 +357,7 @@ function UnlockedHero({ data }: { data: SavingsDashboardFull }) {
   return <SavingsHero total={data.total_savings_pkr} periodLabel={periodLabel} analysisReady={data.analysis_ready} />;
 }
 
+/** One service in the overview list: name, two headline figures, and a way into its tab. */
 function ServiceCard({
   icon,
   title,
@@ -379,34 +371,32 @@ function ServiceCard({
 }) {
   const t = useTranslations("company.analytics");
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={cn(
-        "group flex flex-col gap-4 rounded-xl border border-line bg-card p-5 text-start transition-colors hover:border-line-strong hover:bg-row-hover",
-        focusRing,
-      )}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-2.5">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-subtle text-fg-muted [&_svg]:size-4" aria-hidden="true">
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`${title}: ${t("viewDetails")}`}
+        className={cn(
+          "group flex w-full flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3.5 text-start transition-colors hover:bg-row-hover sm:flex-nowrap sm:px-5",
+          focusRingInset,
+        )}
+      >
+        <span className="flex min-w-0 flex-1 items-center gap-2.5 sm:w-48 sm:flex-none">
+          <span className="shrink-0 text-fg-muted [&_svg]:size-4" aria-hidden="true">
             {icon}
           </span>
           <span className="truncate text-sm font-semibold text-fg">{title}</span>
         </span>
-        <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-fg-muted group-hover:text-fg">
-          {t("viewDetails")}
-          <ArrowRight className="size-3.5 rtl-flip" aria-hidden="true" />
-        </span>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        {stats.map((s) => (
-          <div key={s.label} className="min-w-0">
-            <p className="truncate text-xs text-fg-muted">{s.label}</p>
-            <p className="mt-0.5 text-xl font-semibold tracking-tight text-fg tabular-nums">{s.value}</p>
-          </div>
-        ))}
-      </div>
-    </button>
+        <ChevronRight className="size-4 shrink-0 text-fg-muted transition-colors group-hover:text-fg rtl:rotate-180 sm:order-last" aria-hidden="true" />
+        <dl className="grid w-full grid-cols-2 gap-x-6 gap-y-1 sm:flex sm:w-auto sm:flex-1 sm:gap-10">
+          {stats.map((s) => (
+            <div key={s.label} className="min-w-0">
+              <dt className="truncate text-xs text-fg-muted">{s.label}</dt>
+              <dd className="text-sm font-semibold text-fg tabular-nums">{s.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </button>
+    </li>
   );
 }

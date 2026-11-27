@@ -493,3 +493,5 @@ Button radius: 8px
 **Sidebar item (active)**: `rgba(254,133,3,0.10)` background, `#fe8503` text
 
 **Section eyebrow (landing only)**: 12px, uppercase, wide tracking, `#fe8503` at 60% opacity. The product UI uses sentence-case `text-xs` labels instead.
+
+**Product page headers** have no label above the title: the title and one description line carry the page (the sidebar already names the section). `PageHeader`'s `label` prop is kept for compatibility but is not rendered. Never use a row of same-size icon-and-heading cards as page structure; a list with one row per item reads faster.
