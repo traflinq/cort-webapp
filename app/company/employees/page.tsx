@@ -1,19 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import { UserPlus, X } from "lucide-react";
+import { Ban, Check, Pencil, UserPlus, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import { useCompanyAccess } from "../lib/access-context";
 import { fetchEmployees, selectEmployees, selectEmployeesStatus, updateEmployee, deactivateEmployee } from "../../lib/store/slices/employeeSlice";
 import { apiClient } from "../../lib/services/api-client";
-import { Card } from "../components/DashboardComponents";
+import { Card } from "../components/Card";
+import { KpiTile } from "../components/overview/KpiTile";
+import { useCompanyLocale } from "../lib/locale-context";
+import { formatLocaleNumber } from "../../lib/i18n/format";
+import { Button, Dialog, DialogContent, Field, IconButton, InlineError, Input, StatusBadge, TableSkeletonRows } from "@/app/admin/ui";
 import { AccountCredentialsReveal, SaveCredentialsNote } from "../components/AccountCredentialsReveal";
-import { PageHeader, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
+import { PageHeader, TableEmptyState, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
 import Pagination from "../../components/ui/Pagination";
-import TablePageSkeleton from "../components/TablePageSkeleton";
-import TableSkeleton from "@/app/components/ui/TableSkeleton";
 import {
   getPhoneValidationError,
   PHONE_MAX_LENGTH,
@@ -22,44 +23,14 @@ import {
 } from "../../lib/utils/phone";
 import { toast } from "sonner";
 
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
-function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className={cx(
-        "h-9 rounded-lg border border-[var(--border-light)] bg-[var(--bg-card)] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/20 focus:border-[var(--cort-orange)] transition-all text-[var(--text-primary)] shadow-sm",
-        props.className,
-      )}
-    />
-  );
-}
-
 const PAGE_SIZE = 20;
-
-function StatTile({ label, value, tone }: { label: string; value: number; tone?: "good" | "bad" }) {
-  return (
-    <div className="rounded-xl border border-[var(--border-light)] bg-[var(--bg-card)] px-5 py-4 shadow-sm">
-      <div className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">{label}</div>
-      <div
-        className={cx(
-          "mt-1 text-2xl font-extrabold tabular-nums",
-          tone === "good" ? "text-emerald-500" : tone === "bad" ? "text-rose-500" : "text-[var(--text-primary)]",
-        )}
-      >
-        {value.toLocaleString()}
-      </div>
-    </div>
-  );
-}
 
 export default function EmployeesPage() {
   const t = useTranslations("company.employees");
   const tCredentials = useTranslations("company.credentials");
   const tCommon = useTranslations("common");
+  const { locale } = useCompanyLocale();
+  const num = (v: number) => formatLocaleNumber(v, locale);
   const dispatch = useAppDispatch();
   const { company, access } = useCompanyAccess();
   const isTrialUser = !!access.trial;
@@ -218,154 +189,127 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
-      <PageHeader label={t("label")} title={t("title")} />
+    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 pb-12">
+      <PageHeader
+        label={t("label")}
+        title={t("title")}
+        action={
+          <Button
+            leftIcon={<UserPlus />}
+            onClick={() => setShowAddEmployee(true)}
+            disabled={atEmployeeLimit}
+            title={atEmployeeLimit ? t("trialBanner", { used: employees.length, max: maxEmployees }) : undefined}
+          >
+            {t("addEmployee")}
+          </Button>
+        }
+      />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatTile label={t("totalEmployees")} value={totalEmployees} />
-        <StatTile label={t("activeEmployees")} value={activeEmployees} tone="good" />
-        <StatTile label={t("inactiveEmployees")} value={totalEmployees - activeEmployees} tone="bad" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <KpiTile label={t("totalEmployees")} value={num(totalEmployees)} />
+        <KpiTile label={t("activeEmployees")} value={num(activeEmployees)} />
+        <KpiTile label={t("inactiveEmployees")} value={num(totalEmployees - activeEmployees)} />
       </div>
 
       {isTrialUser && (
-        <div className="alert-banner-warning">
+        <div role="note" className="rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm text-fg">
           {t("trialBanner", { used: employees.length, max: maxEmployees })}
         </div>
       )}
 
-      <Card className={`min-h-[500px] ${TABLE_CARD_CLASS}`}>
+      <Card className={TABLE_CARD_CLASS}>
         <div className={TABLE_TOP_BAR_CLASS}>
-          <div className="flex items-start justify-between gap-4 w-full">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-[var(--cort-orange)]/10 border border-[var(--cort-orange)]/20 rounded-lg text-[var(--cort-orange)]">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </div>
-              <div>
-                <div className="text-sm font-bold text-[var(--text-primary)]">
-                  {isTrialUser ? t("trialInfoTitle") : t("infoTitle")}
-                </div>
-                <div className="text-sm text-[var(--text-muted)] mt-0.5 leading-relaxed max-w-3xl">
-                  {isTrialUser ? t("trialInfoDescription") : t("infoDescription")}
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowAddEmployee(true)}
-              disabled={atEmployeeLimit}
-              title={atEmployeeLimit ? t("trialBanner", { used: employees.length, max: maxEmployees }) : undefined}
-              className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[var(--cort-orange)] px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <UserPlus className="w-4 h-4" />
-              {t("addEmployee")}
-            </button>
-          </div>
+          <h2 className="text-sm font-semibold text-fg">
+            {isTrialUser ? t("trialInfoTitle") : t("infoTitle")}
+          </h2>
+          <p className="mt-0.5 max-w-3xl text-sm text-fg-muted">
+            {isTrialUser ? t("trialInfoDescription") : t("infoDescription")}
+          </p>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm text-start">
+          <table className="min-w-full text-start text-sm">
             <thead>
-              <tr className="border-b border-[var(--border-light)]">
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("employeeId")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("fullName")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("phone")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("email")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("department")}</th>
-                <th className={TABLE_HEADER_CELL_CLASS}>{t("status")}</th>
+              <tr className="border-b border-line text-start">
+                <th className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("employeeId")}</th>
+                <th className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("fullName")}</th>
+                <th className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("phone")}</th>
+                <th className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("email")}</th>
+                <th className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("department")}</th>
+                <th className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("status")}</th>
                 <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("actions")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border-light)]/50">
+            <tbody className="divide-y divide-line">
               {loading && employees.length === 0 ? (
-                <TableSkeleton columns={7} rows={8} />
+                <TableSkeletonRows columns={7} rows={8} />
               ) : employees.length === 0 && !loading ? (
-                <tr>
-                  <td colSpan={7} className={`${TABLE_CELL_CLASS} py-12 text-center text-[var(--text-muted)]`}>
-                    {t("noEmployees")}
-                  </td>
-                </tr>
+                <TableEmptyState message={t("noEmployees")} icon={Users} />
               ) : (
                 pagedEmployees.map((e) => {
                   const isEditing = editingId === e.id;
+                  const isActive = e.status.toLowerCase() === "active";
                   return (
-                    <tr key={e.id} className={`group transition-colors ${isEditing ? 'bg-[var(--cort-orange)]/5' : 'hover:bg-[var(--surface-subtle)]/80'}`}>
-                      <td className={`${TABLE_CELL_CLASS} font-mono text-xs text-[var(--text-muted)]`}>{e.employee_id || "—"}</td>
-                      <td className={`${TABLE_CELL_CLASS} font-bold text-[var(--text-primary)]`}>{e.full_name}</td>
+                    <tr key={e.id} className={isEditing ? "bg-subtle" : "transition-colors hover:bg-row-hover"}>
+                      <td className={`${TABLE_CELL_CLASS} font-mono text-xs text-fg-muted`}>{e.employee_id || "—"}</td>
+                      <td className={`${TABLE_CELL_CLASS} font-medium text-fg`}>{e.full_name}</td>
                       <td className={TABLE_CELL_CLASS}>
                         {isEditing ? (
-                          <TextInput
+                          <Input
                             type="tel"
                             inputMode="numeric"
                             maxLength={PHONE_MAX_LENGTH}
                             value={editPhone}
                             onChange={(ev) => setEditPhone(sanitizePhoneInput(ev.target.value))}
                             placeholder={tCommon("validation.phonePlaceholder")}
+                            aria-label={t("phone")}
+                            className="h-8 min-w-36"
                           />
                         ) : (
-                          <span className="text-[var(--text-secondary)] font-medium">{e.phone || "—"}</span>
+                          <span className="ltr-content text-fg-secondary">{e.phone || "—"}</span>
                         )}
                       </td>
                       <td className={TABLE_CELL_CLASS}>
                         {isEditing ? (
-                          <TextInput
+                          <Input
                             value={editEmail}
                             onChange={(ev) => setEditEmail(ev.target.value)}
                             placeholder={t("email")}
+                            aria-label={t("email")}
+                            className="h-8 min-w-48"
                           />
                         ) : (
-                          <span className="text-[var(--text-secondary)]">{e.email || "—"}</span>
+                          <span className="ltr-content text-fg-secondary">{e.email || "—"}</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-[var(--text-muted)]">{e.department || "—"}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${e.status.toLowerCase() === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                          'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                          }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full me-1.5 ${e.status.toLowerCase() === 'active' ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
-                          {e.status}
-                        </span>
+                      <td className={`${TABLE_CELL_CLASS} text-fg-secondary`}>{e.department || "—"}</td>
+                      <td className={TABLE_CELL_CLASS}>
+                        <StatusBadge status={e.status} size="sm" />
                       </td>
                       <td className={`${TABLE_CELL_CLASS} text-end`}>
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1">
                           {isEditing ? (
                             <>
-                              <button
-                                type="button"
-                                onClick={() => saveEdit(e)}
-                                className="inline-flex h-8 items-center justify-center rounded-lg bg-[var(--cort-orange)] px-3 text-xs font-bold text-[var(--text-primary)] shadow-sm hover:bg-[var(--cort-orange-hover)] transition-colors"
-                              >
+                              <Button size="sm" onClick={() => saveEdit(e)}>
                                 {tCommon("actions.save")}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={cancelEdit}
-                                className="inline-flex h-8 items-center justify-center rounded-lg border border-[var(--border-input)] bg-[var(--bg-subtle)] px-3 text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
-                              >
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={cancelEdit}>
                                 {tCommon("actions.cancel")}
-                              </button>
+                              </Button>
                             </>
                           ) : (
                             <>
-                              <button
-                                type="button"
-                                onClick={() => startEdit(e)}
-                                className="p-1.5 text-[var(--text-muted)] hover:text-[var(--cort-orange)] hover:bg-[var(--cort-orange)]/10 rounded-lg transition-colors"
-                                title={t("editDetails")}
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                              </button>
-                              <button
-                                type="button"
+                              <IconButton label={t("editDetails")} size="icon-sm" onClick={() => startEdit(e)}>
+                                <Pencil />
+                              </IconButton>
+                              <IconButton
+                                label={isActive ? t("deactivateUser") : t("activateUser")}
+                                size="icon-sm"
                                 onClick={() => handleDeactivate(e)}
-                                className={`p-1.5 rounded-lg transition-colors ${e.status.toLowerCase() === 'active' ? 'text-[var(--text-muted)] hover:text-rose-400 hover:bg-rose-500/10' : 'text-[var(--text-muted)] hover:text-emerald-400 hover:bg-emerald-500/10'}`}
-                                title={e.status.toLowerCase() === "active" ? t("deactivateUser") : t("activateUser")}
+                                className={isActive ? "hover:bg-danger-soft hover:text-danger-ink" : "hover:bg-success-soft hover:text-success-ink"}
                               >
-                                {e.status.toLowerCase() === "active" ? (
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-                                ) : (
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                )}
-                              </button>
+                                {isActive ? <Ban /> : <Check />}
+                              </IconButton>
                             </>
                           )}
                         </div>
@@ -378,8 +322,8 @@ export default function EmployeesPage() {
           </table>
         </div>
         {totalEmployees > 0 && (
-          <div className="flex flex-col items-center justify-between gap-3 border-t border-[var(--border-light)] p-6 sm:flex-row">
-            <div className="text-sm text-[var(--text-muted)]">
+          <div className="flex flex-col items-center justify-between gap-3 border-t border-line px-4 py-3 sm:flex-row sm:px-5">
+            <div className="text-xs tabular-nums text-fg-muted">
               {t("showingRange", {
                 from: pageStart + 1,
                 to: Math.min(pageStart + PAGE_SIZE, totalEmployees),
@@ -391,97 +335,75 @@ export default function EmployeesPage() {
         )}
       </Card>
 
-      {showAddEmployee && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-[var(--text-primary)]">
-                {employeeCreated ? t("employeeCreatedTitle") : t("addEmployee")}
-              </h2>
-              <button type="button" onClick={closeAddEmployeeModal} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {employeeCreated ? (
-              <div className="space-y-5">
-                {createdCredentials ? (
-                  <AccountCredentialsReveal
-                    email={createdCredentials.email}
-                    password={createdCredentials.password}
-                    fullName={createdCredentials.full_name}
-                    subtitle={tCredentials("employeeAppSubtitle")}
-                    accountTypeKey="employee"
-                  />
-                ) : (
-                  <SaveCredentialsNote accountTypeKey="employee" />
-                )}
-                <div className="flex justify-end pt-2">
-                  <button
-                    type="button"
-                    onClick={closeAddEmployeeModal}
-                    className="bg-[var(--cort-orange)] text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm font-bold hover:bg-[var(--cort-orange-hover)] transition-colors"
-                  >
-                    {tCredentials("done")}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleAddEmployee} className="space-y-4">
+      <Dialog open={showAddEmployee} onOpenChange={(open) => { if (!open) closeAddEmployeeModal(); }}>
+        <DialogContent
+          size="md"
+          title={employeeCreated ? t("employeeCreatedTitle") : t("addEmployee")}
+          onInteractOutside={(ev) => ev.preventDefault()}
+        >
+          {employeeCreated ? (
+            <div className="space-y-5">
+              {createdCredentials ? (
+                <AccountCredentialsReveal
+                  email={createdCredentials.email}
+                  password={createdCredentials.password}
+                  fullName={createdCredentials.full_name}
+                  subtitle={tCredentials("employeeAppSubtitle")}
+                  accountTypeKey="employee"
+                />
+              ) : (
                 <SaveCredentialsNote accountTypeKey="employee" />
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("fullName")} *</label>
-                    <TextInput required value={employeeForm.full_name} onChange={(e) => setEmployeeForm((f) => ({ ...f, full_name: e.target.value }))} placeholder={t("namePlaceholder")} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("employeeId")}</label>
-                    <TextInput value={employeeForm.employee_id} onChange={(e) => setEmployeeForm((f) => ({ ...f, employee_id: e.target.value }))} placeholder={t("employeeIdPlaceholder")} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("department")}</label>
-                    <TextInput value={employeeForm.department} onChange={(e) => setEmployeeForm((f) => ({ ...f, department: e.target.value }))} placeholder={t("departmentPlaceholder")} />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("email")} *</label>
-                    <TextInput required type="email" value={employeeForm.email} onChange={(e) => setEmployeeForm((f) => ({ ...f, email: e.target.value }))} placeholder={t("emailPlaceholder")} />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{t("phone")}</label>
-                    <TextInput
-                      type="tel"
-                      inputMode="numeric"
-                      maxLength={PHONE_MAX_LENGTH}
-                      value={employeeForm.phone}
-                      onChange={(e) => setEmployeeForm((f) => ({ ...f, phone: sanitizePhoneInput(e.target.value) }))}
-                      placeholder={PHONE_PLACEHOLDER}
-                    />
-                  </div>
-                </div>
-                {employeeFormError && (
-                  <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                    {employeeFormError}
-                  </div>
-                )}
-                <div className="flex justify-end gap-3 pt-2">
-                  <button type="button" onClick={closeAddEmployeeModal} className="border border-[var(--border-light)] text-[var(--text-secondary)] px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--surface-subtle)] transition-colors">
-                    {tCommon("actions.cancel")}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={employeeSaving || !employeeForm.full_name.trim() || !employeeForm.email.trim()}
-                    className="inline-flex items-center gap-2 bg-[var(--cort-orange)] text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm font-bold hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 transition-colors"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    {employeeSaving ? t("addingEmployee") : t("addEmployee")}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>,
-        document.body,
-      )}
+              )}
+              <div className="flex justify-end">
+                <Button type="button" onClick={closeAddEmployeeModal}>
+                  {tCredentials("done")}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleAddEmployee} className="space-y-4">
+              <SaveCredentialsNote accountTypeKey="employee" />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label={t("fullName")} required className="sm:col-span-2">
+                  <Input required value={employeeForm.full_name} onChange={(e) => setEmployeeForm((f) => ({ ...f, full_name: e.target.value }))} placeholder={t("namePlaceholder")} />
+                </Field>
+                <Field label={t("employeeId")}>
+                  <Input value={employeeForm.employee_id} onChange={(e) => setEmployeeForm((f) => ({ ...f, employee_id: e.target.value }))} placeholder={t("employeeIdPlaceholder")} />
+                </Field>
+                <Field label={t("department")}>
+                  <Input value={employeeForm.department} onChange={(e) => setEmployeeForm((f) => ({ ...f, department: e.target.value }))} placeholder={t("departmentPlaceholder")} />
+                </Field>
+                <Field label={t("email")} required className="sm:col-span-2">
+                  <Input required type="email" value={employeeForm.email} onChange={(e) => setEmployeeForm((f) => ({ ...f, email: e.target.value }))} placeholder={t("emailPlaceholder")} />
+                </Field>
+                <Field label={t("phone")} className="sm:col-span-2">
+                  <Input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={PHONE_MAX_LENGTH}
+                    value={employeeForm.phone}
+                    onChange={(e) => setEmployeeForm((f) => ({ ...f, phone: sanitizePhoneInput(e.target.value) }))}
+                    placeholder={PHONE_PLACEHOLDER}
+                  />
+                </Field>
+              </div>
+              {employeeFormError && <InlineError>{employeeFormError}</InlineError>}
+              <div className="flex justify-end gap-2 pt-1">
+                <Button type="button" variant="outline" onClick={closeAddEmployeeModal}>
+                  {tCommon("actions.cancel")}
+                </Button>
+                <Button
+                  type="submit"
+                  leftIcon={<UserPlus />}
+                  disabled={employeeSaving || !employeeForm.full_name.trim() || !employeeForm.email.trim()}
+                >
+                  {employeeSaving ? t("addingEmployee") : t("addEmployee")}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

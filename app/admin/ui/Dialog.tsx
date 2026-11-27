@@ -90,7 +90,7 @@ const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.C
             </div>
             {!hideClose && (
               <DialogPrimitive.Close asChild>
-                <IconButton label="Close" size="icon-sm" tooltip={false} className="-mr-1.5 -mt-1">
+                <IconButton label="Close" size="icon-sm" tooltip={false} className="-me-1.5 -mt-1">
                   <X />
                 </IconButton>
               </DialogPrimitive.Close>

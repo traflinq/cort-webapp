@@ -29,8 +29,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         className={cn(
           inputBase,
           "[&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60",
-          leftIcon && "pl-9",
-          rightIcon && "pr-9",
+          leftIcon && "ps-9",
+          rightIcon && "pe-9",
           mono && "font-mono tabular-nums",
           className,
         )}
@@ -43,13 +43,13 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="relative w-full">
         {leftIcon && (
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted [&_svg]:size-4">
+          <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-fg-muted [&_svg]:size-4">
             {leftIcon}
           </span>
         )}
         {input}
         {rightIcon && (
-          <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center text-fg-muted [&_svg]:size-4">
+          <span className="absolute end-2 top-1/2 flex -translate-y-1/2 items-center text-fg-muted [&_svg]:size-4">
             {rightIcon}
           </span>
         )}

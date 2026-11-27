@@ -5,12 +5,14 @@ import { useTranslations } from "next-intl";
 import { CalendarDays, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/admin/ui/Popover";
+import { Button } from "@/app/admin/ui";
 import { MAX_RANGE_DAYS, presetRange, rangeProblem, todayPkt, useFmt, type CostFilters, type Preset } from "./hooks";
 import type { FilterOptions } from "./types";
 
 const PRESETS: Preset[] = ["thisMonth", "lastMonth", "last30", "last90"];
 
-const field = "h-9 rounded-xl border border-line bg-card px-3 text-sm text-fg outline-none focus:border-brand-line";
+const field =
+  "h-9 rounded-lg border border-line bg-card px-3 text-sm text-fg transition-colors hover:border-line-strong focus-visible:outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-ring/30";
 
 /**
  * Date range behind one button (calendar icon + the current range), like the super-admin picker:
@@ -43,7 +45,7 @@ function DateRangeButton({ from, to, onApply }: { from: string; to: string; onAp
       <PopoverTrigger asChild>
         <button type="button" aria-label={`${t("period")}: ${text}`} className={cn(field, "flex items-center gap-2 hover:bg-subtle")}>
           <CalendarDays className="size-4 text-fg-muted" aria-hidden />
-          <span className="truncate">{text}</span>
+          <span className="truncate tabular-nums">{text}</span>
           <ChevronDown className="size-4 text-fg-muted" aria-hidden />
         </button>
       </PopoverTrigger>
@@ -57,8 +59,8 @@ function DateRangeButton({ from, to, onApply }: { from: string; to: string; onAp
                 aria-pressed={activePreset === p}
                 onClick={() => apply(presetRange(p))}
                 className={cn(
-                  "rounded-md px-2.5 py-1.5 text-start text-sm transition-colors hover:bg-subtle hover:text-fg",
-                  activePreset === p ? "bg-brand-soft font-medium text-brand-ink" : "text-fg-muted",
+                  "rounded-md px-2.5 py-1.5 text-start text-sm transition-colors hover:bg-subtle hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  activePreset === p ? "bg-subtle font-medium text-fg" : "text-fg-muted",
                 )}
               >
                 {t(p)}
@@ -80,12 +82,12 @@ function DateRangeButton({ from, to, onApply }: { from: string; to: string; onAp
               </span>
             )}
             <div className="flex items-center justify-end gap-2 pt-1">
-              <button type="button" onClick={() => setOpen(false)} className="h-8 rounded-lg border border-line px-3 text-xs font-semibold text-fg hover:bg-subtle">
+              <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
                 {t("cancel")}
-              </button>
-              <button type="button" disabled={!!problem} onClick={() => apply(draft)} className="h-8 rounded-lg bg-brand px-3 text-xs font-semibold text-white disabled:opacity-50">
+              </Button>
+              <Button size="sm" disabled={!!problem} onClick={() => apply(draft)}>
                 {t("apply")}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -144,10 +146,9 @@ export function CostFilterBar({
             </select>
           )}
           {scoped && (
-            <button type="button" onClick={() => onChange({ routeId: "", vehicleId: "", vendor: "" })} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-fg-muted hover:bg-subtle hover:text-fg">
-              <X className="size-3.5" />
+            <Button variant="ghost" size="sm" onClick={() => onChange({ routeId: "", vehicleId: "", vendor: "" })} leftIcon={<X aria-hidden="true" />}>
               {t("clear")}
-            </button>
+            </Button>
           )}
         </>
       )}

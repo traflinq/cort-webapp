@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { focusRing } from "@/app/admin/ui";
 import { useChartColors } from "./charts";
 import type { MapGeometry } from "./types";
 import type { MapMarker, MapPolyline } from "@/app/admin/ui/Map";
@@ -65,9 +66,9 @@ export function RouteCompareMap({ geometry }: { geometry: MapGeometry }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div role="group" aria-label={t("view")} className="flex gap-1 rounded-xl border border-line bg-card p-1">
+        <div role="group" aria-label={t("view")} className="flex gap-1 rounded-lg bg-subtle p-1">
           {views.map((v) => (
-            <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("rounded-lg px-3 py-1 text-xs font-medium", view === v ? "bg-brand text-white" : "text-fg-muted hover:bg-subtle")}>
+            <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("h-7 rounded-md px-3 text-xs font-medium transition-colors", focusRing, view === v ? "bg-card text-fg shadow-xs" : "text-fg-muted hover:text-fg")}>
               {t(v)}
             </button>
           ))}
@@ -76,7 +77,8 @@ export function RouteCompareMap({ geometry }: { geometry: MapGeometry }) {
           {geometry.routes.map((r, i) => (
             <li key={i} className="flex items-center gap-1.5">
               <span
-                className="inline-block h-0.5 w-5"
+                aria-hidden="true"
+                className="inline-block w-5 shrink-0 rounded-full"
                 style={{
                   background:
                     r.role === "PROPOSED"
@@ -92,7 +94,7 @@ export function RouteCompareMap({ geometry }: { geometry: MapGeometry }) {
           ))}
         </ul>
       </div>
-      <div className="overflow-hidden rounded-2xl border border-line">
+      <div className="overflow-hidden rounded-xl border border-line">
         <Map markers={markers} polylines={polylines} height="380px" autoFit />
       </div>
       <p className="text-xs text-fg-muted">{t("legend")}</p>

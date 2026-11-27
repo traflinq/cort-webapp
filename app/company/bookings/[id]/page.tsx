@@ -10,17 +10,44 @@ import { BookingVendorRequest } from "../../../lib/services/types/multi-mode";
 import { toast } from "sonner";
 import { useCompanyLocale } from "../../lib/locale-context";
 import { formatLocaleDate } from "../../../lib/i18n/format";
+import { Badge, Button, EmptyState, LoadingBlock, PageHeader, StatusBadge, type StatusEntry } from "@/app/admin/ui";
+import { cn } from "@/lib/utils";
+import { Card } from "../../components/Card";
+import { TABLE_CELL_CLASS, TABLE_HEADER_CELL_CLASS } from "../../components/PageLayout";
 
-function cx(...classes: Array<string | false | null | undefined>) {
-    return classes.filter(Boolean).join(" ");
-}
-
-const STATUS_COLORS: Record<string, string> = {
-    PENDING: "bg-yellow-100 text-yellow-700",
-    ACCEPTED: "bg-green-100 text-green-700",
-    REJECTED: "bg-red-100 text-red-700",
-    EXPIRED: "bg-gray-100 text-gray-500",
+/** Booking + vendor-request statuses → shared badge tones. */
+const STATUS_TONES: Record<string, StatusEntry> = {
+    PENDING: { tone: "warning" },
+    ACCEPTED: { tone: "success" },
+    REJECTED: { tone: "danger" },
+    EXPIRED: { tone: "neutral" },
+    ARRIVED: { tone: "info" },
+    IN_PROGRESS: { tone: "purple" },
 };
+
+const STATUS_LABEL_KEYS: Record<string, "pending" | "assigned" | "arrived" | "inProgress" | "completed" | "cancelled"> = {
+    PENDING: "pending",
+    ASSIGNED: "assigned",
+    ARRIVED: "arrived",
+    IN_PROGRESS: "inProgress",
+    COMPLETED: "completed",
+    CANCELLED: "cancelled",
+};
+
+const FULFILLMENT_LABEL_KEYS: Record<string, "cortManaged" | "externalVendor" | "selfManaged"> = {
+    CORT_MANAGED: "cortManaged",
+    EXTERNAL_VENDOR: "externalVendor",
+    SELF_MANAGED: "selfManaged",
+};
+
+function DetailItem({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div className="min-w-0">
+            <dt className="text-xs font-medium text-fg-muted">{label}</dt>
+            <dd className="mt-1 text-sm text-fg">{children}</dd>
+        </div>
+    );
+}
 
 export default function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -73,12 +100,28 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
         }
     };
 
+    const statusLabel = (status: string | undefined) => {
+        const key = status ? STATUS_LABEL_KEYS[status] : undefined;
+        return key ? tCommon(`status.${key}`) : undefined;
+    };
+
     if (loading) {
-        return <div className="p-8 text-sm text-gray-400">{t("loadingBooking")}</div>;
+        return <LoadingBlock label={t("loadingBooking")} />;
     }
 
     if (!booking) {
-        return <div className="p-8 text-sm text-gray-500">{t("bookingNotFound")}</div>;
+        return (
+            <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 pb-12">
+                <EmptyState
+                    title={t("bookingNotFound")}
+                    action={
+                        <Button variant="outline" asChild>
+                            <Link href="/company/bookings">{t("backToBookings")}</Link>
+                        </Button>
+                    }
+                />
+            </div>
+        );
     }
 
     const bookingData = booking as ChauffeurBooking & {
@@ -91,6 +134,8 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
     };
     const isExternalVendor = bookingData.fulfillment_type === "EXTERNAL_VENDOR";
     const showVendorResponses = isExternalVendor || vendorRequests.length > 0;
+    const fulfillmentValue = bookingData.fulfillment_type ?? "CORT_MANAGED";
+    const fulfillmentKey = FULFILLMENT_LABEL_KEYS[fulfillmentValue];
 
     const vendorTableHeaders = [
         t("vendors.vendorName"),
@@ -102,109 +147,100 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
     ];
 
     return (
-        <div className="p-6 space-y-6 max-w-4xl mx-auto">
-            <Link href="/company/bookings" className="inline-flex items-center gap-1 text-sm text-[#f47f00] hover:underline">
-                ← {t("backToBookings")}
-            </Link>
+        <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-col gap-6 pb-12">
+            <PageHeader
+                back={{ href: "/company/bookings", label: t("backToBookings") }}
+                title={<span className="tabular-nums">#{booking.id}</span>}
+                description={bookingData.service_category ?? t("chauffeurRide")}
+                meta={
+                    <StatusBadge
+                        status={bookingData.status}
+                        label={statusLabel(bookingData.status)}
+                        overrides={STATUS_TONES}
+                    />
+                }
+            />
 
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                <div className="flex items-start justify-between mb-4">
-                    <div>
-                        <h1 className="text-xl font-bold text-[#0c225e]">#{booking.id}</h1>
-                        <p className="text-sm text-gray-500 mt-0.5">{bookingData.service_category ?? t("chauffeurRide")}</p>
-                    </div>
-                    <span className={cx("inline-flex px-3 py-1 rounded-full text-xs font-semibold", STATUS_COLORS[bookingData.status ?? ""] ?? "bg-gray-100 text-gray-500")}>
-                        {bookingData.status ?? "—"}
-                    </span>
-                </div>
-
-                <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-                    <div>
-                        <dt className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t("pickup")}</dt>
-                        <dd className="text-gray-800 mt-0.5">{bookingData.pickup_address ?? "—"}</dd>
-                    </div>
-                    <div>
-                        <dt className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t("scheduledFor")}</dt>
-                        <dd className="text-gray-800 mt-0.5 ltr-content">
+            <Card>
+                <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <DetailItem label={t("pickup")}>{bookingData.pickup_address ?? "—"}</DetailItem>
+                    <DetailItem label={t("scheduledFor")}>
+                        <span className="ltr-content tabular-nums">
                             {bookingData.scheduled_for
                                 ? formatLocaleDate(bookingData.scheduled_for, locale, { dateStyle: "medium", timeStyle: "short" })
                                 : "—"}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t("package")}</dt>
-                        <dd className="text-gray-800 mt-0.5">{bookingData.package_selected ?? "—"}</dd>
-                    </div>
-                    <div>
-                        <dt className="text-xs text-gray-400 font-medium uppercase tracking-wider">{t("fulfillment")}</dt>
-                        <dd className="mt-0.5">
-                            <span className={cx("inline-flex px-2 py-0.5 rounded text-xs font-semibold",
-                                isExternalVendor ? "bg-blue-100 text-blue-700" :
-                                bookingData.fulfillment_type === "SELF_MANAGED" ? "bg-purple-100 text-purple-700" :
-                                "bg-orange-100 text-orange-700"
-                            )}>
-                                {bookingData.fulfillment_type ?? "CORT_MANAGED"}
-                            </span>
-                        </dd>
-                    </div>
+                        </span>
+                    </DetailItem>
+                    <DetailItem label={t("package")}>{bookingData.package_selected ?? "—"}</DetailItem>
+                    <DetailItem label={t("fulfillment")}>
+                        <Badge tone="neutral">
+                            {fulfillmentKey ? tCommon(`fulfillment.${fulfillmentKey}`) : fulfillmentValue}
+                        </Badge>
+                    </DetailItem>
                 </dl>
-            </div>
+            </Card>
 
             {showVendorResponses && (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                    {!isExternalVendor && vendorRequests.length > 0 && (
-                        <p className="text-xs text-slate-600 mb-3">
-                            {t("vendorBroadcastNote")}
-                        </p>
-                    )}
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-base font-bold text-[#0c225e]">{t("vendorResponses")}</h2>
-                        {vendorRequests.some((r) => r.status === "PENDING") && (
-                            <span className="text-xs text-gray-400">{t("autoRefreshing")}</span>
+                <Card className="overflow-hidden p-0 sm:p-0">
+                    <div className="flex flex-col gap-1 border-b border-line px-4 py-3 sm:px-5">
+                        <div className="flex items-center justify-between gap-3">
+                            <h2 className="text-sm font-semibold text-fg">{t("vendorResponses")}</h2>
+                            {vendorRequests.some((r) => r.status === "PENDING") && (
+                                <span className="text-xs text-fg-muted">{t("autoRefreshing")}</span>
+                            )}
+                        </div>
+                        {!isExternalVendor && vendorRequests.length > 0 && (
+                            <p className="text-xs text-fg-muted">{t("vendorBroadcastNote")}</p>
                         )}
                     </div>
 
                     {vendorRequests.length === 0 ? (
-                        <p className="text-sm text-gray-400">{t("noVendorResponses")}</p>
+                        <EmptyState compact title={t("noVendorResponses")} />
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead className="bg-gray-50 border-b border-gray-200">
+                            <table className="min-w-full text-sm">
+                                <thead className="border-b border-line bg-subtle/50">
                                     <tr>
-                                        {vendorTableHeaders.map((h) => (
-                                            <th key={h} className="px-3 py-2.5 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
+                                        {vendorTableHeaders.map((h, i) => (
+                                            <th
+                                                key={h}
+                                                scope="col"
+                                                className={cn(TABLE_HEADER_CELL_CLASS, i === vendorTableHeaders.length - 1 ? "text-end" : "text-start")}
+                                            >
+                                                {h}
+                                            </th>
                                         ))}
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
+                                <tbody className="divide-y divide-line">
                                     {vendorRequests.map((req) => (
-                                        <tr key={req.id} className={cx("hover:bg-gray-50", req.status === "ACCEPTED" && "bg-green-50")}>
-                                            <td className="px-3 py-3 font-medium text-gray-900">
+                                        <tr key={req.id} className="transition-colors hover:bg-row-hover">
+                                            <td className={cn(TABLE_CELL_CLASS, "font-medium text-fg")}>
                                                 {req.company_vendor_links?.companies?.name ?? `Link #${req.company_vendor_link_id}`}
                                             </td>
-                                            <td className="px-3 py-3">
-                                                <span className={cx("inline-flex px-2 py-0.5 rounded-full text-xs font-semibold", STATUS_COLORS[req.status] ?? "bg-gray-100 text-gray-500")}>
-                                                    {req.status}
-                                                </span>
+                                            <td className={TABLE_CELL_CLASS}>
+                                                <StatusBadge status={req.status} label={statusLabel(req.status)} overrides={STATUS_TONES} />
                                             </td>
-                                            <td className="px-3 py-3 text-gray-600">
+                                            <td className={cn(TABLE_CELL_CLASS, "text-fg-secondary")}>
                                                 {req.vehicles ? `${req.vehicles.plate_number} — ${req.vehicles.make} ${req.vehicles.model}` : "—"}
                                             </td>
-                                            <td className="px-3 py-3 text-gray-600">
+                                            <td className={cn(TABLE_CELL_CLASS, "text-fg-secondary")}>
                                                 {req.users?.full_name ?? "—"}
                                             </td>
-                                            <td className="px-3 py-3 text-gray-500 text-xs ltr-content">
-                                                {req.responded_at ? formatLocaleDate(req.responded_at, locale, { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                                            <td className={cn(TABLE_CELL_CLASS, "whitespace-nowrap text-xs text-fg-muted")}>
+                                                <span className="ltr-content">
+                                                    {req.responded_at ? formatLocaleDate(req.responded_at, locale, { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                                                </span>
                                             </td>
-                                            <td className="px-3 py-3">
+                                            <td className={cn(TABLE_CELL_CLASS, "py-2 text-end")}>
                                                 {req.status === "ACCEPTED" && (
-                                                    <button
+                                                    <Button
+                                                        size="sm"
                                                         onClick={() => confirmVendor(req.id)}
-                                                        disabled={confirming === req.id}
-                                                        className="bg-[#f47f00] text-white text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-50 hover:bg-[#d96e00] transition-colors"
+                                                        loading={confirming === req.id}
                                                     >
                                                         {confirming === req.id ? t("confirming") : t("confirmVendor")}
-                                                    </button>
+                                                    </Button>
                                                 )}
                                             </td>
                                         </tr>
@@ -213,7 +249,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
                             </table>
                         </div>
                     )}
-                </div>
+                </Card>
             )}
         </div>
     );

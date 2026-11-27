@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { Building2, MapPin, Trash2 } from "lucide-react";
+import { Building2, ChevronRight, MapPin, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCompanyAccess } from "../../lib/access-context";
 import { apiClient, canServeShuttle } from "../../../lib/services/api-client";
 import { PoolDriver, PoolVehicle } from "../../../lib/services/types/multi-mode";
 import StopAddressSearch from "@/app/admin/ui/StopAddressSearch";
 import type { MapMarker, MapPolyline } from "@/app/admin/ui/Map";
+import { Badge, Button, Field, IconButton, Input, Label, PageHeader, Select, focusRing } from "@/app/admin/ui";
+import { cn } from "@/lib/utils";
+import { Card } from "../../components/Card";
 
 const Map = dynamic(() => import("@/app/admin/ui/Map"), { ssr: false });
 
@@ -24,10 +27,27 @@ interface Stop {
     eveningEta: string;
 }
 
-const inputCls = "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm";
-const labelCls = "block text-xs font-semibold text-gray-500 mb-1";
-const cancelBtnCls = "rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50";
-const saveBtnCls = "rounded-lg bg-[#0c225e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0c225e]/90 disabled:opacity-60";
+/** Google Maps pin colours; the legend dots reuse them so the two always match. */
+const OFFICE_PIN_COLOR = "#ef4444";
+const PICKUP_PIN_COLOR = "#6e7ff0";
+
+function PinDot({ color }: { color: string }) {
+    return <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />;
+}
+
+/** Stop names in travel order, separated by direction-aware chevrons. */
+function StopPath({ names }: { names: { label: string; strong?: boolean }[] }) {
+    return (
+        <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
+            {names.map((n, i) => (
+                <span key={`${n.label}-${i}`} className="inline-flex items-center gap-1">
+                    {i > 0 && <ChevronRight className="size-3 shrink-0 text-fg-muted rtl:rotate-180" aria-hidden="true" />}
+                    <span className={n.strong ? "font-medium text-fg" : "text-fg-secondary"}>{n.label}</span>
+                </span>
+            ))}
+        </span>
+    );
+}
 
 function makeStop(
     name: string,
@@ -211,13 +231,13 @@ export default function CompanyCreateRoutePage() {
             id: s.id,
             position: [s.lat, s.lng] as [number, number],
             label: `${index + 1}. ${s.name}`,
-            color: "#6366f1",
+            color: PICKUP_PIN_COLOR,
         })),
         ...officeStops.map((s) => ({
             id: s.id,
             position: [s.lat, s.lng] as [number, number],
             label: `Office · ${s.name}`,
-            color: "#ef4444",
+            color: OFFICE_PIN_COLOR,
         })),
     ];
 
@@ -234,82 +254,84 @@ export default function CompanyCreateRoutePage() {
         ? [pickupStops[0].lat, pickupStops[0].lng]
         : undefined;
 
-    return (
-        <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col p-6 max-w-[1600px] mx-auto">
-            <div className="flex justify-between items-center shrink-0">
-                <div>
-                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">Create Shuttle Route</h1>
-                    <p className="text-sm text-[var(--text-muted)] mt-1">
-                        Add one company office, or more if this route serves multiple offices.
-                    </p>
-                </div>
-                <div className="flex gap-2">
-                    <button type="button" onClick={() => router.back()} className={cancelBtnCls}>Cancel</button>
-                    <button type="button" onClick={handleSubmit} disabled={saving} className={saveBtnCls}>
-                        {saving ? "Saving…" : "Save Route"}
-                    </button>
-                </div>
-            </div>
+    const segmentCls = (active: boolean) =>
+        cn(
+            "inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-colors [&_svg]:size-3.5",
+            focusRing,
+            active ? "bg-card text-fg shadow-xs" : "text-fg-muted hover:text-fg",
+        );
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-default)] p-4 flex flex-col gap-4 overflow-y-auto">
-                    <div>
-                        <label className={labelCls}>Route name *</label>
-                        <input required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="e.g. Gulshan — Office" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                        <div>
-                            <label className={labelCls}>Vehicle</label>
-                            <select className={inputCls} value={assignedVehicleId} onChange={(e) => setAssignedVehicleId(e.target.value)}>
-                                <option value="">Select…</option>
+    const updateOffice = (id: string, patch: Partial<Stop>) =>
+        setOfficeStops((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+    const updatePickup = (id: string, patch: Partial<Stop>) =>
+        setPickupStops((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+
+    const officeNames = officeStops.map((s) => s.name).join(", ");
+
+    return (
+        <div className="mx-auto flex h-[calc(100vh-100px)] w-full min-w-0 max-w-[1600px] flex-col gap-6">
+            <PageHeader
+                className="shrink-0"
+                title="Create Shuttle Route"
+                description="Add one company office, or more if this route serves multiple offices."
+                actions={
+                    <>
+                        <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+                        <Button type="button" onClick={handleSubmit} loading={saving}>
+                            {saving ? "Saving…" : "Save Route"}
+                        </Button>
+                    </>
+                }
+            />
+
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-3">
+                <Card className="flex flex-col gap-5 overflow-y-auto">
+                    <Field label="Route name" required>
+                        <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Gulshan — Office" />
+                    </Field>
+                    <div className="grid grid-cols-2 gap-3">
+                        <Field label="Vehicle">
+                            <Select value={assignedVehicleId} onChange={(e) => setAssignedVehicleId(e.target.value)} placeholder="Select…">
                                 {vehicles.map((v) => (
                                     <option key={v.id} value={v.id}>{v.plate_number}</option>
                                 ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className={labelCls}>Driver</label>
-                            <select className={inputCls} value={assignedDriverId} onChange={(e) => setAssignedDriverId(e.target.value)}>
-                                <option value="">Select…</option>
+                            </Select>
+                        </Field>
+                        <Field label="Driver">
+                            <Select value={assignedDriverId} onChange={(e) => setAssignedDriverId(e.target.value)} placeholder="Select…">
                                 {drivers.map((d) => (
                                     <option key={d.user_id} value={d.user_id}>{d.users?.full_name}</option>
                                 ))}
-                            </select>
-                        </div>
+                            </Select>
+                        </Field>
                     </div>
 
                     {/* Pin mode */}
-                    <div className="flex rounded-lg border border-gray-200 p-0.5 bg-gray-50">
+                    <div className="flex gap-1 rounded-lg bg-subtle p-0.5">
                         <button
                             type="button"
+                            aria-pressed={pinMode === "office"}
                             onClick={() => setPinMode("office")}
-                            className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-semibold transition-colors ${
-                                pinMode === "office"
-                                    ? "bg-red-500 text-white shadow-sm"
-                                    : "text-gray-600 hover:bg-white"
-                            }`}
+                            className={segmentCls(pinMode === "office")}
                         >
-                            <Building2 className="w-3.5 h-3.5" />
+                            <PinDot color={OFFICE_PIN_COLOR} />
                             Set office
                         </button>
                         <button
                             type="button"
+                            aria-pressed={pinMode === "pickup"}
                             onClick={() => setPinMode("pickup")}
-                            className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-semibold transition-colors ${
-                                pinMode === "pickup"
-                                    ? "bg-indigo-600 text-white shadow-sm"
-                                    : "text-gray-600 hover:bg-white"
-                            }`}
+                            className={segmentCls(pinMode === "pickup")}
                         >
-                            <MapPin className="w-3.5 h-3.5" />
+                            <PinDot color={PICKUP_PIN_COLOR} />
                             Add pickup
                         </button>
                     </div>
 
-                    <div>
-                        <label className={labelCls}>
+                    <div className="flex flex-col gap-1.5">
+                        <Label>
                             {pinMode === "office" ? "Search company office address" : "Search employee pickup"}
-                        </label>
+                        </Label>
                         <StopAddressSearch
                             onSelect={handleAddressSelect}
                             placeholder={
@@ -319,106 +341,82 @@ export default function CompanyCreateRoutePage() {
                             }
                             clearOnSelect
                         />
-                        <p className="text-xs text-gray-400 mt-1.5">
+                        <p className="text-xs text-fg-muted">
                             Or click the map to pin the {pinMode === "office" ? "office" : "pickup"}.
                         </p>
                     </div>
 
-                    {/* Office — prominent */}
-                    <section>
-                        <div className="flex items-center gap-2 mb-2">
-                            <Building2 className="w-4 h-4 text-red-500" />
-                            <h3 className="font-semibold text-sm text-red-700">
+                    {/* Offices */}
+                    <section className="flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Building2 className="size-4 text-fg-muted" aria-hidden="true" />
+                            <h3 className="text-sm font-semibold text-fg">
                                 Company Office{officeStops.length !== 1 ? "s" : ""}
                                 {officeStops.length > 0 && (
-                                    <span className="ml-1.5 text-xs text-red-400 font-normal">({officeStops.length})</span>
+                                    <span className="ms-1.5 font-normal text-fg-muted tabular-nums">({officeStops.length})</span>
                                 )}
                             </h3>
-                            <span className="text-[10px] font-bold uppercase tracking-wide bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
+                            <Badge tone={officeStops.length === 0 ? "warning" : "neutral"} dot={officeStops.length === 0}>
                                 At least 1 required
-                            </span>
+                            </Badge>
                         </div>
 
                         {officeStops.length === 0 ? (
-                            <div className="rounded-xl border-2 border-dashed border-red-200 bg-red-50/50 p-4 text-center">
-                                <Building2 className="w-8 h-8 text-red-300 mx-auto mb-2" />
-                                <p className="text-sm font-medium text-red-800">No office set yet</p>
-                                <p className="text-xs text-red-600/80 mt-1">
-                                    Switch to <strong>Set office</strong>, then search or click the map.
+                            <div className="rounded-lg border border-dashed border-line-strong p-4 text-center">
+                                <p className="text-sm font-medium text-fg">No office set yet</p>
+                                <p className="mt-1 text-xs text-fg-muted">
+                                    Switch to <strong className="font-medium text-fg-secondary">Set office</strong>, then search or click the map.
                                 </p>
-                                <p className="text-[11px] text-red-500 mt-2">
+                                <p className="mt-1 text-xs text-fg-muted">
                                     Add one office, or more if this route serves multiple offices.
                                 </p>
                             </div>
                         ) : (
-                            <div className="space-y-2">
+                            <div className="flex flex-col gap-2">
                                 {officeStops.map((stop) => (
-                                    <div key={stop.id} className="rounded-xl border-2 border-red-300 bg-red-50 p-3 shadow-sm">
-                                        <div className="flex items-start gap-2 mb-2">
-                                            <span className="w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0">
-                                                <Building2 className="w-3.5 h-3.5" />
+                                    <div key={stop.id} className="rounded-lg border border-line p-3">
+                                        <div className="flex items-start gap-2">
+                                            <span className="mt-1.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-line bg-subtle text-fg-secondary">
+                                                <Building2 className="size-3.5" aria-hidden="true" />
                                             </span>
-                                            <div className="flex-1 min-w-0">
-                                                <input
-                                                    className={`${inputCls} font-semibold`}
+                                            <div className="min-w-0 flex-1">
+                                                <Input
+                                                    aria-label="Office name"
+                                                    className="font-medium"
                                                     value={stop.name}
-                                                    onChange={(e) =>
-                                                        setOfficeStops((prev) =>
-                                                            prev.map((s) =>
-                                                                s.id === stop.id ? { ...s, name: e.target.value } : s,
-                                                            ),
-                                                        )
-                                                    }
+                                                    onChange={(e) => updateOffice(stop.id, { name: e.target.value })}
                                                 />
-                                                <div className="flex flex-wrap gap-1.5 mt-2">
-                                                    <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
-                                                        Office stop
-                                                    </span>
-                                                    <span className="text-[10px] font-bold uppercase tracking-wide bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded">
-                                                        No employee assignment
-                                                    </span>
+                                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                                    <Badge tone="neutral">Office stop</Badge>
+                                                    <Badge tone="neutral">No employee assignment</Badge>
                                                 </div>
                                             </div>
-                                            <button
-                                                type="button"
+                                            <IconButton
+                                                size="icon-sm"
+                                                label="Remove office"
                                                 onClick={() => handleRemoveOffice(stop.id)}
-                                                className="p-1 text-red-500"
-                                                title="Remove office"
+                                                className="hover:text-danger-ink"
                                             >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                                <Trash2 />
+                                            </IconButton>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-2 mt-1 pl-9">
-                                            <div>
-                                                <label className="text-[10px] text-red-700/70">AM arrival</label>
-                                                <input
+                                        <div className="mt-3 grid grid-cols-2 gap-2 ps-8">
+                                            <Field label="AM arrival">
+                                                <Input
                                                     type="time"
-                                                    className={inputCls}
+                                                    className="tabular-nums"
                                                     value={stop.morningEta}
-                                                    onChange={(e) =>
-                                                        setOfficeStops((prev) =>
-                                                            prev.map((s) =>
-                                                                s.id === stop.id ? { ...s, morningEta: e.target.value } : s,
-                                                            ),
-                                                        )
-                                                    }
+                                                    onChange={(e) => updateOffice(stop.id, { morningEta: e.target.value })}
                                                 />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] text-red-700/70">PM departure</label>
-                                                <input
+                                            </Field>
+                                            <Field label="PM departure">
+                                                <Input
                                                     type="time"
-                                                    className={inputCls}
+                                                    className="tabular-nums"
                                                     value={stop.eveningEta}
-                                                    onChange={(e) =>
-                                                        setOfficeStops((prev) =>
-                                                            prev.map((s) =>
-                                                                s.id === stop.id ? { ...s, eveningEta: e.target.value } : s,
-                                                            ),
-                                                        )
-                                                    }
+                                                    onChange={(e) => updateOffice(stop.id, { eveningEta: e.target.value })}
                                                 />
-                                            </div>
+                                            </Field>
                                         </div>
                                     </div>
                                 ))}
@@ -427,89 +425,59 @@ export default function CompanyCreateRoutePage() {
                     </section>
 
                     {/* Pickups */}
-                    <section>
-                        <div className="flex items-center gap-2 mb-2">
-                            <MapPin className="w-4 h-4 text-indigo-500" />
-                            <h3 className="font-semibold text-sm">
+                    <section className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                            <MapPin className="size-4 text-fg-muted" aria-hidden="true" />
+                            <h3 className="text-sm font-semibold text-fg">
                                 Employee pickups
-                                <span className="ml-1.5 text-xs text-gray-400 font-normal">
-                                    ({pickupStops.length})
-                                </span>
+                                <span className="ms-1.5 font-normal text-fg-muted tabular-nums">({pickupStops.length})</span>
                             </h3>
                         </div>
 
                         {pickupStops.length === 0 ? (
-                            <p className="text-sm text-gray-400 italic text-center py-4 border border-dashed border-gray-200 rounded-lg">
-                                No pickups yet — use <strong>Add pickup</strong> or the map.
+                            <p className="rounded-lg border border-dashed border-line-strong py-4 text-center text-sm text-fg-muted">
+                                No pickups yet — use <strong className="font-medium text-fg-secondary">Add pickup</strong> or the map.
                             </p>
                         ) : (
-                            <div className="space-y-2">
+                            <div className="flex flex-col gap-2">
                                 {pickupStops.map((stop, index) => (
-                                    <div
-                                        key={stop.id}
-                                        className="flex items-start gap-2 rounded-lg border border-[var(--border-light)] p-2 bg-gray-50"
-                                    >
-                                        <span className="w-6 h-6 mt-1 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 bg-indigo-500">
+                                    <div key={stop.id} className="flex items-start gap-2 rounded-lg border border-line p-3">
+                                        <span className="mt-1.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-subtle text-xs font-medium text-fg-secondary tabular-nums">
                                             {index + 1}
                                         </span>
-                                        <div className="flex-1 min-w-0">
-                                            <input
-                                                className={inputCls}
+                                        <div className="min-w-0 flex-1">
+                                            <Input
+                                                aria-label="Pickup name"
                                                 value={stop.name}
-                                                onChange={(e) =>
-                                                    setPickupStops((prev) =>
-                                                        prev.map((s) =>
-                                                            s.id === stop.id
-                                                                ? { ...s, name: e.target.value }
-                                                                : s,
-                                                        ),
-                                                    )
-                                                }
+                                                onChange={(e) => updatePickup(stop.id, { name: e.target.value })}
                                             />
-                                            <div className="grid grid-cols-2 gap-1 mt-1">
-                                                <div>
-                                                    <label className="text-[10px] text-gray-500">AM pickup</label>
-                                                    <input
+                                            <div className="mt-2 grid grid-cols-2 gap-2">
+                                                <Field label="AM pickup">
+                                                    <Input
                                                         type="time"
-                                                        className={inputCls}
+                                                        className="tabular-nums"
                                                         value={stop.morningEta}
-                                                        onChange={(e) =>
-                                                            setPickupStops((prev) =>
-                                                                prev.map((s) =>
-                                                                    s.id === stop.id
-                                                                        ? { ...s, morningEta: e.target.value }
-                                                                        : s,
-                                                                ),
-                                                            )
-                                                        }
+                                                        onChange={(e) => updatePickup(stop.id, { morningEta: e.target.value })}
                                                     />
-                                                </div>
-                                                <div>
-                                                    <label className="text-[10px] text-gray-500">PM dropoff</label>
-                                                    <input
+                                                </Field>
+                                                <Field label="PM dropoff">
+                                                    <Input
                                                         type="time"
-                                                        className={inputCls}
+                                                        className="tabular-nums"
                                                         value={stop.eveningEta}
-                                                        onChange={(e) =>
-                                                            setPickupStops((prev) =>
-                                                                prev.map((s) =>
-                                                                    s.id === stop.id
-                                                                        ? { ...s, eveningEta: e.target.value }
-                                                                        : s,
-                                                                ),
-                                                            )
-                                                        }
+                                                        onChange={(e) => updatePickup(stop.id, { eveningEta: e.target.value })}
                                                     />
-                                                </div>
+                                                </Field>
                                             </div>
                                         </div>
-                                        <button
-                                            type="button"
+                                        <IconButton
+                                            size="icon-sm"
+                                            label="Remove pickup"
                                             onClick={() => handleRemovePickup(stop.id)}
-                                            className="p-1 text-red-500"
+                                            className="hover:text-danger-ink"
                                         >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                            <Trash2 />
+                                        </IconButton>
                                     </div>
                                 ))}
                             </div>
@@ -517,43 +485,41 @@ export default function CompanyCreateRoutePage() {
                     </section>
 
                     {officeStops.length > 0 && pickupStops.length > 0 && (
-                        <section className="rounded-lg border border-gray-200 bg-white p-3 text-xs space-y-2">
-                            <p className="font-semibold text-gray-700">Route order on save</p>
-                            <div>
-                                <span className="font-bold text-amber-700">Morning → </span>
-                                <span className="text-gray-600">
-                                    {pickupStops.map((s) => s.name).join(" → ")}
-                                    {" → "}
-                                    <span className="font-semibold text-red-600">
-                                        {officeStops.map((s) => s.name).join(", ")}
-                                    </span>
-                                </span>
+                        <section className="flex flex-col gap-2 rounded-lg border border-line bg-subtle p-3 text-xs">
+                            <p className="text-sm font-semibold text-fg">Route order on save</p>
+                            <div className="flex flex-col gap-1">
+                                <span className="font-medium text-fg-muted">Morning</span>
+                                <StopPath
+                                    names={[
+                                        ...pickupStops.map((s) => ({ label: s.name })),
+                                        { label: officeNames, strong: true },
+                                    ]}
+                                />
                             </div>
-                            <div>
-                                <span className="font-bold text-violet-700">Evening → </span>
-                                <span className="text-gray-600">
-                                    <span className="font-semibold text-red-600">
-                                        {officeStops.map((s) => s.name).join(", ")}
-                                    </span>
-                                    {" → "}
-                                    {[...pickupStops].reverse().map((s) => s.name).join(" → ")}
-                                </span>
+                            <div className="flex flex-col gap-1">
+                                <span className="font-medium text-fg-muted">Evening</span>
+                                <StopPath
+                                    names={[
+                                        { label: officeNames, strong: true },
+                                        ...[...pickupStops].reverse().map((s) => ({ label: s.name })),
+                                    ]}
+                                />
                             </div>
-                            <p className="text-[10px] text-gray-400">
+                            <p className="text-fg-muted">
                                 Pickup order is auto-optimized on save; evening is the reverse of morning.
                                 {officeStops.length > 1 && " Multiple offices are placed after pickups — adjust exact positions from Manage Stops after creating the route."}
                             </p>
                         </section>
                     )}
-                </div>
+                </Card>
 
-                <div className="lg:col-span-2 rounded-xl border border-[var(--border-default)] overflow-hidden min-h-[400px] relative">
-                    <div className="absolute top-3 left-3 z-[500] flex gap-2 pointer-events-none">
-                        <span className="bg-white/95 border border-red-200 text-red-700 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shadow-sm flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-red-500" /> Office
+                <div className="relative min-h-[400px] overflow-hidden rounded-xl border border-line lg:col-span-2">
+                    <div className="pointer-events-none absolute start-3 top-3 z-[500] flex gap-2">
+                        <span className="flex items-center gap-1.5 rounded-md border border-line bg-card px-2 py-1 text-xs font-medium text-fg">
+                            <PinDot color={OFFICE_PIN_COLOR} /> Office
                         </span>
-                        <span className="bg-white/95 border border-indigo-200 text-indigo-700 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shadow-sm flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-indigo-500" /> Pickups
+                        <span className="flex items-center gap-1.5 rounded-md border border-line bg-card px-2 py-1 text-xs font-medium text-fg">
+                            <PinDot color={PICKUP_PIN_COLOR} /> Pickups
                         </span>
                     </div>
                     <Map
@@ -562,6 +528,7 @@ export default function CompanyCreateRoutePage() {
                         onMapClick={handleMapClick}
                         center={mapCenter}
                         height="100%"
+                        className="!rounded-none !border-0 !shadow-none"
                     />
                 </div>
             </div>

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Provider } from "react-redux";
+import { TooltipProvider } from "@/app/admin/ui/Tooltip";
 import { CompanyShell } from "./ui/CompanyShell";
 import { CompanyAccessProvider } from "./lib/access-context";
 import { CompanyThemeProvider } from "./lib/theme-context";
@@ -28,7 +29,9 @@ function CompanyAppWrapper({ children }: { children: ReactNode }) {
         <CompanyLocaleProvider>
           <CompanyThemeProvider>
             <CompanyAccessProvider>
-              <CompanyShell>{children}</CompanyShell>
+              <TooltipProvider delayDuration={300}>
+                <CompanyShell>{children}</CompanyShell>
+              </TooltipProvider>
             </CompanyAccessProvider>
           </CompanyThemeProvider>
         </CompanyLocaleProvider>

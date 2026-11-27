@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useAppDispatch } from '../../lib/store/hooks';
-import { fetchDashboardStats } from '../../lib/store/slices/dashboardSlice';
+import { clearDashboardCache, fetchDashboardStats } from '../../lib/store/slices/dashboardSlice';
 import { apiClient } from '../../lib/services/api-client';
 import { CreditCard, Loader2 } from 'lucide-react';
 
@@ -37,6 +37,7 @@ export default function EditBudgetForm({ companyId, currentBudget, onSuccess, on
         setIsSubmitting(true);
         try {
             await apiClient.updateCompany(companyId, { monthly_budget: newBudget });
+            dispatch(clearDashboardCache());
             dispatch(fetchDashboardStats(companyId));
             onSuccess();
         } catch (err: unknown) {
@@ -72,7 +73,7 @@ export default function EditBudgetForm({ companyId, currentBudget, onSuccess, on
                             const val = e.target.value.replace(/[^0-9]/g, '');
                             setBudget(val);
                         }}
-                        className="w-full ps-10 pe-3 py-2 bg-[var(--bg-card)] border border-[var(--border-input)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-[#fe8503]/20 focus:border-[#fe8503] transition-shadow transition-colors ltr-content"
+                        className="w-full ps-10 pe-3 py-2 bg-[var(--bg-card)] border border-[var(--border-input)] text-[var(--text-primary)] rounded-xl focus:ring-2 focus:ring-ring/20 focus:border-ring transition-shadow transition-colors ltr-content"
                         placeholder={t('budgetPlaceholder')}
                         dir="ltr"
                     />
@@ -94,7 +95,7 @@ export default function EditBudgetForm({ companyId, currentBudget, onSuccess, on
                 <button
                     type="submit"
                     disabled={isSubmitting || !budget}
-                    className="flex-1 px-4 py-2 bg-[#fe8503] text-[var(--text-primary)] rounded-xl hover:bg-[#f07a00] font-medium transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2 bg-brand text-[var(--text-on-brand)] rounded-xl hover:bg-primary-hover font-medium transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isSubmitting ? (
                         <>

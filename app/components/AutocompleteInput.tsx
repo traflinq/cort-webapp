@@ -93,7 +93,7 @@ export function AutocompleteInput({
                 }}
                 placeholder={placeholder}
                 required={required}
-                className={`h-11 w-full rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] px-4 text-sm outline-none transition-all placeholder:text-[var(--text-placeholder)] focus:border-[#fe8503] focus:ring-4 focus:ring-[#fe8503]/10 text-[var(--text-primary)] ${className || ''}`}
+                className={`h-11 w-full rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] px-4 text-sm outline-none transition-all placeholder:text-[var(--text-placeholder)] focus:border-[var(--cort-orange)] focus:ring-4 focus:ring-[var(--cort-orange)]/10 text-[var(--text-primary)] ${className || ''}`}
             />
 
             {isOpen && suggestions.length > 0 && (
@@ -108,7 +108,7 @@ export function AutocompleteInput({
                                 }}
                                 onMouseEnter={() => setHighlightedIndex(index)}
                                 className={`cursor-pointer px-4 py-2.5 text-sm transition-colors ${index === highlightedIndex
-                                        ? "bg-[#fe8503]/10 text-[#fe8503]"
+                                        ? "bg-[var(--cort-orange)]/10 text-[var(--cort-orange)]"
                                         : "text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
                                     }`}
                             >

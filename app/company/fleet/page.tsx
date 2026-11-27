@@ -4,25 +4,22 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { getSaudiBasePath, withSaudiBase } from "@/app/lib/i18n/saudi-route";
 import { useTranslations } from "next-intl";
-import { createPortal } from "react-dom";
+import { Car, Plus, UserPlus } from "lucide-react";
 import { useCompanyAccess } from "../lib/access-context";
 import { apiClient, canServeChauffeur, canServeShuttle } from "../../lib/services/api-client";
 import { PoolVehicle, PoolDriver } from "../../lib/services/types/multi-mode";
 import { VehicleCategory } from "../../lib/services/types/vehicles";
 import { toast } from "sonner";
-import { Card } from "../components/DashboardComponents";
+import { Card } from "../components/Card";
+import { Badge, Button, Dialog, DialogContent, Field, Input, Select, StatusBadge, TableSkeletonRows, Tabs, TabsList, TabsTrigger } from "@/app/admin/ui";
 import { AccountCredentialsReveal, SaveCredentialsNote } from "../components/AccountCredentialsReveal";
-import { PageHeader, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
+import { PageHeader, TableEmptyState, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
 import {
     getPhoneValidationError,
     PHONE_MAX_LENGTH,
     PHONE_PLACEHOLDER,
     sanitizePhoneInput,
 } from "../../lib/utils/phone";
-
-function cx(...classes: Array<string | false | null | undefined>) {
-    return classes.filter(Boolean).join(" ");
-}
 
 const VEHICLE_CATEGORIES = Object.values(VehicleCategory);
 
@@ -264,23 +261,23 @@ export default function CompanyFleetPage() {
         return t("trialLimitsPool");
     }, [trialPool, trialShuttle, t]);
 
+    const driverTypeLabel = (type: string) =>
+        type === "SHUTTLE" ? t("driverTypeShuttle") : type === "BOTH" ? t("driverTypeBoth") : type === "CHAUFFEUR" ? t("driverTypeChauffeur") : type;
+
     return (
-        <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 pb-12">
             <PageHeader
                 label={isTrialUser ? t("trialFleetLabel") : t("selfManagedLabel")}
                 title={isTrialUser ? t("trialFleetTitle") : t("title")}
                 description={isTrialUser ? t("trialFleetDescription") : t("selfManagedDescription")}
                 action={
                     activeTab === "vehicles" ? (
-                        <button
-                            onClick={() => setShowAddVehicle(true)}
-                            disabled={atVehicleLimit}
-                            className="group relative flex items-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-[var(--text-primary)] transition-all hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 disabled:hover:translate-y-0"
-                        >
-                            + {t("addVehicle")}
-                        </button>
+                        <Button leftIcon={<Plus />} onClick={() => setShowAddVehicle(true)} disabled={atVehicleLimit}>
+                            {t("addVehicle")}
+                        </Button>
                     ) : activeTab === "drivers" ? (
-                        <button
+                        <Button
+                            leftIcon={<UserPlus />}
                             onClick={openAddDriver}
                             disabled={
                                 isTrialUser && trialPool && trialShuttle
@@ -289,84 +286,69 @@ export default function CompanyFleetPage() {
                                         ? (trialShuttle ? atShuttleDriverLimit : atChauffeurDriverLimit)
                                         : false
                             }
-                            className="group relative flex items-center gap-2 rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-[var(--text-primary)] transition-all hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 disabled:hover:translate-y-0"
                         >
-                            + {t("inviteDriver")}
-                        </button>
+                            {t("inviteDriver")}
+                        </Button>
                     ) : null
                 }
             />
 
             {isTrialUser && (
-                <div className="alert-banner-warning">
+                <div role="note" className="rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm text-fg">
                     <span className="font-semibold">{t("trialLimitsTitle")}</span>{" "}
                     {trialLimitsText}{" "}
                     {t("trialLimitsAssign")}
                 </div>
             )}
 
-            <div className="border-b border-[var(--border-light)]">
-                <nav className="-mb-px flex space-x-8">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "vehicles" | "drivers")}>
+                <TabsList>
                     {fleetTabs.map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={cx(
-                                "whitespace-nowrap border-b-2 py-3 px-1 text-sm font-medium transition-colors",
-                                activeTab === tab
-                                    ? "border-[var(--cort-orange)] text-[var(--cort-orange)]"
-                                    : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:border-[var(--border-light)]",
-                            )}
-                        >
+                        <TabsTrigger key={tab} value={tab}>
                             {tab === "vehicles"
                                 ? (isTrialUser ? t("vehicles") : t("poolVehicles"))
                                 : (isTrialUser ? t("drivers") : t("poolDrivers"))}
-                        </button>
+                        </TabsTrigger>
                     ))}
-                </nav>
-            </div>
+                </TabsList>
+            </Tabs>
 
             {activeTab === "vehicles" && (
                 <Card className={TABLE_CARD_CLASS}>
                     <div className={TABLE_TOP_BAR_CLASS}>
-                        <p className="text-sm text-[var(--text-muted)]">
+                        <p className="text-sm text-fg-muted">
                             {isTrialUser ? t("trialVehiclesDescription") : t("vehiclesDescription")}
                         </p>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="min-w-full text-sm text-start">
+                        <table className="min-w-full text-start text-sm">
                             <thead>
-                                <tr className="border-b border-[var(--border-light)]">
-                                    {[t("plate"), t("makeModel"), t("year"), t("category"), t("status"), t("actions")].map((h) => (
-                                        <th key={h} className={TABLE_HEADER_CELL_CLASS}>{h}</th>
+                                <tr className="border-b border-line">
+                                    {[t("plate"), t("makeModel"), t("year"), t("category"), t("status")].map((h) => (
+                                        <th key={h} className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{h}</th>
                                     ))}
+                                    <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("actions")}</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-[var(--border-light)]/50">
+                            <tbody className="divide-y divide-line">
                                 {vehiclesLoading ? (
-                                    <tr><td colSpan={6} className={`${TABLE_CELL_CLASS} py-12 text-center text-[var(--text-muted)]`}>{tCommon("status.loading")}</td></tr>
+                                    <TableSkeletonRows columns={6} rows={5} />
                                 ) : vehicles.length === 0 ? (
-                                    <tr><td colSpan={6} className={`${TABLE_CELL_CLASS} py-12 text-center text-[var(--text-muted)]`}>{t("noPoolVehicles")}</td></tr>
+                                    <TableEmptyState message={t("noPoolVehicles")} icon={Car} />
                                 ) : vehicles.map((v) => (
-                                    <tr key={v.id} className="group transition-colors hover:bg-[var(--surface-subtle)]/80">
-                                        <td className={`${TABLE_CELL_CLASS} font-mono text-xs text-[var(--text-muted)]`}>{v.plate_number}</td>
-                                        <td className={`${TABLE_CELL_CLASS} font-bold text-[var(--text-primary)]`}>{v.make} {v.model}</td>
-                                        <td className={`${TABLE_CELL_CLASS} text-[var(--text-secondary)]`}>{v.year}</td>
-                                        <td className={`${TABLE_CELL_CLASS} text-[var(--text-secondary)]`}>{formatVehicleCategory(v.category)}</td>
+                                    <tr key={v.id} className="transition-colors hover:bg-row-hover">
+                                        <td className={`${TABLE_CELL_CLASS} ltr-content font-mono text-xs text-fg-secondary`}>{v.plate_number}</td>
+                                        <td className={`${TABLE_CELL_CLASS} font-medium text-fg`}>{v.make} {v.model}</td>
+                                        <td className={`${TABLE_CELL_CLASS} text-fg-secondary`}>{v.year}</td>
+                                        <td className={`${TABLE_CELL_CLASS} text-fg-secondary`}>{formatVehicleCategory(v.category)}</td>
                                         <td className={TABLE_CELL_CLASS}>
-                                            <span className={cx(
-                                                "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border",
-                                                v.status === "ACTIVE"
-                                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                                    : "bg-[var(--surface-subtle)] text-[var(--text-muted)] border-[var(--border-light)]",
-                                            )}>
-                                                <span className={cx("w-1.5 h-1.5 rounded-full me-1.5", v.status === "ACTIVE" ? "bg-emerald-400" : "bg-[var(--text-muted)]")} />
-                                                {v.status ?? "—"}
-                                            </span>
+                                            <StatusBadge status={v.status} size="sm" />
                                         </td>
-                                        <td className={TABLE_CELL_CLASS}>
+                                        <td className={`${TABLE_CELL_CLASS} text-end`}>
                                             {v.status === "ACTIVE" && (
-                                                <button onClick={() => handleDeactivateVehicle(v.id)} className="text-xs text-rose-400 hover:text-rose-300 transition-colors">{t("deactivate")}</button>
+                                                <Button variant="ghost" size="sm" className="text-danger-ink hover:bg-danger-soft hover:text-danger-ink" onClick={() => handleDeactivateVehicle(v.id)}>
+                                                    {t("deactivate")}
+                                                </Button>
                                             )}
                                         </td>
                                     </tr>
@@ -380,44 +362,41 @@ export default function CompanyFleetPage() {
             {activeTab === "drivers" && (
                 <Card className={TABLE_CARD_CLASS}>
                     <div className={TABLE_TOP_BAR_CLASS}>
-                        <p className="text-sm text-[var(--text-muted)]">
+                        <p className="text-sm text-fg-muted">
                             {isTrialUser ? t("trialDriversDescription") : t("driversDescription")}
                         </p>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="min-w-full text-sm text-start">
+                        <table className="min-w-full text-start text-sm">
                             <thead>
-                                <tr className="border-b border-[var(--border-light)]">
-                                    {[t("name"), t("email"), t("phone"), t("type"), t("status"), t("actions")].map((h) => (
-                                        <th key={h} className={TABLE_HEADER_CELL_CLASS}>{h}</th>
+                                <tr className="border-b border-line">
+                                    {[t("name"), t("email"), t("phone"), t("type"), t("status")].map((h) => (
+                                        <th key={h} className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{h}</th>
                                     ))}
+                                    <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("actions")}</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-[var(--border-light)]/50">
+                            <tbody className="divide-y divide-line">
                                 {driversLoading ? (
-                                    <tr><td colSpan={6} className={`${TABLE_CELL_CLASS} py-12 text-center text-[var(--text-muted)]`}>{tCommon("status.loading")}</td></tr>
+                                    <TableSkeletonRows columns={6} rows={5} />
                                 ) : drivers.length === 0 ? (
-                                    <tr><td colSpan={6} className={`${TABLE_CELL_CLASS} py-12 text-center text-[var(--text-muted)]`}>{t("noPoolDrivers")}</td></tr>
+                                    <TableEmptyState message={t("noPoolDrivers")} icon={UserPlus} />
                                 ) : drivers.map((d) => (
-                                    <tr key={d.user_id} className="group transition-colors hover:bg-[var(--surface-subtle)]/80">
-                                        <td className={`${TABLE_CELL_CLASS} font-bold text-[var(--text-primary)]`}>{d.users.full_name}</td>
-                                        <td className={`${TABLE_CELL_CLASS} text-[var(--text-secondary)]`}>{d.users.email}</td>
-                                        <td className={`${TABLE_CELL_CLASS} text-[var(--text-muted)]`}>{d.users.phone ?? "—"}</td>
-                                        <td className={`${TABLE_CELL_CLASS} text-[var(--text-muted)]`}>{d.driver_type}</td>
+                                    <tr key={d.user_id} className="transition-colors hover:bg-row-hover">
+                                        <td className={`${TABLE_CELL_CLASS} font-medium text-fg`}>{d.users.full_name}</td>
+                                        <td className={`${TABLE_CELL_CLASS} text-fg-secondary`}><span className="ltr-content">{d.users.email}</span></td>
+                                        <td className={`${TABLE_CELL_CLASS} text-fg-secondary`}><span className="ltr-content">{d.users.phone ?? "—"}</span></td>
                                         <td className={TABLE_CELL_CLASS}>
-                                            <span className={cx(
-                                                "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border",
-                                                d.users.status === "ACTIVE"
-                                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                                    : "bg-[var(--surface-subtle)] text-[var(--text-muted)] border-[var(--border-light)]",
-                                            )}>
-                                                <span className={cx("w-1.5 h-1.5 rounded-full me-1.5", d.users.status === "ACTIVE" ? "bg-emerald-400" : "bg-[var(--text-muted)]")} />
-                                                {d.users.status ?? "—"}
-                                            </span>
+                                            <Badge size="sm" variant="outline">{driverTypeLabel(d.driver_type)}</Badge>
                                         </td>
                                         <td className={TABLE_CELL_CLASS}>
+                                            <StatusBadge status={d.users.status} size="sm" />
+                                        </td>
+                                        <td className={`${TABLE_CELL_CLASS} text-end`}>
                                             {d.users.status === "ACTIVE" && (
-                                                <button onClick={() => handleDeactivateDriver(d.user_id)} className="text-xs text-rose-400 hover:text-rose-300 transition-colors">{t("deactivate")}</button>
+                                                <Button variant="ghost" size="sm" className="text-danger-ink hover:bg-danger-soft hover:text-danger-ink" onClick={() => handleDeactivateDriver(d.user_id)}>
+                                                    {t("deactivate")}
+                                                </Button>
                                             )}
                                         </td>
                                     </tr>
@@ -428,57 +407,65 @@ export default function CompanyFleetPage() {
                 </Card>
             )}
 
-            {showAddVehicle && (
-                <Modal title={isTrialUser ? t("addFleetVehicle") : t("addPoolVehicle")} onClose={() => setShowAddVehicle(false)}>
+            <Dialog open={showAddVehicle} onOpenChange={(open) => { if (!open) setShowAddVehicle(false); }}>
+                <DialogContent
+                    size="md"
+                    title={isTrialUser ? t("addFleetVehicle") : t("addPoolVehicle")}
+                    onInteractOutside={(e) => e.preventDefault()}
+                >
                     <form onSubmit={handleAddVehicle} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-3">
-                            <Field label={t("plate") + " *"}><input required value={vehicleForm.plate_number} onChange={(e) => setVehicleForm((f) => ({ ...f, plate_number: e.target.value }))} className={inputCls} /></Field>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <Field label={t("plate")} required><Input required value={vehicleForm.plate_number} onChange={(e) => setVehicleForm((f) => ({ ...f, plate_number: e.target.value }))} /></Field>
                             <Field label={t("category")}>
-                                <select value={vehicleForm.category} onChange={(e) => setVehicleForm((f) => ({ ...f, category: e.target.value as VehicleCategory }))} className={inputCls}>
+                                <Select value={vehicleForm.category} onChange={(e) => setVehicleForm((f) => ({ ...f, category: e.target.value as VehicleCategory }))}>
                                     {VEHICLE_CATEGORIES.map((c) => (
                                         <option key={c} value={c}>{formatVehicleCategory(c)}</option>
                                     ))}
-                                </select>
+                                </Select>
                             </Field>
-                            <Field label={t("make") + " *"}><input required value={vehicleForm.make} onChange={(e) => setVehicleForm((f) => ({ ...f, make: e.target.value }))} className={inputCls} /></Field>
-                            <Field label={t("model") + " *"}><input required value={vehicleForm.model} onChange={(e) => setVehicleForm((f) => ({ ...f, model: e.target.value }))} className={inputCls} /></Field>
-                            <Field label={t("year") + " *"}><input required type="number" value={vehicleForm.year} onChange={(e) => setVehicleForm((f) => ({ ...f, year: Number(e.target.value) }))} className={inputCls} /></Field>
-                            <Field label={t("color")}><input value={vehicleForm.color} onChange={(e) => setVehicleForm((f) => ({ ...f, color: e.target.value }))} className={inputCls} /></Field>
-                            <Field label={t("fuelAvgCity")}><input type="number" step="0.1" value={vehicleForm.fuel_avg_city} onChange={(e) => setVehicleForm((f) => ({ ...f, fuel_avg_city: Number(e.target.value) }))} className={inputCls} /></Field>
-                            <Field label={t("fuelAvgHighway")}><input type="number" step="0.1" value={vehicleForm.fuel_avg_highway} onChange={(e) => setVehicleForm((f) => ({ ...f, fuel_avg_highway: Number(e.target.value) }))} className={inputCls} /></Field>
+                            <Field label={t("make")} required><Input required value={vehicleForm.make} onChange={(e) => setVehicleForm((f) => ({ ...f, make: e.target.value }))} /></Field>
+                            <Field label={t("model")} required><Input required value={vehicleForm.model} onChange={(e) => setVehicleForm((f) => ({ ...f, model: e.target.value }))} /></Field>
+                            <Field label={t("year")} required><Input required type="number" className="tabular-nums" value={vehicleForm.year} onChange={(e) => setVehicleForm((f) => ({ ...f, year: Number(e.target.value) }))} /></Field>
+                            <Field label={t("color")}><Input value={vehicleForm.color} onChange={(e) => setVehicleForm((f) => ({ ...f, color: e.target.value }))} /></Field>
+                            <Field label={t("fuelAvgCity")}><Input type="number" step="0.1" className="tabular-nums" value={vehicleForm.fuel_avg_city} onChange={(e) => setVehicleForm((f) => ({ ...f, fuel_avg_city: Number(e.target.value) }))} /></Field>
+                            <Field label={t("fuelAvgHighway")}><Input type="number" step="0.1" className="tabular-nums" value={vehicleForm.fuel_avg_highway} onChange={(e) => setVehicleForm((f) => ({ ...f, fuel_avg_highway: Number(e.target.value) }))} /></Field>
                             <Field label={t("fuelType")}>
-                                <select value={vehicleForm.fuel_type} onChange={(e) => setVehicleForm((f) => ({ ...f, fuel_type: e.target.value as "" | "PETROL" | "DIESEL" }))} className={inputCls}>
+                                <Select value={vehicleForm.fuel_type} onChange={(e) => setVehicleForm((f) => ({ ...f, fuel_type: e.target.value as "" | "PETROL" | "DIESEL" }))}>
                                     <option value="">{t("fuelTypeAuto")}</option>
                                     <option value="PETROL">{t("fuelPetrol")}</option>
                                     <option value="DIESEL">{t("fuelDiesel")}</option>
-                                </select>
+                                </Select>
                             </Field>
                             <Field label={t("acLabel")}>
-                                <select value={vehicleForm.ac_on} onChange={(e) => setVehicleForm((f) => ({ ...f, ac_on: e.target.value as "" | "on" | "off" }))} className={inputCls}>
+                                <Select value={vehicleForm.ac_on} onChange={(e) => setVehicleForm((f) => ({ ...f, ac_on: e.target.value as "" | "on" | "off" }))}>
                                     <option value="">{t("acUnset")}</option>
                                     <option value="on">{t("acOn")}</option>
                                     <option value="off">{t("acOff")}</option>
-                                </select>
+                                </Select>
                             </Field>
                             {showShuttleSeatCapacity && (
                                 <Field label={t("seatCapacity")}>
-                                    <input type="number" min={1} value={vehicleForm.seat_capacity} onChange={(e) => setVehicleForm((f) => ({ ...f, seat_capacity: Number(e.target.value) }))} className={inputCls} />
+                                    <Input type="number" min={1} className="tabular-nums" value={vehicleForm.seat_capacity} onChange={(e) => setVehicleForm((f) => ({ ...f, seat_capacity: Number(e.target.value) }))} />
                                 </Field>
                             )}
                         </div>
-                        <div className="flex justify-end gap-3 pt-2">
-                            <button type="button" onClick={() => setShowAddVehicle(false)} className={cancelBtnCls}>{tCommon("actions.cancel")}</button>
-                            <button type="submit" disabled={vehicleSaving} className={saveBtnCls}>{vehicleSaving ? t("adding") : t("addVehicle")}</button>
+                        <div className="flex justify-end gap-2 pt-1">
+                            <Button type="button" variant="outline" onClick={() => setShowAddVehicle(false)}>{tCommon("actions.cancel")}</Button>
+                            <Button type="submit" disabled={vehicleSaving}>{vehicleSaving ? t("adding") : t("addVehicle")}</Button>
                         </div>
                     </form>
-                </Modal>
-            )}
+                </DialogContent>
+            </Dialog>
 
-            {showAddDriver && (
-                <Modal title={driverCreatedCredentials ? t("driverCreatedTitle") : (isTrialUser ? t("inviteFleetDriver") : t("invitePoolDriver"))} onClose={closeDriverModal}>
+            <Dialog open={showAddDriver} onOpenChange={(open) => { if (!open) closeDriverModal(); }}>
+                <DialogContent
+                    size="md"
+                    title={driverCreatedCredentials ? t("driverCreatedTitle") : (isTrialUser ? t("inviteFleetDriver") : t("invitePoolDriver"))}
+                    onInteractOutside={(e) => e.preventDefault()}
+                >
                     {driverCreatedCredentials ? (
                         <div className="space-y-5">
-                            <div className="text-center text-sm text-[var(--text-muted)]">
+                            <p className="text-center text-sm text-fg-muted">
                                 {t("driverInvitedAs", {
                                     name: driverCreatedCredentials.full_name,
                                     type: driverCreatedCredentials.driver_type === "SHUTTLE"
@@ -487,7 +474,7 @@ export default function CompanyFleetPage() {
                                             ? t("driverTypeBoth")
                                             : t("driverTypeChauffeur"),
                                 })}
-                            </div>
+                            </p>
                             <AccountCredentialsReveal
                                 email={driverCreatedCredentials.email}
                                 password={driverCreatedCredentials.password}
@@ -495,8 +482,8 @@ export default function CompanyFleetPage() {
                                 subtitle={tCredentials("driverAppSubtitle")}
                                 accountTypeKey="driver"
                             />
-                            <div className="flex justify-end pt-2">
-                                <button type="button" onClick={closeDriverModal} className={saveBtnCls}>{tCredentials("done")}</button>
+                            <div className="flex justify-end">
+                                <Button type="button" onClick={closeDriverModal}>{tCredentials("done")}</Button>
                             </div>
                         </div>
                     ) : (
@@ -504,62 +491,33 @@ export default function CompanyFleetPage() {
                             <SaveCredentialsNote accountTypeKey="driver" />
                             {(canAddChauffeurDriver && canAddShuttleDriver) ? (
                                 <Field label={t("driverTypeLabel")}>
-                                    <select
+                                    <Select
                                         required
                                         value={driverForm.driver_type}
                                         onChange={(e) => setDriverForm((f) => ({ ...f, driver_type: e.target.value as "CHAUFFEUR" | "SHUTTLE" | "BOTH" }))}
-                                        className={inputCls}
                                     >
                                         <option value="CHAUFFEUR" disabled={atChauffeurDriverLimit}>{t("driverTypeChauffeur")}</option>
                                         <option value="SHUTTLE" disabled={atShuttleDriverLimit}>{t("driverTypeShuttle")}</option>
                                         <option value="BOTH" disabled={atChauffeurDriverLimit || atShuttleDriverLimit}>{t("driverTypeBoth")}</option>
-                                    </select>
+                                    </Select>
                                 </Field>
                             ) : null}
-                            <div className="grid grid-cols-2 gap-3">
-                                <Field label={t("fullNameRequired")}><input required value={driverForm.full_name} onChange={(e) => setDriverForm((f) => ({ ...f, full_name: e.target.value }))} className={inputCls} /></Field>
-                                <Field label={t("phone")}><input type="tel" inputMode="numeric" maxLength={PHONE_MAX_LENGTH} value={driverForm.phone} onChange={(e) => setDriverForm((f) => ({ ...f, phone: sanitizePhoneInput(e.target.value) }))} placeholder={PHONE_PLACEHOLDER} className={inputCls} /></Field>
-                                <Field label={t("email") + " *"}><input required type="email" value={driverForm.email} onChange={(e) => setDriverForm((f) => ({ ...f, email: e.target.value }))} className={inputCls} /></Field>
-                                <Field label={t("passwordRequired")}><input required type="password" minLength={8} value={driverForm.password} onChange={(e) => setDriverForm((f) => ({ ...f, password: e.target.value }))} className={inputCls} /></Field>
-                                <Field label={t("cnic")}><input value={driverForm.cnic_number} onChange={(e) => setDriverForm((f) => ({ ...f, cnic_number: e.target.value }))} className={inputCls} /></Field>
-                                <Field label={t("licenseNo")}><input value={driverForm.license_number} onChange={(e) => setDriverForm((f) => ({ ...f, license_number: e.target.value }))} className={inputCls} /></Field>
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <Field label={t("fullNameRequired")}><Input required value={driverForm.full_name} onChange={(e) => setDriverForm((f) => ({ ...f, full_name: e.target.value }))} /></Field>
+                                <Field label={t("phone")}><Input type="tel" inputMode="numeric" maxLength={PHONE_MAX_LENGTH} value={driverForm.phone} onChange={(e) => setDriverForm((f) => ({ ...f, phone: sanitizePhoneInput(e.target.value) }))} placeholder={PHONE_PLACEHOLDER} /></Field>
+                                <Field label={t("email")} required><Input required type="email" value={driverForm.email} onChange={(e) => setDriverForm((f) => ({ ...f, email: e.target.value }))} /></Field>
+                                <Field label={t("passwordRequired")}><Input required type="password" minLength={8} value={driverForm.password} onChange={(e) => setDriverForm((f) => ({ ...f, password: e.target.value }))} /></Field>
+                                <Field label={t("cnic")}><Input value={driverForm.cnic_number} onChange={(e) => setDriverForm((f) => ({ ...f, cnic_number: e.target.value }))} /></Field>
+                                <Field label={t("licenseNo")}><Input value={driverForm.license_number} onChange={(e) => setDriverForm((f) => ({ ...f, license_number: e.target.value }))} /></Field>
                             </div>
-                            <div className="flex justify-end gap-3 pt-2">
-                                <button type="button" onClick={closeDriverModal} className={cancelBtnCls}>{tCommon("actions.cancel")}</button>
-                                <button type="submit" disabled={driverSaving} className={saveBtnCls}>{driverSaving ? t("inviting") : t("inviteDriver")}</button>
+                            <div className="flex justify-end gap-2 pt-1">
+                                <Button type="button" variant="outline" onClick={closeDriverModal}>{tCommon("actions.cancel")}</Button>
+                                <Button type="submit" disabled={driverSaving}>{driverSaving ? t("inviting") : t("inviteDriver")}</Button>
                             </div>
                         </form>
                     )}
-                </Modal>
-            )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
-
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-    return createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 modal-center-overlay">
-            <div className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto modal-center-panel">
-                <div className="flex items-center justify-between mb-5">
-                    <h2 className="text-lg font-bold text-[var(--text-primary)]">{title}</h2>
-                    <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-2xl leading-none transition-colors">×</button>
-                </div>
-                {children}
-            </div>
-        </div>,
-        document.body,
-    );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <div>
-            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{label}</label>
-            {children}
-        </div>
-    );
-}
-
-const inputCls = "w-full h-9 rounded-lg border border-[var(--border-light)] bg-[var(--bg-card)] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--cort-orange)]/20 focus:border-[var(--cort-orange)] transition-all text-[var(--text-primary)] shadow-sm";
-const saveBtnCls = "bg-[var(--cort-orange)] text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm font-bold hover:bg-[var(--cort-orange-hover)] disabled:opacity-50 transition-colors";
-const cancelBtnCls = "border border-[var(--border-light)] text-[var(--text-secondary)] px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--surface-subtle)] transition-colors";

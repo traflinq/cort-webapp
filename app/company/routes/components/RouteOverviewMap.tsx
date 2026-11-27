@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { Building2, Sunrise, Sunset } from "lucide-react";
-import { Card } from "../../components/DashboardComponents";
+import { Badge, focusRing } from "@/app/admin/ui";
+import { cn } from "@/lib/utils";
+import { Card } from "../../components/Card";
 import { apiClient } from "../../../lib/services/api-client";
 import type { MapMarker, MapPolyline } from "@/app/admin/ui/Map";
 import type { CompanyRouteStop } from "./RouteStopsEditor";
@@ -17,10 +19,6 @@ type RouteOverviewMapProps = {
   stops: CompanyRouteStop[];
   refreshKey?: number;
 };
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
 
 export function RouteOverviewMap({ routeId, stops, refreshKey = 0 }: RouteOverviewMapProps) {
   const t = useTranslations("company.routes");
@@ -67,7 +65,7 @@ export function RouteOverviewMap({ routeId, stops, refreshKey = 0 }: RouteOvervi
           id: s.id.toString(),
           position: [Number(s.lat), Number(s.lng)] as [number, number],
           label: isOffice ? `Office · ${s.name}` : `${idx + 1}. ${s.name}`,
-          color: isOffice ? "#ef4444" : "#6366f1",
+          color: isOffice ? "#ef4444" : "#6e7ff0",
         };
       }),
     [dirStops, officeStopIds],
@@ -80,61 +78,53 @@ export function RouteOverviewMap({ routeId, stops, refreshKey = 0 }: RouteOvervi
     if (dirStops.length > 1) {
       return [{
         positions: dirStops.map((s) => [Number(s.lat), Number(s.lng)] as [number, number]),
-        color: "#6366f1",
+        color: "#6e7ff0",
       }];
     }
     return [];
   }, [savedPolyline, dirStops]);
 
+  const directionBtn = (dir: "MORNING" | "EVENING", icon: React.ReactNode, label: string) => (
+    <button
+      type="button"
+      onClick={() => setMapDirection(dir)}
+      aria-pressed={mapDirection === dir}
+      className={cn(
+        "inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors [&_svg]:size-3.5",
+        focusRing,
+        mapDirection === dir ? "bg-card text-fg shadow-xs" : "text-fg-muted hover:text-fg",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+
   return (
-    <Card className="!p-0 overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border-light)] bg-[var(--bg-subtle)]">
-        <div>
-          <div className="text-sm font-semibold text-[var(--text-primary)]">{t("routeMap")}</div>
-          <div className="text-xs text-[var(--text-muted)]">{t("routeMapDescription")}</div>
+    <Card className="overflow-hidden !p-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-5">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-fg">{t("routeMap")}</h3>
+          <p className="text-xs text-fg-muted">{t("routeMapDescription")}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded-lg">
-            <Building2 className="w-3 h-3" /> Office = {mapDirection === "MORNING" ? "AM last" : "PM first"}
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setMapDirection("MORNING")}
-              className={cx(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border",
-                mapDirection === "MORNING"
-                  ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                  : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-light)] hover:text-[var(--text-primary)]",
-              )}
-            >
-              <Sunrise className="w-3.5 h-3.5" />
-              {t("morningRoute")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMapDirection("EVENING")}
-              className={cx(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border",
-                mapDirection === "EVENING"
-                  ? "bg-indigo-500/10 text-indigo-600 border-indigo-500/30"
-                  : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-light)] hover:text-[var(--text-primary)]",
-              )}
-            >
-              <Sunset className="w-3.5 h-3.5" />
-              {t("eveningRoute")}
-            </button>
+          <Badge tone="neutral" icon={<Building2 />} className="hidden sm:inline-flex">
+            Office = {mapDirection === "MORNING" ? "AM last" : "PM first"}
+          </Badge>
+          <div className="flex items-center gap-1 rounded-lg bg-subtle p-0.5">
+            {directionBtn("MORNING", <Sunrise aria-hidden="true" />, t("morningRoute"))}
+            {directionBtn("EVENING", <Sunset aria-hidden="true" />, t("eveningRoute"))}
           </div>
         </div>
       </div>
 
       <div className="relative" style={{ height: 420 }}>
         {dirStops.length === 0 ? (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-[var(--text-muted)]">
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-fg-muted">
             {t("noStopsForDirection")}
           </div>
         ) : (
-          <Map height="100%" markers={mapMarkers} polylines={mapPolylines} />
+          <Map height="100%" markers={mapMarkers} polylines={mapPolylines} className="!rounded-none !border-0 !shadow-none" />
         )}
       </div>
     </Card>

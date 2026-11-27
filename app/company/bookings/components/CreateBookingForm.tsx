@@ -15,11 +15,10 @@ import { pakistaniCities } from "../../../lib/data/pakistaniCities";
 import { apiClient, canServeChauffeur } from "../../../lib/services/api-client";
 import { selectContract } from "../../../lib/store/slices/contractSlice";
 import OutstationEstimatePanel from "./OutstationEstimatePanel";
+import { AlertTriangle, Check, ChevronDown, Clock, MapPin, Plus, Search, Settings2, Truck, X } from "lucide-react";
+import { Button, Checkbox, EmptyState, IconButton, Spinner, focusRing, inputBase } from "@/app/admin/ui";
+import { cn } from "@/lib/utils";
 import { PoolVehicle, PoolDriver, CompanyVendorLink, VendorVehicle, PoolAvailabilityWindow } from "../../../lib/services/types/multi-mode";
-
-function cx(...classes: Array<string | false | null | undefined>) {
-    return classes.filter(Boolean).join(" ");
-}
 
 const PACKAGE_API_VALUE: Record<string, string> = {
     '5hr': 'HOURS_5',
@@ -33,72 +32,106 @@ function toApiPackage(pkg: string): string {
     return PACKAGE_API_VALUE[pkg] || 'HOURS_10';
 }
 
+/** One titled block of the form; blocks are separated by hairlines rather than nested cards. */
 function CardSection({ title, children, icon }: { title: string; children: React.ReactNode; icon?: React.ReactNode }) {
     return (
-        <div className="bg-[var(--bg-card)] rounded-3xl border border-[var(--border-default)] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.3)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.4)] transition-all duration-500">
-            <div className="flex items-center gap-2.5 mb-6 px-1">
-                {icon && <div className="text-[#fe8503]">{icon}</div>}
-                <h3 className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em]">{title}</h3>
+        <section className="flex flex-col gap-4 py-5 first:pt-0 last:pb-0">
+            <div className="flex items-center gap-2">
+                {icon && <span className="text-fg-muted [&_svg]:size-4" aria-hidden="true">{icon}</span>}
+                <h3 className="text-sm font-semibold text-fg">{title}</h3>
             </div>
-            <div className="grid gap-x-6 gap-y-6 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
                 {children}
             </div>
-        </div>
+        </section>
     );
 }
 
+/** Label + control. Wraps in a <label> so non-kit controls (AutocompleteInput) stay associated. */
 function Field({
     label,
     children,
     required,
     className,
+    group,
 }: {
     label: string;
     children: React.ReactNode;
     required?: boolean;
     className?: string;
+    /** Render as a grouped block (for fields holding several interactive controls). */
+    group?: boolean;
 }) {
+    const Comp = group ? "div" : "label";
     return (
-        <label className={cx("flex flex-col gap-2", className)}>
-            <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)] px-1">
+        <Comp className={cn("flex min-w-0 flex-col gap-1.5", className)} {...(group ? { role: "group", "aria-label": label } : {})}>
+            <span className="text-[13px] font-medium leading-none text-fg-secondary">
                 {label}
-                {required && <span className="text-[#fe8503] ms-0.5"> *</span>}
+                {required && <span aria-hidden="true" className="ms-0.5 text-danger-ink">*</span>}
             </span>
             {children}
-        </label>
+        </Comp>
     );
 }
 
-function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+function TextInput({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
     return (
         <input
             {...props}
-            className={cx(
-                "h-12 rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] px-4 text-sm font-medium outline-none transition-all placeholder:text-[var(--text-placeholder)] focus:bg-[var(--bg-input-focus)] focus:border-[#fe8503] focus:ring-4 focus:ring-[#fe8503]/10 text-[var(--text-primary)]",
-                props.className,
+            className={cn(
+                inputBase,
+                "[&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60",
+                className,
             )}
         />
     );
 }
 
-function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
     return (
-        <div className="relative group">
-            <select
-                {...props}
-                className={cx(
-                    "w-full h-12 rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] px-4 text-sm font-bold outline-none transition-all focus:bg-[var(--bg-input-focus)] focus:border-[#fe8503] focus:ring-4 focus:ring-[#fe8503]/10 text-[var(--text-primary)] appearance-none",
-                    props.className,
-                )}
+        <div className="relative w-full">
+            <select {...props} className={cn(inputBase, "cursor-pointer appearance-none pe-9", className)} />
+            <ChevronDown
+                aria-hidden="true"
+                className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
             />
-            <div className="absolute end-4 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-muted)] group-focus-within:text-[var(--cort-orange)] transition-colors">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                </svg>
-            </div>
         </div>
     );
 }
+
+/** Toggle chip for single-choice options (fulfilment mode, vendor target). */
+function ChoiceChip({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: React.ReactNode }) {
+    return (
+        <button
+            type="button"
+            aria-pressed={selected}
+            onClick={onClick}
+            className={cn(
+                "inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors",
+                focusRing,
+                selected
+                    ? "border-fg bg-subtle text-fg"
+                    : "border-line bg-card text-fg-secondary hover:border-line-strong hover:text-fg",
+            )}
+        >
+            {selected && <Check className="size-3.5 shrink-0" aria-hidden="true" />}
+            {children}
+        </button>
+    );
+}
+
+/** Inline blocking notice (missing vendors / vehicle types). */
+function InlineNotice({ children }: { children: React.ReactNode }) {
+    return (
+        <p className="flex items-start gap-1.5 text-xs text-danger-ink">
+            <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+            <span>{children}</span>
+        </p>
+    );
+}
+
+/** Wrapper-level overrides so the shared AutocompleteInput matches kit input sizing. */
+const AUTOCOMPLETE_INPUT_CLASS = "!h-9 !rounded-lg !px-3 !bg-[var(--bg-input)]";
 
 // ... existing interface ...
 interface CreateBookingFormProps {
@@ -419,16 +452,16 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
         }
     };
 
+    // Helpers (declared before the early return so hook order never changes)
+    const transformPackageType = useCallback((pkg: string): string => toApiPackage(pkg), []);
+
+    const transformTripType = useCallback((tripType: string): string => {
+        return tripType === 'in_city' ? 'IN_CITY' : 'OUT_STATION';
+    }, []);
+
     if (!access.services.chauffeur) {
         return (
-            <div className="flex items-center justify-center py-12">
-                <div className="rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] p-6 text-center">
-                    <div className="text-lg font-bold text-[var(--text-primary)]">{t("chauffeurDisabled")}</div>
-                    <div className="mt-2 text-sm text-[var(--text-muted)]">
-                        {t("chauffeurDisabledHint")}
-                    </div>
-                </div>
-            </div>
+            <EmptyState title={t("chauffeurDisabled")} description={t("chauffeurDisabledHint")} />
         );
     }
 
@@ -510,158 +543,118 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
         }
     }
 
-    // Helpers
-    const transformPackageType = useCallback((pkg: string): string => toApiPackage(pkg), []);
-
-    const transformTripType = useCallback((tripType: string): string => {
-        return tripType === 'in_city' ? 'IN_CITY' : 'OUT_STATION';
-    }, []);
-
     // No minimum datetime restriction — past dates are allowed for data entry purposes
 
     return (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-8">
-            <div className="flex flex-col gap-6">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <div className="flex flex-col divide-y divide-line">
                 {/* Fulfillment Type Selector — always show when SELF_MANAGED (pool driver picker);
                     hide type buttons when only one fulfillment mode is enabled. */}
                 {availableFulfillmentTypes.length > 0 && (
-                    <div className="bg-[var(--cort-orange)]/10 border border-[var(--cort-orange)]/20 rounded-2xl p-5">
+                    <section className="flex flex-col gap-4 py-5 first:pt-0 last:pb-0">
                         {availableFulfillmentTypes.length > 1 && (
-                            <>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)] mb-3">{t("fulfillmentType")}</p>
-                        <div className="flex flex-wrap gap-2">
-                            {availableFulfillmentTypes.map((opt) => (
-                                <button
-                                    key={opt.value}
-                                    type="button"
-                                    onClick={() => {
-                                        setFulfillmentType(opt.value);
-                                        setVehicleModel("");
-                                        setPoolVehicleId(null);
-                                        setPoolDriverId(null);
-                                        if (opt.value !== "CORT_MANAGED") setBroadcastToAllVendors(false);
-                                    }}
-                                    className={cx(
-                                        "px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all",
-                                        fulfillmentType === opt.value
-                                            ? "bg-[var(--cort-orange)] border-[var(--cort-orange)] text-white"
-                                            : "bg-[var(--bg-card)] border-[var(--border-input)] text-[var(--text-primary)] hover:border-[var(--cort-orange)]/50"
-                                    )}
-                                >
-                                    {opt.label}
-                                </button>
-                            ))}
-                        </div>
-                            </>
+                            <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2">
+                                    <Truck className="size-4 text-fg-muted" aria-hidden="true" />
+                                    <h3 className="text-sm font-semibold text-fg">{t("fulfillmentType")}</h3>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {availableFulfillmentTypes.map((opt) => (
+                                        <ChoiceChip
+                                            key={opt.value}
+                                            selected={fulfillmentType === opt.value}
+                                            onClick={() => {
+                                                setFulfillmentType(opt.value);
+                                                setVehicleModel("");
+                                                setPoolVehicleId(null);
+                                                setPoolDriverId(null);
+                                                if (opt.value !== "CORT_MANAGED") setBroadcastToAllVendors(false);
+                                            }}
+                                        >
+                                            {opt.label}
+                                        </ChoiceChip>
+                                    ))}
+                                </div>
+                            </div>
                         )}
                         {fulfillmentType === "CORT_MANAGED" && showBroadcastOption && (
-                            <div className="mt-4 space-y-3 border-t border-[var(--cort-orange)]/20 pt-4">
-                                <label className="flex items-start gap-3 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        checked={broadcastToAllVendors}
-                                        onChange={(e) => {
-                                            const on = e.target.checked;
-                                            setBroadcastToAllVendors(on);
-                                            setVehicleModel("");
-                                            if (on) setVendorMode("all");
-                                        }}
-                                        className="mt-1 rounded border-[var(--border-input)] text-[var(--cort-orange)] focus:ring-[var(--cort-orange)]"
-                                    />
-                                    <span className="text-sm text-[var(--text-primary)] leading-snug">
-                                        <span className="font-bold">{t("alsoSendToVendors")}</span>
-                                        <span className="block text-xs font-medium text-[var(--text-secondary)] mt-1">
-                                            {t("broadcastHint")}
-                                        </span>
-                                    </span>
-                                </label>
+                            <div className="flex flex-col gap-3 rounded-lg border border-line bg-subtle/40 p-4">
+                                <Checkbox
+                                    checked={broadcastToAllVendors}
+                                    onCheckedChange={(checked) => {
+                                        const on = checked === true;
+                                        setBroadcastToAllVendors(on);
+                                        setVehicleModel("");
+                                        if (on) setVendorMode("all");
+                                    }}
+                                    label={<span className="font-medium">{t("alsoSendToVendors")}</span>}
+                                    description={t("broadcastHint")}
+                                />
                                 {broadcastToAllVendors && (
                                     <>
                                         {vendorsLoading ? (
-                                            <div className="text-xs text-[var(--text-muted)] font-medium animate-pulse px-1">{t("loadingVendors")}</div>
+                                            <div className="flex items-center gap-2 text-xs text-fg-muted">
+                                                <Spinner size="xs" label={t("loadingVendors")} />
+                                                <span aria-hidden="true">{t("loadingVendors")}</span>
+                                            </div>
                                         ) : vendorLinks.length === 0 ? (
-                                            <p className="text-xs text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2 font-semibold">
-                                                {t("noActiveVendors")}
-                                            </p>
+                                            <InlineNotice>{t("noActiveVendors")}</InlineNotice>
                                         ) : (
-                                            <>
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] px-1">{t("sendVendorRequestsTo")}</p>
+                                            <div className="flex flex-col gap-2">
+                                                <p className="text-xs font-medium text-fg-muted">{t("sendVendorRequestsTo")}</p>
                                                 <div className="flex flex-wrap gap-2">
-                                                    <button
-                                                        type="button"
+                                                    <ChoiceChip
+                                                        selected={vendorMode === "all"}
                                                         onClick={() => { setVendorMode("all"); setVehicleModel(""); }}
-                                                        className={cx(
-                                                            "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
-                                                            vendorMode === "all"
-                                                                ? "bg-[var(--cort-orange)] border-[var(--cort-orange)] text-white"
-                                                                : "bg-[var(--bg-card)] border-[var(--border-input)] text-[var(--text-primary)] hover:border-[var(--cort-orange)]/40"
-                                                        )}
                                                     >
                                                         {t("allVendorsCount", { count: vendorLinks.length })}
-                                                    </button>
+                                                    </ChoiceChip>
                                                     {vendorLinks.map((link) => (
-                                                        <button
+                                                        <ChoiceChip
                                                             key={link.id}
-                                                            type="button"
+                                                            selected={vendorMode === link.id}
                                                             onClick={() => { setVendorMode(link.id); setVehicleModel(""); }}
-                                                            className={cx(
-                                                                "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
-                                                                vendorMode === link.id
-                                                                    ? "bg-[var(--cort-orange)] border-[var(--cort-orange)] text-white"
-                                                                    : "bg-[var(--bg-card)] border-[var(--border-input)] text-[var(--text-primary)] hover:border-[var(--cort-orange)]/40"
-                                                            )}
                                                         >
                                                             {link.external_vendors?.name ?? t("vendorHash", { id: link.id })}
-                                                        </button>
+                                                        </ChoiceChip>
                                                     ))}
                                                 </div>
-                                            </>
+                                            </div>
                                         )}
                                     </>
                                 )}
                             </div>
                         )}
                         {fulfillmentType === "EXTERNAL_VENDOR" && (
-                            <div className="mt-3 space-y-2">
+                            <div className="flex flex-col gap-2">
                                 {vendorsLoading ? (
-                                    <div className="text-xs text-[var(--text-muted)] font-medium animate-pulse px-1">{t("loadingVendors")}</div>
+                                    <div className="flex items-center gap-2 text-xs text-fg-muted">
+                                        <Spinner size="xs" label={t("loadingVendors")} />
+                                        <span aria-hidden="true">{t("loadingVendors")}</span>
+                                    </div>
                                 ) : vendorLinks.length === 0 ? (
-                                    <p className="text-xs text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2 font-semibold">
-                                        {t("noActiveVendorsExternal")}
-                                    </p>
+                                    <InlineNotice>{t("noActiveVendorsExternal")}</InlineNotice>
                                 ) : (
                                     <>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] px-1">{t("sendRequestTo")}</p>
+                                        <p className="text-xs font-medium text-fg-muted">{t("sendRequestTo")}</p>
                                         <div className="flex flex-wrap gap-2">
-                                            <button
-                                                type="button"
+                                            <ChoiceChip
+                                                selected={vendorMode === "all"}
                                                 onClick={() => { setVendorMode("all"); setVehicleModel(""); }}
-                                                className={cx(
-                                                    "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
-                                                    vendorMode === "all"
-                                                        ? "bg-[var(--cort-orange)] border-[var(--cort-orange)] text-white"
-                                                        : "bg-[var(--bg-card)] border-[var(--border-input)] text-[var(--text-primary)] hover:border-[var(--cort-orange)]/40"
-                                                )}
                                             >
                                                 {t("allVendorsCaps", { count: vendorLinks.length })}
-                                            </button>
+                                            </ChoiceChip>
                                             {vendorLinks.map((link) => (
-                                                <button
+                                                <ChoiceChip
                                                     key={link.id}
-                                                    type="button"
+                                                    selected={vendorMode === link.id}
                                                     onClick={() => { setVendorMode(link.id); setVehicleModel(""); }}
-                                                    className={cx(
-                                                        "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
-                                                        vendorMode === link.id
-                                                            ? "bg-[var(--cort-orange)] border-[var(--cort-orange)] text-white"
-                                                            : "bg-[var(--bg-card)] border-[var(--border-input)] text-[var(--text-primary)] hover:border-[var(--cort-orange)]/40"
-                                                    )}
                                                 >
                                                     {link.external_vendors?.name ?? t("vendorHash", { id: link.id })}
-                                                </button>
+                                                </ChoiceChip>
                                             ))}
                                         </div>
-                                        <p className="text-[10px] text-[var(--text-muted)] px-1">
+                                        <p className="text-xs text-fg-muted">
                                             {vendorMode === "all"
                                                 ? t("requestAllVendors")
                                                 : t("requestSingleVendor", { name: vendorLinks.find((l) => l.id === vendorMode)?.external_vendors?.name ?? t("selectedVendor") })}
@@ -671,13 +664,11 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                             </div>
                         )}
                         {fulfillmentType === "SELF_MANAGED" && (
-                            <div className={availableFulfillmentTypes.length > 1 ? "mt-3" : ""}>
-                                <div>
-                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t("poolDriver")}</label>
-                                    <select
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field label={t("poolDriver")} required>
+                                    <Select
                                         value={poolDriverId ?? ""}
                                         onChange={(e) => setPoolDriverId(e.target.value || null)}
-                                        className="w-full h-10 rounded-xl border border-[var(--border-input)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)] disabled:opacity-60"
                                         required
                                         disabled={poolLoading || availablePoolDrivers.length === 0}
                                     >
@@ -691,18 +682,15 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                         {availablePoolDrivers.map((d) => (
                                             <option key={d.user_id} value={d.user_id}>{d.users.full_name}</option>
                                         ))}
-                                    </select>
-                                </div>
+                                    </Select>
+                                </Field>
                             </div>
                         )}
-                    </div>
+                    </section>
                 )}
 
                 {/* Service Configuration Section */}
-                <CardSection
-                    title={t("serviceConfiguration")}
-                    icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
-                >
+                <CardSection title={t("serviceConfiguration")} icon={<Settings2 />}>
                     <Field label={t("serviceType")} required>
                         <Select
                             value={serviceCategory}
@@ -720,6 +708,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                             onChange={setBookingCity}
                             options={pakistaniCities}
                             placeholder={t("cityPlaceholder")}
+                            className={AUTOCOMPLETE_INPUT_CLASS}
                             required
                         />
                     </Field>
@@ -739,18 +728,13 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                             ))}
                         </Select>
                         {isEventShuttle && (
-                            <div className="mt-1.5 text-[10px] text-[var(--text-muted)] font-bold px-1 uppercase tracking-tight">
-                                {t("passengerOptionalHint")}
-                            </div>
+                            <p className="text-xs text-fg-muted">{t("passengerOptionalHint")}</p>
                         )}
                     </Field>
                 </CardSection>
 
                 {/* Trip Details Section */}
-                <CardSection
-                    title={t("rideDetails")}
-                    icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-                >
+                <CardSection title={t("rideDetails")} icon={<Clock />}>
                     <Field label={isEventShuttle ? t("seaterType") : t("carType")} required>
                         {isEventShuttle ? (
                             <Select
@@ -839,27 +823,18 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                             </Select>
                         )}
                         {!isEventShuttle && fulfillmentType === "CORT_MANAGED" && allowedVehicleModels.length === 0 && (
-                            <div className="mt-1 text-[10px] text-rose-500 font-black uppercase">
-                                {t("noVehiclesWhitelistedWarning")}
-                            </div>
+                            <InlineNotice>{t("noVehiclesWhitelistedWarning")}</InlineNotice>
                         )}
                         {!isEventShuttle && fulfillmentType === "EXTERNAL_VENDOR" && !vendorsLoading && vendorLinks.length > 0 && vendorContractModels.length === 0 && (
-                            <div className="mt-1 text-[10px] text-rose-500 font-black uppercase">
-                                {t("noVendorContractModelsFound")}
-                            </div>
+                            <InlineNotice>{t("noVendorContractModelsFound")}</InlineNotice>
                         )}
                         {!isEventShuttle && fulfillmentType === "CORT_MANAGED" && broadcastToAllVendors && !vendorsLoading && cortBroadcastCarModels && cortBroadcastCarModels.length === 0 && (
-                            <div className="mt-1 text-[10px] text-rose-500 font-black uppercase">
-                                {t("noOverlapVehicles")}
-                            </div>
+                            <InlineNotice>{t("noOverlapVehicles")}</InlineNotice>
+                        )}
+                        {!isEventShuttle && fulfillmentType !== "SELF_MANAGED" && vehicleModel === "Other" && (
+                            <p className="text-xs text-fg-muted">{t("specialRequestSelected")}</p>
                         )}
                     </Field>
-
-                    {!isEventShuttle && fulfillmentType !== "SELF_MANAGED" && vehicleModel === "Other" && (
-                        <div className="-mt-2 text-[10px] font-black uppercase tracking-wide text-[#fe8503]">
-                            {t("specialRequestSelected")}
-                        </div>
-                    )}
 
                     {!isEventShuttle && fulfillmentType !== "SELF_MANAGED" && vehicleModel === "Other" && (
                         <Field label={t("specifyVehicle")} required>
@@ -868,6 +843,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                 onChange={setCustomVehicleModel}
                                 options={pakistaniCars}
                                 placeholder={t("vehiclePlaceholder")}
+                                className={AUTOCOMPLETE_INPUT_CLASS}
                                 required
                             />
                         </Field>
@@ -908,48 +884,54 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                             min={1}
                             value={noOfDays}
                             onChange={(e) => setNoOfDays(parseInt(e.target.value) || 1)}
+                            className="tabular-nums"
                             required
                         />
                     </Field>
 
                     {tripType === "out_station" && (
                         <div className="sm:col-span-2">
-                            <Field label={t("destinationCities")} required>
+                            <Field label={t("destinationCities")} required group>
                                 <div className="flex gap-2">
                                     <AutocompleteInput
                                         value={cityInput}
                                         onChange={(val) => setCityInput(val)}
                                         options={pakistaniCities}
                                         placeholder={t("searchAddCity")}
-                                        className="flex-1"
+                                        className={cn("flex-1", AUTOCOMPLETE_INPUT_CLASS)}
                                     />
-                                    <button
+                                    <Button
                                         type="button"
+                                        variant="outline"
+                                        leftIcon={<Plus />}
                                         onClick={handleAddCity}
                                         disabled={!cityInput.trim()}
-                                        className="h-12 px-6 rounded-xl bg-[var(--cort-orange)]/10 text-[var(--cort-orange)] text-xs font-black uppercase hover:bg-[var(--cort-orange)]/20 transition-all active:scale-95 disabled:opacity-50"
                                     >
                                         {tCommon("actions.add")}
-                                    </button>
+                                    </Button>
                                 </div>
                                 {destinationCities.length > 0 && (
-                                    <div className="mt-4 flex flex-wrap gap-2">
+                                    <ul className="mt-1 flex flex-wrap gap-2">
                                         {destinationCities.map((city, index) => (
-                                            <div
+                                            <li
                                                 key={index}
-                                                className="flex items-center gap-2 rounded-full bg-[var(--bg-subtle)] px-4 py-1.5 text-xs font-black text-[var(--text-primary)] border border-[var(--border-input)]"
+                                                className="inline-flex h-7 items-center gap-1 rounded-md border border-line bg-subtle pe-0.5 ps-2.5 text-xs font-medium text-fg"
                                             >
                                                 <span>{city}</span>
-                                                <button
+                                                <IconButton
                                                     type="button"
+                                                    variant="ghost"
+                                                    size="icon-xs"
+                                                    tooltip={false}
+                                                    label={`${tCommon("actions.delete")} ${city}`}
                                                     onClick={() => handleRemoveCity(index)}
-                                                    className="w-4 h-4 rounded-full bg-white/10 text-[var(--text-muted)] flex items-center justify-center hover:bg-rose-500 hover:text-[var(--text-primary)] transition-all"
+                                                    className="size-6"
                                                 >
-                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
-                                                </button>
-                                            </div>
+                                                    <X />
+                                                </IconButton>
+                                            </li>
                                         ))}
-                                    </div>
+                                    </ul>
                                 )}
 
                                 {/* Live outstation cost estimate */}
@@ -968,10 +950,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                 </CardSection>
 
                 {/* Logistics Section */}
-                <CardSection
-                    title={t("logisticsSchedule")}
-                    icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
-                >
+                <CardSection title={t("logisticsSchedule")} icon={<MapPin />}>
                     <Field label={t("pickupTime")} required>
                         <Select
                             value={timeType}
@@ -989,6 +968,7 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                                 type="datetime-local"
                                 value={scheduledDateTime}
                                 onChange={(e) => setScheduledDateTime(e.target.value)}
+                                className="tabular-nums"
                                 required
                             />
                         </Field>
@@ -1003,100 +983,91 @@ export default function CreateBookingForm({ onSuccess, onCancel }: CreateBooking
                         />
                     </Field>
 
-                    <div className="sm:col-span-2 space-y-4">
-                        <div className="bg-[var(--bg-subtle)] rounded-2xl border border-[var(--border-default)] p-5 mt-2">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-wider">{t("interactivePin")}</div>
-                                {pickupLat && pickupLng && (
-                                    <div className="text-[9px] font-mono text-[var(--cort-orange)] font-bold bg-[var(--cort-orange)]/5 px-2 py-1 rounded-lg">
-                                        {pickupLat.toFixed(4)}, {pickupLng.toFixed(4)}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Map Search Bar */}
-                            <div className="relative mb-4 z-[50]">
-                                <TextInput
-                                    onChange={(e) => search(e.target.value)}
-                                    placeholder={t("searchMapPlaceholder")}
-                                    className="w-full ps-11 bg-[var(--bg-card)]"
-                                />
-                                <div className="absolute start-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                </div>
-                                {isLoadingSuggestions && (
-                                    <div className="absolute end-3 top-1/2 -translate-y-1/2">
-                                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--cort-orange)] border-t-transparent"></div>
-                                    </div>
-                                )}
-
-                                {/* Suggestions Dropdown */}
-                                {suggestions.length > 0 && (
-                                    <div className="absolute top-full start-0 mt-2 w-full rounded-2xl border border-[var(--border-input)] bg-[var(--bg-card)] shadow-2xl max-h-60 overflow-auto z-[60] py-2">
-                                        {suggestions.map((suggestion) => (
-                                            <button
-                                                key={suggestion.place_id}
-                                                type="button"
-                                                onClick={() => {
-                                                    setPickupLat(suggestion.lat);
-                                                    setPickupLng(suggestion.lng);
-                                                    setPickupAddress(suggestion.display_name);
-                                                    clearSuggestions();
-                                                    refreshToken();
-                                                }}
-                                                className="w-full px-5 py-3 text-start hover:bg-[var(--bg-subtle)] transition-colors group"
-                                            >
-                                                <div className="text-xs font-black text-[var(--text-primary)] group-hover:text-[#fe8503] transition-colors">{suggestion.name}</div>
-                                                <div className="text-[10px] text-[var(--text-muted)] mt-1 truncate font-medium">{suggestion.display_name}</div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="rounded-2xl overflow-hidden border border-[var(--border-input)] shadow-inner bg-[var(--bg-page)]">
-                                <Map
-                                    height="280px"
-                                    center={pickupLat && pickupLng ? [pickupLat, pickupLng] : undefined}
-                                    markers={pickupLat && pickupLng ? [{ id: "pickup", position: [pickupLat, pickupLng] as any, label: t("pickupLabel"), color: "#FF6B00" }] : []}
-                                    onMapClick={(lat, lng) => { setPickupLat(lat); setPickupLng(lng); }}
-                                />
-                            </div>
-                            <div className="mt-3 flex items-center gap-2 text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-tight">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--cort-orange)] animate-pulse"></span>
-                                {t("pinLocationHint")}
-                            </div>
+                    <div className="flex flex-col gap-3 rounded-lg border border-line bg-subtle/40 p-4 sm:col-span-2">
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="text-[13px] font-medium text-fg-secondary">{t("interactivePin")}</span>
+                            {pickupLat && pickupLng && (
+                                <span className="ltr-content font-mono text-xs tabular-nums text-fg-muted">
+                                    {pickupLat.toFixed(4)}, {pickupLng.toFixed(4)}
+                                </span>
+                            )}
                         </div>
+
+                        {/* Map Search Bar */}
+                        <div className="relative z-[50]">
+                            <TextInput
+                                onChange={(e) => search(e.target.value)}
+                                placeholder={t("searchMapPlaceholder")}
+                                aria-label={t("searchMapPlaceholder")}
+                                className="ps-9 pe-9"
+                            />
+                            <Search
+                                aria-hidden="true"
+                                className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
+                            />
+                            {isLoadingSuggestions && (
+                                <Spinner size="sm" className="absolute end-3 top-1/2 -translate-y-1/2" />
+                            )}
+
+                            {/* Suggestions Dropdown */}
+                            {suggestions.length > 0 && (
+                                <div className="absolute start-0 top-full z-[60] mt-1 max-h-60 w-full overflow-auto rounded-lg border border-line bg-card py-1 shadow-[var(--shadow-modal)]">
+                                    {suggestions.map((suggestion) => (
+                                        <button
+                                            key={suggestion.place_id}
+                                            type="button"
+                                            onClick={() => {
+                                                setPickupLat(suggestion.lat);
+                                                setPickupLng(suggestion.lng);
+                                                setPickupAddress(suggestion.display_name);
+                                                clearSuggestions();
+                                                refreshToken();
+                                            }}
+                                            className={cn("block w-full px-3 py-2 text-start transition-colors hover:bg-subtle", focusRing)}
+                                        >
+                                            <span className="block truncate text-sm font-medium text-fg">{suggestion.name}</span>
+                                            <span className="mt-0.5 block truncate text-xs text-fg-muted">{suggestion.display_name}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="overflow-hidden rounded-lg border border-line bg-page">
+                            <Map
+                                height="280px"
+                                center={pickupLat && pickupLng ? [pickupLat, pickupLng] : undefined}
+                                markers={pickupLat && pickupLng ? [{ id: "pickup", position: [pickupLat, pickupLng] as any, label: t("pickupLabel"), color: "#e2622a" }] : []}
+                                onMapClick={(lat, lng) => { setPickupLat(lat); setPickupLng(lng); }}
+                            />
+                        </div>
+                        <p className="flex items-center gap-1.5 text-xs text-fg-muted">
+                            <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+                            {t("pinLocationHint")}
+                        </p>
                     </div>
                 </CardSection>
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-xs text-red-400 font-black uppercase tracking-tight flex items-start gap-3 animate-shake">
-                    <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                <div role="alert" className="flex items-start gap-2 rounded-lg border border-danger-line bg-danger-soft p-3 text-sm text-danger-ink">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <span>{error}</span>
                 </div>
             )}
 
-            <div className="flex items-center gap-4 justify-end pt-8 border-t border-[var(--border-input)]">
-                <button
-                    type="button"
-                    onClick={onCancel}
-                    className="h-12 px-8 rounded-xl border border-[var(--border-input)] text-xs font-black uppercase text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] transition-all active:scale-95"
-                >
+            <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={onCancel}>
                     {t("discard")}
-                </button>
-                <button
+                </Button>
+                <Button
                     type="submit"
                     disabled={!canSubmit || isSubmitting}
-                    className="h-12 min-w-[180px] px-10 rounded-xl bg-[#fe8503] text-xs font-black uppercase text-[var(--text-primary)] shadow-xl shadow-[#fe8503]/20 hover:bg-[#f07a00] hover:-translate-y-0.5 transition-all active:scale-95 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none"
+                    loading={isSubmitting}
+                    className="sm:min-w-40"
                 >
-                    {isSubmitting ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
-                    ) : (
-                        t("confirmBooking")
-                    )}
-                </button>
+                    {t("confirmBooking")}
+                </Button>
             </div>
         </form>
     );

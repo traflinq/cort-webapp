@@ -8,6 +8,7 @@ import { AlertCircle, Lock } from "lucide-react";
 import { getSaudiBasePath, stripSaudiPrefix, withSaudiBase } from "@/app/lib/i18n/saudi-route";
 import { useCompanyAccessState } from "../lib/access-context";
 import { canOpenCompanyPath } from "../lib/pages";
+import { Button, Skeleton } from "@/app/admin/ui";
 
 /**
  * Renders a company page only once the company's access is known and allows it.
@@ -39,13 +40,7 @@ export function CompanyAccessGate({ children }: { children: ReactNode }) {
   if (state.status === "error") {
     return (
       <Notice icon={<AlertCircle />} title={t("failedTitle")} description={t("failedDescription")} detail={state.message}>
-        <button
-          type="button"
-          onClick={retry}
-          className="rounded-xl bg-[var(--cort-orange)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--cort-orange-hover)]"
-        >
-          {tCommon("actions.tryAgain")}
-        </button>
+        <Button onClick={retry}>{tCommon("actions.tryAgain")}</Button>
       </Notice>
     );
   }
@@ -54,9 +49,9 @@ export function CompanyAccessGate({ children }: { children: ReactNode }) {
     if (sendTrialHome) return <PageSkeleton />;
     return (
       <Notice icon={<Lock />} title={t("unavailableTitle")} description={t("unavailableDescription")}>
-        <Link href={home} className="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-fg hover:bg-subtle">
-          {t("backToDashboard")}
-        </Link>
+        <Button asChild variant="outline">
+          <Link href={home}>{t("backToDashboard")}</Link>
+        </Button>
       </Notice>
     );
   }
@@ -67,12 +62,12 @@ export function CompanyAccessGate({ children }: { children: ReactNode }) {
 function Notice({ icon, title, description, detail, children }: { icon: ReactNode; title: string; description?: string; detail?: string; children?: ReactNode }) {
   return (
     <div className="flex items-center justify-center py-16">
-      <div role="status" className="flex max-w-md flex-col items-center gap-3 rounded-3xl border border-line bg-card p-8 text-center">
-        <span className="flex size-12 items-center justify-center rounded-full bg-subtle text-fg-muted [&_svg]:size-6">{icon}</span>
-        <h2 className="text-lg font-semibold text-fg">{title}</h2>
+      <div role="status" className="flex max-w-md flex-col items-center gap-2 rounded-xl border border-line bg-card p-8 text-center">
+        <span className="mb-1 flex size-10 items-center justify-center rounded-full bg-subtle text-fg-muted [&_svg]:size-5">{icon}</span>
+        <h2 className="text-base font-semibold text-fg">{title}</h2>
         {description && <p className="text-sm text-fg-muted">{description}</p>}
         {detail && <p className="text-xs text-fg-muted" dir="auto">{detail}</p>}
-        {children && <div className="mt-2">{children}</div>}
+        {children && <div className="mt-3">{children}</div>}
       </div>
     </div>
   );
@@ -80,13 +75,22 @@ function Notice({ icon, title, description, detail, children }: { icon: ReactNod
 
 function PageSkeleton() {
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-6 pb-12" aria-busy="true">
-      <div className="h-10 w-64 animate-pulse rounded-xl bg-subtle" />
-      <div className="h-24 animate-pulse rounded-3xl border border-line bg-card" />
+    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 pb-12" aria-busy="true">
+      <div className="space-y-2">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-7 w-56" />
+      </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-32 animate-pulse rounded-2xl border border-line bg-card" />
+          <div key={i} className="rounded-xl border border-line bg-card p-4">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="mt-3 h-7 w-32" />
+            <Skeleton className="mt-3 h-3 w-20" />
+          </div>
         ))}
+      </div>
+      <div className="h-64 rounded-xl border border-line bg-card p-4">
+        <Skeleton className="h-4 w-40" />
       </div>
     </div>
   );

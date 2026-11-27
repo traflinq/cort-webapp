@@ -5,13 +5,14 @@ import { useTranslations } from "next-intl";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { Car, Clock3, Fuel, GitMerge, Leaf, ListOrdered, Minimize2, Split, TreeDeciduous, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { focusRing } from "@/app/admin/ui";
 import { SectionHeading } from "../components/ui";
 import { useCostFetch, useFmt, filterQuery, type CostFilters } from "./hooks";
 import { useChartColors } from "./charts";
 import { BasisBadge, EmptyNote, ErrorNote, FigureValue, HowCalculated, MethodNote, Skeleton, StatBlock, Tag } from "./ui";
 import type { AcState, CarbonReport, Figure, RecType } from "./types";
 
-const AC_TONE: Record<AcState, "neutral" | "brand" | "warning"> = { ON: "brand", OFF: "neutral", UNSET: "warning" };
+const AC_TONE: Record<AcState, "neutral" | "info" | "warning"> = { ON: "info", OFF: "neutral", UNSET: "warning" };
 const REC_ICON: Partial<Record<RecType, ReactNode>> = {
   FLEET_REPLAN: <Workflow />,
   ROUTE_MERGE: <GitMerge />,
@@ -19,8 +20,6 @@ const REC_ICON: Partial<Record<RecType, ReactNode>> = {
   ROUTE_RESEQUENCE: <ListOrdered />,
   VEHICLE_DOWNSIZE: <Minimize2 />,
 };
-/** Most tree icons drawn in the hero; the rest is shown as "+N". */
-const MAX_TREES = 12;
 
 /** Carbon & ESG impact of the company's own shuttle operation, and what the recommendations would avoid. */
 export function CarbonPanel({ filters, onOpenRecommendation }: { filters: CostFilters; onOpenRecommendation: (id: number) => void }) {
@@ -33,7 +32,7 @@ export function CarbonPanel({ filters, onOpenRecommendation }: { filters: CostFi
   if (!report.data) {
     return (
       <div className="flex flex-col gap-6">
-        <Skeleton className="h-64 rounded-3xl" />
+        <Skeleton className="h-64" />
         <Skeleton className="h-72" />
       </div>
     );
@@ -48,7 +47,7 @@ export function CarbonPanel({ filters, onOpenRecommendation }: { filters: CostFi
 
       <Hero report={r} />
 
-      {noRecs && <p className="rounded-2xl border border-warning-line bg-warning-soft p-4 text-sm text-warning-ink">{t(r.recommendation_status === "NO_RUN" ? "noRun" : "oldRun")}</p>}
+      {noRecs && <p className="rounded-xl border border-warning-line bg-warning-soft p-4 text-sm text-warning-ink">{t(r.recommendation_status === "NO_RUN" ? "noRun" : "oldRun")}</p>}
 
       {/* Footprint in the selected range */}
       <section className="flex flex-col gap-4">
@@ -97,22 +96,16 @@ function Hero({ report: r }: { report: CarbonReport }) {
   const x = r.totals;
   const trees = Math.max(0, Math.round(x.trees.value ?? 0));
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-success-line bg-gradient-to-br from-success-soft via-card to-card p-6 sm:p-8">
-      <Leaf aria-hidden className="pointer-events-none absolute -end-10 -top-10 size-56 rotate-12 text-success-ink opacity-[0.06]" />
-      <div className="relative grid grid-cols-1 items-center gap-8 md:grid-cols-[minmax(0,1fr)_auto]">
-        <div className="flex min-w-0 flex-col gap-3">
-          <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-success-ink">
-            <Leaf className="size-4" aria-hidden />
-            {t("heroEyebrow")}
-          </p>
-          <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
-            <span className="text-4xl font-semibold tracking-tight text-fg tabular-nums sm:text-5xl">{fmt.n(x.potential_co2e_per_month.value, 0)}</span>
-            <span className="pb-1.5 text-base font-medium text-fg-muted">{t("heroUnit")}</span>
-            <span className="pb-2">
-              <HowCalculated figure={x.potential_co2e_per_month} />
-            </span>
+    <section className="rounded-xl border border-line bg-card p-5 sm:p-6">
+      <div className="grid grid-cols-1 items-center gap-6 md:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="flex min-w-0 flex-col gap-2">
+          <p className="text-sm font-medium text-fg-muted">{t("heroEyebrow")}</p>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="text-3xl font-semibold tracking-tight text-success-ink tabular-nums">{fmt.n(x.potential_co2e_per_month.value, 0)}</span>
+            <span className="text-sm font-medium text-fg-muted">{t("heroUnit")}</span>
+            <HowCalculated figure={x.potential_co2e_per_month} />
           </div>
-          <p className="text-sm text-fg-muted">{t("heroYear", { year: fmt.fig(x.potential_co2e_per_year) })}</p>
+          <p className="text-sm text-fg-muted tabular-nums">{t("heroYear", { year: fmt.fig(x.potential_co2e_per_year) })}</p>
           <div className="flex flex-wrap gap-2 pt-1">
             <SourceChip icon={<Workflow className="size-3.5" />} label={t("fromRecs")} value={x.recs_co2e_per_month.value === null ? "—" : fmt.fig(x.recs_co2e_per_month)} />
             <SourceChip icon={<Clock3 className="size-3.5" />} label={t("fromIdling")} value={fmt.fig(x.idle_co2e_per_month)} />
@@ -122,18 +115,10 @@ function Hero({ report: r }: { report: CarbonReport }) {
         <AbatementRing figure={x.abatement_pct} current={x.current_co2e_per_month} />
       </div>
 
-      <div className="relative mt-6 flex flex-col gap-3 rounded-2xl border border-success-line/60 bg-card/70 p-4 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-1" aria-hidden>
-          {Array.from({ length: Math.min(trees, MAX_TREES) }, (_, i) => (
-            <TreeDeciduous key={i} className="size-6 text-success-ink" strokeWidth={1.75} />
-          ))}
-          {trees > MAX_TREES && <span className="ms-1 text-sm font-semibold text-success-ink">+{fmt.n(trees - MAX_TREES)}</span>}
-          {trees === 0 && <TreeDeciduous className="size-6 text-fg-muted opacity-40" strokeWidth={1.75} />}
-        </div>
-        <p className="flex items-center gap-1.5 text-sm text-fg">
-          <span>{t("treesLine", { trees: fmt.n(trees) })}</span>
-          <HowCalculated figure={x.trees} />
-        </p>
+      <div className="mt-5 flex items-center gap-2 border-t border-line pt-4 text-sm text-fg">
+        <TreeDeciduous className="size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+        <span className="tabular-nums">{t("treesLine", { trees: fmt.n(trees) })}</span>
+        <HowCalculated figure={x.trees} />
       </div>
     </section>
   );
@@ -141,8 +126,8 @@ function Hero({ report: r }: { report: CarbonReport }) {
 
 function SourceChip({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-3 py-1 text-xs">
-      <span className="text-success-ink">{icon}</span>
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-card px-2 py-1 text-xs">
+      <span className="text-fg-muted" aria-hidden="true">{icon}</span>
       <span className="text-fg-muted">{label}</span>
       <span className="font-semibold text-fg tabular-nums">{value}</span>
     </span>
@@ -160,7 +145,7 @@ function AbatementRing({ figure, current }: { figure: Figure; current: Figure })
     <div className="flex flex-col items-center gap-2">
       <div className="relative size-40">
         <svg viewBox="0 0 140 140" className="size-full -rotate-90" aria-hidden>
-          <circle cx="70" cy="70" r={R} fill="none" strokeWidth="12" className="stroke-success-line" opacity={0.6} />
+          <circle cx="70" cy="70" r={R} fill="none" strokeWidth="12" className="stroke-line" />
           <circle
             cx="70"
             cy="70"
@@ -170,15 +155,14 @@ function AbatementRing({ figure, current }: { figure: Figure; current: Figure })
             strokeLinecap="round"
             stroke={c.series[2]}
             strokeDasharray={`${(pct / 100) * C} ${C}`}
-            className="transition-[stroke-dasharray] duration-700 ease-out"
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-semibold tracking-tight text-fg tabular-nums">{figure.value === null ? "—" : `${fmt.n(figure.value, 1)}%`}</span>
-          <span className="text-[11px] font-medium uppercase tracking-wide text-fg-muted">{t("ringCaption")}</span>
+          <span className="text-2xl font-semibold tracking-tight text-fg tabular-nums">{figure.value === null ? "—" : `${fmt.n(figure.value, 1)}%`}</span>
+          <span className="text-xs text-fg-muted">{t("ringCaption")}</span>
         </div>
       </div>
-      <p className="flex items-center gap-1 text-center text-xs text-fg-muted">
+      <p className="flex items-center gap-1 text-center text-xs text-fg-muted tabular-nums">
         {t("ringLabel", { current: fmt.fig(current) })}
         <HowCalculated figure={figure} />
       </p>
@@ -200,7 +184,7 @@ function FootprintDonut({ driving, idling }: { driving: Figure; idling: Figure }
     { key: "idling", label: t("idlingShort"), value: i, color: c.series[5], icon: <Clock3 className="size-4" /> },
   ];
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-5 sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-4 rounded-xl border border-line bg-card p-5 sm:flex-row sm:items-center">
       <div className="relative mx-auto size-44 shrink-0" dir="ltr">
         {total > 0 ? (
           <ResponsiveContainer>
@@ -217,18 +201,19 @@ function FootprintDonut({ driving, idling }: { driving: Figure; idling: Figure }
         )}
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-xl font-semibold text-fg tabular-nums">{fmt.n(total, 0)}</span>
-          <span className="text-[11px] text-fg-muted">{fmt.unit("kgCO2e")}</span>
+          <span className="text-xs text-fg-muted">{fmt.unit("kgCO2e")}</span>
         </div>
       </div>
       <ul className="flex flex-1 flex-col gap-3">
         {parts.map((p) => (
           <li key={p.key} className="flex items-center gap-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: p.color }}>
+            <span className="size-2.5 shrink-0 rounded-sm" style={{ background: p.color }} aria-hidden="true" />
+            <span className="shrink-0 text-fg-muted" aria-hidden="true">
               {p.icon}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium text-fg">{p.label}</span>
-              <span className="block text-xs text-fg-muted">{total > 0 ? `${fmt.n((p.value / total) * 100, 0)}%` : "—"}</span>
+              <span className="block text-xs text-fg-muted tabular-nums">{total > 0 ? `${fmt.n((p.value / total) * 100, 0)}%` : "—"}</span>
             </span>
             <span className="text-sm font-semibold text-fg tabular-nums">{fmt.value(p.value, "kgCO2e")}</span>
           </li>
@@ -249,11 +234,11 @@ function NowVsAfter({ current, after, saved }: { current: Figure; after: Figure;
   const aft = after.value ?? 0;
   const afterPct = cur > 0 ? Math.max(0, Math.min(100, (aft / cur) * 100)) : 0;
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border border-line bg-card p-5">
+    <div className="flex flex-col gap-5 rounded-xl border border-line bg-card p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-fg">{t("nowVsAfter")}</h3>
-          <p className="text-xs text-fg-muted">{t("nowVsAfterHint")}</p>
+          <h3 className="text-sm font-semibold text-fg">{t("nowVsAfter")}</h3>
+          <p className="mt-0.5 text-xs text-fg-muted">{t("nowVsAfterHint")}</p>
         </div>
         <BasisBadge basis={after.basis} />
       </div>
@@ -262,7 +247,7 @@ function NowVsAfter({ current, after, saved }: { current: Figure; after: Figure;
       </Bar>
       <Bar label={t("after")} value={fmt.fig(after)} figure={after}>
         <div className="flex h-full w-full">
-          <div className="h-full rounded-s-full transition-[width] duration-700" style={{ width: `${afterPct}%`, background: c.series[2] }} />
+          <div className="h-full rounded-s-full" style={{ width: `${afterPct}%`, background: c.series[2] }} />
           {cur > 0 && afterPct < 100 && (
             <div
               className="h-full rounded-e-full border border-dashed border-success-line"
@@ -271,7 +256,7 @@ function NowVsAfter({ current, after, saved }: { current: Figure; after: Figure;
           )}
         </div>
       </Bar>
-      <p className="flex items-center gap-2 rounded-xl bg-success-soft px-3 py-2 text-sm text-success-ink">
+      <p className="flex items-center gap-2 rounded-lg bg-success-soft px-3 py-2 text-sm text-success-ink tabular-nums">
         <Leaf className="size-4 shrink-0" aria-hidden />
         {t("savedLine", { kg: fmt.fig(saved) })}
       </p>
@@ -289,7 +274,7 @@ function Bar({ label, value, figure, children }: { label: string; value: string;
           <HowCalculated figure={figure} />
         </span>
       </div>
-      <div className="h-4 w-full overflow-hidden rounded-full bg-subtle">{children}</div>
+      <div className="h-3 w-full overflow-hidden rounded-full bg-subtle">{children}</div>
     </div>
   );
 }
@@ -317,24 +302,24 @@ function SavingSources({ report: r, onOpenRecommendation }: { report: CarbonRepo
   ].sort((a, b) => (b.kg.value ?? 0) - (a.kg.value ?? 0));
   const max = Math.max(...rows.map((x) => x.kg.value ?? 0), 0);
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-5">
+    <div className="flex flex-col gap-4 rounded-xl border border-line bg-card p-5">
       <div>
-        <h3 className="text-base font-semibold text-fg">{t("sourcesTitle")}</h3>
-        <p className="text-xs text-fg-muted">{t("sourcesHint")}</p>
+        <h3 className="text-sm font-semibold text-fg">{t("sourcesTitle")}</h3>
+        <p className="mt-0.5 text-xs text-fg-muted">{t("sourcesHint")}</p>
       </div>
       <ul className="flex flex-col gap-1">
         {rows.map((row) => {
           const v = row.kg.value ?? 0;
           const content = (
             <>
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-success-soft text-success-ink [&>svg]:size-4">{row.icon}</span>
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-subtle text-fg-muted [&>svg]:size-4" aria-hidden="true">{row.icon}</span>
               <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <span className="flex items-baseline justify-between gap-3">
                   <span className="truncate text-sm font-medium text-fg">{row.title}</span>
                   <span className="shrink-0 text-sm font-semibold text-fg tabular-nums">{fmt.fig(row.kg)}</span>
                 </span>
                 <span className="h-1.5 w-full overflow-hidden rounded-full bg-subtle">
-                  <span className="block h-full rounded-full transition-[width] duration-700" style={{ width: `${max > 0 ? Math.max(2, (v / max) * 100) : 0}%`, background: row.color }} />
+                  <span className="block h-full rounded-full" style={{ width: `${max > 0 ? Math.max(2, (v / max) * 100) : 0}%`, background: row.color }} />
                 </span>
                 <span className="flex justify-between gap-3 text-xs text-fg-muted">
                   <span className="truncate" title={row.sub}>
@@ -348,7 +333,7 @@ function SavingSources({ report: r, onOpenRecommendation }: { report: CarbonRepo
           return (
             <li key={row.key}>
               {row.onClick ? (
-                <button type="button" onClick={row.onClick} className="flex w-full items-center gap-3 rounded-xl p-2 text-start transition-colors hover:bg-subtle/60">
+                <button type="button" onClick={row.onClick} className={cn("flex w-full items-center gap-3 rounded-lg p-2 text-start transition-colors hover:bg-row-hover", focusRing)}>
                   {content}
                 </button>
               ) : (
@@ -385,7 +370,7 @@ function VehicleTable({ report: r }: { report: CarbonReport }) {
         </span>
       </div>
       {notes.length > 0 && (
-        <ul className="list-disc space-y-1 rounded-2xl border border-warning-line bg-warning-soft py-3 pe-4 ps-8 text-sm text-warning-ink">
+        <ul className="list-disc space-y-1 rounded-xl border border-warning-line bg-warning-soft py-3 pe-4 ps-8 text-sm text-warning-ink">
           {notes.map((n) => (
             <li key={n}>{n}</li>
           ))}
@@ -394,18 +379,18 @@ function VehicleTable({ report: r }: { report: CarbonReport }) {
       {r.vehicles.length === 0 ? (
         <EmptyNote>{t("empty")}</EmptyNote>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-line bg-card">
+        <div className="overflow-x-auto rounded-xl border border-line bg-card">
           <table className="w-full min-w-[1080px] text-sm">
             <thead>
               <tr className="border-b border-line text-xs text-fg-muted">
-                <th className="px-4 py-3 text-start font-medium">{t("colVehicle")}</th>
-                <th className="px-3 py-3 text-start font-medium">{t("colClass")}</th>
-                <th className="px-3 py-3 text-start font-medium">{t("colAc")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colRate")}</th>
-                <th className="w-56 px-3 py-3 text-start font-medium">{t("colFootprint")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colCo2")}</th>
-                <th className="px-3 py-3 text-end font-medium">{t("colIdleHours")}</th>
-                <th className="px-4 py-3 text-end font-medium">{t("colIdleCo2")}</th>
+                <th scope="col" className="px-4 py-3 text-start font-medium">{t("colVehicle")}</th>
+                <th scope="col" className="px-3 py-3 text-start font-medium">{t("colClass")}</th>
+                <th scope="col" className="px-3 py-3 text-start font-medium">{t("colAc")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colRate")}</th>
+                <th scope="col" className="w-56 px-3 py-3 text-start font-medium">{t("colFootprint")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colCo2")}</th>
+                <th scope="col" className="px-3 py-3 text-end font-medium">{t("colIdleHours")}</th>
+                <th scope="col" className="px-4 py-3 text-end font-medium">{t("colIdleCo2")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -413,9 +398,9 @@ function VehicleTable({ report: r }: { report: CarbonReport }) {
                 const dv = v.co2e.value ?? 0;
                 const iv = v.idle_co2e.value ?? 0;
                 return (
-                  <tr key={v.vehicle.id} className="align-middle">
+                  <tr key={v.vehicle.id} className="align-middle hover:bg-row-hover">
                     <td className="px-4 py-3">
-                      <p className="font-semibold text-fg">{v.vehicle.plate}</p>
+                      <p className="font-medium text-fg">{v.vehicle.plate}</p>
                       <p className="text-xs text-fg-muted">
                         {v.vehicle.category} · {t(`fuel.${v.vehicle.fuel_type}` as never)}
                         {v.vehicle.vendor ? ` · ${v.vehicle.vendor}` : ""}
@@ -438,7 +423,7 @@ function VehicleTable({ report: r }: { report: CarbonReport }) {
                     <td className="px-3 py-3 text-end tabular-nums">
                       {v.idle_rate ? (
                         <span className="flex flex-col items-end gap-0.5">
-                          <span className="font-semibold text-fg">{fmt.value(v.idle_rate.used, "L/h")}</span>
+                          <span className="font-medium text-fg">{fmt.value(v.idle_rate.used, "L/h")}</span>
                           <span className="text-xs text-fg-muted">{t("range", { min: fmt.n(v.idle_rate.min, 2), max: fmt.n(v.idle_rate.max, 2) })}</span>
                         </span>
                       ) : (
@@ -476,8 +461,8 @@ function VehicleTable({ report: r }: { report: CarbonReport }) {
 
 function Legend({ color, label }: { color: string; label: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5")}>
-      <span className="size-2.5 rounded-full" style={{ background: color }} aria-hidden />
+    <span className="inline-flex items-center gap-1.5">
+      <span className="size-2.5 rounded-sm" style={{ background: color }} aria-hidden />
       {label}
     </span>
   );

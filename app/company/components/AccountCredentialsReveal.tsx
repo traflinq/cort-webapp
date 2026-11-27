@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Copy } from "lucide-react";
+import { AlertTriangle, Check, Copy } from "lucide-react";
+import { Button } from "@/app/admin/ui";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -19,9 +20,12 @@ export function SaveCredentialsNote({ accountTypeKey = "account" }: { accountTyp
   };
 
   return (
-    <div className="alert-banner-warning">
-      <span className="font-semibold">{t("important")}</span>{" "}
-      {t("saveNote", { accountType: accountTypeLabels[accountTypeKey] })}
+    <div role="note" className="flex gap-2.5 rounded-lg border border-warning-line bg-warning-soft px-3 py-2.5 text-sm text-fg">
+      <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning-ink" />
+      <p>
+        <span className="font-semibold">{t("important")}</span>{" "}
+        {t("saveNote", { accountType: accountTypeLabels[accountTypeKey] })}
+      </p>
     </div>
   );
 }
@@ -46,18 +50,20 @@ function CredentialRow({ label, value }: CredentialRowProps) {
   }
 
   return (
-    <div className="rounded-xl border border-[var(--border-input)] bg-[var(--bg-input)] px-4 py-3">
-      <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">{label}</div>
+    <div className="rounded-lg border border-line bg-subtle px-3 py-2.5">
+      <div className="mb-1 text-xs font-medium text-fg-muted">{label}</div>
       <div className="flex items-center justify-between gap-3">
-        <code className="text-sm font-mono text-[var(--text-primary)] break-all">{value}</code>
-        <button
+        <code className="ltr-content break-all font-mono text-sm text-fg">{value}</code>
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={handleCopy}
-          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-input)] bg-[var(--bg-card)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--cort-orange)] hover:border-[var(--cort-orange)]/40 transition-colors"
+          leftIcon={copied ? <Check className="text-success-ink" /> : <Copy />}
+          aria-live="polite"
         >
-          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
           {copied ? t("copied") : t("copy")}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -85,8 +91,8 @@ export function AccountCredentialsReveal({
   return (
     <div className={cx("space-y-4", className)}>
       <div className="text-center">
-        {fullName && <div className="font-bold text-[var(--text-primary)] text-lg">{fullName}</div>}
-        {subtitle && <div className="text-sm text-[var(--text-muted)] mt-1">{subtitle}</div>}
+        {fullName && <div className="text-base font-semibold text-fg">{fullName}</div>}
+        {subtitle && <div className="mt-1 text-sm text-fg-muted">{subtitle}</div>}
       </div>
       <SaveCredentialsNote accountTypeKey={accountTypeKey} />
       <div className="space-y-3">

@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { Check, Download, Eye, FileText } from "lucide-react";
+import { Button, ErrorState, Pagination, StatusBadge, TableSkeletonRows, type StatusEntry } from "@/app/admin/ui";
 import { apiClient, Invoice } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";
-import { Card } from "../components/DashboardComponents";
-import { PageHeader, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS, TABLE_PAGINATION_WRAPPER_CLASS } from "../components/PageLayout";
-import TableSkeleton from "@/app/components/ui/TableSkeleton";
-import Pagination from "@/app/components/ui/Pagination";
+import { Card } from "../components/Card";
+import { PageHeader, TableEmptyState, TABLE_CARD_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
 import { formatLocaleDate, formatLocaleNumber } from "@/app/lib/i18n/format";
 import type { Locale } from "@/i18n/config";
 
@@ -23,6 +23,11 @@ const MONTH_SHORT_KEYS = [
 ] as const;
 
 type InvoiceStatus = "PAID" | "UNPAID" | "PARTIALLY_PAID" | "OVERDUE" | "DRAFT";
+
+/** Unpaid is awaiting payment, not a failure: only overdue reads as danger. */
+const INVOICE_STATUS_TONES: Record<string, StatusEntry> = {
+    UNPAID: { tone: "warning" },
+};
 
 function formatBillingMonth(
     value: string,
@@ -83,6 +88,10 @@ export default function CompanyInvoicingPage() {
         [t],
     );
 
+    /** Full PKR amount, e.g. "PKR 1,240,500" (paisa shown only when present). */
+    const money = (value: number) =>
+        `${tCommon("currency.pkr")} ${formatLocaleNumber(value, locale, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+
     const fetchInvoices = useCallback(async (p: number) => {
         if (!user?.company_id) return;
         setIsLoading(true);
@@ -130,143 +139,121 @@ export default function CompanyInvoicingPage() {
     };
 
     if (errorState) {
-        return <div className="p-12 text-center text-rose-500 bg-rose-50 rounded-2xl m-6 border border-rose-200">{errorState}</div>;
+        return (
+            <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 pb-12">
+                <PageHeader label={t("label")} title={t("title")} description={t("description")} />
+                <Card>
+                    <ErrorState title={tCommon("errors.failedToLoadInvoices")} message={errorState} compact />
+                </Card>
+            </div>
+        );
     }
 
     return (
-        <div className="flex flex-col gap-6 max-w-[1600px] mx-auto pb-12">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 pb-12">
             <PageHeader
                 label={t("label")}
                 title={t("title")}
                 description={t("description")}
             />
 
-            <Card className={`min-h-[500px] ${TABLE_CARD_CLASS}`}>
+            <Card className={TABLE_CARD_CLASS}>
                 <div className="overflow-x-auto">
                     <table className="min-w-full text-start text-sm">
-                        <thead className="bg-[var(--surface-subtle)]/50">
-                            <tr className="border-b border-[var(--border-light)]">
-                                <th className={TABLE_HEADER_CELL_CLASS}>{t("invoiceNumber")}</th>
-                                <th className={TABLE_HEADER_CELL_CLASS}>{t("billingMonth")}</th>
-                                <th className={TABLE_HEADER_CELL_CLASS}>{t("generatedAt")}</th>
-                                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("totalAmount")}</th>
-                                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("amountPaid")}</th>
-                                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("amountPayable")}</th>
-                                <th className={TABLE_HEADER_CELL_CLASS}>{t("status")}</th>
-                                <th className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("actions")}</th>
+                        <thead>
+                            <tr className="border-b border-line text-start">
+                                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("invoiceNumber")}</th>
+                                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("billingMonth")}</th>
+                                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("generatedAt")}</th>
+                                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("totalAmount")}</th>
+                                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("amountPaid")}</th>
+                                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("amountPayable")}</th>
+                                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-start`}>{t("status")}</th>
+                                <th scope="col" className={`${TABLE_HEADER_CELL_CLASS} text-end`}>{t("actions")}</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-[var(--border-light)]/50">
+                        <tbody className="divide-y divide-line">
                             {isLoading && invoices.length === 0 ? (
-                                <TableSkeleton columns={8} rows={8} />
+                                <TableSkeletonRows columns={8} rows={8} />
                             ) : invoices.length === 0 && !isLoading ? (
-                                <tr>
-                                    <td colSpan={8} className="px-6 py-12 text-center align-top">
-                                        <div className="flex flex-col items-center justify-center text-[var(--text-muted)]">
-                                            <span className="bg-[var(--surface-subtle)] p-4 rounded-full mb-3">
-                                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                </svg>
-                                            </span>
-                                            <span>{t("noInvoices")}</span>
-                                        </div>
-                                    </td>
-                                </tr>
+                                <TableEmptyState message={t("noInvoices")} icon={FileText} />
                             ) : (
-                                invoices.map((inv) => (
-                                    <tr key={inv.id} className="group hover:bg-[var(--surface-subtle)]/80 transition-colors border-b border-transparent">
-                                        <td className={`${TABLE_CELL_CLASS} font-bold text-[var(--text-primary)] font-mono`}>#{inv.invoice_number}</td>
-                                        <td className={`${TABLE_CELL_CLASS} font-medium text-[var(--text-primary)]`}>
-                                            {formatBillingMonth(inv.billing_month, getMonthShort)}
-                                        </td>
-                                        <td className={`${TABLE_CELL_CLASS} text-[var(--text-muted)]`}>
-                                            {formatLocaleDate(inv.generated_at, locale)}
-                                        </td>
-                                        <td className={`${TABLE_CELL_CLASS} text-end font-bold text-[var(--text-primary)] text-base`}>
-                                            <span className="text-[var(--text-muted)] text-xs font-normal me-1">{tCommon("currency.pkr")}</span>
-                                            {formatLocaleNumber(Number(inv.total_amount), locale)}
-                                        </td>
-                                        <td className={`${TABLE_CELL_CLASS} text-end`}>
-                                            {inv.amount_paid != null && Number(inv.amount_paid) > 0 ? (
-                                                <span className="font-semibold text-emerald-600">
-                                                    <span className="text-emerald-400 text-xs font-normal me-1">{tCommon("currency.pkr")}</span>
-                                                    {formatLocaleNumber(Number(inv.amount_paid), locale)}
-                                                </span>
-                                            ) : (
-                                                <span className="text-[var(--text-muted)]">—</span>
-                                            )}
-                                        </td>
-                                        <td className={`${TABLE_CELL_CLASS} text-end`}>
-                                            {inv.status === 'PAID' ? (
-                                                <span className="text-emerald-600 font-semibold text-xs">{t("fullyPaid")}</span>
-                                            ) : (
-                                                <span className="font-semibold text-rose-600">
-                                                    <span className="text-rose-400 text-xs font-normal me-1">{tCommon("currency.pkr")}</span>
-                                                    {formatLocaleNumber(Math.max(0, Number(inv.total_amount) - Number(inv.amount_paid ?? 0)), locale)}
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className={TABLE_CELL_CLASS}>
-                                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${inv.status === 'PAID' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                inv.status === 'UNPAID' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                                inv.status === 'PARTIALLY_PAID' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                inv.status === 'OVERDUE' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                                                    'bg-[var(--surface-subtle)] text-[var(--text-muted)] border-[var(--border-light)]'
-                                                }`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full me-1.5 ${inv.status === 'PAID' ? 'bg-emerald-400' :
-                                                    inv.status === 'UNPAID' ? 'bg-rose-400' :
-                                                    inv.status === 'PARTIALLY_PAID' ? 'bg-amber-400' :
-                                                    inv.status === 'OVERDUE' ? 'bg-orange-400' :
-                                                        'bg-[var(--text-muted)]'
-                                                    }`}></span>
-                                                {formatStatus(inv.status)}
-                                            </span>
-                                        </td>
-                                        <td className={`${TABLE_CELL_CLASS} text-end`}>
-                                            <div className="flex items-center justify-end gap-4">
-                                                <button
-                                                    onClick={() => viewPdf(inv.id)}
-                                                    disabled={viewingId === inv.id}
-                                                    className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium text-sm disabled:opacity-50 disabled:cursor-wait inline-flex items-center gap-1.5"
-                                                >
-                                                    {viewingId === inv.id ? (
-                                                        <>
-                                                            <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                            </svg>
-                                                            {t("viewing")}
-                                                        </>
-                                                    ) : t("viewInvoice")}
-                                                </button>
-                                                <button
-                                                    onClick={() => downloadPdf(inv.id, inv.invoice_number)}
-                                                    disabled={downloadingId === inv.id}
-                                                    className="text-[var(--cort-orange)] hover:text-[var(--cort-orange-hover)] font-medium text-sm disabled:opacity-50 disabled:cursor-wait inline-flex items-center gap-1.5"
-                                                >
-                                                    {downloadingId === inv.id ? (
-                                                        <>
-                                                            <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                            </svg>
-                                                            {t("downloading")}
-                                                        </>
-                                                    ) : t("downloadPdf")}
-                                                </button>
-                                            </div>
-                                        </td>
-
-                                    </tr>
-                                ))
+                                invoices.map((inv) => {
+                                    const total = Number(inv.total_amount);
+                                    const paid = Number(inv.amount_paid ?? 0);
+                                    const payable = Math.max(0, total - paid);
+                                    const isOverdue = inv.status === "OVERDUE";
+                                    return (
+                                        <tr key={inv.id} className="transition-colors hover:bg-row-hover">
+                                            <td className={`${TABLE_CELL_CLASS} whitespace-nowrap font-medium text-fg`}>#{inv.invoice_number}</td>
+                                            <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-fg`}>
+                                                {formatBillingMonth(inv.billing_month, getMonthShort)}
+                                            </td>
+                                            <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-fg-muted`}>
+                                                {formatLocaleDate(inv.generated_at, locale)}
+                                            </td>
+                                            <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-end font-medium text-fg`}>
+                                                {money(total)}
+                                            </td>
+                                            <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-end text-fg-secondary`}>
+                                                {inv.amount_paid != null && paid > 0 ? (
+                                                    money(paid)
+                                                ) : (
+                                                    <span className="text-fg-muted">—</span>
+                                                )}
+                                            </td>
+                                            <td className={`${TABLE_CELL_CLASS} whitespace-nowrap text-end`}>
+                                                {inv.status === "PAID" ? (
+                                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-fg-muted">
+                                                        <Check className="size-3.5 text-success-ink" aria-hidden="true" />
+                                                        {t("fullyPaid")}
+                                                    </span>
+                                                ) : (
+                                                    <span className={`font-semibold ${isOverdue ? "text-danger-ink" : "text-fg"}`}>
+                                                        {money(payable)}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className={TABLE_CELL_CLASS}>
+                                                <StatusBadge
+                                                    status={inv.status || "DRAFT"}
+                                                    label={formatStatus(inv.status)}
+                                                    overrides={INVOICE_STATUS_TONES}
+                                                />
+                                            </td>
+                                            <td className={`${TABLE_CELL_CLASS} text-end`}>
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => viewPdf(inv.id)}
+                                                        loading={viewingId === inv.id}
+                                                        leftIcon={<Eye aria-hidden="true" />}
+                                                    >
+                                                        {viewingId === inv.id ? t("viewing") : t("viewInvoice")}
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => downloadPdf(inv.id, inv.invoice_number)}
+                                                        loading={downloadingId === inv.id}
+                                                        leftIcon={<Download aria-hidden="true" />}
+                                                    >
+                                                        {downloadingId === inv.id ? t("downloading") : t("downloadPdf")}
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
                 </div>
                 {pagination?.pages > 1 && (
-                    <div className={TABLE_PAGINATION_WRAPPER_CLASS}>
+                    <div className="border-t border-line px-4 sm:px-5">
                         <Pagination
-                            currentPage={page}
+                            page={page}
                             totalPages={pagination.pages}
                             onPageChange={setPage}
                         />

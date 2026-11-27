@@ -8,16 +8,14 @@ import {
   Building2,
   Edit,
   Plus,
-  Save,
   Sunrise,
   Sunset,
   Trash2,
-  X,
   MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/app/admin/ui/Button";
-import { Card } from "../../components/DashboardComponents";
+import { Badge, Button, EmptyState, Field, IconButton, Input, Label, Select, focusRing } from "@/app/admin/ui";
+import { Card } from "../../components/Card";
 import StopAddressSearch from "@/app/admin/ui/StopAddressSearch";
 import { apiClient } from "../../../lib/services/api-client";
 import type { MapMarker } from "@/app/admin/ui/Map";
@@ -48,9 +46,9 @@ type RouteStopsEditorProps = {
   onUpdated: () => void;
 };
 
-const inputCls =
-  "w-full rounded-lg border border-[var(--border-input)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--cort-orange)] focus:ring-1 focus:ring-[var(--cort-orange)] outline-none disabled:opacity-60";
-const labelCls = "block text-xs font-semibold text-[var(--text-muted)] mb-1";
+/** Map pin colours (Google Maps markers), kept identical to the route detail map. */
+const OFFICE_PIN_COLOR = "#ef4444";
+const PICKUP_PIN_COLOR = "#6e7ff0";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -77,22 +75,24 @@ function deriveDirection(stop: CompanyRouteStop): StopDirection {
 
 function DirectionBadge({ direction, t }: { direction: StopDirection; t: (key: string) => string }) {
   if (direction === "MORNING") {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 border border-amber-500/20">
-        <Sunrise className="w-3 h-3" /> {t("morningOnly")}
-      </span>
-    );
+    return <Badge tone="warning" icon={<Sunrise />}>{t("morningOnly")}</Badge>;
   }
   if (direction === "EVENING") {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
-        <Sunset className="w-3 h-3" /> {t("eveningOnly")}
-      </span>
-    );
+    return <Badge tone="purple" icon={<Sunset />}>{t("eveningOnly")}</Badge>;
   }
+  return <Badge tone="neutral" icon={<ArrowLeftRight />}>{t("bothDirections")}</Badge>;
+}
+
+/** Small neutral chip: direction icon + position number. */
+function SequenceChip({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-      <ArrowLeftRight className="w-3 h-3" /> {t("bothDirections")}
+    <span
+      title={label}
+      aria-label={`${label}: ${value}`}
+      className="inline-flex h-6 items-center gap-1 rounded-md border border-line bg-subtle px-1.5 text-xs font-medium text-fg-secondary tabular-nums [&_svg]:size-3 [&_svg]:text-fg-muted"
+    >
+      {icon}
+      {value}
     </span>
   );
 }
@@ -102,31 +102,32 @@ function SequenceInput({
   value,
   onChange,
   icon,
-  colorClass,
   disabled = false,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   icon: React.ReactNode;
-  colorClass: string;
   disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className={cx("inline-flex items-center gap-1 text-xs font-semibold", colorClass)}>
-        {icon} {label}
-      </span>
-      <input
+    <Field
+      label={
+        <span className="inline-flex items-center gap-1 [&_svg]:size-3.5 [&_svg]:text-fg-muted">
+          {icon} {label}
+        </span>
+      }
+    >
+      <Input
         type="number"
         min={1}
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-20 px-2 py-1.5 border border-[var(--border-input)] rounded-lg text-sm text-center bg-[var(--bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--cort-orange)] disabled:opacity-60"
+        className="w-20 text-center tabular-nums"
         placeholder="#"
       />
-    </div>
+    </Field>
   );
 }
 
@@ -348,6 +349,13 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
     .filter((s) => s.evening_sequence != null)
     .sort((a, b) => (a.evening_sequence ?? 0) - (b.evening_sequence ?? 0));
 
+  const segmentCls = (active: boolean) =>
+    cx(
+      "inline-flex h-7 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors [&_svg]:size-3.5",
+      focusRing,
+      active ? "bg-card text-fg shadow-xs" : "text-fg-muted hover:text-fg",
+    );
+
   const renderFormFields = () => {
     const mapMarkers: MapMarker[] =
       formData.lat && formData.lng
@@ -355,89 +363,75 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
           id: "form-pin",
           position: [parseFloat(formData.lat), parseFloat(formData.lng)],
           label: formData.name || t("newStop"),
-          color: isOfficeForm ? "#ef4444" : "#6366f1",
+          color: isOfficeForm ? OFFICE_PIN_COLOR : PICKUP_PIN_COLOR,
         }]
         : [];
 
     return (
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         {isAdding && (
-          <div>
-            <label className={labelCls}>Stop Type</label>
-            <div className="mt-1 flex rounded-lg border border-[var(--border-light)] p-0.5 bg-[var(--bg-subtle)] w-fit">
+          <div className="flex flex-col gap-1.5">
+            <Label>Stop Type</Label>
+            <div className="flex w-fit gap-1 rounded-lg bg-subtle p-0.5">
               <button
                 type="button"
+                aria-pressed={formData.stopType === "PICKUP"}
                 onClick={() => handleStopTypeChange("PICKUP")}
-                className={cx(
-                  "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
-                  formData.stopType === "PICKUP"
-                    ? "bg-[var(--cort-orange)] text-white shadow-sm"
-                    : "text-[var(--text-muted)] hover:bg-[var(--bg-card)]",
-                )}
+                className={segmentCls(formData.stopType === "PICKUP")}
               >
-                <MapPin className="w-3.5 h-3.5" /> Pickup
+                <MapPin aria-hidden="true" /> Pickup
               </button>
               <button
                 type="button"
+                aria-pressed={formData.stopType === "OFFICE"}
                 onClick={() => handleStopTypeChange("OFFICE")}
-                className={cx(
-                  "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
-                  formData.stopType === "OFFICE"
-                    ? "bg-red-500 text-white shadow-sm"
-                    : "text-[var(--text-muted)] hover:bg-[var(--bg-card)]",
-                )}
+                className={segmentCls(formData.stopType === "OFFICE")}
               >
-                <Building2 className="w-3.5 h-3.5" /> Office
+                <Building2 aria-hidden="true" /> Office
               </button>
             </div>
           </div>
         )}
 
         {isOfficeForm && (
-          <div className="rounded-lg border-2 border-red-300 bg-red-50 p-3 flex items-start gap-3">
-            <span className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0">
-              <Building2 className="w-4 h-4" />
+          <div className="flex items-start gap-3 rounded-lg border border-line bg-subtle p-3">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-line bg-card text-fg-secondary">
+              <Building2 className="size-4" aria-hidden="true" />
             </span>
-            <div>
-              <p className="text-sm font-bold text-red-800">Company Office</p>
-              <p className="text-xs text-red-700 mt-0.5">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-fg">Company Office</p>
+              <p className="mt-0.5 text-xs text-fg-muted">
                 Employees cannot be assigned to this stop as a pickup.
                 {isEditingOffice && " Morning last stop · Evening first stop."}
               </p>
-              <div className="flex flex-wrap gap-1.5 mt-2">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 {isEditingOffice && (
                   <>
-                    <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
-                      AM last
-                    </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wide bg-violet-100 text-violet-800 px-1.5 py-0.5 rounded">
-                      PM first
-                    </span>
+                    <Badge tone="neutral" icon={<Sunrise />}>AM last</Badge>
+                    <Badge tone="neutral" icon={<Sunset />}>PM first</Badge>
                   </>
                 )}
-                <span className="text-[10px] font-bold uppercase tracking-wide bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded">
-                  No employee assignment
-                </span>
+                <Badge tone="neutral">No employee assignment</Badge>
               </div>
             </div>
           </div>
         )}
 
-        <div>
-          <label className={labelCls}>{t("searchLocation")} *</label>
+        <div className="flex flex-col gap-1.5">
+          <Label required>{t("searchLocation")}</Label>
           <StopAddressSearch
             onSelect={handleAddressSelect}
             defaultValue={formData.name}
             placeholder={t("searchLocationPlaceholder")}
-            className="mt-1"
           />
         </div>
 
-        <div className="rounded-lg overflow-hidden border border-[var(--border-light)]" style={{ height: 200 }}>
+        <div className="overflow-hidden rounded-lg border border-line" style={{ height: 200 }}>
           <Map
             height="100%"
             markers={mapMarkers}
             onMapClick={handleMapClick}
+            className="!rounded-none !border-0 !shadow-none"
             center={
               formData.lat && formData.lng
                 ? [parseFloat(formData.lat), parseFloat(formData.lng)]
@@ -447,319 +441,267 @@ export function RouteStopsEditor({ routeId, stops, onUpdated }: RouteStopsEditor
         </div>
 
         {formData.lat && formData.lng && (
-          <p className="text-xs text-[var(--text-muted)] flex items-center gap-1">
-            <MapPin className="w-3 h-3" />
+          <p className="-mt-2 flex items-center gap-1 text-xs text-fg-muted tabular-nums">
+            <MapPin className="size-3" aria-hidden="true" />
             {parseFloat(formData.lat).toFixed(5)}, {parseFloat(formData.lng).toFixed(5)} · {t("clickMapToAdjust")}
           </p>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <label className={labelCls}>{t("stopName")} *</label>
-            <input
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Field label={t("stopName")} required className="md:col-span-2">
+            <Input
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={inputCls}
               placeholder={t("stopNamePlaceholder")}
             />
-          </div>
+          </Field>
 
-          <div>
-            <label className={labelCls}>{t("direction")}</label>
-            <select
+          <Field label={t("direction")}>
+            <Select
               value={isOfficeForm ? "BOTH" : formData.direction}
               onChange={(e) => handleDirectionChange(e.target.value as StopDirection)}
               disabled={isOfficeForm}
-              className={inputCls}
             >
               <option value="BOTH">{t("bothDirections")}</option>
               <option value="MORNING">{t("morningOnly")}</option>
               <option value="EVENING">{t("eveningOnly")}</option>
-            </select>
-          </div>
+            </Select>
+          </Field>
 
           {(formData.direction === "MORNING" || formData.direction === "BOTH" || isOfficeForm) && (
-            <div>
-              <label className={labelCls}>{isOfficeForm ? "Morning arrival" : t("morningEta")}</label>
-              <input
+            <Field label={isOfficeForm ? "Morning arrival" : t("morningEta")}>
+              <Input
                 type="time"
                 value={formData.morning_eta}
                 onChange={(e) => setFormData({ ...formData, morning_eta: e.target.value })}
-                className={inputCls}
+                className="tabular-nums"
               />
-            </div>
+            </Field>
           )}
 
           {(formData.direction === "EVENING" || formData.direction === "BOTH" || isOfficeForm) && (
-            <div>
-              <label className={labelCls}>{isOfficeForm ? "Evening departure" : t("eveningEta")}</label>
-              <input
+            <Field label={isOfficeForm ? "Evening departure" : t("eveningEta")}>
+              <Input
                 type="time"
                 value={formData.evening_eta}
                 onChange={(e) => setFormData({ ...formData, evening_eta: e.target.value })}
-                className={inputCls}
+                className="tabular-nums"
               />
-            </div>
+            </Field>
           )}
         </div>
 
-        <div className={cx(
-          "flex flex-wrap items-end gap-6 pt-1 pb-1 px-3 py-3 border rounded-lg",
-          isOfficeForm ? "bg-red-50 border-red-200" : "bg-[var(--bg-subtle)] border-[var(--border-light)]",
-        )}>
-          <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide w-full -mb-2">
+        <div className="flex flex-col gap-3 rounded-lg border border-line bg-subtle p-3">
+          <p className="text-xs font-medium text-fg-muted">
             {isEditingOffice ? "Office position (locked)" : isOfficeForm ? "Office position" : t("stopPositionInRoute")}
-          </span>
-          {(formData.direction === "MORNING" || formData.direction === "BOTH" || isOfficeForm) && (
-            <SequenceInput
-              label={t("morningPosition")}
-              value={formData.morning_sequence}
-              onChange={(v) => setFormData({ ...formData, morning_sequence: v })}
-              icon={<Sunrise className="w-3 h-3" />}
-              colorClass="text-amber-600"
-              disabled={isEditingOffice}
-            />
-          )}
-          {(formData.direction === "EVENING" || formData.direction === "BOTH" || isOfficeForm) && (
-            <SequenceInput
-              label={t("eveningPosition")}
-              value={formData.evening_sequence}
-              onChange={(v) => setFormData({ ...formData, evening_sequence: v })}
-              icon={<Sunset className="w-3 h-3" />}
-              colorClass="text-indigo-600"
-              disabled={isEditingOffice}
-            />
-          )}
-          <p className="text-xs text-[var(--text-muted)] italic self-end pb-0.5">
-            {isEditingOffice
-              ? "Position is fixed so this office stays last in morning and first in evening."
-              : isOfficeForm
-                ? "Set where this office stop falls in the morning/evening order."
-                : t("stopSequenceHint")}
           </p>
+          <div className="flex flex-wrap items-end gap-6">
+            {(formData.direction === "MORNING" || formData.direction === "BOTH" || isOfficeForm) && (
+              <SequenceInput
+                label={t("morningPosition")}
+                value={formData.morning_sequence}
+                onChange={(v) => setFormData({ ...formData, morning_sequence: v })}
+                icon={<Sunrise aria-hidden="true" />}
+                disabled={isEditingOffice}
+              />
+            )}
+            {(formData.direction === "EVENING" || formData.direction === "BOTH" || isOfficeForm) && (
+              <SequenceInput
+                label={t("eveningPosition")}
+                value={formData.evening_sequence}
+                onChange={(v) => setFormData({ ...formData, evening_sequence: v })}
+                icon={<Sunset aria-hidden="true" />}
+                disabled={isEditingOffice}
+              />
+            )}
+            <p className="pb-2 text-xs text-fg-muted">
+              {isEditingOffice
+                ? "Position is fixed so this office stays last in morning and first in evening."
+                : isOfficeForm
+                  ? "Set where this office stop falls in the morning/evening order."
+                  : t("stopSequenceHint")}
+            </p>
+          </div>
         </div>
       </div>
     );
   };
 
+  const directionList = (
+    dir: "MORNING" | "EVENING",
+    list: CompanyRouteStop[],
+  ) => (
+    <div className="overflow-hidden rounded-lg border border-line">
+      <div className="flex items-center gap-2 border-b border-line bg-subtle px-3 py-2">
+        {dir === "MORNING"
+          ? <Sunrise className="size-4 text-fg-muted" aria-hidden="true" />
+          : <Sunset className="size-4 text-fg-muted" aria-hidden="true" />}
+        <span className="text-sm font-semibold text-fg">
+          {dir === "MORNING" ? t("morningRoute") : t("eveningRoute")}
+        </span>
+        <span className="text-sm text-fg-muted tabular-nums">{list.length}</span>
+      </div>
+      <ol className="divide-y divide-line">
+        {list.map((s, i) => {
+          const isOffice = officeStopIds.has(s.id);
+          const eta = dir === "MORNING" ? s.morning_eta : s.evening_eta;
+          return (
+            <li key={s.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+              <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-subtle text-xs font-medium text-fg-secondary tabular-nums">
+                {isOffice ? <Building2 className="size-3" aria-hidden="true" /> : i + 1}
+              </span>
+              <span className={cx("min-w-0 truncate text-fg", isOffice && "font-medium")}>{s.name}</span>
+              {isOffice && (
+                <span className="shrink-0 text-xs text-fg-muted">
+                  {dir === "MORNING" ? "Office · last" : "Office · first"}
+                </span>
+              )}
+              {eta && (
+                <span className="ms-auto shrink-0 text-xs text-fg-muted tabular-nums">{formatTime(eta)}</span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+
   return (
-    <Card className="!p-0 overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-light)]">
-        <div>
-          <h3 className="font-semibold text-[var(--text-primary)]">
-            {t("manageStops")} ({stops.length})
+    <Card className="overflow-hidden !p-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-5">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-fg">
+            {t("manageStops")} <span className="font-normal text-fg-muted tabular-nums">({stops.length})</span>
           </h3>
-          <p className="text-xs text-[var(--text-muted)] mt-0.5">{t("manageStopsDescription")}</p>
+          <p className="mt-0.5 text-xs text-fg-muted">{t("manageStopsDescription")}</p>
         </div>
         {!isAdding && !editingStopId && (
-          <Button onClick={handleAddClick} className="gap-2 bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white">
-            <Plus className="w-4 h-4" />
+          <Button size="sm" onClick={handleAddClick} leftIcon={<Plus />}>
             {t("addStop")}
           </Button>
         )}
       </div>
 
-      <div className="p-6 space-y-4">
+      <div className="flex flex-col gap-4 p-4 sm:p-5">
         {isAdding && (
-          <div className="rounded-xl border border-[var(--border-light)] bg-[var(--bg-subtle)] p-4">
-            <h4 className="font-medium mb-3 text-[var(--text-primary)] flex items-center gap-2">
-              <Plus className="w-4 h-4 text-[var(--cort-orange)]" /> {t("newStop")}
+          <div className="rounded-lg border border-line-strong p-4">
+            <h4 className="mb-4 flex items-center gap-2 text-sm font-semibold text-fg">
+              <Plus className="size-4 text-fg-muted" aria-hidden="true" /> {t("newStop")}
             </h4>
             {renderFormFields()}
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={resetForm}>
-                <X className="w-4 h-4 mr-1" /> {tCommon("actions.cancel")}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="ghost" onClick={resetForm}>
+                {tCommon("actions.cancel")}
               </Button>
-              <Button onClick={handleSubmit} disabled={isSaving} className="bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white">
+              <Button onClick={handleSubmit} loading={isSaving}>
                 {isSaving ? t("savingStop") : t("saveStop")}
               </Button>
             </div>
           </div>
         )}
 
-        <div className="space-y-2">
-          {stops.length === 0 && !isAdding && (
-            <div className="py-10 text-center text-sm text-[var(--text-muted)]">{t("noStopsConfigured")}</div>
-          )}
+        {stops.length === 0 && !isAdding ? (
+          <EmptyState compact icon={<MapPin aria-hidden="true" />} title={t("noStopsConfigured")} />
+        ) : stops.length > 0 && (
+          <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line">
+            {stops.map((stop) => {
+              const dir = deriveDirection(stop);
+              const isEditingThisStop = editingStopId === stop.id;
+              const isOffice = officeStopIds.has(stop.id);
 
-          {stops.map((stop) => {
-            const dir = deriveDirection(stop);
-            const isEditingThisStop = editingStopId === stop.id;
-            const isOffice = officeStopIds.has(stop.id);
+              if (isEditingThisStop) {
+                return (
+                  <li key={stop.id} className="bg-subtle p-4">
+                    <h4 className="mb-4 flex items-center gap-2 text-sm font-semibold text-fg">
+                      {isOffice
+                        ? <Building2 className="size-4 text-fg-muted" aria-hidden="true" />
+                        : <Edit className="size-4 text-fg-muted" aria-hidden="true" />}
+                      {isOffice ? `Editing office: ${stop.name}` : t("editingStop", { name: stop.name })}
+                    </h4>
+                    {renderFormFields()}
+                    <div className="mt-4 flex justify-end gap-2">
+                      <Button variant="ghost" size="sm" onClick={resetForm}>
+                        {tCommon("actions.cancel")}
+                      </Button>
+                      <Button size="sm" onClick={handleSubmit} loading={isSaving}>
+                        {isSaving ? t("updatingStop") : t("updateStop")}
+                      </Button>
+                    </div>
+                  </li>
+                );
+              }
 
-            if (isEditingThisStop) {
               return (
-                <div key={stop.id} className={cx(
-                  "rounded-xl border p-4",
-                  isOffice
-                    ? "border-red-300 bg-red-50"
-                    : "border-[var(--cort-orange)]/30 bg-[var(--cort-orange)]/5",
-                )}>
-                  <h4 className="font-medium mb-3 text-[var(--text-primary)] flex items-center gap-2">
-                    {isOffice ? <Building2 className="w-4 h-4 text-red-600" /> : <Edit className="w-4 h-4" />}
-                    {isOffice ? `Editing office: ${stop.name}` : t("editingStop", { name: stop.name })}
-                  </h4>
-                  {renderFormFields()}
-                  <div className="flex justify-end gap-2 mt-4">
-                    <Button variant="outline" size="sm" onClick={resetForm}>
-                      <X className="w-4 h-4 mr-1" /> {tCommon("actions.cancel")}
-                    </Button>
-                    <Button size="sm" onClick={handleSubmit} disabled={isSaving} className="bg-[var(--cort-orange)] hover:bg-[var(--cort-orange-hover)] text-white">
-                      {isSaving ? t("updatingStop") : t("updateStop")}
-                    </Button>
-                  </div>
-                </div>
-              );
-            }
-
-            return (
-              <div
-                key={stop.id}
-                className={cx(
-                  "flex items-center justify-between p-3 border rounded-xl transition-colors",
-                  isOffice
-                    ? "bg-red-50 border-red-300"
-                    : "bg-[var(--bg-card)] border-[var(--border-light)] hover:bg-[var(--bg-subtle)]",
-                )}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {isOffice ? (
-                      <div className="w-8 h-8 flex items-center justify-center bg-red-500 text-white rounded-full">
-                        <Building2 className="w-3.5 h-3.5" />
-                      </div>
-                    ) : (
-                      <>
-                        {stop.morning_sequence != null && (
-                          <div className="w-8 h-8 flex items-center justify-center bg-amber-500/10 text-amber-600 rounded-full font-bold text-sm">
-                            {stop.morning_sequence}
-                          </div>
-                        )}
-                        {stop.evening_sequence != null && (
-                          <div className="w-8 h-8 flex items-center justify-center bg-indigo-500/10 text-indigo-600 rounded-full font-bold text-sm">
-                            {stop.evening_sequence}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-[var(--text-primary)]">{stop.name}</span>
+                <li
+                  key={stop.id}
+                  className="flex items-center justify-between gap-3 px-3 py-3 transition-colors hover:bg-row-hover"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-1">
                       {isOffice ? (
-                        <>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
-                            <Building2 className="w-3 h-3" /> Office
-                          </span>
-                          <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
-                            AM last
-                          </span>
-                          <span className="text-[10px] font-bold uppercase tracking-wide bg-violet-100 text-violet-800 px-1.5 py-0.5 rounded">
-                            PM first
-                          </span>
-                          <span className="text-[10px] font-bold uppercase tracking-wide bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
-                            No assignment
-                          </span>
-                        </>
+                        <span className="flex size-7 items-center justify-center rounded-full border border-line bg-subtle text-fg-secondary">
+                          <Building2 className="size-3.5" aria-hidden="true" />
+                        </span>
                       ) : (
-                        <DirectionBadge direction={dir} t={t} />
+                        <>
+                          {stop.morning_sequence != null && (
+                            <SequenceChip icon={<Sunrise aria-hidden="true" />} value={stop.morning_sequence} label={t("morningPosition")} />
+                          )}
+                          {stop.evening_sequence != null && (
+                            <SequenceChip icon={<Sunset aria-hidden="true" />} value={stop.evening_sequence} label={t("eveningPosition")} />
+                          )}
+                        </>
                       )}
                     </div>
-                    <div className="text-xs text-[var(--text-muted)] mt-0.5">
-                      {stop.lat != null && stop.lng != null && `${Number(stop.lat).toFixed(5)}, ${Number(stop.lng).toFixed(5)}`}
-                      {stop.morning_eta && dir !== "EVENING" && ` · AM: ${formatTime(stop.morning_eta)}`}
-                      {stop.evening_eta && dir !== "MORNING" && ` · PM: ${formatTime(stop.evening_eta)}`}
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-fg">{stop.name}</span>
+                        {isOffice ? (
+                          <>
+                            <Badge tone="info" icon={<Building2 />}>Office</Badge>
+                            <Badge tone="neutral">AM last</Badge>
+                            <Badge tone="neutral">PM first</Badge>
+                            <Badge tone="neutral">No assignment</Badge>
+                          </>
+                        ) : (
+                          <DirectionBadge direction={dir} t={t} />
+                        )}
+                      </div>
+                      <div className="mt-0.5 text-xs text-fg-muted tabular-nums">
+                        {stop.lat != null && stop.lng != null && `${Number(stop.lat).toFixed(5)}, ${Number(stop.lng).toFixed(5)}`}
+                        {stop.morning_eta && dir !== "EVENING" && ` · AM: ${formatTime(stop.morning_eta)}`}
+                        {stop.evening_eta && dir !== "MORNING" && ` · PM: ${formatTime(stop.evening_eta)}`}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleEditClick(stop)}
-                    className="p-2 text-[var(--text-muted)] hover:text-[var(--cort-orange)] rounded-lg hover:bg-[var(--bg-subtle)]"
-                    title={tCommon("actions.edit")}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(stop.id)}
-                    disabled={isOffice}
-                    className={cx(
-                      "p-2 rounded-lg",
-                      isOffice
-                        ? "text-gray-300 cursor-not-allowed"
-                        : "text-[var(--text-muted)] hover:text-red-500 hover:bg-[var(--bg-subtle)]",
-                    )}
-                    title={isOffice ? "Office cannot be deleted" : tCommon("actions.delete")}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <IconButton
+                      size="icon-sm"
+                      label={tCommon("actions.edit")}
+                      onClick={() => handleEditClick(stop)}
+                    >
+                      <Edit />
+                    </IconButton>
+                    <IconButton
+                      size="icon-sm"
+                      label={isOffice ? "Office cannot be deleted" : tCommon("actions.delete")}
+                      onClick={() => handleDelete(stop.id)}
+                      disabled={isOffice}
+                      className="hover:text-danger-ink"
+                    >
+                      <Trash2 />
+                    </IconButton>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
 
         {(morningStops.length > 0 || eveningStops.length > 0) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            <div className="border border-[var(--border-light)] rounded-xl overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border-b border-amber-500/20">
-                <Sunrise className="w-4 h-4 text-amber-600" />
-                <span className="text-sm font-semibold text-amber-700">
-                  {t("morningRoute")} ({morningStops.length})
-                </span>
-              </div>
-              <ol className="divide-y divide-[var(--border-light)]">
-                {morningStops.map((s, i) => {
-                  const isOffice = officeStopIds.has(s.id);
-                  return (
-                    <li key={s.id} className={cx("flex items-center gap-2 px-3 py-2 text-sm", isOffice && "bg-red-50")}>
-                      <span className={cx(
-                        "w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold flex-shrink-0",
-                        isOffice ? "bg-red-500 text-white" : "bg-amber-500/10 text-amber-600",
-                      )}>
-                        {isOffice ? <Building2 className="w-3 h-3" /> : i + 1}
-                      </span>
-                      <span className={cx("text-[var(--text-primary)]", isOffice && "font-semibold")}>{s.name}</span>
-                      {isOffice && <span className="text-[10px] font-bold uppercase text-red-600">Office · last</span>}
-                      {s.morning_eta && (
-                        <span className="ml-auto text-xs text-[var(--text-muted)]">{formatTime(s.morning_eta)}</span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            </div>
-
-            <div className="border border-[var(--border-light)] rounded-xl overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 border-b border-indigo-500/20">
-                <Sunset className="w-4 h-4 text-indigo-600" />
-                <span className="text-sm font-semibold text-indigo-700">
-                  {t("eveningRoute")} ({eveningStops.length})
-                </span>
-              </div>
-              <ol className="divide-y divide-[var(--border-light)]">
-                {eveningStops.map((s, i) => {
-                  const isOffice = officeStopIds.has(s.id);
-                  return (
-                    <li key={s.id} className={cx("flex items-center gap-2 px-3 py-2 text-sm", isOffice && "bg-red-50")}>
-                      <span className={cx(
-                        "w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold flex-shrink-0",
-                        isOffice ? "bg-red-500 text-white" : "bg-indigo-500/10 text-indigo-600",
-                      )}>
-                        {isOffice ? <Building2 className="w-3 h-3" /> : i + 1}
-                      </span>
-                      <span className={cx("text-[var(--text-primary)]", isOffice && "font-semibold")}>{s.name}</span>
-                      {isOffice && <span className="text-[10px] font-bold uppercase text-red-600">Office · first</span>}
-                      {s.evening_eta && (
-                        <span className="ml-auto text-xs text-[var(--text-muted)]">{formatTime(s.evening_eta)}</span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {directionList("MORNING", morningStops)}
+            {directionList("EVENING", eveningStops)}
           </div>
         )}
       </div>

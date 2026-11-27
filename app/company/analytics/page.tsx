@@ -7,6 +7,8 @@ import { AlertCircle, ArrowRight, Bus, Car, Fuel, GitMerge, LayoutGrid, Leaf, Li
 import { toast } from "sonner";
 import { apiClient } from "@/app/lib/services/api-client";
 import { formatLocaleNumber } from "@/app/lib/i18n/format";
+import { Button, Spinner, focusRing } from "@/app/admin/ui";
+import { cn } from "@/lib/utils";
 import type { Locale } from "@/i18n/config";
 import { PageHeader } from "../components/PageLayout";
 import { CompanyBenchmarksModal } from "../components/CompanyBenchmarksModal";
@@ -141,7 +143,7 @@ function AnalyticsContent() {
   const allInsights = [...insightsFor(detail.insights, "chauffeur"), ...insightsFor(detail.insights, "pool")].sort(bySaving);
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-6 pb-12">
+    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 pb-12">
       <PageHeader
         label={t("label")}
         title={t("title")}
@@ -149,15 +151,9 @@ function AnalyticsContent() {
         action={
           <>
             {ai && scopeState === "ready" && (
-              <button
-                type="button"
-                onClick={runAnalysis}
-                disabled={generating}
-                className="flex items-center gap-2 whitespace-nowrap rounded-2xl bg-[var(--cort-orange)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--cort-orange-hover)] disabled:opacity-60"
-              >
-                <RefreshCw className={`size-4 ${generating ? "animate-spin" : ""}`} />
+              <Button onClick={runAnalysis} loading={generating} leftIcon={<RefreshCw aria-hidden="true" />}>
                 {generating ? t("generating") : t("runAiAnalysis")}
-              </button>
+              </Button>
             )}
           </>
         }
@@ -183,8 +179,8 @@ function AnalyticsContent() {
           />
 
           {savingsFailed && (
-            <div className="flex items-center gap-3 rounded-2xl border border-danger-line bg-danger-soft p-4 text-sm text-danger-ink">
-              <AlertCircle className="size-5 shrink-0" />
+            <div role="alert" className="flex items-center gap-2 rounded-xl border border-danger-line bg-danger-soft p-4 text-sm text-danger-ink">
+              <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
               {t("loadFailed")}
             </div>
           )}
@@ -251,7 +247,7 @@ function AnalyticsContent() {
                   aiEnabled={ai}
                   action={
                     ai && potentialSaving(allInsights) > 0 ? (
-                      <span className="rounded-full bg-success-soft px-3 py-1 text-sm font-semibold text-success-ink">
+                      <span className="text-sm font-semibold text-success-ink tabular-nums">
                         {t("couldSave", { amount: pkr(potentialSaving(allInsights)) })}
                       </span>
                     ) : undefined
@@ -269,7 +265,7 @@ function AnalyticsContent() {
                     <BeforeAfter savings={data.shuttle.savings} periodLabel={beforeAfterPeriod} onManageBenchmarks={() => setBenchmarksOpen(true)} />
                   )}
                   {data?.shuttle && <ShuttleTab s={data.shuttle} onManageBenchmarks={() => setBenchmarksOpen(true)} />}
-                  {!data && savings.loading && <div className="h-44 animate-pulse rounded-3xl border border-line bg-card" />}
+                  {!data && savings.loading && <Skeleton className="h-44" />}
                 </section>
                 {!detailLoading && (
                   <ShuttleTripQuality
@@ -332,8 +328,9 @@ function AnalyticsContent() {
             )}
 
             {(active === "shuttle" || active === "chauffeur" || active === "pool") && (savings.loading || detailLoading) && (
-              <div className="flex items-center justify-center py-10 text-sm text-fg-muted" aria-busy="true">
-                <RefreshCw className="me-2 size-5 animate-spin" /> {t("loading")}
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-fg-muted" aria-busy="true">
+                <Spinner size="sm" label={t("loading")} />
+                <span aria-hidden="true">{t("loading")}</span>
               </div>
             )}
           </div>
@@ -359,7 +356,7 @@ function AnalyticsContent() {
 
 /** Savings hero: full total once unlocked; otherwise the teaser total and the unlock note. */
 function OverviewSavings({ data, loading }: { data: SavingsDashboardResponse | null; loading: boolean }) {
-  if (loading || !data) return loading ? <div className="h-44 animate-pulse rounded-3xl border border-line bg-card" /> : null;
+  if (loading || !data) return loading ? <Skeleton className="h-44" /> : null;
   if (data.locked) return <SavingsLockedView data={data} />;
   return <UnlockedHero data={data} />;
 }
@@ -385,22 +382,27 @@ function ServiceCard({
     <button
       type="button"
       onClick={onOpen}
-      className="group flex flex-col gap-4 rounded-2xl border border-line bg-card p-5 text-start transition-colors hover:border-brand-line hover:bg-subtle/40"
+      className={cn(
+        "group flex flex-col gap-4 rounded-xl border border-line bg-card p-5 text-start transition-colors hover:border-line-strong hover:bg-row-hover",
+        focusRing,
+      )}
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="flex items-center gap-3">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-brand-soft text-brand-ink [&_svg]:size-[18px]">{icon}</span>
-          <span className="text-sm font-semibold text-fg">{title}</span>
+        <span className="flex min-w-0 items-center gap-2.5">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-subtle text-fg-muted [&_svg]:size-4" aria-hidden="true">
+            {icon}
+          </span>
+          <span className="truncate text-sm font-semibold text-fg">{title}</span>
         </span>
-        <span className="flex items-center gap-1 text-xs font-medium text-fg-muted group-hover:text-fg">
+        <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-fg-muted group-hover:text-fg">
           {t("viewDetails")}
-          <ArrowRight className="size-3.5 rtl-flip" />
+          <ArrowRight className="size-3.5 rtl-flip" aria-hidden="true" />
         </span>
       </div>
       <div className="grid grid-cols-2 gap-3">
         {stats.map((s) => (
-          <div key={s.label}>
-            <p className="text-xs text-fg-muted">{s.label}</p>
+          <div key={s.label} className="min-w-0">
+            <p className="truncate text-xs text-fg-muted">{s.label}</p>
             <p className="mt-0.5 text-xl font-semibold tracking-tight text-fg tabular-nums">{s.value}</p>
           </div>
         ))}

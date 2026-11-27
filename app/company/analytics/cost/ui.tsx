@@ -3,27 +3,28 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { Info, Lock, X } from "lucide-react";
+import { AlertCircle, Info, Lock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/admin/ui/Popover";
+import { Button, IconButton, focusRing } from "@/app/admin/ui";
 import { useFmt } from "./hooks";
 import type { Basis, Figure } from "./types";
 
 // ─── Basis badge: how much to trust a number ─────────────────────────────────
 
 const BASIS_TONE: Record<Basis, string> = {
-  MEASURED: "bg-success-soft text-success-ink",
-  REPORTED: "bg-brand-soft text-brand-ink",
-  CONTRACTED: "bg-subtle text-fg",
-  ESTIMATED: "bg-warning-soft text-warning-ink",
-  SIMULATED: "bg-purple-soft text-purple-ink",
-  CALCULATED: "bg-subtle text-fg-muted",
+  MEASURED: "border-success-line bg-success-soft text-success-ink",
+  REPORTED: "border-info-line bg-info-soft text-info-ink",
+  CONTRACTED: "border-neutral-line bg-neutral-soft text-fg",
+  ESTIMATED: "border-warning-line bg-warning-soft text-warning-ink",
+  SIMULATED: "border-purple-line bg-purple-soft text-purple-ink",
+  CALCULATED: "border-neutral-line bg-neutral-soft text-fg-muted",
 };
 
 export function BasisBadge({ basis, className }: { basis: Basis; className?: string }) {
   const t = useTranslations("company.costOptimization.basis");
   return (
-    <span title={t(`${basis}_hint` as never)} className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide", BASIS_TONE[basis], className)}>
+    <span title={t(`${basis}_hint` as never)} className={cn("inline-flex items-center whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium leading-none", BASIS_TONE[basis], className)}>
       {t(basis as never)}
     </span>
   );
@@ -77,7 +78,7 @@ export function HowCalculated({ figure }: { figure: Figure }) {
         <button
           type="button"
           aria-label={t("howCalculated")}
-          className="inline-flex rounded-full p-0.5 text-fg-muted transition-colors hover:bg-subtle hover:text-fg"
+          className={cn("inline-flex rounded-md p-0.5 text-fg-muted transition-colors hover:bg-subtle hover:text-fg", focusRing)}
         >
           <Info className="size-3.5" />
         </button>
@@ -87,7 +88,7 @@ export function HowCalculated({ figure }: { figure: Figure }) {
             <span className="font-semibold">{t("howCalculated")}</span>
             <BasisBadge basis={figure.basis} />
           </span>
-          <span className="block rounded-lg bg-subtle px-2 py-1.5 font-mono text-[11px] leading-relaxed" dir="ltr">
+          <span className="block rounded-md bg-subtle px-2 py-1.5 font-mono text-xs leading-relaxed" dir="ltr">
             {figure.formula}
           </span>
           {figure.missing_reason && <span className="mt-2 block text-warning-ink">{figure.missing_reason}</span>}
@@ -97,7 +98,7 @@ export function HowCalculated({ figure }: { figure: Figure }) {
                 <span key={i} className="flex items-start justify-between gap-3 py-1.5">
                   <span className="min-w-0">
                     <span className="block">{inp.label}</span>
-                    <span className="block text-[10px] text-fg-muted">{inp.source}</span>
+                    <span className="block text-xs text-fg-muted">{inp.source}</span>
                   </span>
                   <span className="shrink-0 font-semibold tabular-nums" dir="ltr">
                     {typeof inp.value === "number" ? (inp.unit ? fmt.value(inp.value, inp.unit) : fmt.n(inp.value, 2)) : (inp.value ?? "—")}
@@ -141,7 +142,7 @@ export function Drawer({ open, onClose, title, subtitle, children, footer }: { o
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative flex h-full w-full max-w-3xl flex-col bg-page shadow-2xl outline-none"
+        className="relative flex h-full w-full max-w-3xl flex-col border-s border-line bg-page shadow-[var(--shadow-modal)] outline-none"
       >
         <div className="flex items-start justify-between gap-3 border-b border-line bg-card px-5 py-4">
           <div className="min-w-0">
@@ -150,9 +151,9 @@ export function Drawer({ open, onClose, title, subtitle, children, footer }: { o
             </h2>
             {subtitle && <div className="mt-0.5 text-sm text-fg-muted">{subtitle}</div>}
           </div>
-          <button type="button" onClick={onClose} aria-label={t("close")} className="rounded-lg p-1.5 text-fg-muted hover:bg-subtle hover:text-fg">
-            <X className="size-5" />
-          </button>
+          <IconButton label={t("close")} tooltip={false} size="icon-sm" onClick={onClose}>
+            <X />
+          </IconButton>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
         {footer && <div className="border-t border-line bg-card px-5 py-3">{footer}</div>}
@@ -164,22 +165,23 @@ export function Drawer({ open, onClose, title, subtitle, children, footer }: { o
 
 // ─── Small pieces ────────────────────────────────────────────────────────────
 
-export function Tag({ tone = "neutral", children }: { tone?: "neutral" | "success" | "warning" | "danger" | "brand"; children: ReactNode }) {
+export function Tag({ tone = "neutral", children }: { tone?: "neutral" | "success" | "warning" | "danger" | "info" | "brand"; children: ReactNode }) {
   const cls = {
-    neutral: "bg-subtle text-fg-muted",
-    success: "bg-success-soft text-success-ink",
-    warning: "bg-warning-soft text-warning-ink",
-    danger: "bg-danger-soft text-danger-ink",
-    brand: "bg-brand-soft text-brand-ink",
+    neutral: "border-neutral-line bg-neutral-soft text-neutral-ink",
+    success: "border-success-line bg-success-soft text-success-ink",
+    warning: "border-warning-line bg-warning-soft text-warning-ink",
+    danger: "border-danger-line bg-danger-soft text-danger-ink",
+    info: "border-info-line bg-info-soft text-info-ink",
+    brand: "border-brand-line bg-brand-soft text-brand-ink",
   }[tone];
-  return <span className={cn("inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold", cls)}>{children}</span>;
+  return <span className={cn("inline-flex h-6 items-center whitespace-nowrap rounded-md border px-2 text-xs font-medium leading-none tabular-nums", cls)}>{children}</span>;
 }
 
 export function StatBlock({ label, figure, hint, showBasis = true }: { label: string; figure: Figure | null | undefined; hint?: string; showBasis?: boolean }) {
   return (
-    <div className="flex flex-col gap-1 rounded-2xl border border-line bg-card p-4">
-      <p className="text-[13px] font-medium text-fg-muted">{label}</p>
-      <FigureValue figure={figure} size="lg" />
+    <div className="flex min-w-0 flex-col gap-1 rounded-xl border border-line bg-card p-4">
+      <p className="text-xs font-medium text-fg-muted">{label}</p>
+      <FigureValue figure={figure} size="lg" className="mt-1" />
       <div className="flex flex-wrap items-center gap-2">
         {showBasis && figure && !figure.locked && <BasisBadge basis={figure.basis} />}
         {hint && <span className="text-xs text-fg-muted">{hint}</span>}
@@ -193,8 +195,8 @@ export function MethodNote({ lines }: { lines: string[] }) {
   const t = useTranslations("company.costOptimization");
   if (!lines.length) return null;
   return (
-    <details className="rounded-2xl border border-line bg-card px-4 py-3 text-sm text-fg-muted">
-      <summary className="cursor-pointer font-medium text-fg">{t("method")}</summary>
+    <details className="rounded-xl border border-line bg-card px-4 py-3 text-sm text-fg-muted">
+      <summary className={cn("cursor-pointer rounded-sm font-medium text-fg", focusRing)}>{t("method")}</summary>
       <ul className="mt-2 list-disc space-y-1 ps-5" dir="auto">
         {lines.map((l) => (
           <li key={l}>{l}</li>
@@ -205,7 +207,7 @@ export function MethodNote({ lines }: { lines: string[] }) {
 }
 
 export function EmptyNote({ children }: { children: ReactNode }) {
-  return <div className="rounded-2xl border border-dashed border-line bg-card p-6 text-center text-sm text-fg-muted">{children}</div>;
+  return <div className="rounded-xl border border-line bg-card p-6 text-center text-sm text-fg-muted">{children}</div>;
 }
 
 /** A failed section: what failed, the reason the server gave (when it gave one) and a way to try again. */
@@ -213,24 +215,27 @@ export function ErrorNote({ message, detail, onRetry }: { message: string; detai
   const t = useTranslations("company.costOptimization");
   const reason = detail && detail !== "error" ? detail : null;
   return (
-    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-danger-line bg-danger-soft p-4 text-sm text-danger-ink">
-      <div className="min-w-0">
-        <p>{message}</p>
-        {reason && (
-          <p className="mt-0.5 text-xs opacity-80" dir="auto">
-            {reason}
-          </p>
-        )}
+    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger-line bg-danger-soft p-4 text-sm text-danger-ink">
+      <div className="flex min-w-0 items-start gap-2">
+        <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        <div className="min-w-0">
+          <p>{message}</p>
+          {reason && (
+            <p className="mt-0.5 text-xs opacity-80" dir="auto">
+              {reason}
+            </p>
+          )}
+        </div>
       </div>
       {onRetry && (
-        <button type="button" onClick={onRetry} className="shrink-0 rounded-xl border border-danger-line bg-card px-3 py-1.5 text-xs font-semibold text-danger-ink hover:bg-danger-soft">
+        <Button variant="danger-outline" size="sm" onClick={onRetry}>
           {t("retry")}
-        </button>
+        </Button>
       )}
     </div>
   );
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-2xl border border-line bg-card", className)} />;
+  return <div aria-hidden="true" className={cn("animate-pulse rounded-xl border border-line bg-subtle", className)} />;
 }

@@ -1,39 +1,62 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { formatDateTime } from "@/app/lib/utils";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleCheck, Info } from "lucide-react";
+import { Badge, Button, Field, InlineError, Input } from "@/app/admin/ui";
+import { cn } from "@/lib/utils";
+import { formatLocaleDate, formatLocaleNumber } from "@/app/lib/i18n/format";
+import { useCompanyLocale } from "../../lib/locale-context";
 import { apiClient, type ChauffeurReport, type VendorTripAudit } from "../../../lib/services/api-client";
 
-const pkr = (n: number) => Math.round(n).toLocaleString();
-
 type DoneAudit = Extract<VendorTripAudit, { status: "DONE" }>;
+
+/** Locale-aware whole-rupee formatting: "1,240,500" and "PKR 1,240,500". */
+function useAuditFormat() {
+  const { locale } = useCompanyLocale();
+  const tCommon = useTranslations("common");
+  const num = (n: number) => formatLocaleNumber(Math.round(n), locale, { maximumFractionDigits: 0 });
+  const qty = (n: number) => formatLocaleNumber(n, locale, { maximumFractionDigits: 2 });
+  const money = (n: number) => `${tCommon("currency.pkr")} ${num(n)}`;
+  const dateTime = (iso: string) =>
+    formatLocaleDate(iso, locale, {
+      timeZone: "Asia/Karachi",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  return { num, qty, money, dateTime };
+}
 
 /** Row badge for the "Vendor audit" column. */
 export function VendorAuditBadge({ audit }: { audit: VendorTripAudit | null | undefined }) {
   const t = useTranslations("company.reports.vendorAudit");
-  if (!audit) return <span className="text-[var(--text-muted)] text-xs">—</span>;
+  const f = useAuditFormat();
+  if (!audit) return <span className="text-xs text-fg-muted">—</span>;
   if (audit.status === "NOT_AVAILABLE") {
-    return <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-[var(--surface-subtle)] text-[var(--text-muted)]">{t("notReady")}</span>;
+    return <Badge tone="neutral" dot>{t("notReady")}</Badge>;
   }
   if (audit.status === "NOT_RUN") {
-    return <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-50 text-amber-700">{t("notAudited")}</span>;
+    return <Badge tone="warning" dot>{t("notAudited")}</Badge>;
   }
   if (audit.verdict === "OVERCHARGED") {
     return (
-      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-rose-50 text-rose-700 whitespace-nowrap">
-        {t("overcharged")} +{pkr(audit.difference_amount)}
-      </span>
+      <Badge tone="danger" icon={<ArrowUpRight aria-hidden="true" />} className="tabular-nums">
+        {t("overcharged")} +{f.money(audit.difference_amount)}
+      </Badge>
     );
   }
   if (audit.verdict === "UNDERCHARGED") {
     return (
-      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-sky-50 text-sky-700 whitespace-nowrap">
-        {t("undercharged")} −{pkr(Math.abs(audit.difference_amount))}
-      </span>
+      <Badge tone="info" icon={<ArrowDownRight aria-hidden="true" />} className="tabular-nums">
+        {t("undercharged")} −{f.money(Math.abs(audit.difference_amount))}
+      </Badge>
     );
   }
-  return <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{t("matched")}</span>;
+  return <Badge tone="success" dot>{t("matched")}</Badge>;
 }
 
 /**
@@ -108,163 +131,156 @@ export function VendorAuditPanel({
   const vendorName = audit?.vendor?.name;
 
   return (
-    <div>
-      <h4 className="text-sm font-bold text-[var(--text-primary)] mb-1 flex items-center gap-2">
-        <span className="w-1.5 h-1.5 rounded-full bg-[var(--cort-orange)]"></span>
-        {t("title")}
-      </h4>
-      {vendorName && <p className="text-xs text-[var(--text-muted)] mb-3">{t("byVendor", { vendor: vendorName })}</p>}
+    <section>
+      <h4 className="text-sm font-semibold text-fg">{t("title")}</h4>
+      {vendorName && <p className="mt-0.5 text-xs text-fg-muted">{t("byVendor", { vendor: vendorName })}</p>}
 
-      {audit?.status === "NOT_AVAILABLE" && (
-        <div className="rounded-lg border border-[var(--border-light)] bg-[var(--surface-subtle)] p-4 text-sm text-[var(--text-muted)]">
-          {audit.reason === "TRIP_NOT_COMPLETED" ? t("notCompletedMessage") : t("notReadyMessage")}
-        </div>
-      )}
-
-      {audit?.status === "DONE" && !editing && <AuditResult audit={audit} onEdit={() => startEdit(audit)} />}
-
-      {(audit?.status === "NOT_RUN" || (audit?.status === "DONE" && editing)) && (
-        <div className="rounded-lg border border-[var(--border-light)] bg-white p-4 space-y-3">
-          {audit.status === "NOT_RUN" && <p className="text-sm text-[var(--text-muted)]">{t("intro")}</p>}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block sm:col-span-2">
-              <span className="text-xs font-semibold text-[var(--text-primary)]">{t("chargedLabel")}</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="mt-1 h-10 w-full rounded-lg border border-[var(--border-strong)] bg-transparent px-3 text-sm font-mono text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--cort-orange)]"
-                aria-describedby="vendor-audit-charged-hint"
-              />
-              <span id="vendor-audit-charged-hint" className="mt-1 block text-xs text-[var(--text-muted)]">{t("chargedHint")}</span>
-            </label>
-            <label className="block">
-              <span className="text-xs font-semibold text-[var(--text-primary)]">{t("referenceLabel")}</span>
-              <input
-                type="text"
-                maxLength={100}
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                className="mt-1 h-10 w-full rounded-lg border border-[var(--border-strong)] bg-transparent px-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--cort-orange)]"
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs font-semibold text-[var(--text-primary)]">{t("notesLabel")}</span>
-              <input
-                type="text"
-                maxLength={2000}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="mt-1 h-10 w-full rounded-lg border border-[var(--border-strong)] bg-transparent px-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--cort-orange)]"
-              />
-            </label>
+      <div className="mt-3">
+        {audit?.status === "NOT_AVAILABLE" && (
+          <div className="flex items-start gap-2 rounded-lg border border-line bg-subtle p-4 text-sm text-fg-secondary">
+            <Info className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+            <span>{audit.reason === "TRIP_NOT_COMPLETED" ? t("notCompletedMessage") : t("notReadyMessage")}</span>
           </div>
-          {error && <p className="text-xs font-medium text-rose-600" role="alert">{error}</p>}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={run}
-              disabled={submitting}
-              className="rounded-xl bg-[var(--cort-orange)] px-5 py-2.5 text-sm font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--cort-orange-hover)] disabled:opacity-60"
-            >
-              {submitting ? t("running") : audit.status === "DONE" ? t("rerun") : t("run")}
-            </button>
-            {audit.status === "DONE" && (
-              <button type="button" onClick={() => setEditing(false)} disabled={submitting} className="rounded-xl px-4 py-2.5 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)]">
-                {t("cancel")}
-              </button>
-            )}
+        )}
+
+        {audit?.status === "DONE" && !editing && <AuditResult audit={audit} onEdit={() => startEdit(audit)} />}
+
+        {(audit?.status === "NOT_RUN" || (audit?.status === "DONE" && editing)) && (
+          <div className="space-y-4 rounded-lg border border-line bg-card p-4">
+            {audit.status === "NOT_RUN" && <p className="text-sm text-fg-secondary">{t("intro")}</p>}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t("chargedLabel")} hint={t("chargedHint")} className="sm:col-span-2">
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  mono
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+              </Field>
+              <Field label={t("referenceLabel")}>
+                <Input type="text" maxLength={100} value={reference} onChange={(e) => setReference(e.target.value)} />
+              </Field>
+              <Field label={t("notesLabel")}>
+                <Input type="text" maxLength={2000} value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </Field>
+            </div>
+            {error && <InlineError>{error}</InlineError>}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" onClick={run} loading={submitting}>
+                {submitting ? t("running") : audit.status === "DONE" ? t("rerun") : t("run")}
+              </Button>
+              {audit.status === "DONE" && (
+                <Button type="button" variant="ghost" onClick={() => setEditing(false)} disabled={submitting}>
+                  {t("cancel")}
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </section>
   );
 }
 
 function AuditResult({ audit, onEdit }: { audit: DoneAudit; onEdit: () => void }) {
   const t = useTranslations("company.reports.vendorAudit");
+  const f = useAuditFormat();
   const percent = audit.difference_percentage != null ? Math.abs(audit.difference_percentage).toFixed(1) : "—";
   const tone =
     audit.verdict === "OVERCHARGED"
-      ? "border-rose-200 bg-rose-50 text-rose-800"
+      ? "border-danger-line bg-danger-soft text-danger-ink"
       : audit.verdict === "UNDERCHARGED"
-        ? "border-sky-200 bg-sky-50 text-sky-800"
-        : "border-emerald-200 bg-emerald-50 text-emerald-800";
+        ? "border-info-line bg-info-soft text-info-ink"
+        : "border-success-line bg-success-soft text-success-ink";
+  const HeadlineIcon = audit.verdict === "OVERCHARGED" ? AlertTriangle : audit.verdict === "UNDERCHARGED" ? Info : CircleCheck;
   const headline =
     audit.verdict === "OVERCHARGED"
-      ? t("overchargedBy", { amount: pkr(audit.difference_amount), percent })
+      ? t("overchargedBy", { amount: f.num(audit.difference_amount), percent })
       : audit.verdict === "UNDERCHARGED"
-        ? t("underchargedBy", { amount: pkr(Math.abs(audit.difference_amount)), percent })
+        ? t("underchargedBy", { amount: f.num(Math.abs(audit.difference_amount)), percent })
         : t("matchedMessage");
+
+  const diff = audit.difference_amount;
+  const DiffIcon = diff > 0 ? ArrowUpRight : diff < 0 ? ArrowDownRight : null;
 
   return (
     <div className="space-y-4">
-      <div className={`rounded-lg border p-4 text-sm font-bold ${tone}`} role="status">{headline}</div>
-
-      <div className="grid grid-cols-3 gap-3">
-        <Stat label={t("vendorCharged")} value={`PKR ${pkr(audit.vendor_charged_amount)}`} />
-        <Stat label={t("expected")} value={`PKR ${pkr(audit.expected_amount)}`} />
-        <Stat
-          label={t("difference")}
-          value={`${audit.difference_amount > 0 ? "+" : audit.difference_amount < 0 ? "−" : ""}PKR ${pkr(Math.abs(audit.difference_amount))}`}
-          emphasis={audit.verdict === "OVERCHARGED"}
-        />
+      <div className={cn("flex items-start gap-2 rounded-lg border p-3 text-sm font-medium tabular-nums", tone)} role="status">
+        <HeadlineIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        <span>{headline}</span>
       </div>
 
+      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Stat label={t("vendorCharged")} value={f.money(audit.vendor_charged_amount)} />
+        <Stat label={t("expected")} value={f.money(audit.expected_amount)} />
+        <Stat
+          label={t("difference")}
+          value={`${diff > 0 ? "+" : diff < 0 ? "−" : ""}${f.money(Math.abs(diff))}`}
+          icon={DiffIcon ? <DiffIcon className="size-4 shrink-0" aria-hidden="true" /> : undefined}
+          emphasis={audit.verdict === "OVERCHARGED"}
+        />
+      </dl>
+
       {audit.expected_changed_since_audit && (
-        <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">{t("expectedChanged", { amount: pkr(audit.expected_amount_at_audit) })}</p>
+        <p className="flex items-start gap-2 rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-xs text-warning-ink tabular-nums">
+          <Info className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+          <span>{t("expectedChanged", { amount: f.num(audit.expected_amount_at_audit) })}</span>
+        </p>
       )}
 
       <div>
-        <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">{t("expectedBreakdown")}</p>
-        <div className="bg-white border border-[var(--border-light)] rounded-lg overflow-hidden shadow-sm">
+        <p className="mb-2 text-xs font-medium text-fg-muted">{t("expectedBreakdown")}</p>
+        <div className="overflow-hidden rounded-lg border border-line bg-card">
           <table className="w-full text-sm">
-            <tbody className="divide-y divide-[var(--border-light)]">
+            <tbody className="divide-y divide-line">
               {audit.expected_breakdown.map((line, i) => (
                 <tr key={i}>
-                  <td className="px-4 py-2.5 text-[var(--text-primary)]">
+                  <td className="px-4 py-2.5 text-start text-fg">
                     {line.description}
                     {line.quantity != null && line.unit_price != null && (
-                      <span className="ms-2 text-xs text-[var(--text-muted)] font-mono">
-                        {line.quantity} × {pkr(line.unit_price)}
+                      <span className="ms-2 text-xs text-fg-muted tabular-nums">
+                        {f.qty(line.quantity)} × {f.num(line.unit_price)}
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-end font-medium text-[var(--text-primary)] font-mono">
-                    {line.amount < 0 ? "−" : ""}PKR {pkr(Math.abs(line.amount))}
+                  <td className="whitespace-nowrap px-4 py-2.5 text-end text-fg tabular-nums">
+                    {line.amount < 0 ? "−" : ""}{f.money(Math.abs(line.amount))}
                   </td>
                 </tr>
               ))}
-              <tr className="bg-[var(--surface-subtle)] font-bold">
-                <td className="px-4 py-3 text-[var(--text-primary)]">{t("lineTotal")}</td>
-                <td className="px-4 py-3 text-end text-[var(--cort-orange)] font-mono">PKR {pkr(audit.expected_amount)}</td>
+              <tr className="bg-subtle">
+                <td className="px-4 py-3 text-start font-semibold text-fg">{t("lineTotal")}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-end font-semibold text-fg tabular-nums">{f.money(audit.expected_amount)}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
-        <span>
-          {t("auditedOn", { date: formatDateTime(audit.audited_at) })}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-fg-muted">
+        <span className="tabular-nums">
+          {t("auditedOn", { date: f.dateTime(audit.audited_at) })}
           {audit.vendor_invoice_reference && <span className="ms-2">· {t("reference", { reference: audit.vendor_invoice_reference })}</span>}
         </span>
-        <button type="button" onClick={onEdit} className="font-semibold text-[var(--text-primary)] underline underline-offset-2 hover:text-[var(--cort-orange)]">
+        <Button type="button" variant="outline" size="sm" onClick={onEdit}>
           {t("editAudit")}
-        </button>
+        </Button>
       </div>
-      {audit.notes && <p className="text-xs text-[var(--text-muted)] whitespace-pre-line">{audit.notes}</p>}
+      {audit.notes && <p className="whitespace-pre-line text-xs text-fg-muted">{audit.notes}</p>}
     </div>
   );
 }
 
-function Stat({ label, value, emphasis }: { label: string; value: string; emphasis?: boolean }) {
+function Stat({ label, value, emphasis, icon }: { label: string; value: string; emphasis?: boolean; icon?: ReactNode }) {
   return (
-    <div className="bg-[var(--surface-subtle)] p-3 rounded-xl border border-[var(--border-light)]">
-      <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">{label}</div>
-      <div className={`mt-1 text-sm font-bold font-mono ${emphasis ? "text-rose-700" : "text-[var(--text-primary)]"}`}>{value}</div>
+    <div className="rounded-lg border border-line p-3">
+      <dt className="text-xs text-fg-muted">{label}</dt>
+      <dd className={cn("mt-1 flex items-center gap-1 text-base font-semibold tabular-nums", emphasis ? "text-danger-ink" : "text-fg")}>
+        {icon}
+        {value}
+      </dd>
     </div>
   );
 }

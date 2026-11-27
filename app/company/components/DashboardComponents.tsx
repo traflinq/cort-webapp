@@ -36,18 +36,8 @@ const formatCurrency = (value: number) => {
     return sign + absValue.toLocaleString();
 };
 
-export const Card = ({ children, className = "", withLeftBorder = false }: { children: React.ReactNode; className?: string; withLeftBorder?: boolean }) => (
-    <div className={`bg-[var(--bg-card)] border border-[var(--border-default)] rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 h-full min-w-0 shadow-[0_1px_4px_rgba(0,0,0,0.12)] transition-all duration-200 hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] ${withLeftBorder ? 'border-s-4 border-s-[#fe8503]' : ''} ${className}`}>
-        {children}
-    </div>
-);
-
-export const SectionTitle = ({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) => (
-    <h3 className="text-base sm:text-lg font-bold text-[var(--text-primary)] mb-3 sm:mb-4 flex items-center gap-2 min-w-0 flex-wrap">
-        {icon && <span className="text-[#fe8503] shrink-0">{icon}</span>}
-        {children}
-    </h3>
-);
+export { Card, SectionTitle } from './Card';
+import { Card, SectionTitle } from './Card';
 
 // --- Charts & Visuals ---
 
@@ -96,7 +86,7 @@ const DonutChart = ({ data }: { data: { label: string; value: number; color: str
                                 cy="50"
                                 r="40"
                                 fill="transparent"
-                                stroke={item.color}
+                                style={{ stroke: item.color }}
                                 strokeWidth="12"
                                 strokeDasharray={strokeDasharray}
                                 strokeDashoffset={strokeDashoffset}
@@ -124,7 +114,7 @@ const HeatmapPlaceholder = () => (
             <path d="M20,20 L180,80" stroke="var(--text-muted)" strokeWidth="1" fill="none" />
         </svg>
         {/* Hotspots */}
-        <div className="absolute top-1/2 left-1/3 w-8 h-8 bg-[#fe8503]/20 rounded-full blur-md animate-pulse"></div>
+        <div className="absolute top-1/2 left-1/3 w-8 h-8 bg-brand/20 rounded-full blur-md animate-pulse"></div>
         <div className="absolute top-1/3 right-1/4 w-6 h-6 bg-[var(--cort-orange)]/30 rounded-full blur-md animate-pulse delay-75"></div>
         <div className="absolute bottom-1/4 left-1/4 w-10 h-10 bg-[var(--accent-success)]/20 rounded-full blur-xl"></div>
     </div>
@@ -139,14 +129,14 @@ export const TakingCareSection = ({ data }: { data: DashboardData['takingCare'] 
     return (
         <div className="grid grid-cols-1 gap-4 h-full">
             <Card className="relative overflow-hidden group transition-all">
-                <div className={`absolute top-0 end-0 p-4 transition-opacity opacity-5 text-[#fe8503]`}>
+                <div className={`absolute top-0 end-0 p-4 transition-opacity opacity-5 text-brand`}>
                     <AlertCircle size={80} />
                 </div>
                 <div className="relative z-10">
                     <div className="text-[var(--text-muted)] font-medium text-xs sm:text-sm mb-1 uppercase tracking-wider">{t('unassignedBookings')}</div>
                     <div className="text-4xl sm:text-5xl font-black text-[var(--text-primary)]">{data.unassignedBookings}</div>
                     <div className="mt-2 text-sm text-[var(--text-muted)] flex items-center gap-2 flex-wrap">
-                        {isZero ? t('allCaughtUp') : <span className="bg-[#fe8503]/15 text-[#fe8503] font-bold px-2 py-0.5 rounded-full text-xs border border-[#fe8503]/30">{t('requiresAttention')}</span>}
+                        {isZero ? t('allCaughtUp') : <span className="bg-brand/15 text-brand font-bold px-2 py-0.5 rounded-full text-xs border border-brand/30">{t('requiresAttention')}</span>}
                     </div>
                 </div>
             </Card>
@@ -315,7 +305,7 @@ export const ValueDeliveredSection = ({ data, rosterChanges, hasChauffeur = true
 
         {hasChauffeur && <div className="bg-[var(--bg-card)] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all relative overflow-hidden group min-w-0">
                 <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
-                    <Car size={120} className="text-[#fe8503]" />
+                    <Car size={120} className="text-brand" />
                 </div>
                 <div className="relative z-10 flex items-start justify-between">
                     <div className="text-text-muted text-xs font-bold uppercase tracking-wide">{t('activeChauffeurRides')}</div>
@@ -336,7 +326,7 @@ export const ValueDeliveredSection = ({ data, rosterChanges, hasChauffeur = true
 
         {hasShuttle && <div className="bg-[var(--bg-card)] p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border border-[var(--border-default)] shadow-[0_1px_4px_rgba(0,0,0,0.12)] flex flex-col justify-between hover:shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-all relative overflow-hidden group min-w-0">
                 <div className="pointer-events-none absolute inset-y-0 end-0 w-24 sm:w-32 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity">
-                    <Bus size={120} className="text-[#fe8503]" />
+                    <Bus size={120} className="text-brand" />
                 </div>
                 <div className="relative z-10">
                     <div className="text-[var(--text-muted)] text-xs font-bold uppercase tracking-wide">{t('shuttleTrips')}</div>
@@ -466,7 +456,7 @@ export const CostVisibilitySection = ({
                 {onEditBudget && (
                     <button
                         onClick={onEditBudget}
-                        className="text-xs flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--cort-orange)] font-bold transition-colors bg-[var(--surface-muted)] hover:bg-[#fef3c7] px-2 py-1 rounded-md shrink-0"
+                        className="text-xs flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--cort-orange)] font-bold transition-colors bg-[var(--surface-muted)] hover:bg-brand-soft px-2 py-1 rounded-md shrink-0"
                     >
                         <Settings className="w-3 h-3" /> {t('editBudget')}
                     </button>
@@ -496,7 +486,7 @@ export const CostVisibilitySection = ({
                         <div className="text-end font-bold text-[var(--text-primary)]">{percentageUsed.toFixed(0)}%</div>
                         </div>
                         <div className="overflow-hidden h-3 mb-2 text-xs flex rounded-full bg-[var(--border-light)] border border-[var(--border-dark)]">
-                            <div style={{ width: `${percentageUsed}%` }} className={`shadow-none flex flex-col text-center whitespace-nowrap text-[var(--text-primary)] justify-center ${percentageUsed > 90 ? 'bg-[var(--accent-danger)]' : 'bg-[#fe8503]'}`}></div>
+                            <div style={{ width: `${percentageUsed}%` }} className={`shadow-none flex flex-col text-center whitespace-nowrap text-[var(--text-primary)] justify-center ${percentageUsed > 90 ? 'bg-[var(--accent-danger)]' : 'bg-brand'}`}></div>
                         </div>
                         <div className="text-[10px] text-[var(--text-muted)] flex justify-between uppercase font-medium">
                             <span>0</span>
@@ -517,7 +507,7 @@ export const CostVisibilitySection = ({
 
                     <div className="mt-4 bg-[var(--bg-subtle)] rounded-[2rem] p-4 border border-[var(--border-default)]">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-[#fe8503]/10 text-[#fe8503] rounded-lg">
+                            <div className="p-2 bg-brand/10 text-brand rounded-lg">
                                 <Activity className="w-4 h-4" />
                             </div>
                             <div>
@@ -547,7 +537,7 @@ export const SmartInsightsSection = ({ insights, seasonality }: { insights: stri
                     >
                         <div className="flex justify-between items-start gap-2">
                             <div className="text-sm text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-colors">
-                                <span className="text-[#fe8503] font-bold me-2">•</span>
+                                <span className="text-brand font-bold me-2">•</span>
                                 {insight}
                             </div>
                         </div>
@@ -578,7 +568,7 @@ export const EmployeeUsageSection = ({ data }: { data: DashboardData['employeeUs
 
     return (
         <Card className="bg-[var(--bg-card)] border border-[var(--border-default)]">
-            <SectionTitle><Users className="w-5 h-5 text-[#fe8503]" /> {t('employeeAdoption')}</SectionTitle>
+            <SectionTitle><Users className="w-5 h-5 text-brand" /> {t('employeeAdoption')}</SectionTitle>
 
             <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-6">
                 <div className="flex-1 min-w-[100px]">
@@ -593,8 +583,8 @@ export const EmployeeUsageSection = ({ data }: { data: DashboardData['employeeUs
             </div>
 
             <div className="bg-[var(--bg-subtle)] p-3 sm:p-4 rounded-2xl mb-6 border border-[var(--border-strong)] flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[#fe8503]/20 rounded-full flex items-center justify-center text-[#fe8503] shrink-0">
-                    <Star className="w-4 h-4 sm:w-5 sm:h-5 fill-[#fe8503]" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-brand/20 rounded-full flex items-center justify-center text-brand shrink-0">
+                    <Star className="w-4 h-4 sm:w-5 sm:h-5 fill-brand" />
                 </div>
                 <div className="min-w-0">
                     <div className="text-[11px] text-[var(--text-muted)] font-bold uppercase">{t('topPassenger')}</div>
@@ -610,7 +600,7 @@ export const EmployeeUsageSection = ({ data }: { data: DashboardData['employeeUs
                 <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wide mb-3">{t('departmentBreakdown')}</div>
                 <div className="space-y-2.5">
                     {data.departmentUsage.map((dept, i) => {
-                        const colors = ['bg-[#fe8503]', 'bg-white/40', 'bg-[var(--accent-success)]', 'bg-white/20'];
+                        const colors = ['bg-brand', 'bg-white/40', 'bg-[var(--accent-success)]', 'bg-white/20'];
                         const color = colors[i % colors.length];
                         return (
                             <div key={i} className="flex flex-col gap-1">
@@ -670,7 +660,7 @@ export const AdoptionHealthSection = ({ data }: { data: DashboardData['adminHeal
 export const ServiceUsageSection = ({ data, hasChauffeur = true, hasShuttle = true }: { data: DashboardData['services']; hasChauffeur?: boolean; hasShuttle?: boolean }) => {
     const t = useTranslations('company.dashboard');
     const allItems = [
-        { label: t('chauffeur'), value: data.chauffeur, color: '#fe8503', dot: 'bg-[#fe8503]', show: hasChauffeur },
+        { label: t('chauffeur'), value: data.chauffeur, color: 'var(--cort-orange)', dot: 'bg-brand', show: hasChauffeur },
         { label: t('shuttle'), value: data.shuttles, color: 'rgba(255,255,255,0.5)', dot: 'bg-white/50', show: hasShuttle },
         { label: t('eventShuttle'), value: data.eventShuttle, color: 'rgba(255,255,255,0.15)', dot: 'bg-white/15', show: hasShuttle },
     ];
@@ -680,7 +670,7 @@ export const ServiceUsageSection = ({ data, hasChauffeur = true, hasShuttle = tr
 
     return (
         <Card>
-            <SectionTitle><Car className="w-5 h-5 text-[#f47f00]" /> {t('serviceSplit')}</SectionTitle>
+            <SectionTitle><Car className="w-5 h-5 text-brand" /> {t('serviceSplit')}</SectionTitle>
 
             <div className="flex flex-col items-center justify-center h-full py-2">
                 <DonutChart data={chartData} />
@@ -704,8 +694,8 @@ export const PremiumTeaser = () => {
 
     return (
         <div className="mt-6 sm:mt-8 flex justify-center px-2">
-            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full bg-[#fe8503]/10 border border-[#fe8503]/20 text-[#fe8503]/80 text-[10px] sm:text-xs font-medium cursor-not-allowed hover:opacity-100 transition-all opacity-90 text-center max-w-full">
-                <Star className="w-3 h-3 fill-[#fe8503] shrink-0" />
+            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full bg-brand/10 border border-brand/20 text-brand/80 text-[10px] sm:text-xs font-medium cursor-not-allowed hover:opacity-100 transition-all opacity-90 text-center max-w-full">
+                <Star className="w-3 h-3 fill-brand shrink-0" />
                 <span className="leading-snug">{t('premiumTeaser')}</span>
             </div>
         </div>

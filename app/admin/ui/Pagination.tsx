@@ -83,7 +83,7 @@ export function Pagination({ page, totalPages, onPageChange, total, pageSize, on
       {hasPages && (
         <div className="flex items-center gap-1">
           <IconButton label="Previous page" size="icon-sm" variant="outline" disabled={page <= 1} onClick={() => onPageChange(page - 1)} tooltip={false}>
-            <ChevronLeft />
+            <ChevronLeft className="rtl:rotate-180" />
           </IconButton>
           <ul className="hidden items-center gap-1 sm:flex">
             {pageRange(page, safeTotalPages).map((p, i) =>
@@ -121,7 +121,7 @@ export function Pagination({ page, totalPages, onPageChange, total, pageSize, on
             onClick={() => onPageChange(page + 1)}
             tooltip={false}
           >
-            <ChevronRight />
+            <ChevronRight className="rtl:rotate-180" />
           </IconButton>
         </div>
       )}

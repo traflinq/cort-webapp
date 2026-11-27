@@ -31,7 +31,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           id={resolvedId}
           aria-invalid={ariaInvalid ? true : undefined}
           aria-describedby={describedBy}
-          className={cn(inputBase, "cursor-pointer appearance-none pr-9", width === "auto" && "w-auto", className)}
+          className={cn(inputBase, "cursor-pointer appearance-none pe-9", width === "auto" && "w-auto", className)}
           {...props}
         >
           {placeholder !== undefined && <option value="">{placeholder}</option>}
@@ -39,7 +39,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         </select>
         <ChevronDown
           aria-hidden="true"
-          className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
+          className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
         />
       </div>
     );
