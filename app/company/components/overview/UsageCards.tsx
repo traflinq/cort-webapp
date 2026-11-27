@@ -129,6 +129,8 @@ export interface ShuttleSummaryData {
   added: number;
   removed: number;
   topRoute: { route_id: number; route_name: string; added_count: number } | null;
+  /** Estimated cost this month (contracted fixed + estimated fuel); null when there's no cost data. */
+  costMtd?: number | null;
 }
 
 export function ShuttleSummaryCard({ data }: { data: ShuttleSummaryData }) {
@@ -151,14 +153,16 @@ export function ShuttleSummaryCard({ data }: { data: ShuttleSummaryData }) {
         </div>
       </div>
       <dl className="divide-y divide-line border-t border-line">
+        {data.costMtd != null && <Row label={t("costMtd")} value={f.money(data.costMtd)} />}
         <Row label={t("added")} value={f.num(data.added)} />
         <Row label={t("removed")} value={f.num(data.removed)} />
         <Row label={t("tripsLifetime")} value={f.num(data.tripsLifetime)} />
       </dl>
-      {data.topRoute && (
-        <p className="text-xs text-fg-muted">
-          {t("topRoute", { name: data.topRoute.route_name, count: data.topRoute.added_count })}
-        </p>
+      {(data.topRoute || data.costMtd != null) && (
+        <div className="space-y-1 text-xs text-fg-muted">
+          {data.topRoute && <p>{t("topRoute", { name: data.topRoute.route_name, count: data.topRoute.added_count })}</p>}
+          {data.costMtd != null && <p>{t("costHint")}</p>}
+        </div>
       )}
     </Card>
   );

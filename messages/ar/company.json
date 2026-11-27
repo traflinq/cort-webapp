@@ -1973,7 +1973,7 @@
     "overview": {
       "title": "نظرة عامة",
       "retry": "حاول مرة أخرى",
-      "vsLastMonth": "مقارنة بالشهر الماضي",
+      "vsLastMonth": "مقارنة بالفترة نفسها من الشهر الماضي",
       "createBooking": "حجز جديد",
       "editBudget": "الميزانية الشهرية",
       "kpi": {
@@ -1995,7 +1995,13 @@
         "routes": "المسارات النشطة",
         "rosterSub": "أضيف {added} · أزيل {removed} هذا الشهر",
         "activeEmployees": "الموظفون النشطون",
-        "ofRegistered": "من أصل {total} مسجل"
+        "ofRegistered": "من أصل {total} مسجل",
+        "rides": "الرحلات المكتملة",
+        "upcoming": "الرحلات القادمة",
+        "upcomingSub": "خلال الأيام السبعة القادمة",
+        "shuttleCost": "تكلفة النقل الجماعي هذا الشهر",
+        "shuttleCostSub": "تقديرية: العقد + الوقود",
+        "shuttleCostEmpty": "لا توجد بيانات تكلفة لهذا الشهر بعد"
       },
       "attention": {
         "title": "يحتاج إلى متابعة",
@@ -2033,7 +2039,7 @@
         "projectedOver": "بهذه الوتيرة سيتجاوز الإنفاق الميزانية بمقدار {amount} ({percent}).",
         "projectedUnder": "بهذه الوتيرة سينتهي الإنفاق أقل من الميزانية بمقدار {amount}.",
         "ridesCompleted": "الرحلات المكتملة",
-        "vsLastMonth": "مقارنة بالشهر الماضي",
+        "vsLastMonth": "مقارنة بالفترة نفسها من الشهر الماضي",
         "avgTripCost": "متوسط تكلفة الرحلة",
         "perCompletedRide": "لكل رحلة مكتملة",
         "costPerEmployee": "التكلفة لكل موظف",
@@ -2093,7 +2099,21 @@
         "added": "أشخاص أضيفوا إلى المسارات",
         "removed": "أشخاص أزيلوا من المسارات",
         "tripsLifetime": "الرحلات منذ البداية",
-        "topRoute": "أكثر الإضافات: {name} ({count})"
+        "topRoute": "أكثر الإضافات: {name} ({count})",
+        "costMtd": "التكلفة التقديرية هذا الشهر",
+        "costHint": "التكلفة تقديرية: سعر المركبة المتعاقد عليه مع الوقود حسب مسافة GPS."
+      },
+      "activity": {
+        "title": "رحلات السائق الخاص",
+        "description": "الرحلات التي نفذها سائقوك والموردون هذا الشهر",
+        "completed": "المكتملة هذا الشهر",
+        "monthToDate": "منذ بداية الشهر",
+        "upcoming": "القادمة",
+        "next7Days": "خلال الأيام السبعة القادمة",
+        "unassigned": "بانتظار سائق",
+        "unassignedSub": "حجوزات تحتاج إلى تعيين",
+        "allTime": "إجمالي الرحلات",
+        "allTimeSub": "منذ البداية"
       }
     },
     "detail": {
