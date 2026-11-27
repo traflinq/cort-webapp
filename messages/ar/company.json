@@ -837,7 +837,8 @@
         "UNPAID": "غير مدفوع",
         "PARTIALLY_PAID": "مدفوع جزئياً",
         "OVERDUE": "متأخر",
-        "DRAFT": "مسودة"
+        "DRAFT": "مسودة",
+        "CANCELLED": "ملغاة"
       },
       "monthsShort": {
         "jan": "ينا",
