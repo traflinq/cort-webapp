@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Bus, Car, Calendar, Map, Smartphone, UserPlus, Users, Sparkles, Play } from "lucide-react";
+import { Bus, Car, Calendar, MapIcon, Smartphone, UserPlus, Users, Sparkles, Play } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { Button } from "@/app/admin/ui";
-import type { LucideIcon } from "lucide-react";
+import type { AppIcon } from "@/app/components/icons";
 import { apiClient } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";
 import type { TrialModules } from "../../lib/types/auth-types";
@@ -18,7 +18,7 @@ type WalkthroughStep = {
   id: string;
   title: string;
   body: string;
-  icon: LucideIcon;
+  icon: AppIcon;
   cta: string;
   href: string | null;
   showNext?: boolean;
@@ -28,7 +28,7 @@ function poolSteps(
   t: (key: string) => string,
   companyPath: (path: string) => string,
 ): WalkthroughStep[] {
-  const step = (id: string, key: string, icon: LucideIcon, href: string | null, showNext?: boolean): WalkthroughStep => ({
+  const step = (id: string, key: string, icon: AppIcon, href: string | null, showNext?: boolean): WalkthroughStep => ({
     id,
     title: t(`steps.${key}.title`),
     body: t(`steps.${key}.body`),
@@ -50,7 +50,7 @@ function shuttleSteps(
   t: (key: string) => string,
   companyPath: (path: string) => string,
 ): WalkthroughStep[] {
-  const step = (id: string, key: string, icon: LucideIcon, href: string | null, showNext?: boolean): WalkthroughStep => ({
+  const step = (id: string, key: string, icon: AppIcon, href: string | null, showNext?: boolean): WalkthroughStep => ({
     id,
     title: t(`steps.${key}.title`),
     body: t(`steps.${key}.body`),
@@ -64,7 +64,7 @@ function shuttleSteps(
     step("shuttle-welcome", "shuttleWelcome", Bus, null),
     step("shuttle-vehicle", "shuttleVehicle", Bus, "/company/fleet?tab=vehicles", true),
     step("shuttle-driver", "shuttleDriver", UserPlus, "/company/fleet?tab=drivers", true),
-    step("shuttle-route", "shuttleRoute", Map, "/company/routes/create", true),
+    step("shuttle-route", "shuttleRoute", MapIcon, "/company/routes/create", true),
     step("shuttle-employees", "shuttleEmployees", Users, "/company/routes", true),
     step("shuttle-test", "shuttleTest", Play, "/company/routes", true),
   ];

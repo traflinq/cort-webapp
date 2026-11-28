@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { CalendarDays, ChevronDown, X } from "lucide-react";
+import { CalendarDays, ChevronDown, X } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/admin/ui/Popover";
 import { Button } from "@/app/admin/ui";

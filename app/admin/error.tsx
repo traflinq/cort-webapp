@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "@/app/components/icons";
 import { Button } from "./ui/Button";
 
 export default function AdminError({

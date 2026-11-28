@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { MapPin, UserMinus, UserPlus, Users } from 'lucide-react';
+import { MapPin, UserMinus, UserPlus, Users } from "@/app/components/icons";
 import { toast } from 'sonner';
 import {
     Badge,

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, LockOpen, PiggyBank } from "lucide-react";
+import { Lock, LockOpen, PiggyBank } from "@/app/components/icons";
 import { SuperAdminPage } from "../components/SuperAdminPage";
 import { Badge, Card, DataTable, KpiCard, KpiGrid, PageHeader, type DataTableColumn } from "../ui";
 import { formatCurrency } from "../lib/format";

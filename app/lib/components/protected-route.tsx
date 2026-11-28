@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/auth-context';
 import { UserRole } from '../types/auth-types';
+import { Spinner } from '@/app/admin/ui/Spinner';
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -57,7 +58,7 @@ export function ProtectedRoute({
     if (loading) {
         return (
             <div className="min-h-screen bg-surface flex items-center justify-center">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-orange border-r-transparent" aria-label="Loading" />
+                <Spinner size="lg" />
             </div>
         );
     }

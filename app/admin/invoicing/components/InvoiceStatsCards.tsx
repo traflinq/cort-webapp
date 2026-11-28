@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CircleDollarSign, Wallet } from "lucide-react";
+import { AlertTriangle, CircleDollarSign, Wallet } from "@/app/components/icons";
 import type { InvoiceStats } from "../types";
 import { KpiCard, KpiGrid } from "../../ui";
 import { formatCurrency } from "../../lib/format";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/app/components/icons";
 import type { ShuttleSection } from "@/app/components/savings/types";
 import { Button } from "@/app/admin/ui";
 import { useFmt } from "./hooks";

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronDown, LogOut, Menu, Moon, Palette, Search, Sun } from "lucide-react";
+import { ChevronDown, LogOut, Menu, Moon, Palette, Search, Sun } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { focusRing } from "../styles";
 import { IconButton } from "../IconButton";

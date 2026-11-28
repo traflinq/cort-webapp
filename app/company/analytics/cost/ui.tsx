@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { AlertCircle, Info, Lock, X } from "lucide-react";
+import { AlertCircle, Info, Lock, X } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/admin/ui/Popover";
 import { Button, IconButton, focusRing } from "@/app/admin/ui";

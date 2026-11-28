@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { Pencil, Plus, Power, PowerOff, Trash2, Wallet } from "lucide-react";
+import { Pencil, Plus, Power, PowerOff, Trash2, Wallet } from "@/app/components/icons";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import { PermissionGate } from "../components/PermissionGate";

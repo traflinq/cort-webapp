@@ -1,6 +1,6 @@
 "use client";
 
-import { Star, StarHalf } from "lucide-react";
+import { Star } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 
 type DriverAvgRatingProps = {
@@ -29,7 +29,8 @@ export function DriverAvgRating({ avgRating, reviewCount = 0, className }: Drive
               return (
                 <span key={i} className="relative size-3.5">
                   <Star className="absolute inset-0 size-3.5 text-line-strong" fill="currentColor" />
-                  <StarHalf className="absolute inset-0 size-3.5 text-warning" fill="currentColor" />
+                  {/* Left half of a filled star, clipped in CSS so the glyph stays the shared Star icon. */}
+                  <Star className="absolute inset-0 size-3.5 text-warning [clip-path:inset(0_50%_0_0)]" fill="currentColor" />
                 </span>
               );
             }

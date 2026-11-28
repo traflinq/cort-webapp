@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Eye, FilePlus2, FileText, History, Mail, Pencil, Trash2, Wallet } from "lucide-react";
+import { Download, Eye, FilePlus2, FileText, History, Mail, Pencil, Trash2, Wallet } from "@/app/components/icons";
 import {
   Badge,
   Button,

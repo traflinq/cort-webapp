@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "@/app/components/icons";
 import { Button } from "@/app/admin/ui/Button";
 import { apiClient } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";

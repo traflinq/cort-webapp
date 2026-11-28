@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BarChart3 } from "lucide-react";
+import { BarChart3 } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { Card, CardHeader } from "./Card";
 import { Skeleton } from "./Skeleton";

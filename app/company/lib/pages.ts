@@ -6,11 +6,11 @@ import {
   FileBarChart,
   FileSpreadsheet,
   LayoutDashboard,
-  Map,
+  MapIcon,
   Receipt,
   Users,
-  type LucideIcon,
-} from "lucide-react";
+  type AppIcon,
+} from "@/app/components/icons";
 import type { CompanyAccess } from "./access";
 
 /**
@@ -27,7 +27,7 @@ export interface CompanyPage {
   exact?: boolean;
   allow: (a: CompanyAccess) => boolean;
   /** Sidebar entry. `trialRank` places it in the trial sidebar, which is one list in its own order. */
-  nav?: { labelKey: string; icon: LucideIcon; group: NavGroup; trialRank?: number };
+  nav?: { labelKey: string; icon: AppIcon; group: NavGroup; trialRank?: number };
 }
 
 const regular = (rule: (a: CompanyAccess) => boolean) => (a: CompanyAccess) => !a.trial && rule(a);
@@ -42,7 +42,7 @@ export const COMPANY_PAGES: readonly CompanyPage[] = [
   {
     path: "/company/routes",
     allow: (a) => a.services.shuttle && (!a.trial || a.trial.shuttle),
-    nav: { labelKey: "nav.routeRoster", icon: Map, group: "operations", trialRank: 3 },
+    nav: { labelKey: "nav.routeRoster", icon: MapIcon, group: "operations", trialRank: 3 },
   },
   {
     path: "/company/routes/create",

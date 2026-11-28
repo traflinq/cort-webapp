@@ -28,7 +28,7 @@ import {
     Route,
     RouteStop,
 } from '@/app/lib/store/slices/adminRoutesSlice';
-import { Save, X, Sun, Sunset, Building2, GripVertical, ArrowLeftRight, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Save, X, Sun, Sunset, Building2, GripVertical, ArrowLeftRight, Plus, Pencil, Trash2 } from "@/app/components/icons";
 import { toast } from 'sonner';
 import {
     Badge,

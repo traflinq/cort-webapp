@@ -16,7 +16,7 @@ import {
   Minus,
   Settings2,
   UserRound,
-} from "lucide-react";
+} from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { Badge, Button, focusRing } from "@/app/admin/ui";
 import { formatLocaleNumber } from "@/app/lib/i18n/format";

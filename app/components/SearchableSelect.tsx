@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import Fuse from "fuse.js";
-import { ChevronDown, Search, X } from "lucide-react";
+import { ChevronDown, Search, X } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { inputBase } from "../admin/ui/styles";
 

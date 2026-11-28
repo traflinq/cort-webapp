@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Car, LayoutDashboard, LogOut, Map, Moon, Route, Sun, Users } from "lucide-react";
+import { Car, LayoutDashboard, LogOut, MapIcon, Moon, RouteIcon, Sun, Users } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../../lib/contexts/auth-context";
 import { useAdminTheme } from "../../admin/lib/theme-context";
@@ -10,8 +10,8 @@ import { IconButton, focusRing } from "../../admin/ui";
 
 const NAV = [
   { href: "/cort-vendor", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/cort-vendor/trips", label: "Trips", icon: Route },
-  { href: "/cort-vendor/routes", label: "Routes", icon: Map },
+  { href: "/cort-vendor/trips", label: "Trips", icon: RouteIcon },
+  { href: "/cort-vendor/routes", label: "Routes", icon: MapIcon },
   { href: "/cort-vendor/vehicles", label: "Vehicles", icon: Car },
   { href: "/cort-vendor/drivers", label: "Drivers", icon: Users },
 ] as const;

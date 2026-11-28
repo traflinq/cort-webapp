@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "@/app/components/icons";
 import { Dialog, DialogContent, type DialogPriority } from "./Dialog";
 import { Button } from "./Button";
 import { Field } from "./Field";

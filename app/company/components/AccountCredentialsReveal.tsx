@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { AlertTriangle, Check, Copy } from "lucide-react";
+import { AlertTriangle, Check, Copy } from "@/app/components/icons";
 import { Button } from "@/app/admin/ui";
 
 function cx(...classes: Array<string | false | null | undefined>) {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { memo } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy } from "@/app/components/icons";
 import { toast } from "sonner";
 import { Dialog, DialogContent } from "../../ui/Dialog";
 import { Button } from "../../ui/Button";

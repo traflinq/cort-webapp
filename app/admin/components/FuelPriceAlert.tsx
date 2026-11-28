@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, X } from "@/app/components/icons";
 import { useFuelPriceAlert } from "../../hooks/useFuelPriceAlert";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";

@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowDown, ArrowLeftRight, ArrowUp, Clock, GripVertical, RotateCcw, X } from 'lucide-react';
+import { ArrowDown, ArrowLeftRight, ArrowUp, Clock, GripVertical, RotateCcw, X } from "@/app/components/icons";
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
 import { Badge, Button, IconButton, Input, Skeleton, focusRing } from '@/app/admin/ui';

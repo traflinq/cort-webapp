@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X } from "@/app/components/icons";
 import { ExpensesApi, type TaggableInvoice } from "../../lib/services/api-client";
 import { Input } from "../ui/Input";
 import { IconButton } from "../ui/IconButton";

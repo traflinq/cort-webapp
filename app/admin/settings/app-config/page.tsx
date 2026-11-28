@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Save } from "lucide-react";
+import { Save } from "@/app/components/icons";
 import { SuperAdminPage } from "../../components/SuperAdminPage";
 import { apiClient } from "../../../lib/services/api-client";
 import type { MobileAppConfig } from "../../../lib/services/types/app-config";

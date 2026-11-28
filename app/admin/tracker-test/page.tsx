@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "@/app/components/icons";
 import type { MapMarker } from "@/app/admin/ui/Map";
 import { Badge, Button, Card, CardContent, CardHeader, Field, FormGrid, Input, PageHeader, Textarea } from "@/app/admin/ui";
 

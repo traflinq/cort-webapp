@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Search, X } from "lucide-react";
+import { Search, X } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { Input, type InputProps } from "./Input";
 import { Button } from "./Button";

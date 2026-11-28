@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, ShieldCheck, ShieldOff, UserCog } from "lucide-react";
+import { Plus, ShieldCheck, ShieldOff, UserCog } from "@/app/components/icons";
 import { SuperAdminPage } from "../components/SuperAdminPage";
 import { PermissionsApi, type InternalStaffMember, type CreateInternalStaffRequest } from "../../lib/services/api-client";
 import { PERMISSION_KEYS, type CrudAction, type PermissionKey, type SectionCrudPermissions, type StaffPermissions } from "../../lib/types/auth-types";

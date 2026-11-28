@@ -1,6 +1,6 @@
 'use client';
 
-import { MapPin, X } from 'lucide-react';
+import { MapPin, X } from "@/app/components/icons";
 import StopAddressSearch from '@/app/admin/ui/StopAddressSearch';
 import { Button, Field, FormGrid } from '@/app/admin/ui';
 import type { RouteDirectionConfig, RoutePoint } from '@/app/lib/store/slices/adminRoutesSlice';

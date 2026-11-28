@@ -6,18 +6,19 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "../lib/contexts/auth-context";
 import { UserRole, VendorLink } from "../lib/types/auth-types";
+import { Spinner } from "@/app/admin/ui/Spinner";
 import {
     LayoutDashboard,
     Inbox,
     Car,
     Users,
-    Map,
+    MapIcon,
     LogOut,
     Menu,
     X,
     ChevronDown,
     ClipboardList,
-} from "lucide-react";
+} from "@/app/components/icons";
 
 function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(" ");
@@ -77,13 +78,13 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
     const isLogin = pathname === "/vendor/login";
 
     if (loading) {
-        return <div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-4 border-[#f47f00] border-t-transparent rounded-full animate-spin" /></div>;
+        return <div className="flex items-center justify-center min-h-screen"><Spinner size="lg" /></div>;
     }
 
     if (isLogin) return <>{children}</>;
 
     if (!user || user.role !== UserRole.COMPANY_VENDOR) {
-        return <div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-4 border-[#f47f00] border-t-transparent rounded-full animate-spin" /></div>;
+        return <div className="flex items-center justify-center min-h-screen"><Spinner size="lg" /></div>;
     }
 
     const links = user.vendor_links ?? [];
@@ -95,7 +96,7 @@ export default function VendorLayout({ children }: { children: React.ReactNode }
         { href: "/vendor/bookings", label: "Bookings", icon: ClipboardList },
         { href: "/vendor/fleet/vehicles", label: "Vehicles", icon: Car },
         { href: "/vendor/fleet/drivers", label: "Drivers", icon: Users },
-        ...(selectedLink?.serves_shuttle ? [{ href: "/vendor/routes", label: "Routes", icon: Map }] : []),
+        ...(selectedLink?.serves_shuttle ? [{ href: "/vendor/routes", label: "Routes", icon: MapIcon }] : []),
     ];
 
     const isActive = (href: string, exact?: boolean) => {

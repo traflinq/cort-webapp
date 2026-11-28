@@ -1,6 +1,6 @@
 "use client";
 
-import { ZoomIn } from "lucide-react";
+import { ZoomIn } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { Driver } from "../../../lib/services/types/drivers";
 import { displayDriverEmail } from "../../../lib/utils/driverEmailDisplay";

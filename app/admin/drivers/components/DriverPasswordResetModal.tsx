@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, memo } from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound } from "@/app/components/icons";
 import { Driver } from "../../../lib/services/api-client";
 import { displayDriverEmail } from "../../../lib/utils/driverEmailDisplay";
 import { generatePassword } from "../../lib/format";

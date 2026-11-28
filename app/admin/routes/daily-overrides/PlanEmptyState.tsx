@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Bus } from 'lucide-react';
+import { Bus } from "@/app/components/icons";
 import { Card, EmptyState } from '@/app/admin/ui';
 
 export function PlanEmptyState({

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Ban, Check, Pencil, UserPlus, Users } from "lucide-react";
+import { Ban, Check, Pencil, UserPlus, Users } from "@/app/components/icons";
 import { useTranslations } from "next-intl";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import { useCompanyAccess } from "../lib/access-context";

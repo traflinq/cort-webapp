@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Pencil, Plus, Trash2, Wrench } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Pencil, Plus, Trash2, Wrench } from "@/app/components/icons";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
 import { useAuth } from "../../../lib/contexts/auth-context";

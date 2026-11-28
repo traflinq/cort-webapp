@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAuth } from "../../../lib/contexts/auth-context";
 import { AdminProtectedPage } from "../../components/AdminProtectedPage";
 import { ADMIN_SUBJECTS } from "../../../lib/abilities/admin-subjects";
-import { Plus } from "lucide-react";
+import { Plus } from "@/app/components/icons";
 import { Button, Card, CardContent, PageHeader } from "../../ui";
 import { CreateBookingDialog } from "./components/CreateBookingDialog";
 import { EndTripModal } from "./components/EndTripModal";

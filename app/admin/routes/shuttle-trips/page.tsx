@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeftRight, Ban, Bus, Pencil, RefreshCw, Square, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, Ban, Bus, Pencil, RefreshCw, Square, Trash2 } from "@/app/components/icons";
 import { toast } from 'sonner';
 import { PermissionGate } from '@/app/admin/components/PermissionGate';
 import { AdminCan } from '@/app/lib/abilities/AdminAbilityProvider';

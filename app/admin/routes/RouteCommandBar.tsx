@@ -6,7 +6,7 @@
  * the design-system primitives so nothing outside this folder has to change.
  */
 import type { ReactNode } from 'react';
-import { Bus } from 'lucide-react';
+import { Bus } from "@/app/components/icons";
 import { cn } from '@/lib/utils';
 import { Card, EmptyState, PageHeader, focusRing } from '@/app/admin/ui';
 import { formatTime, initials as initialsFmt } from '@/app/admin/lib/format';

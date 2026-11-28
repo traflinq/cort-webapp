@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MailCheck } from "lucide-react";
+import { MailCheck } from "@/app/components/icons";
 import { apiClient } from "../../lib/services/api-client";
 import { AuthLink, AuthShell } from "../components/AuthShell";
 import { Button } from "../ui/Button";

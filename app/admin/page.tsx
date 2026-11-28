@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { useAppDispatch, useAppSelector } from "../lib/store/hooks";
 import { fetchDashboardStats, setDateRange } from "../lib/store/slices/superAdminDashboardSlice";

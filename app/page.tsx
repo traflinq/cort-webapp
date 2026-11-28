@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   Building2,
   Smartphone
-} from "lucide-react";
+} from "@/app/components/icons";
 
 export default function Home() {
   return (

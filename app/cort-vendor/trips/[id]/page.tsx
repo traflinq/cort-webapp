@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { Radio } from "lucide-react";
+import { Radio } from "@/app/components/icons";
 import {
   Card,
   CardHeader,

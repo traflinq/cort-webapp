@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowUpRight, CheckCircle2, ChevronDown, Fuel, MessageSquare, Users, Wrench } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, ChevronDown, Fuel, MessageSquare, Users, Wrench } from "@/app/components/icons";
 import type { ComponentType } from "react";
 import type { BreakdownItem, FuelMonthComparison, OverdueInvoice, ProblemReport } from "../../../lib/types/admin-dashboard";
 import { Badge, Button, Card, CardHeader, DataTable, StatusBadge, type DataTableColumn } from "..";

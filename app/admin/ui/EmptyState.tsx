@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Inbox } from "lucide-react";
+import { Inbox } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 
 export interface EmptyStateProps {

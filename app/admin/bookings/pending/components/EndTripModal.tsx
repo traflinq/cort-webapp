@@ -2,7 +2,7 @@
 
 import { memo, useState } from "react";
 import { toast } from "sonner";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@/app/components/icons";
 import { ChauffeurBooking, TripType } from "../../../../lib/services/api-client";
 import { uploadFile } from "../../../../lib/supabase";
 import { Button, Checkbox, Dialog, DialogContent, Field, FormGrid, Input, Select } from "../../../ui";

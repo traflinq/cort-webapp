@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/app/lib/services/api-client';
-import { Plus, Trash2, Wallet } from 'lucide-react';
+import { Plus, Trash2, Wallet } from "@/app/components/icons";
 import { toast } from 'sonner';
 import {
   Badge,

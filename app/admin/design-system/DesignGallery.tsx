@@ -16,7 +16,7 @@ import {
   Sun,
   Trash2,
   Users,
-} from "lucide-react";
+} from "@/app/components/icons";
 import { SuperAdminPage } from "../components/SuperAdminPage";
 import { useAdminTheme } from "../lib/theme-context";
 import { useConfirm } from "../../lib/hooks/useConfirm";

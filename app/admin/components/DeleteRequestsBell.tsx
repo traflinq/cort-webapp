@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import type { Socket } from "socket.io-client";
 import { acquireRidesSocket } from "../../lib/realtime/ridesSocket";
 import { toast } from "sonner";
-import { Bell } from "lucide-react";
+import { Bell } from "@/app/components/icons";
 import { apiClient } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";
 import { DeleteRequestsModal } from "./DeleteRequestsModal";

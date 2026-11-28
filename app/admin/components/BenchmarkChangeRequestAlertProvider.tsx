@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { toast } from "sonner";
-import { Fuel, X } from "lucide-react";
+import { Fuel, X } from "@/app/components/icons";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { apiClient } from "../../lib/services/api-client";

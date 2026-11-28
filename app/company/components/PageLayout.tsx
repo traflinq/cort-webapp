@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Inbox } from "lucide-react";
+import { Inbox } from "@/app/components/icons";
 
 /** Shared page header: title, description and right-aligned actions. */
 export function PageHeader({

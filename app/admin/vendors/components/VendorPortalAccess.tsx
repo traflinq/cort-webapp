@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound } from "@/app/components/icons";
 import { toast } from "sonner";
 import { useConfirm } from "../../../lib/hooks/useConfirm";
 import { apiClient, type Vendor } from "../../../lib/services/api-client";

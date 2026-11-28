@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays } from "@/app/components/icons";
 import { PermissionGate } from '@/app/admin/components/PermissionGate';
 import { AdminCan } from '@/app/lib/abilities/AdminAbilityProvider';
 import {

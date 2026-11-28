@@ -1,6 +1,6 @@
 'use client';
 
-import { Car, Save, Sun, Sunset, Users } from 'lucide-react';
+import { Car, Save, Sun, Sunset, Users } from "@/app/components/icons";
 import type { Company } from '@/app/lib/services/api-client';
 import {
     Button,

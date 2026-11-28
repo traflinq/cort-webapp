@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 
 const sizes = { xs: "size-3", sm: "size-4", md: "size-5", lg: "size-8" } as const;

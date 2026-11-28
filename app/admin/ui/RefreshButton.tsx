@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw } from "@/app/components/icons";
 import { IconButton, type IconButtonProps } from "./IconButton";
 
 export interface RefreshButtonProps extends Omit<IconButtonProps, "children" | "label"> {

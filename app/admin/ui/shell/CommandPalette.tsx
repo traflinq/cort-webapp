@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
-import { Building2, Car, CornerDownLeft, Search, Users } from "lucide-react";
+import { Building2, Car, CornerDownLeft, Search, Users } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from "../Dialog";
 import { Spinner } from "../Spinner";

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, memo } from "react";
-import { Upload, Wand2, X } from "lucide-react";
+import { Upload, Wand2, X } from "@/app/components/icons";
 import { toast } from "sonner";
 import { Company, CreateCompanyRequest } from "../../../lib/services/api-client";
 import { uploadFile } from "../../../lib/supabase";

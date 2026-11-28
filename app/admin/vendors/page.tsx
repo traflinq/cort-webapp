@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
+import { Eye, Pencil, Plus, Trash2 } from "@/app/components/icons";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import { useDebounce } from "../../lib/hooks/useDebounce";

@@ -7,9 +7,9 @@ import { useVendorContext } from "./layout";
 import {
     Inbox, Car, Users, Building2,
     Plus, Calendar, ArrowRight,
-    TrendingUp, Shield, Map,
+    TrendingUp, Shield, MapIcon,
     ChevronRight, Clock, User
-} from "lucide-react";
+} from "@/app/components/icons";
 import Link from "next/link";
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -211,7 +211,7 @@ export default function VendorDashboardPage() {
                     <div className="grid grid-cols-2 gap-4">
                         <QuickAction label="Add Vehicle" icon={Plus} href="/vendor/fleet/vehicles" color="bg-orange-50 text-[#f47f00]" />
                         <QuickAction label="New Driver" icon={User} href="/vendor/fleet/drivers" color="bg-blue-50 text-blue-600" />
-                        <QuickAction label="Manage Routes" icon={Map} href="/vendor/routes" color="bg-green-50 text-green-600" />
+                        <QuickAction label="Manage Routes" icon={MapIcon} href="/vendor/routes" color="bg-green-50 text-green-600" />
                         <QuickAction label="All Bookings" icon={Calendar} href="/vendor/bookings" color="bg-purple-50 text-purple-600" />
                     </div>
                 </div>

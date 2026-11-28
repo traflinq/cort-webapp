@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
   ArrowLeftRight, Bus, Car, ChevronDown, Clock, Fuel, GitMerge, Lock, Navigation, Package, Shrink, Split, TrendingDown, Waypoints,
-  type LucideIcon,
-} from "lucide-react";
+  type AppIcon,
+} from "@/app/components/icons";
 import { Badge, CardDescription, CardTitle, focusRing, type BadgeTone } from "@/app/admin/ui";
 import { cn } from "@/lib/utils";
 import { Card } from "../Card";
@@ -31,7 +31,7 @@ export interface SavingsOpportunitiesData {
   insights: SavingsInsight[];
 }
 
-const ICON: Record<string, LucideIcon> = {
+const ICON: Record<string, AppIcon> = {
   FUEL_LEAKAGE: Fuel,
   OCCUPANCY: Bus,
   ROUTE_DETOUR: Navigation,

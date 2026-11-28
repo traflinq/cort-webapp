@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, memo } from "react";
-import { Eye, EyeOff, KeyRound } from "lucide-react";
+import { Eye, EyeOff, KeyRound } from "@/app/components/icons";
 import { CreateVehicleRequest, Vehicle, VehicleCategory, OwnershipType, DriverType } from "../../../lib/services/api-client";
 import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
 import { fetchAdminVendors, selectAdminVendors } from "../../../lib/store/slices/adminVendorsSlice";

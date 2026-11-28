@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Link2, Plus, Trash2 } from "lucide-react";
+import { Link2, Plus, Trash2 } from "@/app/components/icons";
 import { toast } from "sonner";
 import { apiClient, type VendorPaymentTransaction } from "../../../lib/services/api-client";
 import { useConfirm } from "../../../lib/hooks/useConfirm";

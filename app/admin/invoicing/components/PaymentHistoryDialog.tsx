@@ -1,6 +1,6 @@
 "use client";
 
-import { Receipt } from "lucide-react";
+import { Receipt } from "@/app/components/icons";
 import { Button, Dialog, DialogContent, EmptyState, LoadingBlock } from "../../ui";
 import { formatCurrency, formatDate } from "../../lib/format";
 import type { InvoicesController } from "../hooks/useInvoices";

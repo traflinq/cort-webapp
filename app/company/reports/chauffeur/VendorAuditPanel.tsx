@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleCheck, Info } from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, CircleCheck, Info } from "@/app/components/icons";
 import { Badge, Button, Field, InlineError, Input } from "@/app/admin/ui";
 import { cn } from "@/lib/utils";
 import { formatLocaleDate, formatLocaleNumber } from "@/app/lib/i18n/format";

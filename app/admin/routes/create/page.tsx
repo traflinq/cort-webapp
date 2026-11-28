@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Building2, MapPin, Trash2 } from 'lucide-react';
+import { Building2, MapPin, Trash2 } from "@/app/components/icons";
 import StopAddressSearch from '@/app/admin/ui/StopAddressSearch';
 import { toast } from 'sonner';
 import { useAppDispatch, useAppSelector } from '@/app/lib/store/hooks';

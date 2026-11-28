@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { focusRing, focusRingInset } from "./styles";
 import { Checkbox } from "./Checkbox";

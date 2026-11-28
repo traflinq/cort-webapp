@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { MapPin, Search } from "lucide-react";
+import { MapPin, Search } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { useGooglePlacesAutocomplete } from "@/app/hooks/useGooglePlacesAutocomplete";
 import { inputBase, focusRingInset } from "./styles";

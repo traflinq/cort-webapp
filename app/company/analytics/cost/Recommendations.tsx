@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeftRight, CheckCircle2, CircleDashed, CircleX, ExternalLink, Fuel, GitMerge, Info, Route, Shrink, Split, TriangleAlert, Waypoints } from "lucide-react";
+import { ArrowLeftRight, CheckCircle2, CircleDashed, CircleX, ExternalLink, Fuel, GitMerge, Info, RouteIcon, Shrink, Split, TriangleAlert, Waypoints } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { Button, focusRing } from "@/app/admin/ui";
 import { getSaudiBasePath, withSaudiBase } from "@/app/lib/i18n/saudi-route";
@@ -21,7 +21,7 @@ const TYPE_ICON: Record<RecType, ReactNode> = {
   ROUTE_REDISTRIBUTE: <Split />,
   ROUTE_RESEQUENCE: <ArrowLeftRight />,
   VEHICLE_DOWNSIZE: <Shrink />,
-  ROUTE_DETOUR: <Route />,
+  ROUTE_DETOUR: <RouteIcon />,
   FUEL_DISCREPANCY: <Fuel />,
 };
 

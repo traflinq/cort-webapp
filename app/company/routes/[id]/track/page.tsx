@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, Bus, MapPin, RefreshCw, X } from 'lucide-react';
+import { ArrowLeft, Bus, MapPin, RefreshCw, X } from "@/app/components/icons";
 import { cn } from '@/lib/utils';
 import {
     Badge,

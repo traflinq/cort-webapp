@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { apiClient } from "../../lib/services/api-client";
 import { AuthLink, AuthShell } from "../components/AuthShell";

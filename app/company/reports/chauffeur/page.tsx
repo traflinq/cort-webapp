@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { Download, ExternalLink, FileBarChart } from "lucide-react";
+import { Download, ExternalLink, FileBarChart } from "@/app/components/icons";
 import { Badge, Button, Input, TableSkeletonRows, focusRingInset, focusRing } from "@/app/admin/ui";
 import { cn } from "@/lib/utils";
 import { formatLocaleDate, formatLocaleNumber } from "@/app/lib/i18n/format";

@@ -23,7 +23,7 @@ import StopAddressSearch from '@/app/admin/ui/StopAddressSearch';
 import RosteringTab from './components/RosteringTab';
 import ManageStopsTab from './components/ManageStopsTab';
 import { DirectionPointsEditor, driverEndPoint, emptyPoints, pointsFromConfigs, type PointsForm } from './components/DirectionPointsEditor';
-import { Car, Info, Plus, Save, Trash2, Users, X, ListOrdered, Sparkles, Building2, Sun, Sunset, Pencil, MapPin, Route as RouteIcon } from 'lucide-react';
+import { Car, Info, Plus, Save, Trash2, Users, X, ListOrdered, Sparkles, Building2, Sun, Sunset, Pencil, MapPin, RouteIcon } from "@/app/components/icons";
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';

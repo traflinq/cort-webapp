@@ -1,6 +1,6 @@
 "use client";
 
-import { Coins, Percent, Receipt, TrendingUp, Wallet } from "lucide-react";
+import { Coins, Percent, Receipt, TrendingUp, Wallet } from "@/app/components/icons";
 import {
   Badge,
   Card,

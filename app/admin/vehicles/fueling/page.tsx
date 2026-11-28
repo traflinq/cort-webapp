@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCheck, Droplets, Fuel, Gauge, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
+import { CheckCheck, Droplets, Fuel, Gauge, Pencil, Plus, Receipt, Trash2 } from "@/app/components/icons";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
 import { useAuth } from "../../../lib/contexts/auth-context";
