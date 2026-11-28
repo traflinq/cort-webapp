@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
-import { Car, Clock3, Fuel, GitMerge, Leaf, ListOrdered, Minimize2, Split, TreeDeciduous, Workflow } from "lucide-react";
+import { Car, Clock3, Fuel, GitMerge, Leaf, ListOrdered, Minimize2, Split, TreeDeciduous, Workflow } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { focusRing } from "@/app/admin/ui";
 import { SectionHeading } from "../components/ui";

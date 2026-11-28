@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Moon, Radio, Sun } from "lucide-react";
+import { Moon, Radio, Sun } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import {
   Badge,

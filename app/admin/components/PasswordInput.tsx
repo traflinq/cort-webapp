@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "@/app/components/icons";
 import { Input, type InputProps } from "../ui/Input";
 
 /** Password field with an accessible show/hide toggle (kept in the tab order). */

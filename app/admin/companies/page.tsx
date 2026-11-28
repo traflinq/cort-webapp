@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, KeyRound, LogIn, Pencil, Plus, Trash2, Building2 } from "lucide-react";
+import { Eye, KeyRound, LogIn, Pencil, Plus, Trash2, Building2 } from "@/app/components/icons";
 import { toast } from "sonner";
 import { Company } from "../../lib/services/api-client";
 import { AdminProtectedPage } from "../components/AdminProtectedPage";

@@ -3,7 +3,7 @@
 import { Suspense, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Bus, Car, ChevronRight, Fuel, LayoutGrid, Leaf, Lightbulb, RefreshCw, UserRound, Users } from "lucide-react";
+import { Bus, Car, ChevronRight, Fuel, LayoutGrid, Leaf, Lightbulb, RefreshCw, UserRound, Users } from "@/app/components/icons";
 import { toast } from "sonner";
 import { apiClient } from "@/app/lib/services/api-client";
 import { formatLocaleNumber } from "@/app/lib/i18n/format";

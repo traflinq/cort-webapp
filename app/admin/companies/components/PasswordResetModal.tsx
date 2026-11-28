@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, memo } from "react";
-import { KeyRound, Wand2 } from "lucide-react";
+import { KeyRound, Wand2 } from "@/app/components/icons";
 import { toast } from "sonner";
 import { Company } from "../../../lib/services/api-client";
 import { Dialog, DialogContent } from "../../ui/Dialog";

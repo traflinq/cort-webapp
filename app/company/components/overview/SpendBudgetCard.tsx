@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Pencil } from "lucide-react";
+import { Pencil } from "@/app/components/icons";
 import { Button, CardDescription, CardTitle } from "@/app/admin/ui";
 import { cn } from "@/lib/utils";
 import { Card } from "../Card";

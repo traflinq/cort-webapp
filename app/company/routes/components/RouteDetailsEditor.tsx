@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Car, Edit, Save, User } from "lucide-react";
+import { Car, Edit, Save, User } from "@/app/components/icons";
 import { toast } from "sonner";
 import { Badge, Button, Field, Input, Select } from "@/app/admin/ui";
 import { Card } from "../../components/Card";

@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Car, Pencil, Plus, Trash2 } from "lucide-react";
+import { Car, Pencil, Plus, Trash2 } from "@/app/components/icons";
 import { toast } from "sonner";
 import { Vehicle, QueryVehicleParams, VehicleCategory, OwnershipType } from "../../lib/services/api-client";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";

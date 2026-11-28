@@ -3,7 +3,7 @@
 import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ClipboardCheck, Download, FileText, Gauge, UserPlus, Wallet } from "lucide-react";
+import { ClipboardCheck, Download, FileText, Gauge, UserPlus, Wallet } from "@/app/components/icons";
 import { AdminProtectedPage } from "../../components/AdminProtectedPage";
 import { ADMIN_SUBJECTS } from "../../../lib/abilities/admin-subjects";
 import { BenchmarksModal } from "../components/BenchmarksModal";

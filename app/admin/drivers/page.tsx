@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Check, Eye, KeyRound, Pencil, Plus, Star, Trash2, User, Users, X } from "lucide-react";
+import { Check, Eye, KeyRound, Pencil, Plus, Star, Trash2, User, Users, X } from "@/app/components/icons";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {

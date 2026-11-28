@@ -4,7 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { AlertCircle, Lock } from "lucide-react";
+import { AlertCircle, Lock } from "@/app/components/icons";
 import { getSaudiBasePath, stripSaudiPrefix, withSaudiBase } from "@/app/lib/i18n/saudi-route";
 import { useCompanyAccessState } from "../lib/access-context";
 import { canOpenCompanyPath } from "../lib/pages";

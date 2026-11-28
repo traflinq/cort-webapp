@@ -5,7 +5,7 @@ import type { Socket } from "socket.io-client";
 import { acquireRidesSocket } from "../../lib/realtime/ridesSocket";
 import { toast } from "sonner";
 import { AdminToaster } from "../ui/Toast";
-import { X } from "lucide-react";
+import { X } from "@/app/components/icons";
 import { useRouter } from "next/navigation";
 import { useWebPush } from "../../lib/hooks/useWebPush";
 

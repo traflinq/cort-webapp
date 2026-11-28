@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "@/app/components/icons";
 import { TripType } from "../../../../lib/services/api-client";
 import { Button, Checkbox, IconButton, Input, Select } from "../../../ui";
 import { formatDate } from "../../../lib/format";

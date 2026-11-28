@@ -6,7 +6,7 @@ import { apiClient } from "../../lib/services/api-client";
 import { VendorRoute } from "../../lib/services/types/multi-mode";
 import { useVendorContext } from "../layout";
 import { toast } from "sonner";
-import { MapPin, Plus, Truck, ChevronRight } from "lucide-react";
+import { MapPin, Plus, Truck, ChevronRight } from "@/app/components/icons";
 
 export default function VendorRoutesPage() {
     const { selectedLink } = useVendorContext();

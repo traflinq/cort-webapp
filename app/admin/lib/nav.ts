@@ -3,7 +3,7 @@
  * Consumed by: Sidebar, TopBar breadcrumbs, CommandPalette, the login redirect,
  * and the Staff & Permissions labels. Add a page here and it appears everywhere.
  */
-import type { LucideIcon } from "lucide-react";
+import type { AppIcon } from "@/app/components/icons";
 import {
   ArrowLeftRight,
   BarChart3,
@@ -25,7 +25,7 @@ import {
   Palette,
   PiggyBank,
   Receipt,
-  Route,
+  RouteIcon,
   ScrollText,
   Shield,
   Smartphone,
@@ -34,14 +34,14 @@ import {
   UserPlus,
   Users,
   Wrench,
-} from "lucide-react";
+} from "@/app/components/icons";
 import { UserRole, type PermissionKey } from "../../lib/types/auth-types";
 import { normalizeStaffPermissions, staffHasCrud } from "../../lib/utils/staff-permissions";
 
 export type NavItem = {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: AppIcon;
   /** Read permission that gates the item for internal staff. Omit = super admin only. */
   permission?: PermissionKey;
   /** Internal staff can see this even without a permission key (e.g. tracker test). */
@@ -85,7 +85,7 @@ export const adminNav: NavGroup[] = [
     label: "Operations",
     items: [
       { href: "/admin/bookings/pending", label: "Bookings", icon: CalendarCheck, permission: "bookings", description: "Chauffeur bookings lifecycle", keywords: ["rides", "trips", "assign"] },
-      { href: "/admin/routes", label: "Routes", icon: Route, permission: "routes", description: "Shuttle routes, stops and rosters", keywords: ["stops", "roster", "shuttle"] },
+      { href: "/admin/routes", label: "Routes", icon: RouteIcon, permission: "routes", description: "Shuttle routes, stops and rosters", keywords: ["stops", "roster", "shuttle"] },
       { href: "/admin/routes/daily-overrides", label: "Today's Plan", icon: ArrowLeftRight, permission: "ops_shuttle", description: "Move passengers and crew for one day", keywords: ["overrides", "daily", "plan"] },
       { href: "/admin/routes/shuttle-trips", label: "Trip Scheduling", icon: CalendarDays, permission: "ops_shuttle", description: "Generate and manage scheduled shuttle trips", keywords: ["schedule", "generate", "trips"] },
       { href: "/admin/ops/shuttle", label: "Live: Shuttle", icon: Bus, permission: "ops_shuttle", description: "Track today's shuttle trips live", keywords: ["tracking", "live", "map"] },

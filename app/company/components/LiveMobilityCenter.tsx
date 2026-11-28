@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { ChevronDown, Users, Clock, RefreshCw, MapPin, X } from 'lucide-react';
+import { ChevronDown, Users, Clock, RefreshCw, MapPin, X } from "@/app/components/icons";
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';

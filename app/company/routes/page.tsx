@@ -41,7 +41,7 @@ import {
   Plus,
   Sparkles,
   UserPlus,
-} from "lucide-react";
+} from "@/app/components/icons";
 import { useGooglePlacesAutocomplete } from "../../hooks/useGooglePlacesAutocomplete";
 import {
   getPhoneValidationError,

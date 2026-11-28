@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Building2, CircleDollarSign, Fuel, Landmark, Sparkles, TrendingDown, Truck, Wallet } from "lucide-react";
+import { ArrowRight, Building2, CircleDollarSign, Fuel, Landmark, Sparkles, TrendingDown, Truck, Wallet } from "@/app/components/icons";
 import { apiClient } from "@/app/lib/services/api-client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Download, Eye, FileText } from "lucide-react";
+import { Check, Download, Eye, FileText } from "@/app/components/icons";
 import { Button, ErrorState, StatusBadge, TableSkeletonRows, type StatusEntry } from "@/app/admin/ui";
 import { apiClient, Invoice } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";

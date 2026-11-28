@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "@/app/components/icons";
 import { apiClient, type ChauffeurReport, type ShuttleReport } from "../../lib/services/api-client";
 import { PermissionGate } from "../components/PermissionGate";
 import { AdminCan } from "../../lib/abilities/AdminAbilityProvider";

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { focusRing } from "./styles";
 import { buttonVariants } from "./Button";

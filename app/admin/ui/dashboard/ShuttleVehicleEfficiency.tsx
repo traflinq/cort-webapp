@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bus } from "lucide-react";
+import { Bus } from "@/app/components/icons";
 import { apiClient } from "../../../lib/services/api-client";
 import type { ShuttleVehicleEfficiency as Row } from "../../../lib/types/admin-dashboard";
 import { Badge, Card, CardHeader, DataTable, DateRangePicker, type BadgeTone, type DataTableColumn, type DateRange } from "..";

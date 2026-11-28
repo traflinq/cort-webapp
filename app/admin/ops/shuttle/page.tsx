@@ -14,7 +14,7 @@ import {
   Radio,
   Square,
   Users,
-} from "lucide-react";
+} from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { PermissionGate } from "@/app/admin/components/PermissionGate";
 import { AdminCan } from "@/app/lib/abilities/AdminAbilityProvider";

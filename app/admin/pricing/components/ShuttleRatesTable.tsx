@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import type { ShuttleContractRoute } from "../../../lib/services/api-client";
 import type { ShuttleRouteRow } from "../../../lib/store/slices/adminPricingSlice";

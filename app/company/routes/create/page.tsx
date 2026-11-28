@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { Building2, ChevronRight, MapPin, Trash2 } from "lucide-react";
+import { Building2, ChevronRight, MapPin, Trash2 } from "@/app/components/icons";
 import { toast } from "sonner";
 import { useCompanyAccess } from "../../lib/access-context";
 import { apiClient, canServeShuttle } from "../../../lib/services/api-client";

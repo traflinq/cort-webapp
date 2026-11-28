@@ -1,6 +1,6 @@
 "use client";
 
-import { FileUp, Plus, Users } from "lucide-react";
+import { FileUp, Plus, Users } from "@/app/components/icons";
 import type { Employee } from "../../../../lib/services/api-client";
 import type { useCompanyDetail } from "../hooks/useCompanyDetail";
 import { EMPLOYEES_PAGE_SIZE } from "../hooks/useCompanyDetail";

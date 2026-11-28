@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FilePlus2 } from "lucide-react";
+import { FilePlus2 } from "@/app/components/icons";
 import { AdminProtectedPage } from "../components/AdminProtectedPage";
 import { ADMIN_SUBJECTS } from "../../lib/abilities/admin-subjects";
 import { Button, PageHeader, Tabs, TabsContent, TabsList, TabsTrigger } from "../ui";

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CalendarDays, ChevronDown } from "lucide-react";
+import { CalendarDays, ChevronDown } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { focusRing } from "./styles";
 import { Button, type ButtonProps } from "./Button";

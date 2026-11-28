@@ -4,7 +4,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { formatLocaleNumber } from '@/app/lib/i18n/format';
 import type { Locale } from '@/i18n/config';
 import { useOutstationEstimate, LegDistance, ContractRateForEstimate } from '../../../hooks/useOutstationEstimate';
-import { AlertTriangle, ArrowRight, Calculator } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Calculator } from "@/app/components/icons";
 import { Badge, Spinner } from '@/app/admin/ui';
 import { cn } from '@/lib/utils';
 

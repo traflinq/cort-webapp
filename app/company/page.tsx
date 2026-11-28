@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Plus } from "lucide-react";
+import { Plus } from "@/app/components/icons";
 import { Button, ErrorState, PageHeader } from "@/app/admin/ui";
 import { useAppDispatch, useAppSelector } from "../lib/store/hooks";
 import {

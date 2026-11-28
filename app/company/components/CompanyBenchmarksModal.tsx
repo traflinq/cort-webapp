@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Lock, Clock } from "lucide-react";
+import { Plus, Lock, Clock } from "@/app/components/icons";
 import { apiClient } from "../../lib/services/api-client";
 import {
   Badge,

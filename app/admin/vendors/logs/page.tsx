@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Receipt, Route, Ruler, Wallet } from "lucide-react";
+import { Receipt, RouteIcon, Ruler, Wallet } from "@/app/components/icons";
 import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
 import {
   fetchVendorLogs,
@@ -81,7 +81,7 @@ function VendorLogsContent() {
       <PageHeader title="Vendor trip logs" description="Partner vehicle trips, vendor cost and payments across all vendors." />
 
       <KpiGrid cols={3}>
-        <KpiCard label="Total rides" value={formatNumber(stats?.total_rides || 0)} icon={<Route />} tone="info" loading={!stats && loading} />
+        <KpiCard label="Total rides" value={formatNumber(stats?.total_rides || 0)} icon={<RouteIcon />} tone="info" loading={!stats && loading} />
         <KpiCard label="Total vendor cost" value={formatCurrency(stats?.total_cost || 0)} icon={<Receipt />} tone="neutral" loading={!stats && loading} />
         <KpiCard label="Outstanding" value={formatCurrency(outstanding)} icon={<Wallet />} tone={outstanding > 0 ? "warning" : "success"} emphasis={outstanding > 0 ? "brand" : "none"} loading={!stats && loading} />
       </KpiGrid>

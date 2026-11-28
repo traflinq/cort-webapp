@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import * as DM from "@radix-ui/react-dropdown-menu";
-import { Check, MoreHorizontal } from "lucide-react";
+import { Check, MoreHorizontal } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { IconButton } from "./IconButton";
 import type { ButtonProps } from "./Button";

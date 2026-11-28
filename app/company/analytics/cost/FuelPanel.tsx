@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { Button, focusRing } from "@/app/admin/ui";
 import { SectionHeading } from "../components/ui";

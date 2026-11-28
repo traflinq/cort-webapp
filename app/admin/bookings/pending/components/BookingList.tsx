@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, FileText, Trash2 } from "lucide-react";
+import { Eye, FileText, Trash2 } from "@/app/components/icons";
 import { ChauffeurBooking } from "../../../../lib/services/api-client";
 import { Badge, DataTable, Select, StatusBadge, type DataTableColumn } from "../../../ui";
 import { formatDateTime, humanize } from "../../../lib/format";

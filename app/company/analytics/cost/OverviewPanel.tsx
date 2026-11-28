@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { AlertTriangle, ArrowRight, CheckCircle2, CircleAlert, Info, TrendingDown } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, CircleAlert, Info, TrendingDown } from "@/app/components/icons";
 import { Badge, Button } from "@/app/admin/ui";
 import { SectionHeading } from "../components/ui";
 import { useCostFetch, useFmt, filterQuery, type CostFilters } from "./hooks";

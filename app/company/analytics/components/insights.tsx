@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { AlertTriangle, Bus, Car, Clock, Fuel, Lock, Navigation, Package, Users, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Bus, Car, Clock, Fuel, Lock, Navigation, Package, Users, type AppIcon } from "@/app/components/icons";
 import { Badge, type BadgeTone } from "@/app/admin/ui";
 import { useFmt } from "../cost/hooks";
 
@@ -49,7 +49,7 @@ export function potentialSaving(insights: FleetInsight[]): number {
 
 const SEVERITY_TONE: Record<FleetInsight["severity"], BadgeTone> = { CRITICAL: "danger", HIGH: "warning", MEDIUM: "info", LOW: "neutral" };
 
-const INSIGHT_ICON: Record<string, LucideIcon> = {
+const INSIGHT_ICON: Record<string, AppIcon> = {
   FUEL_LEAKAGE: Fuel,
   OCCUPANCY: Bus,
   CHAUFFEUR_DETOUR: Navigation,

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "@/app/components/icons";
 import { IconButton, focusRing } from "@/app/admin/ui";
 import { cn } from "@/lib/utils";
 import { formatLocaleNumber } from "@/app/lib/i18n/format";

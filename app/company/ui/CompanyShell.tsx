@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Languages, LogOut, Menu, Moon, PanelLeft, Sun } from "lucide-react";
+import { Languages, LogOut, Menu, Moon, PanelLeft, Sun } from "@/app/components/icons";
 import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button, IconButton, Tooltip, focusRing } from "@/app/admin/ui";

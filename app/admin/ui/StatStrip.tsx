@@ -1,6 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
-import { ArrowDownRight, ArrowUpRight, ChevronRight, Minus } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ChevronRight, Minus } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { focusRingInset, surface } from "./styles";
 import type { KpiDelta } from "./KpiCard";

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { AlertTriangle, RotateCcw } from "lucide-react";
+import { AlertTriangle, RotateCcw } from "@/app/components/icons";
 import { Button } from "@/app/admin/ui";
 
 export default function CompanyError({

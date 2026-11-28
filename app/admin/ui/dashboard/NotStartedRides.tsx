@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowUpRight, CheckCircle2, ChevronDown, Phone } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, ChevronDown, Phone } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { Badge, Button, Card, CardHeader } from "..";
 import type { NotStartedShuttleRide } from "../../../lib/types/admin-dashboard";

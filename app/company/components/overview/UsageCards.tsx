@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Users } from "lucide-react";
+import { Users } from "@/app/components/icons";
 import { CardDescription, CardTitle } from "@/app/admin/ui";
 import { Card } from "../Card";
 import { useOverviewFormat } from "./format";

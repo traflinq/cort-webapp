@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Car, RotateCcw, User } from 'lucide-react';
+import { Car, RotateCcw, User } from "@/app/components/icons";
 import { cn } from '@/lib/utils';
 import { Badge, Button, Card, CardSkeleton, ErrorState, Field, Select, StatusBadge } from '@/app/admin/ui';
 import { apiClient } from '@/app/lib/services/api-client';

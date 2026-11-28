@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
+import { CheckCircle2, Pencil, Plus, Receipt, Trash2 } from "@/app/components/icons";
 import {
   ExpensesApi,
   Expense,

@@ -35,7 +35,7 @@ import {
   Building2,
   CalendarPlus,
   MapPin,
-  Route as RouteIcon,
+  RouteIcon,
   Sunrise,
   Sunset,
   Users,
@@ -44,7 +44,7 @@ import {
   UserPlus,
   ListOrdered,
   UserMinus,
-} from "lucide-react";
+} from "@/app/components/icons";
 import { RouteDetailsEditor } from "../components/RouteDetailsEditor";
 import { RouteStopsEditor } from "../components/RouteStopsEditor";
 import { RouteOverviewMap } from "../components/RouteOverviewMap";

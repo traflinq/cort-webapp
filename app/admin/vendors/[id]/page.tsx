@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { Banknote, Receipt, Route, Wallet } from "lucide-react";
+import { Banknote, Receipt, RouteIcon, Wallet } from "@/app/components/icons";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "../../../lib/store/hooks";
 import { selectAdminVendors } from "../../../lib/store/slices/adminVendorsSlice";
@@ -176,7 +176,7 @@ function VendorDetailsContent() {
       />
 
       <KpiGrid cols={4}>
-        <KpiCard label="Logs" value={formatNumber(stats?.total_rides || 0)} icon={<Route />} tone="info" loading={!stats && loading} />
+        <KpiCard label="Logs" value={formatNumber(stats?.total_rides || 0)} icon={<RouteIcon />} tone="info" loading={!stats && loading} />
         <KpiCard label="Total vendor cost" value={formatCurrency(stats?.total_cost || 0)} icon={<Receipt />} tone="neutral" loading={!stats && loading} />
         <KpiCard label="Outstanding" value={formatCurrency(outstanding)} icon={<Wallet />} tone={outstanding > 0 ? "warning" : "success"} emphasis={outstanding > 0 ? "brand" : "none"} loading={!stats && loading} />
         <KpiCard label="Settled to date" value={formatCurrency(settled)} icon={<Banknote />} tone="success" loading={!stats && loading} />

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { GripVertical, Trash2 } from "lucide-react";
+import { GripVertical, Trash2 } from "@/app/components/icons";
 import { toast } from "sonner";
 import { apiClient } from "@/app/lib/services/api-client";
 import { VendorVehicle, VendorDriver } from "@/app/lib/services/types/multi-mode";

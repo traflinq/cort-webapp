@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
-import { Building2, Sunrise, Sunset } from "lucide-react";
+import { Building2, Sunrise, Sunset } from "@/app/components/icons";
 import { Badge, focusRing } from "@/app/admin/ui";
 import { cn } from "@/lib/utils";
 import { Card } from "../../components/Card";

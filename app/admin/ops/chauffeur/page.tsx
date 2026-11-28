@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Car, Clock, MapPin, Navigation, PanelRightOpen, Phone, User, Wifi, WifiOff } from "lucide-react";
+import { Car, Clock, MapPin, Navigation, PanelRightOpen, Phone, User, Wifi, WifiOff } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { PermissionGate } from "@/app/admin/components/PermissionGate";
 import { AdminCan } from "@/app/lib/abilities/AdminAbilityProvider";

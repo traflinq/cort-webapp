@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Ban, Link2, Pencil, Plus } from "lucide-react";
+import { Ban, Link2, Pencil, Plus } from "@/app/components/icons";
 import { toast } from "sonner";
 import { apiClient } from "../../lib/services/api-client";
 import { ExternalVendor, CompanyVendorLink } from "../../lib/services/types/multi-mode";

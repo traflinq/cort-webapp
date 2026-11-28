@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Phone, Mail, Car, Bus, Building2 } from 'lucide-react';
+import { Phone, Mail, Car, Bus, Building2 } from "@/app/components/icons";
 import { Badge, EmptyState, ErrorState, Skeleton, focusRing } from '@/app/admin/ui';
 import { apiClient } from '@/app/lib/services/api-client';
 import { useAuth } from '@/app/lib/contexts/auth-context';

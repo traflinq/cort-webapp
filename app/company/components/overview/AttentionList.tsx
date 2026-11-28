@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { CalendarClock, ChevronRight, CircleCheck, FileWarning, TrendingDown, UserX } from "lucide-react";
+import { CalendarClock, ChevronRight, CircleCheck, FileWarning, TrendingDown, UserX } from "@/app/components/icons";
 import { CardDescription, CardTitle, focusRingInset } from "@/app/admin/ui";
 import { cn } from "@/lib/utils";
 import { Card } from "../Card";

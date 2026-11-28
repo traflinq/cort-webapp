@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
-import { Map as MapIcon, X } from "lucide-react";
+import { MapIcon, X } from "@/app/components/icons";
 import { apiClient } from "@/app/lib/services/api-client";
 import { Badge, Button, IconButton, Spinner } from "@/app/admin/ui";
 import type { MapMarker, MapPolyline } from "@/app/admin/ui/Map";

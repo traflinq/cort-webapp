@@ -7,7 +7,7 @@ import { useAuth } from "../../lib/contexts/auth-context";
 import { UserRole } from "../../lib/types/auth-types";
 import { useCompanyLocale } from "../lib/locale-context";
 import { useCompanyBasePath } from "../lib/use-company-base-path";
-import { Languages } from "lucide-react";
+import { Languages } from "@/app/components/icons";
 import { AuthShell } from "../../admin/components/AuthShell";
 import { PasswordInput } from "../../admin/components/PasswordInput";
 import { Button } from "../../admin/ui/Button";

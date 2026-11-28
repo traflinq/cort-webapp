@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Info } from "lucide-react";
+import { Info } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { focusRing } from "@/app/admin/ui";
 import { SectionHeading, UtilizationBar } from "../components/ui";

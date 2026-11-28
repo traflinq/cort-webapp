@@ -6,9 +6,9 @@ import dynamic from 'next/dynamic';
 import { apiClient } from '@/app/lib/services/api-client';
 import { useAuth } from '@/app/lib/contexts/auth-context';
 import {
-  AlertTriangle, Fuel, Bus, Navigation, TrendingDown, TrendingUp, Zap, RefreshCw, Map as MapIcon,
+  AlertTriangle, Fuel, Bus, Navigation, TrendingDown, TrendingUp, Zap, RefreshCw, MapIcon,
   Users, Package, CarFront, Lock, Car, Sparkles, Clock, MapPin, Pencil,
-} from 'lucide-react';
+} from "@/app/components/icons";
 import {
   Badge,
   Button,

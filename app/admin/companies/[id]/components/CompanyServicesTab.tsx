@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { CheckCircle2, FileText, Link2, Plus, TriangleAlert } from "lucide-react";
+import { CheckCircle2, FileText, Link2, Plus, TriangleAlert } from "@/app/components/icons";
 import type { CompanyVendorLink } from "../../../../lib/services/types/multi-mode";
 import type { useCompanyDetail } from "../hooks/useCompanyDetail";
 import {

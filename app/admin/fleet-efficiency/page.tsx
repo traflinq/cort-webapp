@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Gauge } from "lucide-react";
+import { Gauge } from "@/app/components/icons";
 import { AdminProtectedPage } from "../components/AdminProtectedPage";
 import { FleetEfficiencyPanel } from "../components/FleetEfficiencyPanel";
 import { ADMIN_SUBJECTS } from "../../lib/abilities/admin-subjects";

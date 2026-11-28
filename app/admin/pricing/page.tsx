@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Calculator, Download, Save, Undo2 } from "lucide-react";
+import { Calculator, Download, Save, Undo2 } from "@/app/components/icons";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "../../lib/store/hooks";
 import { PermissionGate } from "../components/PermissionGate";

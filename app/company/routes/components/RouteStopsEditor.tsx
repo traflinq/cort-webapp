@@ -12,7 +12,7 @@ import {
   Sunset,
   Trash2,
   MapPin,
-} from "lucide-react";
+} from "@/app/components/icons";
 import { toast } from "sonner";
 import { Badge, Button, EmptyState, Field, IconButton, Input, Label, Select, focusRing } from "@/app/admin/ui";
 import { Card } from "../../components/Card";

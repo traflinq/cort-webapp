@@ -13,7 +13,7 @@ import {
     Save,
     Trash,
     X,
-} from "lucide-react";
+} from "@/app/components/icons";
 import { apiClient } from "@/app/lib/services/api-client";
 import { VendorRoute, VendorVehicle, VendorDriver } from "@/app/lib/services/types/multi-mode";
 import { useVendorContext } from "../../layout";
