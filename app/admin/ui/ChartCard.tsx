@@ -12,6 +12,8 @@ import { useChartTheme } from "./chart-theme";
 export interface ChartCardProps {
   title: React.ReactNode;
   description?: React.ReactNode;
+  /** Icon shown in a tile before the title (see CardHeader). */
+  icon?: React.ReactNode;
   /** Time-range control, segmented toggle, menu… */
   actions?: React.ReactNode;
   /** Legend rendered under the header (use <ChartLegend>). */
@@ -34,6 +36,7 @@ export interface ChartCardProps {
 export function ChartCard({
   title,
   description,
+  icon,
   actions,
   legend,
   height = 260,
@@ -50,7 +53,7 @@ export function ChartCard({
   const [showTable, setShowTable] = React.useState(false);
   return (
     <Card className={cn("flex flex-col", className)}>
-      <CardHeader title={title} description={description} actions={actions} flush />
+      <CardHeader icon={icon} title={title} description={description} actions={actions} flush />
       {legend && <div className="px-5 pb-1">{legend}</div>}
       <div className={cn("px-3 pb-4", empty && !loading && !error && "flex flex-1 flex-col justify-center")} style={{ minHeight: empty && !loading && !error ? undefined : height }}>
         {loading ? (
@@ -131,18 +134,18 @@ export function ChartTooltip({
   if (!active || !payload || payload.length === 0) return null;
   return (
     <div
-      className="min-w-[8rem] rounded-lg border px-3 py-2 text-xs shadow-[var(--shadow-modal)]"
-      style={{ background: t.tooltipBg, borderColor: t.tooltipBorder, color: t.text }}
+      className="min-w-[8rem] rounded-[10px] border px-3 py-2.5 text-xs shadow-[var(--shadow-modal)]"
+      style={{ background: t.tooltipBg, borderColor: t.tooltipBorder, color: t.tooltipText }}
     >
-      {label !== undefined && <div className="mb-1 font-medium">{labelFormatter ? labelFormatter(label) : label}</div>}
-      <ul className="space-y-0.5">
+      {label !== undefined && <div className="mb-1.5 font-medium">{labelFormatter ? labelFormatter(label) : label}</div>}
+      <ul className="space-y-1.5">
         {payload.map((p, i) => (
-          <li key={i} className="flex items-center justify-between gap-4">
-            <span className="inline-flex items-center gap-1.5" style={{ color: t.mutedText }}>
-              <span aria-hidden="true" className="size-2 rounded-full" style={{ background: p.color }} />
-              {p.name}
+          <li key={i} className="flex items-stretch gap-2">
+            <span aria-hidden="true" className="w-[3px] shrink-0 rounded-full" style={{ background: p.color }} />
+            <span className="flex min-w-0 flex-col leading-tight">
+              <span className="font-semibold tabular-nums">{formatter && p.value !== undefined ? formatter(p.value, String(p.name ?? "")) : p.value}</span>
+              <span style={{ color: t.tooltipMuted }}>{p.name}</span>
             </span>
-            <span className="font-medium tabular-nums">{formatter && p.value !== undefined ? formatter(p.value, String(p.name ?? "")) : p.value}</span>
           </li>
         ))}
       </ul>

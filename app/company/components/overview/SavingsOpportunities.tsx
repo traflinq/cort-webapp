@@ -4,10 +4,24 @@ import { Fragment, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
-  ArrowLeftRight, Bus, Car, ChevronDown, Clock, Fuel, GitMerge, Lock, Navigation, Package, Shrink, Split, TrendingDown, Waypoints,
+  ArrowLeftRight,
+  Bus,
+  Car,
+  ChevronDown,
+  Clock,
+  Fuel,
+  GitMerge,
+  Lock,
+  Navigation,
+  Package,
+  PiggyBank,
+  Shrink,
+  Split,
+  TrendingDown,
+  Waypoints,
   type AppIcon,
 } from "@/app/components/icons";
-import { Badge, CardDescription, CardTitle, focusRing, type BadgeTone } from "@/app/admin/ui";
+import { Badge, focusRing, type BadgeTone, CardHeading } from "@/app/admin/ui";
 import { cn } from "@/lib/utils";
 import { Card } from "../Card";
 import { useOverviewFormat } from "./format";
@@ -126,13 +140,17 @@ export function SavingsOpportunities({ data, analyticsHref }: { data: SavingsOpp
   return (
     <Card id="savings" className="@container scroll-mt-6 p-0 sm:p-0">
       <div className="flex flex-col gap-3 px-4 py-4 sm:px-5 @xl:flex-row @xl:items-start @xl:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <CardTitle as="h2">{t("title")}</CardTitle>
-            {!enabled && rows.length > 0 && <Badge tone="neutral" size="sm">{t("preview")}</Badge>}
-          </div>
-          <CardDescription>{t("description")}</CardDescription>
-        </div>
+        <CardHeading
+          as="h2"
+          icon={<PiggyBank />}
+          title={
+            <span className="flex flex-wrap items-center gap-2">
+              {t("title")}
+              {!enabled && rows.length > 0 && <Badge tone="neutral" size="sm">{t("preview")}</Badge>}
+            </span>
+          }
+          description={t("description")}
+        />
         {rows.length > 0 && total > 0 && (
           <div className="shrink-0 @xl:text-end">
             <p className="text-xs text-fg-muted">{t("totalLabel")}</p>

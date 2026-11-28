@@ -22,6 +22,7 @@ export default function CompanyLoginPage() {
   const { locale, setLocale, isSaudiRoute: onSaudiRoute } = useCompanyLocale();
   const t = useTranslations("company.login");
   const tCommon = useTranslations("common");
+  const tShell = useTranslations("company.shell");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -59,12 +60,13 @@ export default function CompanyLoginPage() {
   }
 
   return (
-    <div data-theme="light">
+    <>
       <AuthShell
         title={t("title")}
         description={t("subtitle")}
         copyright={tCommon("misc.copyright")}
-        brand={{ eyebrow: t("brandEyebrow"), headline: t("brandHeadline"), body: t("brandBody") }}
+        themeLabels={{ toLight: tShell("switchToLight"), toDark: tShell("switchToDark") }}
+        brand={{ portal: t("brandEyebrow"), headline: t("brandHeadline"), body: t("brandBody"), before: t("brandBefore"), after: t("brandAfter") }}
         corner={
           onSaudiRoute ? (
             <Button variant="outline" size="sm" leftIcon={<Languages />} onClick={() => setLocale(locale === "en" ? "ar" : "en")}>
@@ -98,6 +100,6 @@ export default function CompanyLoginPage() {
           </Button>
         </form>
       </AuthShell>
-    </div>
+    </>
   );
 }

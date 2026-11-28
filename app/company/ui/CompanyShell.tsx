@@ -4,19 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Languages, LogOut, Menu, Moon, PanelLeft, Sun } from "@/app/components/icons";
+import { PanelLeft } from "@/app/components/icons";
 import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
-import { Button, IconButton, Tooltip, focusRing } from "@/app/admin/ui";
+import { Button, IconButton, focusRing } from "@/app/admin/ui";
+import { useSidebarCollapsed } from "@/app/admin/ui/shell/useSidebarCollapsed";
 import { useAuth } from "../../lib/contexts/auth-context";
 import { useCompanyTheme } from "../lib/theme-context";
 import { useCompanyLocale } from "../lib/locale-context";
 import { useCompanyAccessState } from "../lib/access-context";
 import { companyNav } from "../lib/pages";
 import { getSaudiBasePath, stripSaudiPrefix, withSaudiBase } from "../../lib/i18n/saudi-route";
-import { centerOf } from "../../lib/theme-transition";
 import { TrialOnboardingWalkthrough } from "../components/TrialOnboardingWalkthrough";
 import { CompanyAccessGate } from "./CompanyAccessGate";
+import { CompanyTopBar } from "./CompanyTopBar";
 
 type NavItem = {
   href: string;
@@ -33,48 +34,16 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
   const tCommon = useTranslations("common");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Desktop rail, as in Super Admin (app/admin/ui/AdminShell.tsx): 64px of icons that expands over
-  // the content while hovered or keyboard-focused, and collapses again after navigating.
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const expanded = hovered || focused;
-  const closeTimer = useRef<number | null>(null);
-  const asideRef = useRef<HTMLElement>(null);
-  // After navigating, the pointer is still over the rail; ignore it until it leaves and comes back.
-  const suppressed = useRef(false);
-  const pointerInside = useRef(false);
-  const mounted = useRef(false);
+  // Desktop sidebar: open by default; the collapse button shrinks it to the icon rail (remembered),
+  // as in Super Admin (app/admin/ui/AdminShell.tsx).
+  const [collapsed, setCollapsed] = useSidebarCollapsed("company-sidebar-collapsed");
 
-  const openRail = () => {
-    pointerInside.current = true;
-    if (suppressed.current) return;
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    setHovered(true);
-  };
-  // Short grace period so brushing past the edge doesn't make the rail flicker shut.
-  const closeRail = () => {
-    pointerInside.current = false;
-    suppressed.current = false;
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    closeTimer.current = window.setTimeout(() => setHovered(false), 120);
-  };
-
-  // Collapse on every route change and drop focus from the clicked link.
-  const [prevPath, setPrevPath] = useState(pathname);
-  if (prevPath !== pathname) {
-    setPrevPath(pathname);
-    setHovered(false);
-    setFocused(false);
-  }
+  // On desktop the content panel is the scroll container, so start each page at its top.
+  const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    // Only swallow hover when the pointer is already over the rail (the user just clicked a link there).
-    suppressed.current = mounted.current && pointerInside.current;
-    mounted.current = true;
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    const el = document.activeElement;
-    if (el instanceof HTMLElement && asideRef.current?.contains(el)) el.blur();
+    panelRef.current?.scrollTo({ top: 0 });
   }, [pathname]);
-  useEffect(() => () => { if (closeTimer.current) window.clearTimeout(closeTimer.current); }, []);
+
   const [guideOpen, setGuideOpen] = useState(false);
   const { state: accessState } = useCompanyAccessState();
   const company = accessState.status === "ready" ? accessState.company : null;
@@ -118,26 +87,39 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
 
   const toggleLocale = () => setLocale(locale === "en" ? "ar" : "en");
   const localeTitle = locale === "en" ? t("locale.switchToArabic") : t("locale.switchToEnglish");
-  const localeLabel = locale === "en" ? t("locale.arabic") : t("locale.english");
-  const themeLabel = theme === "dark" ? t("shell.switchToLight") : t("shell.switchToDark");
   const wordmark = theme === "light" ? "/traflinq_light_no_tagline-Photoroom.png" : "/traflinq_dark_no_tagline-Photoroom.png";
 
   // Plain render function (not a component) so the sidebar isn't remounted on every render.
-  // Layout is identical in rail and expanded states (icon in a fixed 40px slot, label beside it),
-  // so expanding is just the container widening and the labels fading in. Nothing jumps.
+  // Each item keeps its icon in a fixed 40px slot, so collapsing is the container narrowing and the
+  // labels fading out. Nothing jumps.
   const renderSidebar = (isMobile = false) => {
-    const show = isMobile || expanded;
-    const fade = cn("transition-opacity duration-150", show ? "opacity-100 delay-75" : "opacity-0");
+    const show = isMobile || !collapsed;
+    const fade = cn("transition-opacity duration-150", show ? "opacity-100 delay-75" : "pointer-events-none opacity-0");
     return (
       <>
-        <div className="flex h-16 shrink-0 items-center justify-between gap-2 overflow-hidden ps-4 pe-3">
-          <div className="flex min-w-0 items-center gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/app_icon.png" alt="" className="size-8 shrink-0 rounded-lg object-contain" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={wordmark} alt="TrafLinq" className={cn("h-8 w-auto max-w-none", fade)} />
-          </div>
-          {isMobile && (
+        <div className="flex h-16 shrink-0 items-center justify-between gap-2 overflow-hidden ps-3 pe-2">
+          {show ? (
+            <div className="flex min-w-0 items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/app_icon.png" alt="" className="size-8 shrink-0 rounded-lg object-contain" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={wordmark} alt="TrafLinq" className={cn("h-8 w-auto max-w-none", fade)} />
+            </div>
+          ) : (
+            // Collapsed: the mark doubles as the expand button (shows the panel icon on hover/focus).
+            <button
+              type="button"
+              onClick={() => setCollapsed(false)}
+              aria-label={t("shell.expandSidebar")}
+              title={t("shell.expandSidebar")}
+              className={cn("group relative flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-subtle", focusRing)}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/app_icon.png" alt="" className="size-8 rounded-lg object-contain transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0" />
+              <PanelLeft className="absolute size-[18px] text-fg-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 rtl:-scale-x-100" aria-hidden="true" />
+            </button>
+          )}
+          {isMobile ? (
             <IconButton
               label={tCommon("actions.close")}
               tooltip={false}
@@ -147,6 +129,18 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
             >
               <PanelLeft strokeWidth={1.75} className="rtl:-scale-x-100" />
             </IconButton>
+          ) : (
+            show && (
+              <IconButton
+                label={t("shell.collapseSidebar")}
+                size="icon-sm"
+                tooltipSide={isRtl ? "left" : "right"}
+                onClick={() => setCollapsed(true)}
+                className="shrink-0 text-fg-muted hover:text-fg"
+              >
+                <PanelLeft strokeWidth={1.75} className="rtl:-scale-x-100" />
+              </IconButton>
+            )
           )}
         </div>
 
@@ -157,12 +151,12 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
           {accessState.status === "loading" && (
             <div className="space-y-1.5 pt-2">
               {[0, 1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-9 animate-pulse rounded-lg bg-subtle" />
+                <div key={i} className="h-9 animate-pulse rounded-[10px] bg-subtle" />
               ))}
             </div>
           )}
           {navGroups.map((group, groupIndex) => (
-            <div key={groupIndex} className={cn(groupIndex > 0 && "mt-3")}>
+            <div key={groupIndex} className={cn(groupIndex > 0 && "mt-4")}>
               {(group.titleKey || groupIndex > 0) && (
                 <div className="relative mb-1 h-5">
                   {group.titleKey && (
@@ -182,22 +176,25 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
                 {group.items.map((item) => {
                   const active = item.href === activeHref;
                   const Icon = item.icon;
+                  const label = t(item.labelKey);
                   return (
                     <li key={item.href}>
                       <Link
                         href={item.href}
                         aria-current={active ? "page" : undefined}
+                        aria-label={show ? undefined : label}
+                        title={show ? undefined : label}
                         onClick={() => isMobile && setIsMobileMenuOpen(false)}
                         className={cn(
-                          "flex h-9 items-center overflow-hidden whitespace-nowrap rounded-lg text-sm font-medium transition-colors",
+                          "group flex h-9 items-center overflow-hidden whitespace-nowrap rounded-[10px] text-sm font-medium transition-colors",
                           active ? "bg-nav-active text-nav-active-fg shadow-[var(--nav-active-shadow)]" : "text-fg-secondary hover:bg-subtle hover:text-fg",
                           focusRing,
                         )}
                       >
-                        <span className="flex size-10 shrink-0 items-center justify-center">
+                        <span className={cn("flex size-10 shrink-0 items-center justify-center", active ? "text-brand" : "text-fg-muted group-hover:text-fg-secondary")}>
                           <Icon size={18} strokeWidth={1.75} />
                         </span>
-                        <span className={cn("truncate pe-3", fade)}>{t(item.labelKey)}</span>
+                        <span className={cn("truncate pe-3", fade)}>{label}</span>
                       </Link>
                     </li>
                   );
@@ -207,52 +204,24 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        <div className="shrink-0 overflow-hidden border-t border-line p-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <span className="flex size-10 shrink-0 items-center justify-center">
-                {company?.logo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={company.logo_url}
-                    alt={company.name || "Company"}
-                    className="size-8 rounded-full border border-line object-cover"
-                  />
-                ) : (
-                  <span
-                    aria-hidden="true"
-                    className="flex size-8 items-center justify-center rounded-full border border-line bg-subtle text-xs font-semibold text-fg-secondary"
-                  >
-                    {company?.name?.[0]?.toUpperCase() || "·"}
-                  </span>
-                )}
-              </span>
-              <div className={cn("flex min-w-0 flex-col text-start", fade)}>
-                <span className="ltr-content truncate text-xs font-medium text-fg">{user?.email}</span>
-                <span className="truncate text-xs text-fg-muted">{t("shell.companyAccount")}</span>
-              </div>
-            </div>
-
-            <div className={cn("flex shrink-0 items-center", fade)}>
-              {onSaudiRoute && (
-                <Tooltip content={localeTitle}>
-                  <Button variant="ghost" size="sm" onClick={toggleLocale} leftIcon={<Languages />}>
-                    {localeLabel}
-                  </Button>
-                </Tooltip>
-              )}
-              <IconButton label={themeLabel} size="icon-sm" onClick={(e) => toggle(centerOf(e.currentTarget))}>
-                {theme === "dark" ? <Sun /> : <Moon />}
-              </IconButton>
-              <IconButton
-                label={tCommon("actions.signOut")}
-                size="icon-sm"
-                onClick={() => logout()}
-                className="hover:bg-danger-soft hover:text-danger-ink"
+        {/* Company identity. Sign-out, theme and language live in the top bar. */}
+        <div className="mx-3 flex h-14 shrink-0 items-center gap-1.5 overflow-hidden border-t border-line">
+          <span className="flex size-10 shrink-0 items-center justify-center">
+            {company?.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={company.logo_url} alt="" className="size-8 rounded-full border border-line object-cover" />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="flex size-8 items-center justify-center rounded-full border border-line bg-subtle text-xs font-semibold text-fg-secondary"
               >
-                <LogOut className="rtl:rotate-180" />
-              </IconButton>
-            </div>
+                {company?.name?.[0]?.toUpperCase() || "·"}
+              </span>
+            )}
+          </span>
+          <div className={cn("flex min-w-0 flex-col text-start", fade)}>
+            <span className="truncate text-xs font-medium text-fg">{company?.name || t("shell.companyAccount")}</span>
+            <span className="truncate text-xs text-fg-muted">{t("shell.companyAccount")}</span>
           </div>
         </div>
       </>
@@ -261,47 +230,16 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="company-portal min-h-screen bg-[var(--bg-sidebar)] font-sans text-fg">
-      <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-line bg-[var(--bg-header)] px-4 md:hidden">
-        <IconButton label={t("shell.openMenu")} tooltip={false} onClick={() => setIsMobileMenuOpen(true)}>
-          <Menu />
-        </IconButton>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={wordmark}
-          alt="TrafLinq"
-          className="pointer-events-none absolute inset-x-0 mx-auto h-8 w-auto"
-        />
-        {onSaudiRoute ? (
-          <Button variant="ghost" size="sm" onClick={toggleLocale} title={localeTitle}>
-            {localeLabel}
-          </Button>
-        ) : (
-          <div className="size-9" />
-        )}
-      </header>
-
-      <div className="flex min-h-screen">
-        {/* Reserves the rail's width in the layout; the real sidebar overlays the content when expanded. */}
-        <div className="relative hidden w-16 shrink-0 md:block">
-          <aside
-            ref={asideRef}
-            onMouseEnter={openRail}
-            onMouseLeave={closeRail}
-            onFocus={(e) => {
-              // Only keyboard focus expands the rail; a mouse click on a link must not pin it open.
-              if (e.target instanceof HTMLElement && e.target.matches(":focus-visible")) setFocused(true);
-            }}
-            onBlur={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
-            }}
-            className={cn(
-              "fixed inset-y-0 start-0 z-40 overflow-hidden border-e bg-[var(--bg-sidebar)] transition-[width,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.22,0.61,0.36,1)]",
-              expanded ? "w-60 border-line shadow-[var(--shadow-modal)]" : "w-16 border-transparent",
-            )}
-          >
-            <div className="flex h-full w-60 flex-col">{renderSidebar()}</div>
-          </aside>
-        </div>
+      {/* Desktop: sidebar on the frame colour, content in a rounded panel that scrolls on its own. */}
+      <div className="flex min-h-screen md:h-dvh md:min-h-0 md:overflow-hidden">
+        <aside
+          className={cn(
+            "hidden shrink-0 overflow-hidden transition-[width] duration-200 ease-[cubic-bezier(0.22,0.61,0.36,1)] md:block",
+            collapsed ? "w-16" : "w-60",
+          )}
+        >
+          <div className="flex h-full w-60 flex-col">{renderSidebar()}</div>
+        </aside>
 
         {isMobileMenuOpen && (
           <div className="fixed inset-0 z-50 flex md:hidden">
@@ -315,47 +253,59 @@ export function CompanyShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* Inset layout: the content is a rounded panel on the sidebar-coloured frame (desktop only). */}
         <div className="relative flex min-w-0 flex-1 flex-col md:py-2 md:pe-2">
           <Suspense fallback={null}>
             <TrialOnboardingWalkthrough
               forceOpen={guideOpen}
               onClose={() => setGuideOpen(false)}
-              sidebarCollapsed
+              sidebarCollapsed={collapsed}
             />
           </Suspense>
-          <main
+          <div
+            ref={panelRef}
             data-company-main
-            className="mx-auto min-h-screen w-full max-w-full flex-1 bg-page px-4 py-5 md:min-h-[calc(100vh-1rem)] md:rounded-2xl md:border md:border-line md:px-8 md:py-6"
+            className="flex min-h-screen w-full flex-1 flex-col bg-page md:min-h-0 md:overflow-y-auto md:rounded-2xl md:border md:border-line"
           >
-            {trialInfo && (
-              <div className="mb-5 flex flex-col gap-3 rounded-xl border border-line bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <div className="text-sm font-semibold text-fg">{t("trial.banner.title")}</div>
-                  <div className="text-xs text-fg-muted">
-                    {t.rich("trial.banner.expires", {
-                      hours: () => <span className="font-semibold tabular-nums text-fg">{trialInfo.remainingHours}h</span>,
-                    })}
+            <CompanyTopBar
+              onOpenMenu={() => setIsMobileMenuOpen(true)}
+              theme={theme}
+              onToggleTheme={toggle}
+              company={company}
+              email={user?.email}
+              onLogout={() => logout()}
+              locale={onSaudiRoute ? { title: localeTitle, onToggle: toggleLocale } : null}
+              wordmark={wordmark}
+            />
+            <main className="flex-1 px-4 py-5 md:px-8 md:py-6">
+              {trialInfo && (
+                <div className="mb-5 flex flex-col gap-3 rounded-xl border border-line bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <div className="text-sm font-semibold text-fg">{t("trial.banner.title")}</div>
+                    <div className="text-xs text-fg-muted">
+                      {t.rich("trial.banner.expires", {
+                        hours: () => <span className="font-semibold tabular-nums text-fg">{trialInfo.remainingHours}h</span>,
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {!user?.trial_onboarding_completed && (
+                      <Button variant="ghost" size="sm" onClick={() => setGuideOpen(true)}>
+                        {t("trial.banner.viewGuide")}
+                      </Button>
+                    )}
+                    <Button asChild size="sm">
+                      <a href="https://calendar.app.google/qeHQgMANfWNr77yz6" target="_blank" rel="noopener noreferrer">
+                        {t("trial.banner.bookDemo")}
+                      </a>
+                    </Button>
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {!user?.trial_onboarding_completed && (
-                    <Button variant="ghost" size="sm" onClick={() => setGuideOpen(true)}>
-                      {t("trial.banner.viewGuide")}
-                    </Button>
-                  )}
-                  <Button asChild size="sm">
-                    <a href="https://calendar.app.google/qeHQgMANfWNr77yz6" target="_blank" rel="noopener noreferrer">
-                      {t("trial.banner.bookDemo")}
-                    </a>
-                  </Button>
-                </div>
+              )}
+              <div key={pathname} className="min-h-full">
+                <CompanyAccessGate>{children}</CompanyAccessGate>
               </div>
-            )}
-            <div key={pathname} className="min-h-full">
-              <CompanyAccessGate>{children}</CompanyAccessGate>
-            </div>
-          </main>
+            </main>
+          </div>
         </div>
       </div>
       <Toaster position={isRtl ? "top-left" : "top-right"} richColors dir={isRtl ? "rtl" : "ltr"} />

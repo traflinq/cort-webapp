@@ -22,7 +22,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     pathname === "/";
 
   if (isLoginPage) {
-    return <div data-theme="light">{children}</div>;
+    return <>{children}</>;
   }
 
   return (

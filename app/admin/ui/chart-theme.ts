@@ -19,8 +19,11 @@ export type ChartTheme = {
   text: string;
   mutedText: string;
   surface: string;
+  /** The tooltip is inverted against the page (dark on light, light on dark), as in the reference. */
   tooltipBg: string;
   tooltipBorder: string;
+  tooltipText: string;
+  tooltipMuted: string;
   /** Status colours — reserved, never used as series. */
   status: { good: string; warning: string; bad: string; info: string };
 };
@@ -37,8 +40,10 @@ export function useChartTheme(): ChartTheme {
             text: "#ededed",
             mutedText: "rgba(237,237,237,0.55)",
             surface: "#141414",
-            tooltipBg: "#1c1c1c",
-            tooltipBorder: "rgba(255,255,255,0.14)",
+            tooltipBg: "#f4f4f5",
+            tooltipBorder: "rgba(24,24,27,0.10)",
+            tooltipText: "#18181b",
+            tooltipMuted: "rgba(24,24,27,0.62)",
             status: { good: "#38b56a", warning: "#c08e12", bad: "#e5484d", info: "#7d8cf5" },
           }
         : {
@@ -48,8 +53,10 @@ export function useChartTheme(): ChartTheme {
             text: "#18181b",
             mutedText: "#63636b",
             surface: "#ffffff",
-            tooltipBg: "#ffffff",
-            tooltipBorder: "rgba(24,24,27,0.15)",
+            tooltipBg: "#18181b",
+            tooltipBorder: "rgba(255,255,255,0.08)",
+            tooltipText: "#fafafa",
+            tooltipMuted: "rgba(250,250,250,0.62)",
             status: { good: "#2a9f59", warning: "#c08400", bad: "#e5484d", info: "#6e7ff0" },
           },
     [theme],
@@ -67,5 +74,5 @@ export function axisProps(t: ChartTheme) {
 }
 
 export function gridProps(t: ChartTheme) {
-  return { stroke: t.grid, strokeDasharray: "0", vertical: false } as const;
+  return { stroke: t.grid, strokeDasharray: "3 4", vertical: false } as const;
 }

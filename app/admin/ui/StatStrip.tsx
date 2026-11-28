@@ -2,6 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, ChevronRight, Minus } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
+import { Figure } from "./Figure";
 import { focusRingInset, surface } from "./styles";
 import type { KpiDelta } from "./KpiCard";
 
@@ -66,7 +67,7 @@ export function StatStrip({ items, className, "aria-label": ariaLabel }: { items
                 <ChevronRight className="ml-auto size-4 shrink-0 text-fg-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true" />
               )}
             </p>
-            <p className={cn("mt-1.5 text-2xl font-semibold tracking-tight tabular-nums", valueCls[status])}>{item.value}</p>
+            <p className={cn("mt-1.5 text-2xl font-semibold tracking-tight tabular-nums", valueCls[status])}><Figure value={item.value} /></p>
             {(item.delta || item.hint) && (
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-fg-muted">
                 {item.delta && <Delta delta={item.delta} />}

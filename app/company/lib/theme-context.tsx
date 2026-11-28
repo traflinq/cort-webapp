@@ -1,10 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
-import { flushSync } from "react-dom";
-import { switchThemeAnimated, type ThemeOrigin } from "@/app/lib/theme-transition";
-
-type Theme = "dark" | "light";
+import { createContext, useContext, useEffect, useMemo } from "react";
+import { DEFAULT_THEME, setThemeAnimated, useTheme, type Theme, type ThemeOrigin } from "@/app/lib/theme-store";
 
 interface ThemeContextValue {
     theme: Theme;
@@ -13,50 +10,16 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-    theme: "dark",
+    theme: DEFAULT_THEME,
     toggle: () => {},
 });
 
-const STORAGE_KEY = "cort-theme";
-const listeners = new Set<() => void>();
-
-function readTheme(): Theme {
-    try {
-        return localStorage.getItem(STORAGE_KEY) === "light" ? "light" : "dark";
-    } catch {
-        return "dark";
-    }
-}
-
-function subscribe(callback: () => void) {
-    listeners.add(callback);
-    const onStorage = (e: StorageEvent) => {
-        if (e.key === STORAGE_KEY) callback();
-    };
-    window.addEventListener("storage", onStorage);
-    return () => {
-        listeners.delete(callback);
-        window.removeEventListener("storage", onStorage);
-    };
-}
-
-function setCompanyTheme(next: Theme) {
-    try {
-        localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-        /* private mode */
-    }
-    document.documentElement.setAttribute("data-theme", next);
-    listeners.forEach((l) => l());
-}
-
 /**
- * Company portal theme. Same switch as the Super Admin portal: a circular reveal from the toggle,
- * instant under reduced motion. The server snapshot is "dark" (the portal default), so hydration
- * never mismatches.
+ * Company portal theme. It is the app-wide setting (dark by default, app/lib/theme-store.ts), so
+ * switching here also applies to the Super Admin, vendor portals and sign-in pages.
  */
 export function CompanyThemeProvider({ children }: { children: React.ReactNode }) {
-    const theme = useSyncExternalStore(subscribe, readTheme, () => "dark" as Theme);
+    const theme = useTheme();
 
     useEffect(() => {
         document.documentElement.setAttribute("data-theme", theme);
@@ -65,11 +28,7 @@ export function CompanyThemeProvider({ children }: { children: React.ReactNode }
     const value = useMemo<ThemeContextValue>(
         () => ({
             theme,
-            // flushSync so React-driven bits (theme icon, chart colours) are in the "new" snapshot too.
-            toggle: (origin) => {
-                const next: Theme = theme === "dark" ? "light" : "dark";
-                switchThemeAnimated(() => flushSync(() => setCompanyTheme(next)), origin);
-            },
+            toggle: (origin) => setThemeAnimated(theme === "dark" ? "light" : "dark", origin),
         }),
         [theme],
     );

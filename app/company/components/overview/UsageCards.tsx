@@ -1,8 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Users } from "@/app/components/icons";
-import { CardDescription, CardTitle } from "@/app/admin/ui";
+import { Building2, Bus, Users } from "@/app/components/icons";
+import { CardHeading } from "@/app/admin/ui";
 import { Card } from "../Card";
 import { useOverviewFormat } from "./format";
 
@@ -44,8 +44,7 @@ export function AdoptionCard({ data }: { data: AdoptionData }) {
   return (
     <Card className="flex flex-col gap-4">
       <div>
-        <CardTitle as="h2">{t("title")}</CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
+        <CardHeading as="h2" icon={<Users />} title={t("title")} description={t("description")} />
       </div>
 
       <div>
@@ -95,8 +94,7 @@ export function DepartmentsCard({ departments }: { departments: { name: string; 
   return (
     <Card className="flex flex-col gap-4">
       <div>
-        <CardTitle as="h2">{t("title")}</CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
+        <CardHeading as="h2" icon={<Building2 />} title={t("title")} description={t("description")} />
       </div>
       {rows.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 py-6 text-center">
@@ -112,7 +110,7 @@ export function DepartmentsCard({ departments }: { departments: { name: string; 
                 <span className="shrink-0 font-medium text-fg tabular-nums">{f.pct(d.percentage)}</span>
               </div>
               <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-subtle" aria-hidden="true">
-                <div className="h-full rounded-full bg-chart-2" style={{ width: `${(d.percentage / max) * 100}%` }} />
+                <div className="h-full rounded-full bg-fg-muted" style={{ width: `${(d.percentage / max) * 100}%` }} />
               </div>
             </li>
           ))}
@@ -139,8 +137,7 @@ export function ShuttleSummaryCard({ data }: { data: ShuttleSummaryData }) {
   return (
     <Card className="flex flex-col gap-4">
       <div>
-        <CardTitle as="h2">{t("title")}</CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
+        <CardHeading as="h2" icon={<Bus />} title={t("title")} description={t("description")} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>

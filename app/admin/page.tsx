@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRight } from "@/app/components/icons";
+import { ChevronRight, Wallet } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
 import { useAppDispatch, useAppSelector } from "../lib/store/hooks";
 import { fetchDashboardStats, setDateRange } from "../lib/store/slices/superAdminDashboardSlice";
@@ -232,7 +232,7 @@ function CashPosition({ stats, onOpenReceivables }: { stats: SuperAdminDashboard
   const net = stats.totalReceivables - stats.totalPayables;
   return (
     <Card className="flex flex-col">
-      <CardHeader title="Cash position" description="Outstanding balances" />
+      <CardHeader icon={<Wallet />} title="Cash position" description="Outstanding balances" />
       <div className="flex-1 divide-y divide-line">
         <button
           type="button"

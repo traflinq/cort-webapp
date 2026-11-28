@@ -3,7 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { focusRing } from "../ui/styles";
+import { Moon, Sun } from "@/app/components/icons";
+import { setThemeAnimated, useTheme } from "@/app/lib/theme-store";
+import { centerOf } from "@/app/lib/theme-transition";
+import { IconButton } from "../ui/IconButton";
+import { focusRing, roundIconButton } from "../ui/styles";
+import { AuthRouteMap } from "./AuthRouteMap";
 
 export interface AuthShellProps {
   title: string;
@@ -11,61 +16,128 @@ export interface AuthShellProps {
   children: React.ReactNode;
   /** Links under the card, e.g. "Back to sign in". */
   footer?: React.ReactNode;
-  /** Brand panel copy; defaults to the admin portal text. Pass translated strings for other portals. */
-  brand?: { eyebrow: string; headline: string; body: string };
+  /**
+   * Brand panel copy; defaults to the admin portal text. Pass translated strings for other portals.
+   * `portal` names the portal beside the logo; `before` / `after` label the map key.
+   */
+  brand?: { portal?: string; headline: string; body: string; before?: string; after?: string };
   /** Copyright line text (without the year). */
   copyright?: string;
-  /** Top corner slot, e.g. a language switcher. */
+  /** Top corner slot, e.g. a language switcher. The theme switch always sits beside it. */
   corner?: React.ReactNode;
+  /** Theme switch labels; pass translated strings on translated pages. */
+  themeLabels?: { toLight: string; toDark: string };
 }
 
 const DEFAULT_BRAND = {
-  eyebrow: "Super Admin Portal",
+  portal: "Super Admin",
   headline: "The operating system for corporate mobility.",
   body: "Companies, routes, bookings, fleet and invoicing, managed from one place.",
 };
 
 /**
- * Shared layout for the admin auth pages: brand panel on the left (desktop),
- * form card on the right. Replaces three copies of the same dark hero markup.
+ * Sign-in pages sit outside the portal theme providers, so they apply the app-wide theme themselves
+ * (dark by default; the pre-paint script has already set it on a full page load).
  */
-export function AuthShell({ title, description, children, footer, brand = DEFAULT_BRAND, copyright = "Traflinq. All rights reserved.", corner }: AuthShellProps) {
+function useAuthTheme() {
+  const theme = useTheme();
+  React.useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+  return theme;
+}
+
+/**
+ * Shared layout for every sign-in, forgot-password and reset-password page: on desktop, a full-height
+ * route-map visual with the brand line; on phones, a short band of the same map above the form.
+ */
+export function AuthShell({
+  title,
+  description,
+  children,
+  footer,
+  brand = DEFAULT_BRAND,
+  copyright = "Traflinq. All rights reserved.",
+  corner,
+  themeLabels = { toLight: "Switch to light theme", toDark: "Switch to dark theme" },
+}: AuthShellProps) {
+  const theme = useAuthTheme();
+  const year = new Date().getFullYear();
+  const before = brand.before ?? "Before";
+  const after = brand.after ?? "After";
+
   return (
     <div className="admin-portal flex min-h-screen bg-page text-fg">
-      <aside className="relative hidden w-[42%] max-w-xl flex-col justify-between overflow-hidden bg-navy p-10 text-white lg:flex">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage: "linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-          }}
-        />
-        <div aria-hidden="true" className="pointer-events-none absolute -bottom-40 -right-40 size-[28rem] rounded-full bg-brand/15 blur-[120px]" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/traflinq_dark_no_tagline-Photoroom.png" alt="Traflinq" className="relative h-10 w-auto self-start" />
-        <div className="relative space-y-4">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/60">{brand.eyebrow}</p>
-          <h2 className="text-3xl font-semibold leading-tight tracking-tight">{brand.headline}</h2>
-          <p className="max-w-md text-sm leading-relaxed text-white/65">{brand.body}</p>
+      <aside className="relative hidden w-[46%] max-w-2xl flex-col justify-between overflow-hidden border-e border-line bg-[var(--bg-sidebar)] p-10 lg:flex">
+        <AuthRouteMap className="absolute inset-0" />
+        {/* Darkens the map under the copy so the text stays readable. */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#0b0b0b] via-[#0b0b0b]/80 to-transparent" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#0b0b0b]/80 to-transparent" />
+
+        <div className="relative flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/traflinq_dark_no_tagline-Photoroom.png" alt="Traflinq" className="h-9 w-auto" />
+          {brand.portal && (
+            <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/75">{brand.portal}</span>
+          )}
         </div>
-        <p className="relative text-xs text-white/45">&copy; {new Date().getFullYear()} {copyright}</p>
+
+        <div className="relative space-y-5">
+          <div className="space-y-3">
+            <h2 className="max-w-md text-3xl font-semibold leading-tight tracking-tight text-white text-balance">{brand.headline}</h2>
+            <p className="max-w-md text-sm leading-relaxed text-white/65">{brand.body}</p>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t border-white/10 pt-5">
+            <ul className="flex items-center gap-5 text-xs text-white/60" aria-hidden="true">
+              <li className="flex items-center gap-2">
+                <svg width="22" height="4" viewBox="0 0 22 4" className="overflow-visible">
+                  <line x1="1" y1="2" x2="21" y2="2" stroke="white" strokeOpacity="0.45" strokeWidth="2" strokeDasharray="2 5" strokeLinecap="round" />
+                </svg>
+                {before}
+              </li>
+              <li className="flex items-center gap-2 text-white/85">
+                <span className="h-[3px] w-5 rounded-full bg-[#e8692e]" />
+                {after}
+              </li>
+            </ul>
+            <p className="text-xs text-white/45">&copy; {year} {copyright}</p>
+          </div>
+        </div>
       </aside>
 
-      <main className="relative flex flex-1 flex-col items-center justify-center px-4 py-10 sm:px-6">
-        {corner && <div className="absolute end-4 top-4 z-10">{corner}</div>}
-        <div className="w-full max-w-md">
-          <div className="mb-8 flex flex-col items-start gap-6">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/traflinq_light_no_tagline-Photoroom.png" alt="Traflinq" className="h-9 w-auto lg:hidden" />
-            <div>
+      <main className="relative flex min-w-0 flex-1 flex-col">
+        {/* Phones and tablets: a short band of the map, with the logo on it. */}
+        <div className="relative h-40 shrink-0 overflow-hidden lg:hidden">
+          <AuthRouteMap className="absolute inset-0" animate={false} framing="band" />
+          <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-b from-[#0b0b0b]/30 via-transparent to-[var(--bg-page)]" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/traflinq_dark_no_tagline-Photoroom.png" alt="Traflinq" className="absolute start-4 top-4 h-8 w-auto sm:start-6" />
+        </div>
+
+        <div className="absolute end-4 top-4 z-10 flex items-center gap-2">
+          {corner}
+          {/* Sign-in pages have no TooltipProvider, so use the native title for the hover hint. */}
+          <IconButton
+            label={theme === "dark" ? themeLabels.toLight : themeLabels.toDark}
+            title={theme === "dark" ? themeLabels.toLight : themeLabels.toDark}
+            tooltip={false}
+            className={roundIconButton}
+            onClick={(e) => setThemeAnimated(theme === "dark" ? "light" : "dark", centerOf(e.currentTarget))}
+          >
+            {theme === "dark" ? <Sun /> : <Moon />}
+          </IconButton>
+        </div>
+
+        <div className="flex flex-1 items-start justify-center px-4 pb-10 sm:px-6 lg:items-center lg:py-10">
+          <div className="w-full max-w-md">
+            <div className="mb-8">
               <h1 className="text-2xl font-semibold tracking-tight text-fg">{title}</h1>
               {description && <p className="mt-1.5 text-sm text-fg-muted">{description}</p>}
             </div>
+            <div className="rounded-[14px] border border-line bg-card p-6 shadow-[var(--shadow-card)] sm:p-8">{children}</div>
+            {footer && <div className="mt-6 text-center text-sm text-fg-muted">{footer}</div>}
+            <p className="mt-10 text-center text-xs text-fg-muted lg:hidden">&copy; {year} {copyright}</p>
           </div>
-          <div className="rounded-2xl border border-line bg-card p-6 shadow-[var(--shadow-card)] sm:p-8">{children}</div>
-          {footer && <div className="mt-6 text-center text-sm text-fg-muted">{footer}</div>}
-          <p className="mt-10 text-center text-xs text-fg-muted lg:hidden">&copy; {new Date().getFullYear()} {copyright}</p>
         </div>
       </main>
     </div>

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { surface } from "./styles";
+import { iconTile, surface } from "./styles";
 
 const paddings = { none: "", sm: "p-3", md: "p-4", lg: "p-5" } as const;
 
@@ -28,25 +28,33 @@ export interface CardHeaderProps extends Omit<React.HTMLAttributes<HTMLDivElemen
   title?: React.ReactNode;
   description?: React.ReactNode;
   actions?: React.ReactNode;
+  /** Icon shown in a bordered tile before the title, e.g. <CardHeader icon={<Wallet />} … />. */
+  icon?: React.ReactNode;
   /** No bottom border (e.g. KPI-style cards). */
   flush?: boolean;
 }
 
 const CardHeader = React.forwardRef<HTMLDivElement, CardHeaderProps>(
-  ({ className, title, description, actions, flush, children, ...props }, ref) => (
+  ({ className, title, description, actions, icon, flush, children, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("flex items-start justify-between gap-4 px-5 py-4", !flush && "border-b border-line", className)}
+      className={cn(
+        "flex justify-between gap-4 px-5 py-4",
+        icon ? "items-center" : "items-start",
+        !flush && "border-b border-line",
+        className,
+      )}
       {...props}
     >
       {title !== undefined || description !== undefined ? (
-        <div className="min-w-0">
-          {title !== undefined && <CardTitle>{title}</CardTitle>}
-          {description !== undefined && <CardDescription>{description}</CardDescription>}
+        <CardHeading icon={icon} title={title} description={description} className="flex-1">
           {children}
-        </div>
+        </CardHeading>
       ) : (
-        <div className="min-w-0 flex-1">{children}</div>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          {icon && <IconTile>{icon}</IconTile>}
+          <div className="min-w-0 flex-1">{children}</div>
+        </div>
       )}
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </div>
@@ -70,6 +78,45 @@ const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttribu
 );
 CardDescription.displayName = "CardDescription";
 
+function IconTile({ children }: { children: React.ReactNode }) {
+  return (
+    <span aria-hidden="true" className={cn(iconTile, "size-9 [&_svg]:size-[18px]")}>
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Icon tile + title + description, the heading block of a card (used by CardHeader, and on its own
+ * in cards that lay out their own header row).
+ */
+function CardHeading({
+  icon,
+  title,
+  description,
+  as,
+  className,
+  children,
+}: {
+  icon?: React.ReactNode;
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  as?: "h2" | "h3" | "h4";
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className={cn("flex min-w-0 items-center gap-3", className)}>
+      {icon && <IconTile>{icon}</IconTile>}
+      <div className="min-w-0">
+        {title !== undefined && <CardTitle as={as}>{title}</CardTitle>}
+        {description !== undefined && <CardDescription>{description}</CardDescription>}
+        {children}
+      </div>
+    </div>
+  );
+}
+
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => <div ref={ref} className={cn("p-5", className)} {...props} />,
 );
@@ -82,4 +129,4 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardFooter.displayName = "CardFooter";
 
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent };
+export { Card, CardHeader, CardHeading, CardFooter, CardTitle, CardDescription, CardContent };

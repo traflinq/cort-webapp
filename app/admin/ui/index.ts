@@ -2,7 +2,9 @@
  * Admin design system — import from "@/app/admin/ui".
  * Every primitive is theme-aware (light/dark), keyboard-operable, and labelled.
  */
-export { focusRing, focusRingInset, inputBase, surface } from "./styles";
+export { focusRing, focusRingInset, iconTile, inputBase, roundIconButton, surface } from "./styles";
+export { Figure } from "./Figure";
+export { SegmentedProgress } from "./SegmentedProgress";
 
 export { Button, buttonVariants, type ButtonProps } from "./Button";
 export { IconButton, type IconButtonProps } from "./IconButton";
@@ -18,7 +20,7 @@ export { Field, FormGrid, useFieldContext } from "./Field";
 
 export { Badge, toneDot, type BadgeTone, type BadgeVariant, type BadgeProps } from "./Badge";
 export { StatusBadge, STATUS_REGISTRY, statusTone, statusKey, type StatusEntry } from "./StatusBadge";
-export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./Card";
+export { Card, CardHeader, CardHeading, CardTitle, CardDescription, CardContent, CardFooter } from "./Card";
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./Tabs";
 
 export { Dialog, DialogTrigger, DialogClose, DialogContent, DialogTitle, DialogDescription, dialogZ, type DialogSize, type DialogPriority } from "./Dialog";

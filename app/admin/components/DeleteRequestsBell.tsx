@@ -10,6 +10,7 @@ import { useAuth } from "../../lib/contexts/auth-context";
 import { DeleteRequestsModal } from "./DeleteRequestsModal";
 import { cx } from "./ui/cx";
 import { IconButton } from "../ui/IconButton";
+import { roundIconButton } from "../ui/styles";
 
 type DeleteRequestSocketAlert = {
   id: number;
@@ -83,7 +84,7 @@ export function DeleteRequestsBell({ collapsed = false, variant = "nav" }: Delet
     const label = pendingCount > 0 ? `Delete requests, ${pendingCount} pending` : "Delete requests";
     return (
       <>
-        <IconButton label={label} onClick={() => setIsModalOpen(true)} className="relative">
+        <IconButton label={label} onClick={() => setIsModalOpen(true)} className={cx("relative", roundIconButton)}>
           <Bell />
           {pendingCount > 0 && (
             <span

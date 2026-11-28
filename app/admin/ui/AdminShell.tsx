@@ -13,6 +13,7 @@ import { Drawer, DrawerContent } from "./Drawer";
 import { Sidebar } from "./shell/Sidebar";
 import { TopBar } from "./shell/TopBar";
 import { CommandPalette } from "./shell/CommandPalette";
+import { useSidebarCollapsed } from "./shell/useSidebarCollapsed";
 import { BreadcrumbProvider } from "./shell/breadcrumbs-context";
 
 const SHOW_DESIGN_SYSTEM = process.env.NODE_ENV !== "production";
@@ -30,50 +31,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 function ShellFrame({ pathname, children }: { pathname: string; children: React.ReactNode }) {
   const { logout, user, isSuperAdmin, isInternalStaff, hasPermission } = useAuth();
   const { theme, toggle } = useAdminTheme();
-  const [hovered, setHovered] = React.useState(false);
-  const [focused, setFocused] = React.useState(false);
-  const closeTimer = React.useRef<number | null>(null);
-  const expanded = hovered || focused;
-
-  const asideRef = React.useRef<HTMLElement>(null);
-  // After navigating, the pointer is still over the rail; ignore it until it leaves and comes back.
-  const suppressed = React.useRef(false);
-  const pointerInside = React.useRef(false);
-  const mounted = React.useRef(false);
-
-  const openRail = () => {
-    pointerInside.current = true;
-    if (suppressed.current) return;
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    setHovered(true);
-  };
-  // Short grace period so brushing past the edge doesn't make the rail flicker shut.
-  const closeRail = () => {
-    pointerInside.current = false;
-    suppressed.current = false;
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    closeTimer.current = window.setTimeout(() => setHovered(false), 120);
-  };
-
-  // Collapse on every route change and drop focus from the clicked link.
-  const [prevPath, setPrevPath] = React.useState(pathname);
-  if (prevPath !== pathname) {
-    setPrevPath(pathname);
-    setHovered(false);
-    setFocused(false);
-  }
-  React.useEffect(() => {
-    // Only swallow hover when the pointer is already over the rail (i.e. the user just clicked a link there).
-    // Otherwise (first load, or navigating from the page content) the first hover must open it.
-    suppressed.current = mounted.current && pointerInside.current;
-    mounted.current = true;
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    const el = document.activeElement;
-    if (el instanceof HTMLElement && asideRef.current?.contains(el)) el.blur();
-  }, [pathname]);
-  React.useEffect(() => () => { if (closeTimer.current) window.clearTimeout(closeTimer.current); }, []);
+  // Desktop sidebar: open by default; the collapse button shrinks it to the icon rail (remembered).
+  const [collapsed, setCollapsed] = useSidebarCollapsed("admin-sidebar-collapsed");
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+
+  // On desktop the content panel is the scroll container, so start each page at its top.
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    panelRef.current?.scrollTo({ top: 0 });
+  }, [pathname]);
 
   const viewer = React.useMemo<NavViewer>(
     () => ({
@@ -104,7 +71,7 @@ function ShellFrame({ pathname, children }: { pathname: string; children: React.
   const account = user as { email?: string | null; full_name?: string | null; name?: string | null } | null;
 
   return (
-    <div className="min-h-screen bg-page text-fg">
+    <div className="min-h-screen bg-[var(--bg-sidebar)] text-fg">
       <a
         href="#main"
         className="sr-only z-50 rounded-md bg-brand px-3 py-2 text-sm font-medium text-white focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
@@ -112,30 +79,26 @@ function ShellFrame({ pathname, children }: { pathname: string; children: React.
         Skip to content
       </a>
 
-      <div className="flex min-h-screen">
-        {/* Reserves the rail's width in the layout; the real sidebar overlays content when expanded. */}
-        <div className="relative hidden w-16 shrink-0 md:block">
-          <aside
-            ref={asideRef}
-            onMouseEnter={openRail}
-            onMouseLeave={closeRail}
-            onFocus={(e) => {
-              // Only keyboard focus expands the rail; a mouse click on a link must not pin it open.
-              if (e.target instanceof HTMLElement && e.target.matches(":focus-visible")) setFocused(true);
-            }}
-            onBlur={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
-            }}
-            className={cn(
-              "fixed inset-y-0 left-0 z-40 overflow-hidden border-r border-line bg-card transition-[width,box-shadow] duration-200 ease-[cubic-bezier(0.22,0.61,0.36,1)]",
-              expanded ? "w-60 shadow-[var(--shadow-modal)]" : "w-16",
-            )}
-          >
-            <div className="h-full w-60">
-              <Sidebar groups={groups} activeHref={active?.href} expanded={expanded} theme={theme} isSuperAdmin={isSuperAdmin} />
-            </div>
-          </aside>
-        </div>
+      {/* Desktop: sidebar on the frame colour, content in a rounded panel that scrolls on its own. */}
+      <div className="flex min-h-screen md:h-dvh md:min-h-0 md:overflow-hidden">
+        <aside
+          aria-label="Sidebar"
+          className={cn(
+            "hidden shrink-0 overflow-hidden transition-[width] duration-200 ease-[cubic-bezier(0.22,0.61,0.36,1)] md:block",
+            collapsed ? "w-16" : "w-60",
+          )}
+        >
+          <div className="h-full w-60">
+            <Sidebar
+              groups={groups}
+              activeHref={active?.href}
+              collapsed={collapsed}
+              onToggleCollapsed={() => setCollapsed(!collapsed)}
+              theme={theme}
+              isSuperAdmin={isSuperAdmin}
+            />
+          </div>
+        </aside>
 
         <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
           <DrawerContent side="left" size="sm" flush hideHeader title="Navigation" className="max-w-[18rem]">
@@ -143,22 +106,28 @@ function ShellFrame({ pathname, children }: { pathname: string; children: React.
           </DrawerContent>
         </Drawer>
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <TopBar
-            onOpenMenu={() => setMobileOpen(true)}
-            onOpenPalette={() => setPaletteOpen(true)}
-            theme={theme}
-            onToggleTheme={toggle}
-            user={account ? { email: account.email, name: account.full_name ?? account.name } : null}
-            isSuperAdmin={isSuperAdmin}
-            onLogout={() => logout()}
-            showDesignSystemLink={SHOW_DESIGN_SYSTEM && isSuperAdmin}
-          />
-          <BookingNotificationProvider />
-          <BenchmarkChangeRequestAlertProvider />
-          <main id="main" tabIndex={-1} className="flex-1 px-4 py-5 outline-none md:px-6 lg:px-8">
-            <div className="mx-auto w-full max-w-[1600px]">{children}</div>
-          </main>
+        <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2">
+          <div
+            ref={panelRef}
+            data-admin-main
+            className="flex min-h-screen flex-1 flex-col bg-page md:min-h-0 md:overflow-y-auto md:rounded-2xl md:border md:border-line"
+          >
+            <TopBar
+              onOpenMenu={() => setMobileOpen(true)}
+              onOpenPalette={() => setPaletteOpen(true)}
+              theme={theme}
+              onToggleTheme={toggle}
+              user={account ? { email: account.email, name: account.full_name ?? account.name } : null}
+              isSuperAdmin={isSuperAdmin}
+              onLogout={() => logout()}
+              showDesignSystemLink={SHOW_DESIGN_SYSTEM && isSuperAdmin}
+            />
+            <BookingNotificationProvider />
+            <BenchmarkChangeRequestAlertProvider />
+            <main id="main" tabIndex={-1} className="flex-1 px-4 py-5 outline-none md:px-6 lg:px-8">
+              <div className="mx-auto w-full max-w-[1600px]">{children}</div>
+            </main>
+          </div>
         </div>
       </div>
 

@@ -61,8 +61,14 @@ export default function LoginPage() {
     // Keep user on login page during redirect - button spinner shows loading state
 
     return (
-        <div data-theme="light">
-            <AuthShell title="Welcome back" description="Sign in to access your mobility dashboard.">
+        <AuthShell
+            title="Welcome back"
+            description="Sign in to access your mobility dashboard."
+            brand={{
+                headline: "The operating system for corporate mobility.",
+                body: "Find cost leakage, track every ride live and run employee transport from one place.",
+            }}
+        >
                 <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
                     <Field label="Email address" required>
                         <Input
@@ -91,7 +97,6 @@ export default function LoginPage() {
                         Sign in
                     </Button>
                 </form>
-            </AuthShell>
-        </div>
+        </AuthShell>
     );
 }

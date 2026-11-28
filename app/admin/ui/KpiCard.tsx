@@ -4,7 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, Minus } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
-import { focusRing, surface } from "./styles";
+import { focusRing, iconTile, surface } from "./styles";
+import { Figure } from "./Figure";
 import { KpiSkeleton } from "./Skeleton";
 import type { BadgeTone } from "./Badge";
 
@@ -36,7 +37,7 @@ export interface KpiCardProps {
 }
 
 const iconTone: Record<BadgeTone, string> = {
-  neutral: "bg-subtle text-fg-muted",
+  neutral: iconTile,
   brand: "bg-brand-soft text-brand-ink",
   success: "bg-success-soft text-success-ink",
   warning: "bg-warning-soft text-warning-ink",
@@ -75,12 +76,12 @@ export function KpiCard({ label, value, delta, hint, icon, tone = "neutral", spa
 
   const body = (
     <>
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-[13px] font-medium text-fg-muted">{label}</p>
-        {icon && <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4", iconTone[tone])}>{icon}</span>}
+      <div className="flex items-center gap-2.5">
+        {icon && <span aria-hidden="true" className={cn("flex size-8 shrink-0 items-center justify-center rounded-[9px] [&_svg]:size-4", iconTone[tone])}>{icon}</span>}
+        <p className="min-w-0 text-[13px] font-medium text-fg-muted">{label}</p>
       </div>
       <div className="mt-2 flex items-end justify-between gap-3">
-        <p className="text-2xl font-semibold tracking-tight text-fg tabular-nums">{value}</p>
+        <p className="text-2xl font-semibold tracking-tight text-fg tabular-nums"><Figure value={value} /></p>
         {sparkline && sparkline.length > 1 && <Sparkline points={sparkline} className={good ? "text-success" : bad ? "text-danger" : "text-brand"} />}
       </div>
       {(delta || hint) && (
