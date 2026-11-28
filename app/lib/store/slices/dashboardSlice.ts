@@ -2,6 +2,14 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import { apiClient } from '../../services/api-client';
 
+/** Completed chauffeur rides (and billed spend) and shuttle trips that ran, in one period. */
+export type TrendPoint = {
+    chauffeurRides: number;
+    /** Billed spend; external-vendor trips excluded, as in the headline spend. */
+    chauffeurSpend: number;
+    shuttleTrips: number;
+};
+
 export type DashboardStats = {
     employees: {
         total: number;
@@ -16,6 +24,10 @@ export type DashboardStats = {
         totalSpendAllTime: number;
         /** vs the same period last month, e.g. "+5%"; null when last month had none. */
         spendTrend: string | null;
+        /**
+         * Market-rate cost minus Traflinq's rate for this month's rides. Not a saving the company made:
+         * never show it as savings (PRODUCT.md). Kept only because the API still returns it.
+         */
         totalSavings: number;
         completedTrend: string | null;
         unassignedBookings: number;
@@ -43,6 +55,15 @@ export type DashboardStats = {
         /** 0 = Sunday; null until there is booking history. Absent on older API versions. */
         highDemandDayOfWeek?: number | null;
         lowDemandDayOfWeek?: number | null;
+        /** Chauffeur bookings per weekday, 7 entries, 0 = Sunday. Absent on older API versions. */
+        byDayOfWeek?: number[];
+    };
+    /** Activity for the dashboard charts (Pakistan-time days). Absent on older API versions. */
+    trends?: {
+        /** Last 30 days, oldest first, ending today. `date` is YYYY-MM-DD. */
+        daily: (TrendPoint & { date: string })[];
+        /** Last 6 months, oldest first, ending with the current (partial) month. `month` is YYYY-MM. */
+        monthly: (TrendPoint & { month: string })[];
     };
     mobility: {
         activeRides: number;

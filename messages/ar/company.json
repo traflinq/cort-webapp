@@ -47,7 +47,9 @@
       "passwordLabel": "كلمة المرور",
       "brandEyebrow": "بوابة الشركة",
       "brandHeadline": "تنقل شركتك في مكان واحد.",
-      "brandBody": "المسارات والحجوزات والمركبات والفواتير لمؤسستك."
+      "brandBody": "المسارات والحجوزات والمركبات والفواتير لمؤسستك.",
+      "brandBefore": "قبل",
+      "brandAfter": "بعد"
     },
     "error": {
       "title": "حدث خطأ ما",
@@ -81,8 +83,6 @@
       "noPendingActions": "لا توجد إجراءات معلقة",
       "totalSavings": "إجمالي التوفير",
       "vsVendor": "مقارنة بالمورد",
-      "savedVsVendor": "تم التوفير هذا الشهر مقارنة بالمورد السابق",
-      "overVsVendor": "أعلى من المورد السابق هذا الشهر",
       "peopleAddedToRoutes": "الأشخاص المضافون إلى المسارات",
       "topRouteAdded": "المسار #{id} — {name} · {count} مضاف",
       "peopleRemovedThisMonth": "{count} تمت إزالتهم هذا الشهر",
@@ -1987,9 +1987,6 @@
         "notSet": "غير محددة",
         "budgetUsedSub": "من {budget}",
         "setBudget": "حدد ميزانية شهرية",
-        "vendorSavings": "التوفير مقارنة بالمورد السابق",
-        "vendorSavingsSub": "هذا الشهر",
-        "vendorOver": "أعلى من المورد السابق هذا الشهر",
         "identified": "التوفير المحتمل",
         "identifiedSub": "{count} فرص · {high} ذات أولوية عالية",
         "identifiedEmpty": "لا توجد بيانات رحلات كافية بعد",
@@ -2117,6 +2114,36 @@
         "unassignedSub": "حجوزات تحتاج إلى تعيين",
         "allTime": "إجمالي الرحلات",
         "allTimeSub": "منذ البداية"
+      },
+      "trend": {
+        "title": "النشاط",
+        "descriptionBoth": "رحلات السائق المكتملة ورحلات النقل الجماعي المنفذة",
+        "descriptionChauffeur": "رحلات السائق المكتملة",
+        "descriptionShuttle": "رحلات النقل الجماعي المنفذة (بدأت أو اكتملت)",
+        "rangeLabel": "الفترة الزمنية",
+        "range6m": "٦ أشهر",
+        "range30d": "٣٠ يومًا",
+        "chauffeur": "رحلات السائق",
+        "shuttle": "رحلات النقل الجماعي",
+        "spend": "الإنفاق المفوتر",
+        "thisMonth": "هذا الشهر حتى الآن",
+        "today": "اليوم حتى الآن",
+        "period": "الفترة",
+        "empty6m": "لا توجد رحلات في آخر ٦ أشهر",
+        "empty30d": "لا توجد رحلات في آخر ٣٠ يومًا",
+        "emptyHint": "ستظهر هنا الرحلات المكتملة ورحلات النقل الجماعي."
+      },
+      "weekday": {
+        "title": "أكثر الأيام ازدحامًا",
+        "description": "حجوزات السائق حسب يوم الأسبوع، منذ البداية",
+        "peak": "الأكثر ازدحامًا:",
+        "quiet": "الأقل ازدحامًا:",
+        "bookings": "{count, plural, one {حجز واحد} two {حجزان} few {# حجوزات} many {# حجزًا} other {# حجز}}",
+        "share": "{percent} من الحجوزات",
+        "day": "اليوم",
+        "bookingsColumn": "الحجوزات",
+        "empty": "لا توجد حجوزات بعد",
+        "emptyHint": "بعد حجز الرحلات سترى الأيام الأكثر ازدحامًا."
       }
     },
     "detail": {

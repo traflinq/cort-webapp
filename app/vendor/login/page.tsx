@@ -57,12 +57,12 @@ export default function VendorLoginPage() {
   }
 
   return (
-    <div data-theme="light">
+    <>
       <AuthShell
         title="Vendor portal"
         description="Sign in to manage your fleet and services."
         brand={{
-          eyebrow: "Vendor Portal",
+          portal: "Vendor portal",
           headline: "Your fleet, requests and routes in one place.",
           body: "Manage vehicles, drivers, bookings and analytics for your Traflinq contracts.",
         }}
@@ -82,6 +82,6 @@ export default function VendorLoginPage() {
           </Button>
         </form>
       </AuthShell>
-    </div>
+    </>
   );
 }

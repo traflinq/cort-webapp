@@ -28,6 +28,7 @@ import { AttentionList, type AttentionItem } from "./components/overview/Attenti
 import { SavingsOpportunities } from "./components/overview/SavingsOpportunities";
 import { AdoptionCard, DepartmentsCard, ShuttleSummaryCard } from "./components/overview/UsageCards";
 import { ChauffeurActivityCard } from "./components/overview/ChauffeurActivityCard";
+import { ActivityTrendCard, WeekdayDemandCard } from "./components/overview/TrendCharts";
 import { parseTrend, projectMonthEnd, resolveWeekday, useOverviewFormat } from "./components/overview/format";
 
 type RosterChanges = {
@@ -135,7 +136,6 @@ export default function CompanyDashboardPage() {
   const spendDelta = parseTrend(c.spendTrend);
   const completedDelta = parseTrend(c.completedTrend);
   const budgetUsed = budget ? (spendMtd / budget) * 100 : null;
-  const vendorSavings = billedChauffeur ? c.totalSavings ?? 0 : 0;
 
   const leakage = stats.costLeakage ?? { aiInsightsEnabled: false, totalPotentialSavingPkr: 0, insights: [] };
   const highPriority = leakage.insights.filter((i) => i.severity === "HIGH" || i.severity === "CRITICAL").length;
@@ -146,6 +146,10 @@ export default function CompanyDashboardPage() {
 
   const activeEmployees = stats.employees.active;
   const topPassenger = hasChauffeur && c.topPassengers?.[0] ? { name: c.topPassengers[0].name, rides: c.topPassengers[0].trips } : null;
+  const trends = stats.trends;
+  const weekdayCounts = hasChauffeur && stats.seasonality?.byDayOfWeek?.length === 7 ? stats.seasonality.byDayOfWeek : null;
+  const showTrend = !!trends && (hasChauffeur || hasShuttle);
+  const showWeekday = showTrend && !!weekdayCounts;
   const peakDayIndex = resolveWeekday(stats.seasonality?.highDemandDayOfWeek, stats.seasonality?.highDemandDay);
   const quietDayIndex = resolveWeekday(stats.seasonality?.lowDemandDayOfWeek, stats.seasonality?.lowDemandDay);
 
@@ -258,9 +262,11 @@ export default function CompanyDashboardPage() {
     />
   );
 
-  // Billed chauffeur: money first. Otherwise the activity each running service produces.
+  // Savings lead (PRODUCT.md: savings first). Billed chauffeur then shows money; otherwise the activity each
+  // running service produces. The market-rate vs Traflinq-rate difference is not a saving and is never shown.
   const headline = billedChauffeur
     ? [
+        savingsKpi,
         <KpiTile
           key="spend"
           label={t("kpi.spend")}
@@ -282,22 +288,15 @@ export default function CompanyDashboardPage() {
             )
           }
         />,
-        <KpiTile
-          key="vendorSavings"
-          label={t("kpi.vendorSavings")}
-          value={f.money(Math.abs(vendorSavings))}
-          valueTone={vendorSavings > 0 ? "success" : vendorSavings < 0 ? "danger" : "default"}
-          sub={vendorSavings < 0 ? t("kpi.vendorOver") : t("kpi.vendorSavingsSub")}
-        />,
-        savingsKpi,
+        ridesKpi,
       ]
     : [
+        savingsKpi,
         ...(hasChauffeur ? [ridesKpi] : []),
         ...(hasShuttle ? [shuttleCostKpi] : []),
         ...(hasShuttle && !hasChauffeur ? [shuttleTripsKpi] : []),
         ...(hasChauffeur && !hasShuttle ? [upcomingKpi] : []),
         employeesKpi,
-        savingsKpi,
       ];
 
   const shuttleSummary = {
@@ -310,6 +309,28 @@ export default function CompanyDashboardPage() {
     // Shown in the card only when the headline row is about chauffeur spend; otherwise the row has it.
     costMtd: billedChauffeur ? shuttleCost ?? null : null,
   };
+
+  // People and usage cards. Without the weekday chart, the compact departments card takes the slot beside this
+  // month's card; the rest go below the activity chart, in their usual order.
+  const adoptionCard = (
+    <AdoptionCard
+      key="adoption"
+      data={{
+        active: activeEmployees,
+        total: stats.employees.total,
+        avgRidesPerActive: hasChauffeur && activeEmployees > 0 ? c.completedThisMonth / activeEmployees : null,
+        topPassenger,
+        // The Busiest days chart shows these when it's on the page.
+        peakDay: hasChauffeur && !weekdayCounts && peakDayIndex !== null ? f.weekday(peakDayIndex) : null,
+        quietDay: hasChauffeur && !weekdayCounts && quietDayIndex !== null ? f.weekday(quietDayIndex) : null,
+        serviceMix: hasChauffeur && hasShuttle ? { chauffeur: c.completedThisMonth, shuttle: stats.shuttle.monthlyTrips } : null,
+      }}
+    />
+  );
+  const departmentsCard = <DepartmentsCard key="departments" departments={stats.employees.departmentUsage ?? []} />;
+  const shuttleCard = hasChauffeur && hasShuttle ? <ShuttleSummaryCard key="shuttle" data={shuttleSummary} /> : null;
+  const beside = showWeekday && weekdayCounts ? <WeekdayDemandCard counts={weekdayCounts} /> : departmentsCard;
+  const peopleRest = [adoptionCard, ...(showWeekday ? [departmentsCard] : []), ...(shuttleCard ? [shuttleCard] : [])];
 
   const today = new Date();
 
@@ -332,7 +353,26 @@ export default function CompanyDashboardPage() {
         {headline}
       </section>
 
-      {/* This month (money where it's billed, activity where it isn't) + what needs action */}
+      {/* Cost leakage and what needs action: the reason the dashboard exists (PRODUCT.md: savings first). */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {(hasChauffeur || hasShuttle) && (
+          <div className="min-w-0 lg:col-span-2">
+            <SavingsOpportunities data={leakage} analyticsHref={companyPath("/company/analytics")} />
+          </div>
+        )}
+        <div className={hasChauffeur || hasShuttle ? "min-w-0" : "min-w-0 lg:col-span-3"}>
+          <AttentionList items={attention} />
+        </div>
+      </div>
+
+      {/* Right now: live tracking is the most important part of daily operations. */}
+      {(hasChauffeur || hasShuttle) && (
+        <LiveMobilityCenter
+          data={stats.mobility ?? { activeRides: 0, employeesTraveling: 0, shuttlesRunning: 0, chauffeurRides: 0, upcomingBookings: 0 }}
+        />
+      )}
+
+      {/* This month, then activity over time, then people and usage. Rows fill left to right so no card sits next to an empty cell. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="min-w-0 lg:col-span-2">
           {billedChauffeur ? (
@@ -364,36 +404,27 @@ export default function CompanyDashboardPage() {
             <ShuttleSummaryCard data={shuttleSummary} />
           )}
         </div>
-        <AttentionList items={attention} />
+        <div className="min-w-0">{beside}</div>
       </div>
 
-      {/* Right now: sits between this month's money and the longer-term savings and usage */}
-      {(hasChauffeur || hasShuttle) && (
-        <LiveMobilityCenter
-          data={stats.mobility ?? { activeRides: 0, employeesTraveling: 0, shuttlesRunning: 0, chauffeurRides: 0, upcomingBookings: 0 }}
-        />
+      {showTrend && trends && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className={peopleRest.length === 1 ? "min-w-0 lg:col-span-2" : "min-w-0 lg:col-span-3"}>
+            <ActivityTrendCard data={trends} showChauffeur={hasChauffeur} showShuttle={hasShuttle} showSpend={billedChauffeur} />
+          </div>
+          {peopleRest.length === 1 && <div className="min-w-0">{peopleRest[0]}</div>}
+        </div>
       )}
 
-      {(hasChauffeur || hasShuttle) && (
-        <SavingsOpportunities data={leakage} analyticsHref={companyPath("/company/analytics")} />
+      {(peopleRest.length > 1 || (!showTrend && peopleRest.length > 0)) && (
+        <div className={`grid grid-cols-1 gap-4 ${peopleRest.length >= 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+          {peopleRest.map((card, i) => (
+            <div key={i} className="min-w-0">
+              {card}
+            </div>
+          ))}
+        </div>
       )}
-
-      {/* People and usage */}
-      <div className={`grid grid-cols-1 gap-4 ${hasChauffeur && hasShuttle ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
-        <AdoptionCard
-          data={{
-            active: activeEmployees,
-            total: stats.employees.total,
-            avgRidesPerActive: hasChauffeur && activeEmployees > 0 ? c.completedThisMonth / activeEmployees : null,
-            topPassenger,
-            peakDay: hasChauffeur && peakDayIndex !== null ? f.weekday(peakDayIndex) : null,
-            quietDay: hasChauffeur && quietDayIndex !== null ? f.weekday(quietDayIndex) : null,
-            serviceMix: hasChauffeur && hasShuttle ? { chauffeur: c.completedThisMonth, shuttle: stats.shuttle.monthlyTrips } : null,
-          }}
-        />
-        <DepartmentsCard departments={stats.employees.departmentUsage ?? []} />
-        {hasChauffeur && hasShuttle && <ShuttleSummaryCard data={shuttleSummary} />}
-      </div>
 
       <Modal isOpen={isBookingOpen} onClose={() => setIsBookingOpen(false)} title={t("createBooking")}>
         <CreateBookingForm onSuccess={() => setIsBookingOpen(false)} onCancel={() => setIsBookingOpen(false)} />

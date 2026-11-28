@@ -110,7 +110,7 @@ export function DepartmentsCard({ departments }: { departments: { name: string; 
                 <span className="shrink-0 font-medium text-fg tabular-nums">{f.pct(d.percentage)}</span>
               </div>
               <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-subtle" aria-hidden="true">
-                <div className="h-full rounded-full bg-chart-2" style={{ width: `${(d.percentage / max) * 100}%` }} />
+                <div className="h-full rounded-full bg-fg-muted" style={{ width: `${(d.percentage / max) * 100}%` }} />
               </div>
             </li>
           ))}

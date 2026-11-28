@@ -1,497 +1,318 @@
-# Traflinq Design System
-
-Design reference for mockups, new features, and marketing surfaces. Sourced from `cort-webapp` (company portal) and `traflinq-landing-page` (marketing site).
-
+---
+name: Traflinq
+description: The operating system for corporate mobility. Portals for company admins, Traflinq operations and vendors.
+colors:
+  coral: "#e2622a"
+  coral-dark: "#e8692e"
+  coral-ink: "#b34a17"
+  coral-ink-dark: "#f2905f"
+  coral-soft: "#fdeee5"
+  coral-line: "#f7c7ab"
+  action-fill: "#c24b17"
+  action-fill-hover: "#ad4314"
+  action-fill-dark: "#c44d18"
+  frame: "#ebebed"
+  frame-dark: "#161616"
+  page: "#f7f7f8"
+  page-dark: "#0b0b0b"
+  card: "#ffffff"
+  card-dark: "#141414"
+  elevated-dark: "#1c1c1c"
+  ink: "#18181b"
+  ink-dark: "#ededed"
+  ink-secondary: "rgba(24,24,27,0.74)"
+  ink-muted: "#63636b"
+  ink-muted-dark: "rgba(237,237,237,0.55)"
+  line: "rgba(24,24,27,0.09)"
+  line-strong: "rgba(24,24,27,0.15)"
+  line-dark: "rgba(255,255,255,0.08)"
+  subtle: "rgba(24,24,27,0.045)"
+  subtle-dark: "rgba(255,255,255,0.045)"
+  success-ink: "#15803d"
+  success-soft: "#edf9f1"
+  warning-ink: "#a75a00"
+  warning-soft: "#fdf6e3"
+  danger-ink: "#c8333a"
+  danger-soft: "#fdeeee"
+  series-indigo: "#6e7ff0"
+  series-indigo-dark: "#7d8cf5"
+  series-green: "#2a9f59"
+  series-green-dark: "#38b56a"
+typography:
+  page-title:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.5rem"
+    fontWeight: 600
+    lineHeight: 1.25
+    letterSpacing: "-0.015em"
+  figure:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.5rem"
+    fontWeight: 600
+    lineHeight: 1.2
+    letterSpacing: "-0.015em"
+  title:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "0.875rem"
+    fontWeight: 600
+    lineHeight: 1.43
+  body:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "0.875rem"
+    fontWeight: 400
+    lineHeight: 1.45
+  label:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "0.8125rem"
+    fontWeight: 500
+    lineHeight: 1.35
+  caption:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "0.75rem"
+    fontWeight: 400
+    lineHeight: 1.35
+  mono:
+    fontFamily: "Geist Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
+    fontSize: "0.6875rem"
+    fontWeight: 500
+rounded:
+  badge: "6px"
+  control: "8px"
+  tile: "10px"
+  card: "14px"
+  panel: "16px"
+  pill: "999px"
+spacing:
+  xs: "4px"
+  sm: "8px"
+  md: "12px"
+  lg: "16px"
+  xl: "20px"
+  2xl: "24px"
+  3xl: "32px"
+components:
+  button-primary:
+    backgroundColor: "{colors.action-fill}"
+    textColor: "#ffffff"
+    rounded: "{rounded.control}"
+    padding: "0 14px"
+    height: "36px"
+  button-primary-hover:
+    backgroundColor: "{colors.action-fill-hover}"
+  button-outline:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.control}"
+    padding: "0 14px"
+    height: "36px"
+  button-ghost:
+    textColor: "{colors.ink-secondary}"
+    rounded: "{rounded.control}"
+    padding: "0 14px"
+    height: "36px"
+  input:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.control}"
+    padding: "0 12px"
+    height: "36px"
+  card:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.card}"
+    padding: "16px 20px"
+  icon-tile:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.tile}"
+    size: "36px"
+  nav-item:
+    textColor: "{colors.ink-secondary}"
+    rounded: "{rounded.tile}"
+    height: "36px"
+  nav-item-active:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.coral-ink}"
+  badge:
+    rounded: "{rounded.badge}"
+    padding: "0 8px"
+    height: "22px"
 ---
 
-## Brand
+# Design System: Traflinq
 
+## Overview
 
+**Creative North Star: "The Control Room"**
 
+Traflinq is the screen a transport manager keeps open all day: calm, dense and trustworthy, so the one thing that needs attention is impossible to miss. Neutral zinc surfaces carry the work. A single coral accent is reserved for action, for the current place in the app, and for money found. Figures come before decoration; structure (borders, tiles, grids) does the organising, not colour or shadow.
 
-| | |
-|---|---|
-| **Product name** | Traflinq |
-| **Tagline** | The Operating System for Corporate Mobility. |
-| **Positioning** | Enterprise mobility intelligence — the architectural foundation for corporate transit |
-| **Tone** | Institutional, precise, enterprise-grade. Not playful. Think “command center,” not consumer app. |
-| **Audience** | Enterprise mobility managers, CFOs, operations leads, institutional fleet operators |
+The system is quiet and precise. Surfaces are flat with hairline borders and gain depth by tone, not by lifting. Every portal shares one component library (`app/admin/ui`) and one token set, applied to the company portal (`.company-portal`) and the Super Admin, its sign-in pages and the vendor portals (`.admin-portal`). Both themes are first-class and tuned separately, not inverted. One theme setting covers the whole app (every portal and the sign-in pages), and it defaults to dark.
 
-### Key messaging pillars
+The layout follows the HorizonHub reference the team chose: an open sidebar on a grey frame, the page in one rounded panel, the top bar inside that panel, icon tiles in card headers, grey bars with the focused bar in colour, and dark tooltips.
 
-- **Intelligence Layer** — logic, oversight, and telemetry for workforce movement at scale
-- **Command Center** — real-time visibility across routes, vehicles, and passengers
-- **Fiscal Engine** — automated cost auditing, invoice reconciliation, leakage detection
-- **Operational Excellence** — move from reactive management to predictive orchestration
+**Key Characteristics:**
+- Zinc neutrals with one coral accent; semantic colours only for state.
+- Frame + panel shell: sidebar on the frame colour, content in a rounded, bordered panel that scrolls on its own.
+- Flat, bordered surfaces; tonal layering instead of shadows.
+- Small, consistent radii: 8px controls, 10px tiles, 14px cards, 16px panels.
+- Geist throughout; tight, fixed type scale; figures with their units set smaller and muted.
+- Hugeicons Stroke Rounded for every icon, through one shared file.
 
-### Hero copy (reference)
+## Colors
 
-> **The Intelligence Layer for Managed Mobility**
->
-> Traflinq is the architectural foundation for corporate transit. We provide the logic, oversight, and telemetry required to orchestrate workforce movement at an institutional scale.
+One warm accent on cool-neutral zinc, with a validated chart series and a reserved status palette.
 
----
+### Primary
+- **Signal Coral** (`coral`, `coral-dark`): the brand accent. Active navigation icons, focus rings, the "optimised route" on the sign-in map, progress fills, the first chart series and the busiest-day highlight. Never body text on white: it is only 3.5:1 against white.
+- **Coral Ink** (`coral-ink`, `coral-ink-dark`): the accent as text: active nav labels, links, brand badges.
+- **Ember Fill** (`action-fill`, `action-fill-hover`, `action-fill-dark`): the solid fill behind white text on primary buttons, darkened from Signal Coral to reach 4.75:1 or better with white.
+- **Coral Wash** (`coral-soft`, `coral-line`): tinted backgrounds and borders for brand badges and selected states.
 
-## Color Palette
+### Secondary
+- **Route Indigo** (`series-indigo`, `series-indigo-dark`): the second chart series. On the company dashboard it always means shuttle trips (coral means chauffeur rides), so do not use it for unrelated data.
+- **Route Green** (`series-green`, `series-green-dark`): the third chart series.
 
-### Brand colors (constant across themes)
+### Neutral
+- **Frame Grey** (`frame`, `frame-dark`): the shell frame behind the sidebar and around the content panel.
+- **Panel** (`page`, `page-dark`): the content panel and page background.
+- **Card White / Card Black** (`card`, `card-dark`; `elevated-dark` for menus and dialogs in dark): card, input and tile surfaces.
+- **Ink** (`ink`, `ink-dark`), **Secondary Ink** (`ink-secondary`), **Muted Ink** (`ink-muted`, `ink-muted-dark`): primary text, secondary text, labels and captions. Muted ink still clears 4.5:1 on its surface.
+- **Hairline** (`line`, `line-dark`, `line-strong`): every border and divider.
+- **Subtle** (`subtle`, `subtle-dark`): hover fills, segmented-control tracks, empty progress segments.
 
-| Token | Hex | Usage |
-|---|---|---|
-| **Navy** | `#0c225e` | Legacy brand navy, institutional trust |
-| **Navy Dark** | `#0a1844` | Deep navy variant |
-| **Orange (Primary)** | `#fe8503` | CTAs, active states, highlights, brand accent |
-| **Orange Hover** | `#f07a00` / `#fe8503/90` | Button hover states |
+### Status
+- **Success / Warning / Danger** (`success-ink` + `success-soft`, `warning-ink` + `warning-soft`, `danger-ink` + `danger-soft`): state only (completed, due soon, overdue, over budget), always with an icon or label beside the colour. Dark-mode equivalents live in `app/globals.css` (`--tone-*`).
 
-### Semantic accents
+### Named Rules
+**The One Accent Rule.** Coral marks action, location and money found. If coral appears on something that is none of those, remove it.
 
-| Token | Hex | Usage |
-|---|---|---|
-| Success | `#10b981` | Positive metrics, optimized routes |
-| Warning | `#f59e0b` | Alerts, caution banners |
-| Danger | `#ef4444` | Errors, destructive actions, inefficiency |
-| Info | `#3b82f6` | Informational states |
+**The Entity Colour Rule.** A colour that means something on a screen keeps that meaning everywhere on it: if indigo is shuttle in the chart, it is not also a department bar.
 
-### Legacy / secondary brand (use sparingly)
-
-| Token | Hex |
-|---|---|
-| Purple | `#670e4c` |
-| Blue | `#09347d` |
-| Teal | `#6db9ca` |
-| Premium Gold | `#D4AF37` |
-
-### Route / map visualization colors
-
-| Route | Hex |
-|---|---|
-| Zone A (primary) | `#fe8503` |
-| Zone B | `#22d3ee` (cyan) |
-| Zone C | `#a78bfa` (violet) |
-| Building windows | `#FDE68A` (amber) |
-
----
-
-## Theme Modes
-
-### Dark mode (default — landing page & dashboard default)
-
-| Token | Value | Usage |
-|---|---|---|
-| Page background | `#080b14` | Main canvas |
-| Card background | `#0d1120` | Cards, sidebar, inputs |
-| Card hover | `#111827` | Hover states |
-| Subtle surface | `rgba(255,255,255,0.04)` | Hover rows, tinted areas |
-| Border default | `rgba(255,255,255,0.07)` | Card borders, dividers |
-| Border strong | `rgba(255,255,255,0.12)` | Emphasized borders |
-| Text primary | `#ffffff` | Headings, body |
-| Text secondary | `rgba(255,255,255,0.65)` | Supporting text |
-| Text muted | `rgba(255,255,255,0.35)` | Labels, captions |
-| Text placeholder | `rgba(255,255,255,0.25)` | Form placeholders |
-| Nav active bg | `rgba(254,133,3,0.10)` | Active sidebar item |
-| Nav active text | `#fe8503` | Active nav label |
-| Nav inactive | `rgba(255,255,255,0.40)` | Inactive nav items |
-
-### Light mode (dashboard toggle)
-
-| Token | Value |
-|---|---|
-| Page background | `#f4f6fb` |
-| Card background | `#ffffff` |
-| Text primary | `#0f172a` |
-| Text secondary | `rgba(15,23,42,0.65)` |
-| Text muted | `rgba(15,23,42,0.45)` |
-| Border default | `rgba(0,0,0,0.07)` |
-| Shadow card | `0 2px 12px rgba(0,0,0,0.06)` |
-
----
-
-### Company portal palette (overrides the two tables above)
-
-The company portal (`/company/*`) uses its own neutral palette with a coral-orange accent, modelled on the HorizonHub dashboard reference. It is defined once in `app/globals.css` under `html…:has(.company-portal)` and reaches every page through the tokens (`bg-card`, `text-fg`, `bg-brand`, `text-brand-ink`, `bg-chart-1`…). Never hardcode these hexes in components; the only exceptions are map and chart layers, which need literal colours (`analytics/cost/charts.tsx`, route map pins).
-
-| Token | Light | Dark | Usage |
-|---|---|---|---|
-| Brand (`--cort-orange`) | `#e2622a` | `#e8692e` | Primary buttons, active tab underline, focus ring, chart series 1 |
-| Brand hover | `#cc5520` | `#f07a43` | Primary button hover |
-| Brand ink (`--tone-brand-ink`) | `#b34a17` | `#f2905f` | Orange text: active nav label, brand badges |
-| Brand soft | `#fdeee5` | `rgba(232,105,46,.16)` | Brand badge fill |
-| Frame (`--bg-sidebar`) | `#ebebed` | `#161616` | Sidebar and the gutter around the content panel |
-| Content panel (`--bg-page`) | `#f7f7f8` | `#0b0b0b` | Rounded inset panel (`rounded-2xl`, 1px border, 8px gutter) on desktop; full-bleed on mobile |
-| Card / input | `#ffffff` | `#141414` / `#101010` | Surfaces |
-| Elevated (popovers) | `#ffffff` | `#1c1c1c` | Menus, tooltips, dialogs |
-| Border | `rgba(24,24,27,.09)` | `rgba(255,255,255,.08)` | Hairlines |
-| Text primary | `#18181b` | `#ededed` | Headings, values |
-| Text muted | `#63636b` | `rgba(237,237,237,.55)` | Labels, captions (≥ 4.5:1 on cards, panel and frame) |
-| Nav active | white pill + hairline ring | brand tint `rgba(232,105,46,.16)` | `bg-nav-active text-nav-active-fg` |
-| Success / warning / danger / info ink | `#15803d` / `#a75a00` / `#c8333a` / `#4453c9` | `#5ccf88` / `#f0c158` / `#f2777b` / `#a3adfa` | Status text and badges (always with a label or icon) |
-
-**Chart series** (fixed order, validated with the dataviz validator: colour-blind ΔE ≥ 13.8, every series ≥ 3:1 on its card):
-
-| # | Light | Dark |
-|---|---|---|
-| 1 coral | `#e2622a` | `#e8692e` |
-| 2 periwinkle | `#6e7ff0` | `#7d8cf5` |
-| 3 green | `#2a9f59` | `#38b56a` |
-| 4 purple | `#9b4fc4` | `#b072e0` |
-| 5 amber | `#c08400` | `#c08e12` |
-| 6 pink | `#de5c97` | `#e26a9f` |
-
-Contrast: all text pairs pass WCAG AA (4.5:1). White on the brand fill is 3.5:1 (light) / 3.2:1 (dark), which meets the 3:1 rule for large text and UI components only; keep primary button labels ≥ 14px medium and never put small text on the brand fill.
+**The Status Is Reserved Rule.** Green, amber and red are never chart series or decoration; they report state and come with words.
 
 ## Typography
 
-### Font families
+**Display Font:** Geist (with ui-sans-serif, system-ui)
+**Body Font:** Geist (one family for the whole product)
+**Label/Mono Font:** Geist Mono, only for keyboard hints and codes
+**Arabic:** Noto Sans Arabic, applied in RTL
 
-| Role | Font | Fallback |
-|---|---|---|
-| Sans (UI) | **Geist** | system-ui, sans-serif |
-| Mono (code/data) | **Geist Mono** | monospace |
-| Arabic (RTL) | **Noto Sans Arabic** | Geist, system-ui |
+**Character:** One neutral, well-drawn sans carries everything, from page titles to table cells. Hierarchy comes from weight and size in small steps, never from a second display face.
 
-### Type scale (landing page)
+### Hierarchy
+- **Page title** (600, 1.25rem on phones and 1.5rem from `sm`, -0.015em): one per page, in the page header.
+- **Figure** (600, 1.5rem, -0.015em): headline numbers in KPI tiles and chart totals. Trailing units ("M", "%", "km/L") render at 0.6em in muted ink (`Figure` component).
+- **Title** (600, 0.875rem): card titles.
+- **Body** (400, 0.875rem, 1.45): table cells, list rows, form text.
+- **Label** (500, 0.8125rem): KPI labels, form labels, nav items (0.875rem).
+- **Caption** (400, 0.75rem): card descriptions, hints, deltas, axis ticks.
 
-| Element | Size | Weight | Notes |
-|---|---|---|---|
-| Hero H1 | `2.5rem` → `4.25rem` | Bold (700) | `tracking-tight`, `leading-[1.05]` |
-| Section H2 | `2.25rem` → `3rem` | Bold | White on dark |
-| Body | `1rem` / `1.125rem` | Regular | `text-white/45` on dark backgrounds |
-| Eyebrow / badge | `0.75rem` | Medium | `tracking-widest uppercase` |
-| Nav links | `0.875rem` | Medium | `tracking-wide` |
-| Sidebar nav | `0.875rem` | Medium | Group labels: `11px bold uppercase` |
+### Named Rules
+**The Units Step Back Rule.** In a headline figure, the number is the information; its unit is smaller and muted.
 
-### Text color hierarchy (dark)
+**The Sentence Case Rule.** Labels, group names, buttons and titles are sentence case. No uppercase eyebrows above headings.
 
-1. **Primary** — `#ffffff` — headings, key data
-2. **Secondary** — `white/65` — descriptions, metadata
-3. **Muted** — `white/35–45` — body copy, supporting text
-4. **Accent** — `#fe8503` — highlights, active states, icons
+## Layout
 
----
+The desktop shell is a frame with one panel. The sidebar (240px open, 64px collapsed, remembered per browser) sits directly on the frame colour; the content is a single panel with a 16px radius and a hairline border, inset 8px from the frame, and on desktop that panel is the scroll container, so the sidebar and the 64px top bar stay put. On phones the sidebar becomes a drawer, the panel loses its inset and border, and the window scrolls.
 
-## Spacing & Layout
+Page content is capped at 1400px (company) or 1600px (Super Admin) with 16px side padding on phones and 24-32px on desktop. Sections stack with 24px gaps; cards inside a section sit 16px apart.
 
-### Containers
+Dashboards use a 3-column grid from `lg`: wide cards span 2 columns beside a 1-column companion, rows fill left to right, and no card sits next to an empty cell. Order follows the product's priorities: headline figures, then savings and what needs attention, then live operations, then this month, trends, and people.
 
-- **Max width**: `max-w-7xl` (1280px) for marketing sections
-- **Horizontal padding**: `px-6 lg:px-8`
-- **Section vertical padding**: `py-24 sm:py-32` (landing), `py-4 md:py-8` (dashboard main)
+Sign-in pages split the screen: a route-map panel (46%, max 672px) and the form, with a round theme switch in the top corner; on phones a 160px band of the map sits above the form.
 
-### Grid patterns
+## Elevation & Depth
 
-- **Landing hero**: 2-column (`lg:grid-cols-2`) — copy left, interactive map right
-- **Problem section**: 2-column — copy + SVG visualization
-- **Dashboard**: Fixed sidebar + fluid main content area
+Flat at rest. Depth comes from tonal layering (frame, panel, card, elevated) and hairline borders, not shadows. The only resting shadow is a 1px whisper on light-theme cards and controls; dark cards have none.
 
-### Dashboard shell
+### Shadow Vocabulary
+- **Card rest** (`box-shadow: 0 1px 2px rgba(24,24,27,0.04)`): light-theme cards and inputs.
+- **Card hover** (`box-shadow: 0 4px 12px rgba(24,24,27,0.08)`): clickable cards only, on hover.
+- **Active nav chip** (`box-shadow: 0 1px 2px rgba(24,24,27,0.06), 0 0 0 1px rgba(24,24,27,0.06)`; dark `0 0 0 1px rgba(255,255,255,0.08)`): the raised chip under the current page.
+- **Overlay** (`box-shadow: 0 24px 48px rgba(24,24,27,0.16)`; dark `0 24px 64px rgba(0,0,0,0.7)`): dialogs, drawers, menus and chart tooltips.
 
-- **Sidebar width**: `w-72` (expanded) / `w-20` (collapsed)
-- **Main content**: `max-w-full px-4 md:px-8`; page body `mx-auto max-w-[1400px] flex flex-col gap-6`
-- **Mobile header**: `h-16` sticky top bar
+### Named Rules
+**The Flat-By-Default Rule.** Surfaces are flat at rest. A shadow appears only for something floating (overlays) or responding to the pointer (clickable cards).
 
----
+## Shapes
 
-## Border Radius
-
-| Element | Radius |
-|---|---|
-| Buttons | `rounded-md` (6px) / `rounded-lg` (8px) |
-| Cards / panels (dashboard) | `rounded-xl` (12px) |
-| Cards (landing) | `rounded-2xl` (16px) |
-| Badges (dashboard) | `rounded-md` (kit `Badge`) · pills `rounded-full` on landing only |
-| Icon containers | `rounded-xl` (12px) |
-| Alerts | `rounded-xl` / `rounded-2xl` |
-| shadcn base radius | `0.625rem` (10px) |
-
----
-
-## Shadows & Depth
-
-| Token | Value | Usage |
-|---|---|---|
-| Card (company portal) | `none` (dark) / `0 1px 2px rgba(15,23,42,0.05)` (light) | Flat resting cards — the border carries the edge |
-| Card hover (company portal) | `--shadow-card-hover` | Only on clickable cards; no translate lift |
-| Modal (dark) | `0 24px 48px rgba(0,0,0,0.6)` | Dialogs, modals |
-| CTA button (landing only) | `shadow-lg shadow-[#fe8503]/20` | Marketing glow — not in the product UI |
-
-### Background effects (landing)
-
-- **Grid overlay**: `linear-gradient` 1px lines at `rgba(255,255,255,0.025)`, `4rem` grid
-- **Orange glow**: `bg-[#fe8503]/6` blurred circle, `blur-[100px–140px]`
-- **Section borders**: `border-t border-white/[0.04]` — subtle section dividers
-- **Glass panels**: `bg-white/[0.02]` with `border-white/[0.06]`
-
----
+Gently rounded, never pill-shaped except for avatars, status dots, round top-bar buttons and small tags. Radii step up with the size of the surface: badges 6px, controls and buttons 8px, icon tiles and nav items 10px, cards 14px, the content panel and dialogs 16px. Borders are always 1px hairlines; there are no accent stripes down the side of a card. Chart bars have 4px rounded data ends and square baselines, with a 2px surface gap between stacked segments.
 
 ## Components
 
 ### Buttons
+- **Character:** compact and plain; the label does the work.
+- **Shape:** gently rounded (8px); heights 32px (`sm`), 36px (default), 40px (`lg`).
+- **Primary:** Ember Fill with white label; hover darkens one step.
+- **Outline:** card surface with hairline border; hover fills with Subtle.
+- **Ghost:** no surface; secondary ink that darkens on hover.
+- **Danger / danger outline:** destructive actions only.
+- **Focus:** a 2px coral ring offset from the surface, keyboard only.
+- **Round icon buttons** (top bars): 36px circles with a hairline border on the card surface.
 
-**Primary (CTA)**
-```
-bg-[#fe8503] text-white hover:bg-[#fe8503]/90
-px-8 shadow-lg shadow-[#fe8503]/20
-text-sm tracking-wide
-```
+### Chips / Badges
+- **Style:** 6px radius, 22px tall, tinted background with matching ink and border per tone (neutral, brand, success, warning, danger, info, purple); optional leading dot.
+- **Use:** status and priority, always with words.
 
-**Ghost / secondary**
-```
-text-white/50 hover:text-white hover:bg-white/5
-```
+### Cards / Containers
+- **Corner Style:** 14px.
+- **Background:** Card White / Card Black on the panel.
+- **Shadow Strategy:** Card rest in light, none in dark (see Elevation).
+- **Border:** 1px hairline.
+- **Header:** optional 36px icon tile (10px radius, hairline border, muted icon), then title and caption description; actions (bordered dropdowns, segmented controls) on the right; a hairline under the header.
+- **Footer:** an optional "View …" link row under a hairline.
+- **Internal Padding:** 16-20px.
 
-**Sizes**: `h-9` (default), `h-10` (lg), icon `size-9`
+### Inputs / Fields
+- **Style:** 36px tall, 8px radius, card surface, hairline input border that strengthens on hover.
+- **Focus:** border turns coral with a soft coral ring.
+- **Error / Disabled:** danger border and ring; disabled at half opacity.
 
-### Badges / eyebrows (landing page)
+### Navigation
+- **Sidebar:** brand mark and wordmark with a collapse button; sentence-case group labels in muted caption type; 36px items with an 18px icon in a 40px slot. The active item is a raised card-coloured chip with a coral icon and Coral Ink label. Collapsed to the rail, the logo becomes the expand button on hover.
+- **Top bar:** inside the panel, 64px, translucent panel colour with blur; left holds search (Super Admin) or the company name (company); right holds round icon buttons and an avatar menu with name and role.
+- **Mobile:** sidebar in a drawer; the top bar adds a menu button and the wordmark.
 
-```
-inline-flex items-center gap-2 rounded-full
-border border-[#fe8503]/20 bg-[#fe8503]/5
-px-4 py-1.5 text-xs text-[#fe8503]/80
-tracking-widest uppercase font-medium
-```
+### Charts
+- **Bars:** neutral grey, with the focused or meaningful bar in colour (busiest day in coral; hover dims the rest to 35%).
+- **Series:** fixed order coral, indigo, green, purple, amber, pink; never cycled. Totals beside series swatches double as the legend.
+- **Grid:** dashed recessive lines; axes without lines; 11-12px muted ticks.
+- **Tooltip:** inverted against the page (near-black in light, near-white in dark), 10px radius, a 3px colour marker per series, value above its label.
+- **Access:** every chart ships a visually hidden data table.
 
-In the product UI use the kit `Badge` (`rounded-md`, sentence case, optional static `dot`) — no pulsing dots.
+### Segmented Progress (signature)
+A row of thin 3px-gapped segments: solid coral ramping up in strength to the current value, light coral for a projection, a dark segment for a target such as a budget, grey for the rest.
 
-### Cards (dashboard)
+### Sign-in Route Map (signature)
+A night-time city map drawn in SVG: the replaced route as a grey dashed line full of detours, the optimised route in coral with pickup stops and the office pin, and the branded bird's-eye shuttle (`public/login/bus_birdeye.webp`) moving slowly along the optimised route (still under reduced motion). The map is a night scene in both themes; only the form side follows the theme.
 
-Use `Card` from `app/company/components/Card.tsx` (or the kit `Card` in `app/admin/ui`):
+## Do's and Don'ts
 
-```
-rounded-xl border border-line bg-card p-4 sm:p-5 text-fg shadow-[var(--shadow-card)]
-```
+### Do:
+- **Do** use tokens from `app/globals.css` through the Tailwind theme (`bg-card`, `text-fg-muted`, `border-line`, `bg-brand`), never raw hex in components.
+- **Do** import every icon from `app/components/icons.tsx` (Hugeicons Stroke Rounded, stroke 2).
+- **Do** put an icon tile in card headers that introduce a section, and keep card corners at 14px.
+- **Do** show money as full PKR amounts and set figure units smaller and muted.
+- **Do** design both themes. Dark is the default everywhere, and one setting (`app/lib/theme-store.ts`) controls every portal and the sign-in pages.
+- **Do** give every chart a hidden data table and every status colour a word.
 
-No accent stripes, no faded background icons, no gradients or glass inside the product UI.
-
-### Cards (landing / glass)
-
-```
-rounded-2xl border border-white/[0.06]
-bg-white/[0.02] p-8
-```
-
-### Icon containers (feature pillars)
-
-```
-h-11 w-11 rounded-xl
-bg-primary/10 border border-primary/20
-```
-
-### Navigation (sidebar)
-
-- Active item: `bg-[var(--nav-active-bg)]` + `--nav-active-text`; no glow
-- Inactive: muted text, hover brightens to white
-- Icons: Lucide, `size={20}`, `strokeWidth={1.5}` inactive / `2` active
-
-### Navbar (landing)
-
-- Fixed top, transparent → `bg-[#080b14]/95 backdrop-blur-md` on scroll
-- Border: `border-white/10` when scrolled
-- Logo height: `h-10 sm:h-12`
-- Mobile menu button: `rounded-full w-10 h-10 bg-white/5 border border-white/10`
-
-### Alerts
-
-- **Warning**: tinted `accent-warning` at 10% bg, 25% border
-- **Brand**: tinted `cort-orange` at 10% bg, 25% border
-
-### Forms
-
-- Inputs use `--bg-input` background, `--border-input` border
-- Focus: `--bg-input-focus`
-- Checkbox/radio accent: `#fe8503`
+### Don't:
+- **Don't** use navy or blue as a surface or brand colour; the old navy (`--cort-navy`) is legacy and survives only on the root `/` page.
+- **Don't** add glass panels, blurred colour glows or gradient fills inside the product UI.
+- **Don't** put uppercase eyebrows or kickers above headings.
+- **Don't** draw a coloured stripe down one side of a card.
+- **Don't** reuse status colours (green, amber, red) as chart series or decoration.
+- **Don't** add shadows to resting surfaces beyond the 1px card whisper.
 
 ---
 
-### Detail modals
+## Appendix: marketing site (traflinq-landing-page)
 
-Read-only detail views (trip, booking, shuttle run) use `app/company/components/DetailView.tsx` inside the shared `Modal` (`bookings/components/Modal.tsx`):
+Carried over from the previous version of this file. It describes the separate `traflinq-landing-page` repository and was **not re-checked against code** in this refresh; verify it there before relying on it.
 
-- **Header**: short title ("Trip #2719"), one badge beside it (status, service or direction), one muted line under it (date · city or route). No "Details" in the title.
-- **Body**: flat `DetailSection`s divided by hairlines. Never put bordered boxes or tinted panels inside the modal.
-- **Facts first**: a `FactRow` of 3–4 headline values (cost, duration, distance; boarded, absent…).
-- **Properties**: `DetailRows` / `DetailRow` with the label on the start side; secondary info (employee ID, plate, phone) goes in `hint`, not on extra lines.
-- **Routes and stops**: `RouteSteps` (filled dot = start, ring = end).
-- **Money**: `Ledger`. The visible lines must add up to the total; anything unexplained (sales tax, adjustments) gets its own line. Components of a line (overtime inside the service charge) are `sub` lines and are not added again.
-- **Missing data**: `NotRecorded`, never an empty value, `0 km` or `N/A`. Durations go through `useDurationFormat` ("9 min", "2 h 40 min"), never decimal hours.
-- **Unbilled trips** (own pool cars): say "Not billed" and list only what the driver logged; never show a breakdown of zeros.
-- No footer "Close" button; the header X and Esc close the modal.
-- The shared `Modal` moves keyboard focus into the dialog, keeps Tab inside it, locks page scroll and returns focus to the opener on close. Don't build modals by hand; extend this one.
-- Missing values read as quiet text ("Not recorded"), not a bold "—".
-
-## Motion & Animation
-
-### Easing
-
-- Primary: `cubic-bezier(0.22, 0.61, 0.36, 1)` — smooth, premium feel
-- Standard: `ease-out`
-
-### Patterns
-
-| Animation | Duration | Usage |
-|---|---|---|
-| Fade in | 0.2–0.3s | Overlays, modals |
-| Fade slide up | 0.4–0.5s | Page transitions, mobile nav items |
-| Modal from button | 0.38s | Popovers anchored to triggers |
-| Slide in right | 0.35s | Slide-over panels |
-| Hero entrance | 0.7–0.9s | Landing page copy (Framer Motion) |
-
-### Scroll animations (landing)
-
-- `whileInView` with `viewport: { once: true, margin: "-100px" }`
-- Staggered delays: `0.1 + i * 0.12` for list items
-
----
-
-## Icons & Assets
-
-### Icon library
-
-**Lucide React** — stroke icons, consistent with enterprise aesthetic
-
-Common icons: `LayoutDashboard`, `Users`, `Map`, `Calendar`, `Car`, `BarChart2`, `TrendingDown`, `Database`, `DollarSign`, `ArrowRight`, `ChevronRight`
-
-### Logo assets
-
-| File | Usage |
-|---|---|
-| `traflinq_dark_no_tagline-Photoroom.png` | Dark backgrounds (landing, dark sidebar) |
-| `traflinq_light_no_tagline-Photoroom.png` | Light backgrounds (light mode sidebar) |
-| `traflinq-logo-big.svg` | Vector logo |
-| `favicon.png` | Browser tab |
-
-### Preview images
-
-- `command-center-preview.png`
-- `fleet-data-preview.png`
-- `ai-insights-preview.png`
-- `mobile-mockup.jpeg`
-
----
-
-## Landing Page Structure
-
-```
-Navbar (fixed, blur on scroll)
-├── Hero (full viewport, 2-col, animated route map)
-├── Problem ("Corporate mobility is broken")
-├── Route Optimization
-├── About ("Built for institutional scale")
-├── Team (Leadership)
-├── Operational Success Reports
-├── CTA ("Stop managing logistics and start orchestrating movement")
-└── Footer
-```
-
-### Section pattern
-
-1. **Eyebrow** — `text-xs tracking-widest uppercase text-primary/60`
-2. **Headline** — `text-4xl sm:text-5xl font-bold text-white`
-3. **Description** — `text-lg text-white/45 leading-8`
-4. **Content** — pillars, visuals, or CTAs
-
-### Interactive hero map
-
-- Toggle: "Before" (inefficient detours) vs "Traflinq" (optimized direct routes)
-- Isometric city SVG with animated cars on paths
-- HQ hub at center, 3 zones (A, B, C) with color-coded routes
-- Status badges: red "LONGER ROUTES" vs green "ROUTES OPTIMIZED"
-
----
-
-## Dashboard Structure
-
-### Portal types
-
-| Portal | Path | Users |
-|---|---|---|
-| Company | `/company` | Enterprise mobility managers |
-| Vendor | `/vendor` | Transport vendors |
-| Admin | `/admin` | Internal ops team |
-
-### Company dashboard nav groups
-
-- **Dashboard** — overview metrics, KPIs, charts
-- **Employees** — workforce roster
-- **Routes** — shuttle route management
-- **Bookings** — pool/chauffeur bookings
-- **Fleet** — vehicle management
-- **Reports** — shuttle/chauffeur analytics
-- **Billing** — invoices, cost tracking
-
-### Dashboard UI patterns
-
-- **KPI tiles** — label, full-precision value (`tabular-nums`), one line of context; deltas are signed with an arrow, never colour alone
-- **Bullet chart** for spend vs budget (actual, projected month end, budget marker); **ranked table** for savings / cost-leakage opportunities; **stacked bars** instead of donuts
-- **Needs attention** list — every row links to where the item is resolved
-- **Data tables** — `TABLE_*` classes in `app/company/components/PageLayout.tsx` or kit `DataTable`; sentence-case `text-xs` headers, numeric columns end-aligned
-- **Statuses** — kit `Badge` / `StatusBadge` with a dot + text
-- **Theme toggle** — Sun/Moon icon in sidebar footer
-- **RTL support** — Arabic locale with Noto Sans Arabic, mirrored layouts
-
----
-
-## Internationalization
-
-- **Locales**: English (`en`), Arabic (`ar`)
-- **Saudi routes**: `/sa/*` prefix for KSA-specific content
-- **RTL**: `html[dir="rtl"]` switches font and flips directional icons
-- **LTR content class**: `.ltr-content` for phone numbers, emails, URLs in RTL context
-
----
-
-## Tech Stack (for reference)
-
-| | Landing Page | Dashboard |
-|---|---|---|
-| Framework | Next.js 16 | Next.js 16 |
-| Styling | Tailwind CSS v4 | Tailwind CSS v4 |
-| Components | shadcn/ui (Radix) | Custom + some shadcn |
-| Animation | Framer Motion | CSS keyframes |
-| Charts | — | Recharts |
-| Maps | — | Leaflet, Google Maps |
-| Toasts | Sonner | Sonner |
-
----
-
-## Design Principles
-
-1. **Dark-first** — The brand lives on deep navy-black (`#080b14`). Light mode is supported but secondary.
-2. **Orange is the action color** — One accent. Don't introduce competing primaries.
-3. **Calm surfaces** — 12px card radius, 1px borders, flat resting cards. Depth only for overlays (menus, dialogs).
-4. **Honest numbers** — Never show placeholder, random or default values as data. Missing data shows "—" or an empty state that says why. Full PKR amounts (no "k") outside chart axes.
-5. **Institutional copy** — "Orchestrate," "telemetry," "fiscal leakage," "command center." Avoid casual language.
-6. **Data-forward** — Charts, maps, and live metrics are first-class. Empty states should feel operational, not decorative.
-7. **Motion with purpose** — Motion only for state changes (menus, drawers, expanding rows). No staggered page entrances, pulsing decoration or hover lifts.
-8. **Readable type** — Weights 400/500/600, sentence-case labels, nothing under 12px, muted text at ≥4.5:1 contrast (tokens in `globals.css`, scoped by `.company-portal`).
-
----
-
-## Quick Reference for Mockups
-
-### Figma / design tool tokens
-
-```
-Primary:       #fe8503
-Background:    #080b14
-Surface:       #0d1120
-Border:        rgba(255,255,255,0.07)
-Text:          #ffffff
-Text muted:    rgba(255,255,255,0.54)
-Success:       #10b981
-Danger:        #ef4444
-Font:          Geist
-Card radius:   12px
-Button radius: 8px
-```
-
-### Sample component specs
-
-**Primary button (product)**: 36px height, 14px horizontal padding, `#fe8503` fill, white text, 8px radius, no glow (landing CTA may glow)
-
-**Dashboard card**: `#0d1120` fill, 1px `rgba(255,255,255,0.07)` border, 12px radius, 16–20px padding, no shadow
-
-**Sidebar item (active)**: `rgba(254,133,3,0.10)` background, `#fe8503` text
-
-**Section eyebrow (landing only)**: 12px, uppercase, wide tracking, `#fe8503` at 60% opacity. The product UI uses sentence-case `text-xs` labels instead.
-
-**Product page headers** have no label above the title: the title and one description line carry the page (the sidebar already names the section). `PageHeader`'s `label` prop is kept for compatibility but is not rendered. Never use a row of same-size icon-and-heading cards as page structure; a list with one row per item reads faster.
+- **Structure:** fixed navbar with blur on scroll; hero (full viewport, two columns, animated route map); Problem ("Corporate mobility is broken"); Route Optimization; About ("Built for institutional scale"); Team; Operational Success Reports; CTA ("Stop managing logistics and start orchestrating movement"); footer.
+- **Section pattern:** uppercase eyebrow (`text-xs tracking-widest uppercase`), headline (`text-4xl sm:text-5xl font-bold`), description (`text-lg leading-8` at 45% white), then content.
+- **Interactive hero map:** toggles "Before" (detours) and "Traflinq" (optimised routes); isometric city SVG with animated cars; HQ hub with zones A, B and C in orange `#fe8503`, cyan `#22d3ee` and violet `#a78bfa`; status badges "LONGER ROUTES" and "ROUTES OPTIMIZED".
+- **Background effects:** 1px grid overlay at 2.5% white on a 4rem grid; blurred orange glow `#fe8503` at 6%; section dividers at 4% white; glass panels at 2% white with 6% white borders. These are marketing-only and do not apply to the product UI.

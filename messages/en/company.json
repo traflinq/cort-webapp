@@ -47,7 +47,9 @@
       "passwordLabel": "Password",
       "brandEyebrow": "Company Portal",
       "brandHeadline": "Your corporate mobility, in one place.",
-      "brandBody": "Routes, bookings, fleet and invoices for your organisation."
+      "brandBody": "Routes, bookings, fleet and invoices for your organisation.",
+      "brandBefore": "Before",
+      "brandAfter": "After"
     },
     "error": {
       "title": "Something went wrong",
@@ -81,8 +83,6 @@
       "noPendingActions": "No pending actions",
       "totalSavings": "Total Savings",
       "vsVendor": "vs vendor",
-      "savedVsVendor": "Saved this month vs previous vendor",
-      "overVsVendor": "Over previous vendor this month",
       "peopleAddedToRoutes": "People added to routes",
       "topRouteAdded": "Route #{id} — {name} · {count} added",
       "peopleRemovedThisMonth": "{count} removed this month",
@@ -1987,9 +1987,6 @@
         "notSet": "Not set",
         "budgetUsedSub": "of {budget}",
         "setBudget": "Set a monthly budget",
-        "vendorSavings": "Saved vs previous vendor",
-        "vendorSavingsSub": "This month",
-        "vendorOver": "Above previous vendor this month",
         "identified": "Savings identified",
         "identifiedSub": "{count, plural, one {# opportunity} other {# opportunities}} · {high} high priority",
         "identifiedEmpty": "Not enough trip data yet",
@@ -2117,6 +2114,36 @@
         "unassignedSub": "Bookings to assign",
         "allTime": "Rides all time",
         "allTimeSub": "Since you started"
+      },
+      "trend": {
+        "title": "Activity",
+        "descriptionBoth": "Chauffeur rides completed and shuttle trips run",
+        "descriptionChauffeur": "Chauffeur rides completed",
+        "descriptionShuttle": "Shuttle trips run (started or completed)",
+        "rangeLabel": "Time range",
+        "range6m": "6 months",
+        "range30d": "30 days",
+        "chauffeur": "Chauffeur rides",
+        "shuttle": "Shuttle trips",
+        "spend": "Billed spend",
+        "thisMonth": "This month so far",
+        "today": "Today so far",
+        "period": "Period",
+        "empty6m": "No trips in the last 6 months",
+        "empty30d": "No trips in the last 30 days",
+        "emptyHint": "Completed rides and shuttle trips will appear here."
+      },
+      "weekday": {
+        "title": "Busiest days",
+        "description": "Chauffeur bookings by weekday, all time",
+        "peak": "Busiest:",
+        "quiet": "Quietest:",
+        "bookings": "{count, plural, one {# booking} other {# bookings}}",
+        "share": "{percent} of bookings",
+        "day": "Day",
+        "bookingsColumn": "Bookings",
+        "empty": "No bookings yet",
+        "emptyHint": "Once rides are booked you'll see which days are busiest."
       }
     },
     "detail": {

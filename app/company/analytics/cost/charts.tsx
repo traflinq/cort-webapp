@@ -16,8 +16,8 @@ export function useChartColors() {
   return useMemo(
     () =>
       theme === "dark"
-        ? { series: DARK, grid: "rgba(255,255,255,0.06)", axis: "rgba(237,237,237,0.5)", tooltipBg: "#f4f4f5", tooltipBorder: "rgba(24,24,27,0.10)", tooltipText: "#18181b", text: "#ededed", muted: "#71717a" }
-        : { series: LIGHT, grid: "rgba(24,24,27,0.07)", axis: "rgba(24,24,27,0.5)", tooltipBg: "#18181b", tooltipBorder: "rgba(255,255,255,0.08)", tooltipText: "#fafafa", text: "#18181b", muted: "#a1a1aa" },
+        ? { series: DARK, grid: "rgba(255,255,255,0.06)", axis: "rgba(237,237,237,0.5)", tooltipBg: "#f4f4f5", tooltipBorder: "rgba(24,24,27,0.10)", tooltipText: "#18181b", text: "#ededed", muted: "#71717a", tooltipMuted: "rgba(24,24,27,0.62)", neutral: "rgba(255,255,255,0.14)", surface: "#141414" }
+        : { series: LIGHT, grid: "rgba(24,24,27,0.07)", axis: "rgba(24,24,27,0.5)", tooltipBg: "#18181b", tooltipBorder: "rgba(255,255,255,0.08)", tooltipText: "#fafafa", text: "#18181b", muted: "#a1a1aa", tooltipMuted: "rgba(250,250,250,0.62)", neutral: "rgba(24,24,27,0.12)", surface: "#ffffff" },
     [theme],
   );
 }
@@ -35,25 +35,29 @@ function useTooltipStyle() {
  * The chart's numbers as a table for screen readers (the visual chart only reveals values on hover).
  * Recharts' accessibilityLayer keeps the chart itself keyboard-navigable.
  */
-function ChartDataTable({ caption, columns, rows }: { caption: string; columns: string[]; rows: (string | number)[][] }) {
+export function ChartDataTable({ caption, columns, rows }: { caption: string; columns: string[]; rows: (string | number)[][] }) {
+  // Visually hidden on a wrapper, not the table: a table ignores the 1px width of `sr-only` and its
+  // full width would still widen the page on phones.
   return (
-    <table className="sr-only">
-      <caption>{caption}</caption>
-      <thead>
-        <tr>
-          {columns.map((col) => (
-            <th key={col} scope="col">{col}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r, i) => (
-          <tr key={i}>
-            {r.map((cell, j) => (j === 0 ? <th key={j} scope="row">{cell}</th> : <td key={j}>{cell}</td>))}
+    <div className="sr-only">
+      <table>
+        <caption>{caption}</caption>
+        <thead>
+          <tr>
+            {columns.map((col) => (
+              <th key={col} scope="col">{col}</th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>
+              {r.map((cell, j) => (j === 0 ? <th key={j} scope="row">{cell}</th> : <td key={j}>{cell}</td>))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
