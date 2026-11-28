@@ -86,12 +86,8 @@ export function ShuttleVehicleEfficiency() {
   return (
     <Card className="flex flex-col">
       <CardHeader
-        title={
-          <span className="inline-flex items-center gap-2">
-            <Bus className="size-4 text-fg-muted" />
-            Shuttle efficiency by vehicle
-          </span>
-        }
+        icon={<Bus />}
+        title="Shuttle efficiency by vehicle"
         description="Seat occupancy and fuel variance per car, split into morning (AM) and evening (PM) trips. Red: fuel over +10% or occupancy under 50%."
         actions={<DateRangePicker label="Efficiency period" size="sm" align="end" value={range} onChange={(next) => next && setRange(next)} />}
       />

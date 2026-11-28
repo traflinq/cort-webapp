@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Company-portal surface. Flat by default: 1px border, 12px radius, no resting shadow.
+ * Company-portal surface. Flat by default: 1px border, 14px radius, no resting shadow.
  * `withLeftBorder` is accepted for older call sites but no longer draws an accent stripe.
  */
 export function Card({
@@ -15,7 +15,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "h-full min-w-0 rounded-xl border border-line bg-card p-4 text-fg shadow-[var(--shadow-card)] sm:p-5",
+        "h-full min-w-0 rounded-[14px] border border-line bg-card p-4 text-fg shadow-[var(--shadow-card)] sm:p-5",
         className,
       )}
       {...props}

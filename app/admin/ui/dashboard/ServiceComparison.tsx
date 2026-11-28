@@ -1,5 +1,6 @@
 "use client";
 
+import { Split } from "@/app/components/icons";
 import { Card, CardFooter, CardHeader, DataTable, type DataTableColumn } from "..";
 import type { SuperAdminDashboardStats } from "../../../lib/types/admin-dashboard";
 import { formatCurrency, formatNumber } from "../../lib/format";
@@ -59,7 +60,7 @@ export function ServiceComparison({ stats }: { stats: SuperAdminDashboardStats }
   ];
   return (
     <Card className="flex h-full flex-col">
-      <CardHeader title="By service" description="Chauffeur and shuttle economics side by side" />
+      <CardHeader icon={<Split />} title="By service" description="Chauffeur and shuttle economics side by side" />
       <div className="flex-1">
         <DataTable<Row>
           caption="Revenue, cost and profit by service"

@@ -135,12 +135,8 @@ export function SuperAdminAiBriefing({ startDate, endDate }: Props) {
     <Card>
       <CardHeader
         flush={!hasRun && !generating}
-        title={
-          <span className="inline-flex items-center gap-2">
-            {mode === "finance" ? <Landmark className="size-4 text-brand-ink" aria-hidden="true" /> : <Sparkles className="size-4 text-brand-ink" aria-hidden="true" />}
-            {mode === "finance" ? "AI financial brief" : "AI operations summary"}
-          </span>
-        }
+        icon={mode === "finance" ? <Landmark className="text-brand-ink" /> : <Sparkles className="text-brand-ink" />}
+        title={mode === "finance" ? "AI financial brief" : "AI operations summary"}
         description={
           mode === "finance"
             ? "Interim CFO read of P&L, cash and unit economics for the selected period."

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowUpRight, CheckCircle2, ChevronDown, Fuel, MessageSquare, Users, Wrench } from "@/app/components/icons";
+import { ArrowUpRight, CheckCircle2, ChevronDown, Fuel, MessageSquare, Receipt, Users, Wrench } from "@/app/components/icons";
 import type { ComponentType } from "react";
 import type { BreakdownItem, FuelMonthComparison, OverdueInvoice, ProblemReport } from "../../../lib/types/admin-dashboard";
 import { Badge, Button, Card, CardHeader, DataTable, StatusBadge, type DataTableColumn } from "..";
@@ -45,12 +45,8 @@ function RankingTable({
   return (
     <Card className="flex flex-col">
       <CardHeader
-        title={
-          <span className="inline-flex items-center gap-2">
-            <Icon className="size-4 text-fg-muted" />
-            {title}
-          </span>
-        }
+        icon={<Icon />}
+        title={title}
         description={description}
       />
       <div className="max-h-80 overflow-y-auto">
@@ -71,12 +67,8 @@ function FuelMonthTable({ data }: { data?: FuelMonthComparison }) {
   return (
     <Card className="flex flex-col">
       <CardHeader
-        title={
-          <span className="inline-flex items-center gap-2">
-            <Fuel className="size-4 text-fg-muted" />
-            Fuel cost
-          </span>
-        }
+        icon={<Fuel />}
+        title="Fuel cost"
         description="By vehicle · this month vs last month"
       />
       <div className="max-h-80 overflow-y-auto">
@@ -187,6 +179,7 @@ export function ActionTables({ overdueInvoices, problemReports }: Pick<Dashboard
     <div className="space-y-4">
       <Card id="overdue-invoices" className="scroll-mt-20 overflow-hidden">
         <CardHeader
+          icon={<Receipt />}
           title={
             <span className="inline-flex items-center gap-2">
               Overdue invoices
@@ -221,9 +214,9 @@ export function ActionTables({ overdueInvoices, problemReports }: Pick<Dashboard
 
       <Card id="problem-reports" className="scroll-mt-20 overflow-hidden">
         <CardHeader
+          icon={<MessageSquare />}
           title={
             <span className="inline-flex items-center gap-2">
-              <MessageSquare className="size-4 text-fg-muted" />
               Problem reports
               <Badge tone={reports.length > 0 ? "warning" : "neutral"} size="sm">
                 {reports.length}

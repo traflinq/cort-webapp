@@ -17,4 +17,12 @@ export const inputBase =
 
 /** Surface for cards and panels. */
 export const surface =
-  "rounded-2xl border border-line bg-card text-fg shadow-[var(--shadow-card)]";
+  "rounded-[14px] border border-line bg-card text-fg shadow-[var(--shadow-card)]";
+
+/** Round, bordered icon button used in the portal top bars (pair with IconButton). */
+export const roundIconButton =
+  "rounded-full border border-line bg-card text-fg-secondary shadow-xs hover:bg-subtle hover:text-fg";
+
+/** Bordered square that holds an icon beside a card title or list row (the reference's icon tile). */
+export const iconTile =
+  "flex shrink-0 items-center justify-center rounded-[10px] border border-line bg-card text-fg-muted";

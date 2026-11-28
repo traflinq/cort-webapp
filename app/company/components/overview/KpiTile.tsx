@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { focusRing } from "@/app/admin/ui";
+import { Figure, focusRing } from "@/app/admin/ui";
 
 /** One headline figure. Label, value, one line of context. No decorative icon. */
 export function KpiTile({
@@ -30,12 +30,12 @@ export function KpiTile({
           valueTone === "muted" ? "text-fg-muted" : valueTone === "success" ? "text-success-ink" : valueTone === "danger" ? "text-danger-ink" : "text-fg",
         )}
       >
-        {value}
+        <Figure value={value} />
       </p>
       {sub && <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted">{sub}</div>}
     </>
   );
-  const cls = cn("flex min-w-0 flex-col rounded-xl border border-line bg-card p-4 shadow-[var(--shadow-card)]", className);
+  const cls = cn("flex min-w-0 flex-col rounded-[14px] border border-line bg-card p-4 shadow-[var(--shadow-card)]", className);
   if (href) {
     return (
       <Link href={href} className={cn(cls, "transition-colors hover:bg-[var(--bg-card-hover)]", focusRing)}>

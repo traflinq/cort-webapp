@@ -16,8 +16,8 @@ export function useChartColors() {
   return useMemo(
     () =>
       theme === "dark"
-        ? { series: DARK, grid: "rgba(255,255,255,0.06)", axis: "rgba(237,237,237,0.5)", tooltipBg: "#1c1c1c", tooltipBorder: "rgba(255,255,255,0.14)", text: "#ededed", muted: "#71717a" }
-        : { series: LIGHT, grid: "rgba(24,24,27,0.07)", axis: "rgba(24,24,27,0.5)", tooltipBg: "#ffffff", tooltipBorder: "rgba(24,24,27,0.12)", text: "#18181b", muted: "#a1a1aa" },
+        ? { series: DARK, grid: "rgba(255,255,255,0.06)", axis: "rgba(237,237,237,0.5)", tooltipBg: "#f4f4f5", tooltipBorder: "rgba(24,24,27,0.10)", tooltipText: "#18181b", text: "#ededed", muted: "#71717a" }
+        : { series: LIGHT, grid: "rgba(24,24,27,0.07)", axis: "rgba(24,24,27,0.5)", tooltipBg: "#18181b", tooltipBorder: "rgba(255,255,255,0.08)", tooltipText: "#fafafa", text: "#18181b", muted: "#a1a1aa" },
     [theme],
   );
 }
@@ -25,9 +25,9 @@ export function useChartColors() {
 function useTooltipStyle() {
   const c = useChartColors();
   return {
-    contentStyle: { background: c.tooltipBg, border: `1px solid ${c.tooltipBorder}`, borderRadius: 8, fontSize: 12, color: c.text, fontVariantNumeric: "tabular-nums" },
-    labelStyle: { color: c.text, fontWeight: 600 },
-    itemStyle: { color: c.text },
+    contentStyle: { background: c.tooltipBg, border: `1px solid ${c.tooltipBorder}`, borderRadius: 10, fontSize: 12, color: c.tooltipText, fontVariantNumeric: "tabular-nums" },
+    labelStyle: { color: c.tooltipText, fontWeight: 600 },
+    itemStyle: { color: c.tooltipText },
   };
 }
 
@@ -72,7 +72,7 @@ export function SpendHistoryChart({ data }: { data: SpendHistory }) {
     <div className="h-64 w-full" dir="ltr">
       <ResponsiveContainer>
         <BarChart data={rows} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke={c.grid} />
+          <CartesianGrid vertical={false} stroke={c.grid} strokeDasharray="3 4" />
           <XAxis dataKey="month" {...axis(c.axis)} />
           <YAxis {...axis(c.axis)} width={64} tickFormatter={(v: number) => fmt.n(v / 1000) + "k"} />
           <Tooltip {...tip} formatter={(v) => fmt.pkr(Number(v))} cursor={{ fill: c.grid }} />
@@ -101,7 +101,7 @@ export function OccupancyTrendChart({ trend }: { trend: OccupancyReport["trend"]
     <div className="h-56 w-full" dir="ltr">
       <ResponsiveContainer>
         <LineChart data={trend} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke={c.grid} />
+          <CartesianGrid vertical={false} stroke={c.grid} strokeDasharray="3 4" />
           <XAxis dataKey="date" {...axis(c.axis)} tickFormatter={(d: string) => d.slice(5)} />
           <YAxis {...axis(c.axis)} width={40} domain={[0, (max: number) => Math.max(100, Math.ceil(max / 10) * 10)]} tickFormatter={(v: number) => `${v}%`} />
           <Tooltip

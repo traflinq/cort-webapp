@@ -2,12 +2,14 @@
 
 import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from "recharts";
 import type { BreakdownItem } from "../../../lib/types/admin-dashboard";
+import { Banknote, CarFront, Receipt } from "@/app/components/icons";
 import { ChartCard, ChartTooltip, axisProps, useChartTheme } from "..";
 import { formatCurrency, formatNumber } from "../../lib/format";
 
 type BreakdownChartProps = {
   title: string;
   description: string;
+  icon?: React.ReactNode;
   data: BreakdownItem[] | undefined;
   format: (v: number) => string;
   /** Slot in the validated categorical palette (one hue per single-series chart). */
@@ -15,12 +17,13 @@ type BreakdownChartProps = {
   emptyTitle: string;
 };
 
-function BreakdownChart({ title, description, data, format, colorIndex, emptyTitle }: BreakdownChartProps) {
+function BreakdownChart({ title, description, icon, data, format, colorIndex, emptyTitle }: BreakdownChartProps) {
   const t = useChartTheme();
   const items = (data ?? []).filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
   const height = Math.max(120, items.length * 36 + 24);
   return (
     <ChartCard
+      icon={icon}
       title={title}
       description={description}
       empty={items.length === 0}
@@ -47,7 +50,7 @@ function BreakdownChart({ title, description, data, format, colorIndex, emptyTit
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={items} layout="vertical" margin={{ top: 4, right: 72, bottom: 4, left: 0 }} barCategoryGap={8}>
-          <CartesianGrid stroke={t.grid} horizontal={false} />
+          <CartesianGrid stroke={t.grid} strokeDasharray="3 4" horizontal={false} />
           <XAxis type="number" hide />
           <YAxis type="category" dataKey="name" width={110} {...axisProps(t)} interval={0} />
           <RTooltip content={<ChartTooltip formatter={(v) => format(Number(v))} />} cursor={{ fill: t.grid }} />
@@ -71,9 +74,9 @@ export function BreakdownCharts({
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <BreakdownChart title="Rides by type" description="Trips in the period" data={ridesBreakdown} format={(v) => `${formatNumber(v)} trips`} colorIndex={1} emptyTitle="No rides in this period" />
-      <BreakdownChart title="Expenses by category" description="PKR, period total" data={expensesBreakdown} format={(v) => formatCurrency(v)} colorIndex={0} emptyTitle="No expenses in this period" />
-      <BreakdownChart title="Revenue by stream" description="PKR, period total" data={revenueBreakdown} format={(v) => formatCurrency(v)} colorIndex={2} emptyTitle="No revenue in this period" />
+      <BreakdownChart icon={<CarFront />} title="Rides by type" description="Trips in the period" data={ridesBreakdown} format={(v) => `${formatNumber(v)} trips`} colorIndex={1} emptyTitle="No rides in this period" />
+      <BreakdownChart icon={<Receipt />} title="Expenses by category" description="PKR, period total" data={expensesBreakdown} format={(v) => formatCurrency(v)} colorIndex={0} emptyTitle="No expenses in this period" />
+      <BreakdownChart icon={<Banknote />} title="Revenue by stream" description="PKR, period total" data={revenueBreakdown} format={(v) => formatCurrency(v)} colorIndex={2} emptyTitle="No revenue in this period" />
     </div>
   );
 }

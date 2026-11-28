@@ -27,7 +27,10 @@
       "switchToLight": "Switch to light mode",
       "switchToDark": "Switch to dark mode",
       "companyAccount": "Company Account",
-      "openMenu": "Open menu"
+      "openMenu": "Open menu",
+      "collapseSidebar": "Collapse sidebar",
+      "expandSidebar": "Expand sidebar",
+      "accountMenu": "Account menu"
     },
     "access": {
       "failedTitle": "Couldn't load your company's settings",

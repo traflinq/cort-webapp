@@ -1,7 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { CardDescription, CardTitle } from "@/app/admin/ui";
+import { CarFront } from "@/app/components/icons";
+import { CardHeading } from "@/app/admin/ui";
 import { Card } from "../Card";
 import { useOverviewFormat } from "./format";
 import { Delta, FigureRow } from "./Delta";
@@ -26,8 +27,7 @@ export function ChauffeurActivityCard({ data }: { data: ChauffeurActivityData })
   return (
     <Card className="flex flex-col gap-5 p-0 sm:p-0">
       <div className="px-4 pt-4 sm:px-5 sm:pt-5">
-        <CardTitle as="h2">{t("title")}</CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
+        <CardHeading as="h2" icon={<CarFront />} title={t("title")} description={t("description")} />
       </div>
 
       <div className="px-4 sm:px-5">

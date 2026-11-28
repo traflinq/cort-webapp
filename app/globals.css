@@ -277,9 +277,10 @@ html:not([data-theme="light"]):has(:is(.company-portal, .admin-portal)) {
     --shadow-card-hover: 0 4px 16px rgba(0,0,0,0.4);
     --shadow-modal: 0 24px 64px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05);
 
-    --nav-active-bg: rgba(232,105,46,0.16);
+    /* Raised neutral chip with an orange icon and label, as in the light theme. */
+    --nav-active-bg: #232323;
     --nav-active-text: #f2905f;
-    --nav-active-shadow: none;
+    --nav-active-shadow: 0 0 0 1px rgba(255,255,255,0.08);
     --nav-inactive-text: rgba(237,237,237,0.55);
     --nav-hover-bg: rgba(255,255,255,0.05);
     --nav-group-label: rgba(237,237,237,0.36);

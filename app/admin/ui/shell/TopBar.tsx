@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ChevronDown, LogOut, Menu, Moon, Palette, Search, Sun } from "@/app/components/icons";
 import { cn } from "@/lib/utils";
-import { focusRing } from "../styles";
+import { focusRing, roundIconButton } from "../styles";
 import { IconButton } from "../IconButton";
 import {
   DropdownMenu,
@@ -39,57 +39,59 @@ const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigat
 export function TopBar({ onOpenMenu, onOpenPalette, theme, onToggleTheme, user, isSuperAdmin, onLogout, showDesignSystemLink }: TopBarProps) {
   const displayName = user?.name || user?.email || "Account";
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-line bg-card/85 px-3 backdrop-blur md:px-5">
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-line bg-page/85 px-3 backdrop-blur md:px-5">
       <IconButton label="Open navigation" className="md:hidden" onClick={onOpenMenu}>
         <Menu />
       </IconButton>
-
-      <div className="min-w-0 flex-1">
-        <Link href="/admin" aria-label="Traflinq dashboard" className={cn("inline-flex rounded-md", focusRing)}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={theme === "light" ? "/traflinq_light_no_tagline-Photoroom.png" : "/traflinq_dark_no_tagline-Photoroom.png"}
-            alt="Traflinq"
-            className="h-8 w-auto"
-          />
-        </Link>
-      </div>
-
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={onOpenPalette}
-          className={cn(
-            "hidden h-8 w-56 cursor-pointer items-center gap-2 rounded-lg border border-line bg-subtle px-2.5 text-xs text-fg-muted transition-colors hover:border-line-strong hover:text-fg lg:flex",
-            focusRing,
-          )}
-        >
-          <Search className="size-3.5" aria-hidden="true" />
-          <span className="flex-1 text-left">Search…</span>
-          <kbd className="rounded border border-line bg-card px-1 font-mono text-[10px] text-fg-muted">{isMac ? "⌘" : "Ctrl"} K</kbd>
-        </button>
-        <IconButton label="Search" className="lg:hidden" onClick={onOpenPalette}>
+      {/* Mobile only: on desktop the logo lives in the sidebar. */}
+      <Link href="/admin" aria-label="Traflinq dashboard" className={cn("inline-flex rounded-md md:hidden", focusRing)}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={theme === "light" ? "/traflinq_light_no_tagline-Photoroom.png" : "/traflinq_dark_no_tagline-Photoroom.png"}
+          alt="Traflinq"
+          className="h-7 w-auto"
+        />
+      </Link>
+      <button
+        type="button"
+        onClick={onOpenPalette}
+        className={cn(
+          "hidden h-9 w-80 cursor-pointer items-center gap-2 rounded-[10px] border border-line bg-card px-3 text-sm text-fg-muted shadow-xs transition-colors hover:border-line-strong hover:text-fg md:flex",
+          focusRing,
+        )}
+      >
+        <Search className="size-4" aria-hidden="true" />
+        <span className="flex-1 text-left">Search pages, bookings, drivers…</span>
+        <kbd className="rounded-md border border-line bg-subtle px-1.5 font-mono text-[10px] text-fg-muted">{isMac ? "⌘" : "Ctrl"} K</kbd>
+      </button>
+      <div className="flex-1" />
+      <div className="flex items-center gap-2">
+        <IconButton label="Search" className={cn("md:hidden", roundIconButton)} onClick={onOpenPalette}>
           <Search />
         </IconButton>
-
         <DeleteRequestsBell variant="icon" />
-
-        <IconButton label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} onClick={(e) => onToggleTheme(centerOf(e.currentTarget))}>
+        <IconButton
+          label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          className={roundIconButton}
+          onClick={(e) => onToggleTheme(centerOf(e.currentTarget))}
+        >
           {theme === "dark" ? <Sun /> : <Moon />}
         </IconButton>
-
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               aria-label={`Account menu for ${displayName}`}
-              className={cn("ml-1 flex h-9 cursor-pointer items-center gap-2 rounded-lg pl-1 pr-1.5 text-sm hover:bg-subtle", focusRing)}
+              className={cn("ml-1 flex h-10 cursor-pointer items-center gap-2.5 rounded-full py-1 pl-1 pr-2 text-left hover:bg-subtle", focusRing)}
             >
-              <span className="flex size-7 items-center justify-center rounded-full bg-brand-soft text-[11px] font-semibold text-brand-ink">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-ink">
                 {initials(user?.name || user?.email || "?")}
               </span>
-              <span className="hidden max-w-[12rem] truncate text-fg md:inline">{displayName}</span>
-              <ChevronDown className="hidden size-3.5 text-fg-muted md:inline" aria-hidden="true" />
+              <span className="hidden min-w-0 flex-col leading-tight md:flex">
+                <span className="max-w-[12rem] truncate text-sm font-medium text-fg">{displayName}</span>
+                <span className="text-xs text-fg-muted">{isSuperAdmin ? "Super admin" : "Internal staff"}</span>
+              </span>
+              <ChevronDown className="hidden size-4 text-fg-muted md:inline" aria-hidden="true" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
