@@ -49,9 +49,8 @@ export function TableEmptyState({
   );
 }
 
-/** Table card pieces: consistent top bar + table + optional pagination footer. */
+/** Table card pieces: consistent top bar + table (paged tables end with TablePagination). */
 export const TABLE_CARD_CLASS = "overflow-hidden !p-0";
 export const TABLE_TOP_BAR_CLASS = "border-b border-line px-4 py-3 sm:px-5";
 export const TABLE_HEADER_CELL_CLASS = "px-4 py-3 text-xs font-medium text-fg-muted whitespace-nowrap";
 export const TABLE_CELL_CLASS = "px-4 py-3 tabular-nums";
-export const TABLE_PAGINATION_WRAPPER_CLASS = "flex justify-center border-t border-line px-4 py-3";

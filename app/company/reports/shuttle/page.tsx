@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown, Download, FileSpreadsheet, FileText, CalendarDays, Moon, Sun } from "lucide-react";
-import { Badge, Button, Input, Select, StatusBadge, TableSkeletonRows, focusRing, focusRingInset, type StatusEntry } from "@/app/admin/ui";
+import { Badge, Button, Input, Select, StatusBadge, TableSkeletonRows, focusRingInset, type StatusEntry } from "@/app/admin/ui";
 import { cn } from "@/lib/utils";
 import { formatLocaleDate, formatLocaleTime } from "@/app/lib/i18n/format";
 import type { Locale } from "@/i18n/config";
@@ -19,6 +19,7 @@ import {
   TABLE_HEADER_CELL_CLASS,
   TABLE_CELL_CLASS,
 } from "../../components/PageLayout";
+import { COMPANY_PAGE_SIZE, TablePagination } from "../../components/TablePagination";
 import Modal from "../../bookings/components/Modal";
 import { DetailRow, DetailRows, DetailSection, DetailSections, FactRow, NotRecorded, RouteSteps } from "../../components/DetailView";
 
@@ -306,7 +307,6 @@ export default function ShuttleReportsPage() {
   const { locale } = useCompanyLocale();
 
   const [reports, setReports] = useState<ShuttleReport[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -347,7 +347,6 @@ export default function ShuttleReportsPage() {
   }, [reports]);
 
   const selectedRouteId = routeId ? Number(routeId) : undefined;
-  const selectedRouteName = routes.find((route) => String(route.id) === routeId)?.name;
 
   useEffect(() => {
     if (!company?.id) return;
@@ -380,25 +379,55 @@ export default function ShuttleReportsPage() {
     };
   }, [company?.id]);
 
-  const fetchReports = useCallback(async (page: number, start: string, end: string, selectedRoute?: number) => {
+  // Filters the table is showing: the inputs above settle into this after a short pause, and
+  // the page goes back to 1 in the same step, so one change means one request.
+  const [applied, setApplied] = useState<{ startDate: string; endDate: string; routeId?: number }>({
+    startDate: "",
+    endDate: "",
+    routeId: undefined,
+  });
+  useEffect(() => {
+    if (applied.startDate === startDate && applied.endDate === endDate && applied.routeId === selectedRouteId) return;
+    const timer = setTimeout(() => {
+      setApplied({ startDate, endDate, routeId: selectedRouteId });
+      setCurrentPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [startDate, endDate, selectedRouteId, applied]);
+  const appliedRouteName = routes.find((route) => route.id === applied.routeId)?.name;
+
+  // The view on screen lags the one asked for while a request is out: that gap is "loading".
+  const requestKey = JSON.stringify([company?.id, currentPage, applied]);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const isLoading = !!company?.id && loadedKey !== requestKey;
+  useEffect(() => {
     if (!company?.id) return;
-    setIsLoading(true);
-    try {
-      const res = await apiClient.getShuttleReports(company.id, {
-        startDate: start || undefined,
-        endDate: end || undefined,
-        routeId: selectedRoute,
-        page,
+    // Cleared when the page or filters move on, so a slower earlier response can't overwrite a newer one.
+    let current = true;
+    apiClient
+      .getShuttleReports(company.id, {
+        startDate: applied.startDate || undefined,
+        endDate: applied.endDate || undefined,
+        routeId: applied.routeId,
+        page: currentPage,
+        limit: COMPANY_PAGE_SIZE,
+      })
+      .then((res) => {
+        if (!current) return;
+        const parsed = parseShuttleReportsResponse(res, currentPage);
+        setReports(parsed.list);
+        setPagination(parsed.pagination);
+      })
+      .catch((e) => {
+        if (current) console.error("Failed to fetch shuttle reports", e);
+      })
+      .finally(() => {
+        if (current) setLoadedKey(requestKey);
       });
-      const parsed = parseShuttleReportsResponse(res, page);
-      setReports(parsed.list);
-      setPagination(parsed.pagination);
-    } catch (e) {
-      console.error("Failed to fetch shuttle reports", e);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [company?.id]);
+    return () => {
+      current = false;
+    };
+  }, [company?.id, currentPage, applied, requestKey]);
 
   const handleExport = async (format: ExportFormat) => {
     if (!company?.id || isExporting) return;
@@ -412,9 +441,9 @@ export default function ShuttleReportsPage() {
 
       do {
         const res = await apiClient.getShuttleReports(company.id, {
-          startDate: startDate || undefined,
-          endDate: endDate || undefined,
-          routeId: selectedRouteId,
+          startDate: applied.startDate || undefined,
+          endDate: applied.endDate || undefined,
+          routeId: applied.routeId,
           page,
           limit: exportLimit,
         });
@@ -425,34 +454,15 @@ export default function ShuttleReportsPage() {
       } while (page <= pages);
 
       if (format === "pdf") {
-        await exportShuttlePDF(allReports, company.name ?? "Company", startDate, endDate, selectedRouteName);
+        await exportShuttlePDF(allReports, company.name ?? "Company", applied.startDate, applied.endDate, appliedRouteName);
       } else {
-        exportShuttleCSV(allReports, company.name ?? "Company", startDate, endDate, selectedRouteName);
+        exportShuttleCSV(allReports, company.name ?? "Company", applied.startDate, applied.endDate, appliedRouteName);
       }
     } catch (e) {
       console.error("Failed to export shuttle reports", e);
     } finally {
       setIsExporting(false);
     }
-  };
-
-  // Debounce filter changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setCurrentPage(1);
-      fetchReports(1, startDate, endDate, selectedRouteId);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [startDate, endDate, selectedRouteId, fetchReports]);
-
-  // Page change
-  useEffect(() => {
-    fetchReports(currentPage, startDate, endDate, selectedRouteId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage]);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
   };
 
   useEffect(() => {
@@ -640,34 +650,14 @@ export default function ShuttleReportsPage() {
           </table>
         </div>
 
-        {/* Pagination */}
-        {pagination.pages > 1 && (
-          <nav aria-label="Pagination" className="flex flex-col gap-3 border-t border-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <p className="text-xs text-fg-muted tabular-nums">
-              {t("showingTrips", { shown: reports.length, total: pagination.total })}
-            </p>
-            <ul className="flex flex-wrap gap-1">
-              {Array.from({ length: pagination.pages }, (_, i) => i + 1).map(
-                (page) => (
-                  <li key={page}>
-                    <button
-                      type="button"
-                      onClick={() => handlePageChange(page)}
-                      aria-current={page === pagination.page ? "page" : undefined}
-                      className={cn(
-                        "flex h-8 min-w-8 cursor-pointer items-center justify-center rounded-lg px-2 text-xs font-medium tabular-nums transition-colors",
-                        page === pagination.page ? "bg-fg text-page" : "text-fg-secondary hover:bg-subtle hover:text-fg",
-                        focusRing,
-                      )}
-                    >
-                      {page}
-                    </button>
-                  </li>
-                )
-              )}
-            </ul>
-          </nav>
-        )}
+        <TablePagination
+          page={currentPage}
+          totalPages={pagination.pages}
+          total={reports.length === 0 ? 0 : pagination.total}
+          pageSize={COMPANY_PAGE_SIZE}
+          onPageChange={setCurrentPage}
+          summary={(range) => t("showingTrips", range)}
+        />
       </Card>
 
       {/* Trip Detail Modal */}
