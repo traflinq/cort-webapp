@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Download, ExternalLink, FileBarChart } from "lucide-react";
 import { Badge, Button, Input, TableSkeletonRows, focusRingInset, focusRing } from "@/app/admin/ui";
@@ -11,11 +11,24 @@ import { useCompanyLocale } from "../../lib/locale-context";
 import { ChauffeurReport, apiClient } from "../../../lib/services/api-client";
 import { Card } from "../../components/Card";
 import { PageHeader, TableEmptyState, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../../components/PageLayout";
+import { COMPANY_PAGE_SIZE, TablePagination } from "../../components/TablePagination";
 import Modal from "../../bookings/components/Modal";
 import { VendorAuditBadge, VendorAuditPanel } from "./VendorAuditPanel";
 import { DetailRow, DetailRows, DetailSection, DetailSections, FactRow, Ledger, NotRecorded, RouteSteps, useDurationFormat } from "../../components/DetailView";
 
 const isVendorTrip = (r: ChauffeurReport) => r.fulfillment_type === "EXTERNAL_VENDOR";
+
+/** The reports endpoint answers `{ data, pagination }`, sometimes wrapped once more in `data`. */
+function parseChauffeurReportsResponse(res: unknown, fallbackPage: number) {
+  const raw = (res as { data?: unknown })?.data ?? res;
+  const payload = raw as { data?: ChauffeurReport[]; pagination?: { page?: number; pages?: number; total?: number } };
+  const list = Array.isArray(payload?.data) ? payload.data : Array.isArray(raw) ? (raw as ChauffeurReport[]) : [];
+  const meta = payload?.pagination ?? {};
+  return {
+    list,
+    pagination: { page: meta.page ?? fallbackPage, pages: meta.pages ?? 1, total: meta.total ?? list.length },
+  };
+}
 
 function escapeCSV(value: string | number | null | undefined): string {
   const str = value == null ? "" : String(value);
@@ -123,7 +136,9 @@ export default function ChauffeurReportsPage() {
   const { locale } = useCompanyLocale();
 
   const [reports, setReports] = useState<ChauffeurReport[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
   const [selectedReport, setSelectedReport] = useState<ChauffeurReport | null>(null);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -147,30 +162,77 @@ export default function ChauffeurReportsPage() {
       hour12: true,
     });
 
-  const fetchReports = useCallback(async (start: string, end: string) => {
-    if (!company?.id) return;
-    setIsLoading(true);
-    try {
-      const res = await apiClient.getChauffeurReports(company.id, {
-        startDate: start || undefined,
-        endDate: end || undefined,
-      }) as any;
-      const raw = res?.data ?? res;
-      setReports(raw?.data ?? raw ?? []);
-    } catch (e) {
-      console.error("Failed to fetch chauffeur reports", e);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [company?.id]);
-
-  // Debounce filter changes and re-fetch
+  // Dates the table is showing: the inputs settle into this after a short pause, and the page
+  // goes back to 1 in the same step, so one change means one request.
+  const [applied, setApplied] = useState({ startDate: "", endDate: "" });
   useEffect(() => {
+    if (applied.startDate === startDate && applied.endDate === endDate) return;
     const timer = setTimeout(() => {
-      fetchReports(startDate, endDate);
+      setApplied({ startDate, endDate });
+      setCurrentPage(1);
     }, 400);
     return () => clearTimeout(timer);
-  }, [startDate, endDate, fetchReports]);
+  }, [startDate, endDate, applied]);
+
+  // The view on screen lags the one asked for while a request is out: that gap is "loading".
+  const requestKey = JSON.stringify([company?.id, currentPage, applied]);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const isLoading = !!company?.id && loadedKey !== requestKey;
+  useEffect(() => {
+    if (!company?.id) return;
+    // Cleared when the page or dates move on, so a slower earlier response can't overwrite a newer one.
+    let current = true;
+    apiClient
+      .getChauffeurReports(company.id, {
+        startDate: applied.startDate || undefined,
+        endDate: applied.endDate || undefined,
+        page: currentPage,
+        limit: COMPANY_PAGE_SIZE,
+      })
+      .then((res) => {
+        if (!current) return;
+        const parsed = parseChauffeurReportsResponse(res, currentPage);
+        setReports(parsed.list);
+        setPagination(parsed.pagination);
+      })
+      .catch((e) => {
+        if (current) console.error("Failed to fetch chauffeur reports", e);
+      })
+      .finally(() => {
+        if (current) setLoadedKey(requestKey);
+      });
+    return () => {
+      current = false;
+    };
+  }, [company?.id, currentPage, applied, requestKey]);
+
+  /** The export covers every trip in the date range, not just the page on screen. */
+  const handleExport = async () => {
+    if (!company?.id || isExporting) return;
+    setIsExporting(true);
+    try {
+      const all: ChauffeurReport[] = [];
+      let page = 1;
+      let pages = 1;
+      do {
+        const res = await apiClient.getChauffeurReports(company.id, {
+          startDate: applied.startDate || undefined,
+          endDate: applied.endDate || undefined,
+          page,
+          limit: 100,
+        });
+        const parsed = parseChauffeurReportsResponse(res, page);
+        all.push(...parsed.list);
+        pages = parsed.pagination.pages || 1;
+        page += 1;
+      } while (page <= pages);
+      exportChauffeurCSV(all, company.name ?? "Company", applied.startDate, applied.endDate);
+    } catch (e) {
+      console.error("Failed to export chauffeur reports", e);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 pb-12">
@@ -199,7 +261,8 @@ export default function ChauffeurReportsPage() {
             <Button
               type="button"
               leftIcon={<Download aria-hidden="true" />}
-              onClick={() => exportChauffeurCSV(reports, company?.name ?? "Company", startDate, endDate)}
+              loading={isExporting}
+              onClick={handleExport}
             >
               {t("exportCsv")}
             </Button>
@@ -324,6 +387,14 @@ export default function ChauffeurReportsPage() {
             </tbody>
           </table>
         </div>
+        <TablePagination
+          page={currentPage}
+          totalPages={pagination.pages}
+          total={reports.length === 0 ? 0 : pagination.total}
+          pageSize={COMPANY_PAGE_SIZE}
+          onPageChange={setCurrentPage}
+          summary={(range) => t("showingTrips", range)}
+        />
       </Card>
 
       <Modal

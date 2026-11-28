@@ -18,7 +18,6 @@ import {
   EmptyState,
   IconButton,
   PageHeader,
-  Pagination,
   SearchInput,
   Select,
   StatusBadge,
@@ -31,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Card } from "../components/Card";
 import { TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
+import { TablePagination } from "../components/TablePagination";
 import { DetailRow, DetailRows, DetailSection, DetailSections, FactRow, NotRecorded, RouteSteps, useDurationFormat } from "../components/DetailView";
 
 const BOOKING_STATUS_KEYS: Record<string, "pending" | "assigned" | "arrived" | "inProgress" | "completed" | "cancelled"> = {
@@ -67,7 +67,8 @@ export default function BookingsPage() {
   const dispatch = useAppDispatch();
   const { company, access } = useCompanyAccess();
   const bookings = useAppSelector(selectBookings);
-  const { page: reduxPage, limit, pages: totalPages } = useAppSelector(selectPagination);
+  // Redux holds the one page number: filter changes reset it there, so the fetch below follows.
+  const { page: currentPage, limit, pages: totalPages, total } = useAppSelector(selectPagination);
   const { search, status, fulfillmentType } = useAppSelector(selectFilters);
   const statusState = useAppSelector(selectBookingsStatus);
   const isLoading = statusState === 'loading';
@@ -76,9 +77,6 @@ export default function BookingsPage() {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<ChauffeurBooking | null>(null);
-
-  // Local state for pagination - decoupled from Redux metadata to prevent loops
-  const [currentPage, setCurrentPage] = useState(reduxPage);
 
   // Local state for inputs to allow debouncing
   const [searchQuery, setSearchQuery] = useState(search);
@@ -112,18 +110,13 @@ export default function BookingsPage() {
     return () => clearTimeout(timer);
   }, [searchQuery, statusFilter, fulfillmentFilter, search, status, fulfillmentType, dispatch]);
 
-  // Track last fetched params to avoid duplicates
-  const [lastFetchedParams, setLastFetchedParams] = useState<string>("");
+  // Bumped to refetch the current view (e.g. after creating a booking while already on page 1).
+  const [reloadKey, setReloadKey] = useState(0);
 
-  // Fetch when params change - Primary driver is LOCAL state
+  // Fetch whenever the page or filters change. A newer request supersedes the one in flight.
   useEffect(() => {
     if (!company?.id) return;
-
-    const currentParams = JSON.stringify({ currentPage, limit, status, search, fulfillmentType });
-    if (currentParams === lastFetchedParams && statusState !== 'idle') return;
-
-    setLastFetchedParams(currentParams);
-    dispatch(fetchBookings({
+    const request = dispatch(fetchBookings({
       companyId: company.id,
       page: currentPage,
       limit,
@@ -131,14 +124,13 @@ export default function BookingsPage() {
       search,
       fulfillment_type: fulfillmentType || undefined,
     }));
-  }, [dispatch, company?.id, currentPage, limit, status, search, fulfillmentType, lastFetchedParams, statusState]);
+    return () => request.abort();
+  }, [dispatch, company?.id, currentPage, limit, status, search, fulfillmentType, reloadKey]);
 
   const handleBookingCreated = () => {
     setIsModalOpen(false);
-    if (company?.id) {
-      setCurrentPage(1); // Reset local page
-      dispatch(fetchBookings({ companyId: company.id, page: 1, limit, status, search, fulfillment_type: fulfillmentType || undefined }));
-    }
+    dispatch(setPage(1));
+    setReloadKey((k) => k + 1);
   };
 
   const getPassengerName = (booking: ChauffeurBooking) => {
@@ -319,18 +311,14 @@ export default function BookingsPage() {
             </tbody>
           </table>
         </div>
-        {totalPages > 1 && (
-          <div className="border-t border-line px-4 sm:px-5">
-            <Pagination
-              page={currentPage}
-              totalPages={totalPages}
-              onPageChange={(page) => {
-                setCurrentPage(page);
-                dispatch(setPage(page));
-              }}
-            />
-          </div>
-        )}
+        <TablePagination
+          page={currentPage}
+          totalPages={totalPages}
+          total={bookings.length === 0 ? 0 : total}
+          pageSize={limit}
+          onPageChange={(page) => dispatch(setPage(page))}
+          summary={(range) => t("showingRange", range)}
+        />
       </Card>
 
       <Modal

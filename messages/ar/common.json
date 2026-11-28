@@ -76,6 +76,14 @@
     "currency": {
       "pkr": "روبية باكستانية"
     },
+    "pagination": {
+      "label": "ترقيم الصفحات",
+      "showing": "عرض {from}–{to} من أصل {total}",
+      "pageOf": "صفحة {page} من {pages}",
+      "page": "صفحة {page}",
+      "previous": "الصفحة السابقة",
+      "next": "الصفحة التالية"
+    },
     "misc": {
       "noAddress": "لا يوجد عنوان",
       "noEmail": "لم يتم تقديم بريد إلكتروني",

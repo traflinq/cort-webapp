@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Check, Download, Eye, FileText } from "lucide-react";
-import { Button, ErrorState, Pagination, StatusBadge, TableSkeletonRows, type StatusEntry } from "@/app/admin/ui";
+import { Button, ErrorState, StatusBadge, TableSkeletonRows, type StatusEntry } from "@/app/admin/ui";
 import { apiClient, Invoice } from "../../lib/services/api-client";
 import { useAuth } from "../../lib/contexts/auth-context";
 import { Card } from "../components/Card";
 import { PageHeader, TableEmptyState, TABLE_CARD_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
+import { COMPANY_PAGE_SIZE, TablePagination } from "../components/TablePagination";
 import { formatLocaleDate, formatLocaleNumber } from "@/app/lib/i18n/format";
 import type { Locale } from "@/i18n/config";
 
@@ -70,7 +71,6 @@ export default function CompanyInvoicingPage() {
 
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [pagination, setPagination] = useState<PaginationMeta>({ page: 1, pages: 1, total: 0 });
-    const [isLoading, setIsLoading] = useState(false);
     const [errorState, setErrorState] = useState<string | null>(null);
     const [downloadingId, setDownloadingId] = useState<number | null>(null);
     const [viewingId, setViewingId] = useState<number | null>(null);
@@ -96,25 +96,42 @@ export default function CompanyInvoicingPage() {
         return `${tCommon("currency.pkr")} ${formatLocaleNumber(value, locale, { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
     };
 
-    const fetchInvoices = useCallback(async (p: number) => {
-        if (!user?.company_id) return;
-        setIsLoading(true);
-        try {
-            const res = await apiClient.getCompanyInvoices(user.company_id, { page: p, limit: 10 }) as any;
-            const raw = res?.data ?? res;
-            setInvoices(raw?.data ?? raw ?? []);
-            const meta = raw?.pagination ?? {};
-            setPagination({ page: meta.page ?? p, pages: meta.pages ?? 1, total: meta.total ?? 0 });
-        } catch (e: any) {
-            setErrorState(e?.message ?? tCommon("errors.failedToLoadInvoices"));
-        } finally {
-            setIsLoading(false);
-        }
-    }, [user?.company_id, tCommon]);
+    // Bumped by "Try again" to refetch the same page.
+    const [reloadKey, setReloadKey] = useState(0);
+    // The view on screen lags the one asked for while a request is out: that gap is "loading".
+    const requestKey = JSON.stringify([user?.company_id, page, reloadKey]);
+    const [loadedKey, setLoadedKey] = useState<string | null>(null);
+    const isLoading = !!user?.company_id && loadedKey !== requestKey;
 
     useEffect(() => {
-        fetchInvoices(page);
-    }, [page, fetchInvoices]);
+        const companyId = user?.company_id;
+        if (!companyId) return;
+        // Cleared when the page moves on, so a slower earlier response can't overwrite a newer one.
+        let current = true;
+        apiClient
+            .getCompanyInvoices(companyId, { page, limit: COMPANY_PAGE_SIZE })
+            .then((res) => {
+                if (!current) return;
+                const raw = ((res as { data?: unknown })?.data ?? res) as {
+                    data?: Invoice[];
+                    pagination?: Partial<PaginationMeta>;
+                };
+                const list = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? (raw as Invoice[]) : [];
+                const meta = raw?.pagination ?? {};
+                setInvoices(list);
+                setPagination({ page: meta.page ?? page, pages: meta.pages ?? 1, total: meta.total ?? list.length });
+                setErrorState(null);
+            })
+            .catch((e: unknown) => {
+                if (current) setErrorState(e instanceof Error ? e.message : tCommon("errors.failedToLoadInvoices"));
+            })
+            .finally(() => {
+                if (current) setLoadedKey(requestKey);
+            });
+        return () => {
+            current = false;
+        };
+    }, [user?.company_id, page, reloadKey, requestKey, tCommon]);
 
     const downloadPdf = async (id: number, invoiceNumber: string) => {
         if (downloadingId) return;
@@ -147,7 +164,16 @@ export default function CompanyInvoicingPage() {
             <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 pb-12">
                 <PageHeader label={t("label")} title={t("title")} description={t("description")} />
                 <Card>
-                    <ErrorState title={tCommon("errors.failedToLoadInvoices")} message={errorState} compact />
+                    <ErrorState
+                        title={tCommon("errors.failedToLoadInvoices")}
+                        message={errorState}
+                        onRetry={() => {
+                            setErrorState(null);
+                            setReloadKey((k) => k + 1);
+                        }}
+                        retryLabel={tCommon("actions.tryAgain")}
+                        compact
+                    />
                 </Card>
             </div>
         );
@@ -257,15 +283,14 @@ export default function CompanyInvoicingPage() {
                         </tbody>
                     </table>
                 </div>
-                {pagination?.pages > 1 && (
-                    <div className="border-t border-line px-4 sm:px-5">
-                        <Pagination
-                            page={page}
-                            totalPages={pagination.pages}
-                            onPageChange={setPage}
-                        />
-                    </div>
-                )}
+                <TablePagination
+                    page={page}
+                    totalPages={pagination.pages}
+                    total={invoices.length === 0 ? 0 : pagination.total}
+                    pageSize={COMPANY_PAGE_SIZE}
+                    onPageChange={setPage}
+                    summary={(range) => t("showingRange", range)}
+                />
             </Card>
         </div>
     );

@@ -76,6 +76,14 @@
     "currency": {
       "pkr": "PKR"
     },
+    "pagination": {
+      "label": "Pagination",
+      "showing": "Showing {from}–{to} of {total}",
+      "pageOf": "Page {page} of {pages}",
+      "page": "Page {page}",
+      "previous": "Previous page",
+      "next": "Next page"
+    },
     "misc": {
       "noAddress": "No address",
       "noEmail": "No email provided",

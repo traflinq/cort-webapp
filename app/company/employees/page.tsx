@@ -14,7 +14,7 @@ import { formatLocaleNumber } from "../../lib/i18n/format";
 import { Button, Dialog, DialogContent, Field, IconButton, InlineError, Input, StatusBadge, TableSkeletonRows } from "@/app/admin/ui";
 import { AccountCredentialsReveal, SaveCredentialsNote } from "../components/AccountCredentialsReveal";
 import { PageHeader, TableEmptyState, TABLE_CARD_CLASS, TABLE_TOP_BAR_CLASS, TABLE_HEADER_CELL_CLASS, TABLE_CELL_CLASS } from "../components/PageLayout";
-import Pagination from "../../components/ui/Pagination";
+import { COMPANY_PAGE_SIZE, TablePagination } from "../components/TablePagination";
 import {
   getPhoneValidationError,
   PHONE_MAX_LENGTH,
@@ -22,8 +22,6 @@ import {
   sanitizePhoneInput,
 } from "../../lib/utils/phone";
 import { toast } from "sonner";
-
-const PAGE_SIZE = 20;
 
 export default function EmployeesPage() {
   const t = useTranslations("company.employees");
@@ -75,10 +73,10 @@ export default function EmployeesPage() {
     () => employees.filter((e) => e.status?.toLowerCase() === "active").length,
     [employees],
   );
-  const totalPages = Math.max(1, Math.ceil(totalEmployees / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalEmployees / COMPANY_PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
-  const pageStart = (safePage - 1) * PAGE_SIZE;
-  const pagedEmployees = employees.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageStart = (safePage - 1) * COMPANY_PAGE_SIZE;
+  const pagedEmployees = employees.slice(pageStart, pageStart + COMPANY_PAGE_SIZE);
 
   function closeAddEmployeeModal() {
     setShowAddEmployee(false);
@@ -321,18 +319,14 @@ export default function EmployeesPage() {
             </tbody>
           </table>
         </div>
-        {totalEmployees > 0 && (
-          <div className="flex flex-col items-center justify-between gap-3 border-t border-line px-4 py-3 sm:flex-row sm:px-5">
-            <div className="text-xs tabular-nums text-fg-muted">
-              {t("showingRange", {
-                from: pageStart + 1,
-                to: Math.min(pageStart + PAGE_SIZE, totalEmployees),
-                total: totalEmployees,
-              })}
-            </div>
-            <Pagination currentPage={safePage} totalPages={totalPages} onPageChange={setCurrentPage} />
-          </div>
-        )}
+        <TablePagination
+          page={safePage}
+          totalPages={totalPages}
+          total={totalEmployees}
+          pageSize={COMPANY_PAGE_SIZE}
+          onPageChange={setCurrentPage}
+          summary={(range) => t("showingRange", range)}
+        />
       </Card>
 
       <Dialog open={showAddEmployee} onOpenChange={(open) => { if (!open) closeAddEmployeeModal(); }}>
